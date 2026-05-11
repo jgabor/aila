@@ -1,0 +1,7 @@
+# Personal notes
+docs/notes/*
+
+# Artifacts
+build/
+tmp/
+

@@ -85,11 +85,18 @@ Do not let package names drift into broader abstractions than the product needs.
 Mage is the canonical entrypoint for local and CI checks.
 
 - **Full check**: `mage check`
+- **Format Go code**: `mage fmt`
+- **Build binary**: `mage build` writes compiled binaries under `build/`
 - **Test**: `mage test`
+- **Coverage**: `mage coverage` writes `tmp/coverage.out`
 - **Vet**: `mage vet`
 - **Lint**: `mage lint`
 - **Vulnerability check**: `mage vuln`
 - **Normalize modules**: `mage tidy`
+
+Mage targets should place durable generated artifacts under `build/` and
+temporary or test-generated files under `tmp/`. Do not write generated binaries,
+coverage profiles, or scratch files at the repository root.
 
 Use targeted Go commands when debugging a specific package or test, for example:
 
@@ -99,8 +106,11 @@ go test ./internal/workflow -run TestTransition
 
 ## Code Style Guidelines
 
-- Format Go code before finishing. Prefer `gofumpt`/`goimports`; `gofmt` is the
-  fallback.
+- Format Go code with `mage fmt` before finishing any Go edit. `mage fmt` is the
+  source of truth for formatter selection and uses `goimports` or `gofumpt`;
+  install one when the target reports it missing.
+- Do not run `gofmt`, `gofumpt`, or `goimports` directly unless debugging the
+  formatter target. Do not treat `mage lint` as a formatter.
 - Use standard Go naming: PascalCase for exported identifiers and camelCase for
   unexported identifiers.
 - Pass `context.Context` as the first parameter for cancellable or IO-bound
