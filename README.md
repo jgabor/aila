@@ -17,6 +17,8 @@ Aila does not, and will not, support extensions, plugins, MCP servers, or any ot
 
 - [Quick start](#quick-start)
 - [Philosophy](#philosophy)
+- [Tech stack](#tech-stack)
+- [Development](#development)
 - [Configuration](#configuration)
 - [Workflow](#workflow)
 - [Built-in tools and capabilities](#built-in-tools-and-capabilities)
@@ -83,6 +85,36 @@ Aila is intentionally opinionated, based on a set of non-negotiables. Anything m
 
 **tl;dr:** Aila will always be immediately productive out of the box.
 
+## Tech stack
+
+Aila's stack is intentionally boring, Go-native, and terminal-first.
+
+- Go 1.26+ as the language and runtime
+- [go-agent](https://github.com/jgabor/go-agent) as the embedded agent runtime
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss), and [Glamour](https://github.com/charmbracelet/glamour) for the terminal UI
+- Mage as the project task runner, wrapping the standard Go verification path
+
+Detailed implementation boundaries, package layout, event flow, persistence rules, and workflow protocol details live in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/workflow-architecture.md](docs/workflow-architecture.md).
+
+## Development
+
+Mage is the canonical entrypoint for local and CI checks.
+
+```bash
+mage check
+```
+
+Targeted tasks are available when you only need part of the suite:
+
+```bash
+mage test
+mage vet
+mage lint
+mage vuln
+```
+
+Use `mage tidy` when you want to normalize `go.mod` and `go.sum`.
+
 ## Configuration
 
 Aila stores user configuration at:
@@ -96,6 +128,8 @@ If `XDG_CONFIG_HOME` is unset, that means `~/.config/aila/config.toml`.
 Project state lives under `.aila/` in the workspace, and global state lives at `$XDG_DATA_HOME/aila/` or `~/.local/share/aila/`.
 
 `.aila/` is project state, not throwaway cache. Commit it. It keeps the project memory, saved work state, compacted context, and session metadata that lets Aila resume without pretending every run starts from nothing.
+
+The detailed storage layout is part of the implementation architecture, not user configuration.
 
 The default config is created on first run and intentionally simple.
 

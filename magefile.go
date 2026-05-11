@@ -23,23 +23,9 @@ func Tidy() error {
 	return run("go", "mod", "tidy")
 }
 
-// TidyCheck verifies go.mod and go.sum are already tidy.
+// TidyCheck verifies go.mod and go.sum are already tidy without editing them.
 func TidyCheck() error {
-	before, err := moduleFiles()
-	if err != nil {
-		return err
-	}
-	if err := Tidy(); err != nil {
-		return err
-	}
-	after, err := moduleFiles()
-	if err != nil {
-		return err
-	}
-	if !sameFiles(before, after) {
-		return errors.New("go.mod or go.sum changed after go mod tidy; review and stage the tidy result")
-	}
-	return nil
+	return run("go", "mod", "tidy", "-diff")
 }
 
 // Test runs the Go test suite when packages exist.
@@ -123,33 +109,6 @@ func hasPackages(gate string) (bool, error) {
 
 func missingTool(name string, install string) error {
 	return fmt.Errorf("%s not found; install it with `%s`", name, install)
-}
-
-func moduleFiles() (map[string][]byte, error) {
-	files := make(map[string][]byte, 2)
-	for _, path := range []string{"go.mod", "go.sum"} {
-		contents, err := os.ReadFile(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, err
-		}
-		files[path] = contents
-	}
-	return files, nil
-}
-
-func sameFiles(a map[string][]byte, b map[string][]byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for path, left := range a {
-		if !bytes.Equal(left, b[path]) {
-			return false
-		}
-	}
-	return true
 }
 
 func run(name string, args ...string) error {
