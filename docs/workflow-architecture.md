@@ -29,7 +29,7 @@ The correct control model is hybrid:
 | Capability execution    | Capability adapter              | Each capability owns its internal workflow and emits exactly one exit signal                                  |
 | User steering           | Runtime event plane             | Queues, interrupts, slash commands, and approval prompts are host concerns, not Agentera phase transitions    |
 
-The FSM is the spine. The policy layer is the muscle. Capability adapters are the organs. The TUI is the skin.
+The FSM is the spine. The policy layer is the muscle. Capability adapters are the organs. The TUI is the skin. Events are the nerves, and effects are the only way anything touches the world.
 
 ## System Context
 

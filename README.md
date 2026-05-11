@@ -1,9 +1,6 @@
-<h1 align="center">Aila</h1>
-<p align="center">A minimal and uncompromising coding agent made for me.</p>
-<p align="center">
-  <a href="https://github.com/jgabor/aila/releases/tag/v0.0.0"><img alt="Version" src="https://img.shields.io/badge/version-0.0.0-black?style=flat-square" /></a>
-  <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/go-1.26%2B-blue?style=flat-square" /></a>
-</p>
+# Aila
+
+A minimal and uncompromising coding agent made for me.
 
 ```text
 [screenshot goes here]
@@ -215,7 +212,7 @@ Under the hood, the state machine only owns the lifecycle. Tool choice still hap
 
 Exit signals are handled as signals, not fake states. `complete` and `flagged` move the work forward, `waiting` pauses for input, and `stuck` parks the work with blocker details so it can be resumed or redirected later.
 
-The development reference is in [`docs/workflow-architecture.md`](docs/workflow-architecture.md).
+The development reference is in `[docs/workflow-architecture.md](docs/workflow-architecture.md)`.
 
 ### Utility model
 
@@ -296,22 +293,22 @@ Aila is built as a rich terminal UI that always stays responsive and renders qui
 
 Type `/` at the start of the input box to see available commands. Slash commands and `ctrl+x` shortcuts trigger the same command handlers.
 
-| Command                 | Shortcut   | Description                                                              |
-| ----------------------- | ---------- | ------------------------------------------------------------------------ |
-| `/new` / `/clear`       | `ctrl+x n` | Start a new session and reload project memory                            |
-| `/continue`             | `ctrl+x c` | Browse and restore saved sessions                                        |
-| `/review`               | `ctrl+x i` | Review the current change set, risks, and sources                        |
-| `/history`              | `ctrl+x h` | Browse runs, edits, checks, undo data, and reviews                       |
-| `/undo`                 | `ctrl+x u` | Rewind the conversation or undo a file change                            |
-| `/redo`                 | `ctrl+x r` | Redo the last undone conversation or file change                         |
-| `/diff`                 | `ctrl+x d` | Review the current uncommitted changes                                   |
-| `/editor`               | `ctrl+x e` | Open the current prompt in an editor                                     |
-| `/compact`              | `ctrl+x k` | Immediately compact the current conversation                             |
-| `/model`                | `ctrl+x m` | Switch primary model (`/model --utility` for switching utility model)    |
-| `/status`               | `ctrl+x s` | Show utility model status, suggestions, and overall health               |
-| `/auto`                 | `ctrl+x a` | Switch autonomy level (`off\|read\|write\|yolo`) for the current session |
-| `/help`                 | `ctrl+x ?` | Show help and keybindings                                                |
-| `/quit` (`/exit`, `/q`) | `ctrl+x q` | Quit Aila                                                                |
+| Command                 | Shortcut   | Description                                                           |
+| ----------------------- | ---------- | --------------------------------------------------------------------- | ---- | ----- | ------------------------------ |
+| `/new` / `/clear`       | `ctrl+x n` | Start a new session and reload project memory                         |
+| `/continue`             | `ctrl+x c` | Browse and restore saved sessions                                     |
+| `/review`               | `ctrl+x i` | Review the current change set, risks, and sources                     |
+| `/history`              | `ctrl+x h` | Browse runs, edits, checks, undo data, and reviews                    |
+| `/undo`                 | `ctrl+x u` | Rewind the conversation or undo a file change                         |
+| `/redo`                 | `ctrl+x r` | Redo the last undone conversation or file change                      |
+| `/diff`                 | `ctrl+x d` | Review the current uncommitted changes                                |
+| `/editor`               | `ctrl+x e` | Open the current prompt in an editor                                  |
+| `/compact`              | `ctrl+x k` | Immediately compact the current conversation                          |
+| `/model`                | `ctrl+x m` | Switch primary model (`/model --utility` for switching utility model) |
+| `/status`               | `ctrl+x s` | Show utility model status, suggestions, and overall health            |
+| `/auto`                 | `ctrl+x a` | Switch autonomy level (`off                                           | read | write | yolo`) for the current session |
+| `/help`                 | `ctrl+x ?` | Show help and keybindings                                             |
+| `/quit` (`/exit`, `/q`) | `ctrl+x q` | Quit Aila                                                             |
 
 ### Shell commands
 
