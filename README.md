@@ -2,9 +2,7 @@
 
 A minimal and uncompromising coding agent made for me.
 
-```text
-[screenshot goes here]
-```
+![Aila desktop mockup](docs/mockup-desktop.png)
 
 Aila is a minimal and highly opinionated terminal coding agent, built on top of [go-agent](https://github.com/jgabor/go-agent) and [bubbletea](https://charm.land). It incorporates the workflow I have developed in [agentera](https://github.com/jgabor/agentera), but adapted into a finite-state machine in the form of a state diagram.
 
