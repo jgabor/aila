@@ -13,14 +13,19 @@ Aila is a minimal and highly opinionated terminal coding agent, built on top of 
 
 Aila does not, and will not, support extensions, plugins, MCP servers, or any other type of customizations. It comes with a fixed system prompt, fixed set of tools, and a workflow that works for me. Feel free to use Aila if it suits you, but if not, there are [many](https://github.com/charmbracelet/crush) [other](https://github.com/0xku/kon) [coding](https://github.com/anomalyco/opencode) [agents](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) to choose from.
 
-## Table of Contents
+## Table of contents
 
-- [Quick Start](#quick-start)
-- ...
+- [Quick start](#quick-start)
+- [Philosophy](#philosophy)
+- [Configuration](#configuration)
+- [Workflow](#workflow)
+- [Built-in tools and capabilities](#built-in-tools-and-capabilities)
+- [User interface](#user-interface)
+- [Data and privacy](#data-and-privacy)
 
 ---
 
-## Quick Start
+## Quick start
 
 ### Install
 
@@ -41,9 +46,16 @@ Commands:
   help              Show command help
 
 Options:
-  --model, -m       Model to use, formatted as provider/model
+  --model, -m       Model to use, formatted as provider/model[:reasoning]
   --continue, -c    Continue the most recent session
   --version, -V     Show Aila version
+```
+
+Examples:
+
+```bash
+aila run explain the architecture of this repo
+git diff | aila run review this change
 ```
 
 ### Build from source
@@ -59,12 +71,12 @@ mage build # `mage install` for installing to $GOBIN
 
 ## Philosophy
 
-Aila is intentionally opinionated, based on a set non-negotiables. Anything missing is built into Aila, and never pushed into hooks, modes, plugins, skills, or any other type of customization.
+Aila is intentionally opinionated, based on a set of non-negotiables. Anything missing is built into Aila, and never pushed into hooks, modes, plugins, skills, or any other type of customization.
 
 - **Low latency** without sacrificing a rich user experience
 - **Cache optimized** by combining intelligent compaction with stable context-prefixing
 - **Mobile friendly** with responsiveness to 80 columns for those late night vibe sessions
-- **Built-in tools** that just work, that transparently compresses results
+- **Built-in tools** that just work and transparently compress results
 - **Subagents** for aggressive parallelism, wider exploration, and deeper reasoning
 - **YOLO** by default, but with configurable levels of autonomy
 - **Single mode** to avoid context switching between planning and building
@@ -79,23 +91,41 @@ Aila stores user configuration at:
 $XDG_CONFIG_HOME/aila/config.toml
 ```
 
-Project state live under `.aila/` in the workspace, global state at `$XDG_DATA_HOME/aila/`.
+If `XDG_CONFIG_HOME` is unset, that means `~/.config/aila/config.toml`.
+
+Project state lives under `.aila/` in the workspace, and global state lives at `$XDG_DATA_HOME/aila/` or `~/.local/share/aila/`.
+
+`.aila/` is project state, not throwaway cache. Commit it. It keeps the project memory, saved work state, compacted context, and session metadata that lets Aila resume without pretending every run starts from nothing.
 
 The default config is created on first run and intentionally simple.
 
 ```toml
 [llm]
-model = "opencode-go/deepseek-v4-pro:high" # <provider>/<model>:<reasoning>
+model = "opencode-go/deepseek-v4-pro:high" # <provider>/<model>[:reasoning]
 
 [llm.utility]
 model = "opencode-go/deepseek-v4-flash:max"
+
+[autonomy]
+level = "yolo"
 ```
+
+### Config reference
+
+| Key                 | Default                             | Meaning                                           |
+| ------------------- | ----------------------------------- | ------------------------------------------------- |
+| `llm.model`         | `opencode-go/deepseek-v4-pro:high`  | Primary model as `<provider>/<model>[:reasoning]` |
+| `llm.base_url`      | unset                               | OpenAI-compatible endpoint for `custom`           |
+| `llm.utility.model` | `opencode-go/deepseek-v4-flash:max` | Smaller model used for background work            |
+| `autonomy.level`    | `yolo`                              | One of `off`, `read`, `write`, or `yolo`          |
+
+Model names may include a reasoning suffix, such as `:high` or `:max`. Use `aila models` as the source of truth for what a provider supports.
 
 For local models, configure an OpenAI-compatible endpoint by setting `custom` as the provider:
 
 ```toml
 [llm]
-model = "custom/qwen3.6:high" # <provider>/<model>:<reasoning>
+model = "custom/qwen3.6:high" # <provider>/<model>[:reasoning]
 base_url = "http://localhost:11434/v1"
 ```
 
@@ -103,11 +133,15 @@ base_url = "http://localhost:11434/v1"
 
 #### API
 
+API providers use API keys or OpenAI-compatible local endpoints.
+
 - `custom`: OpenAI-compatible API (`OPENAI_API_KEY`)
 - `openai`: OpenAI Realtime API (`OPENAI_API_KEY`)
 - `opencode-zen`: OpenCode Zen (`OPENCODE_API_KEY`)
 
 #### Plans
+
+Plan providers use device code authentication.
 
 - `codex`: OpenAI Codex
 - `copilot`: GitHub Copilot
@@ -115,16 +149,14 @@ base_url = "http://localhost:11434/v1"
 - `xiaomi-plan`: Xiaomi Token Plan
 - `zai-plan`: Z.Ai Coding Plan
 
-Currently, only device code authentication is supported.
-
 ### Autonomy level
 
-| Level   | Meaning                                                                        |
-| ------- | ------------------------------------------------------------------------------ |
-| `off`   | Every tool call must be approved                                               |
-| `read`  | `read`, `find`, `fetch`, `find`, `grep`, `bash[git status, git diff, pwd, ls]` |
-| `write` | Everything above plus `bash[git commit, git reset, git merge, mv, rm]`         |
-| `yolo`  | All tool calls are granted.                                                    |
+| Level   | Meaning                                                                 |
+| ------- | ----------------------------------------------------------------------- |
+| `off`   | Every tool call must be approved                                        |
+| `read`  | `read`, `find`, `fetch`, `grep`, `bash[git status, git diff, pwd, ls]`  |
+| `write` | Everything above plus `edit`, `write`, and file-mutating shell commands |
+| `yolo`  | All tool calls are granted. This is the default.                        |
 
 ## Workflow
 
@@ -160,15 +192,16 @@ A smaller model runs hidden utility capabilities in the background:
 - compact context continuously without interrupting the current turn
 - refresh summaries missing important details
 
-Utility capabilities cannot silently change files, and only run when primary model is idle.
+Utility capabilities cannot silently change files and only run when primary model is idle.
 
 ## Built-in tools and capabilities
 
-Everything here is built in. The useful split is between commands, tools, workflow capabilities, and utility capabilities.
+Everything here is built in. A few words below are intentional:
 
-Commands are user entrypoints such as `/compact`, `/review`, and `ctrl+x k`. They are handled by the app runtime and documented in the user interface section below.
-
-Tools are low-level operations that capabilities can call. They are permission checked, recorded in history, and validated before they run.
+- **Commands** are what you type, such as `/compact`, `/review`, or `ctrl+x k`.
+- **Tools** touch the world: files, shell, search, and fetch.
+- **Capabilities** are the agent workflows built on top.
+- **Utility capabilities** are background chores run by the smaller model.
 
 | Tool  | What it does                                                   |
 | ----- | -------------------------------------------------------------- |
@@ -180,7 +213,7 @@ Tools are low-level operations that capabilities can call. They are permission c
 | find  | Finds project files by path patterns                           |
 | fetch | Fetches remote content and returns it as Markdown              |
 
-Workflow capabilities are model-run behaviors for the higher-level parts of a coding session:
+Capabilities are the higher-level parts of a coding session:
 
 | Glyph | Capability  | What it does                                                                  |
 | ----- | ----------- | ----------------------------------------------------------------------------- |
@@ -206,7 +239,7 @@ Utility capabilities are hidden background work run by the utility model. They a
 | continuous compaction | Keeps background context compact without replacing `/compact` |
 | summary refresh       | Refreshes summaries missing important details                 |
 
-You do not need to remember any of these. Aila understands your intent using extensive natural language mapping, and is able to infer your intention, so simply state what you want. E.g., "help me decide" will automatically trigger the `discuss` tool and workflow, and have Aila guide you through it.
+You do not need to remember these names. Say what you want. "Help me decide" routes to the `discuss` capability and Aila guides you from there.
 
 ## User interface
 
@@ -214,37 +247,37 @@ Aila is built as a rich terminal UI that always stays responsive and renders qui
 
 ### Chat interface
 
-| Feature        | How it works                                                                 |
-| -------------- | ---------------------------------------------------------------------------- |
-| Leader key     | All commands are behind a leader key (`ctrl+x`) to assist with fat fingers   |
-| File reference | Type `@` to search project files and insert exact file links                 |
-| Paste format   | Pasting >2 lines results in a formatted `[Pasted lines +X]`                  |
-| Message queue  | Messages are queued while work is active, but can optionally interrupt/steer |
-| Diff viewer    | Review the current uncommitted changes as side-by-side or stacked diffs      |
-| History        | Rewind the conversation or undo a file change with `/undo` or `ctrl+x u`     |
-| Header         | See primary model, utility model, context window, and autonomy level         |
-| Footer         | See git repo, branch, diff, worktree, and other useful git data              |
+| Feature           | How it works                                                                 |
+| ----------------- | ---------------------------------------------------------------------------- |
+| Command shortcuts | Slash commands and `ctrl+x` shortcuts trigger the same handlers              |
+| File reference    | Type `@` to search project files and insert exact file links                 |
+| Paste format      | Pasting >2 lines results in a formatted `[Pasted lines +X]`                  |
+| Message queue     | Messages are queued while work is active, but can optionally interrupt/steer |
+| Diff viewer       | Review the current uncommitted changes as side-by-side or stacked diffs      |
+| History           | Rewind the conversation or undo a file change with `/undo` or `ctrl+x u`     |
+| Header            | See primary model, utility model, context window, and autonomy level         |
+| Footer            | See git repo, branch, diff, worktree, and other useful git data              |
 
 ### Slash commands
 
 Type `/` at the start of the input box to see available commands. Slash commands and `ctrl+x` shortcuts trigger the same command handlers.
 
-| Command                 | Shortcut   | Description                                                                    |
-| ----------------------- | ---------- | ------------------------------------------------------------------------------ |
-| `/new` / `/clear`       | `ctrl+x n` | Start a new session and reload project memory                                  |
-| `/continue`             | `ctrl+x c` | Browse and restore saved sessions                                              |
-| `/review`               | `ctrl+x i` | Manually trigger an `inspection` of the current change set, risks, and sources |
-| `/history`              | `ctrl+x h` | Browse runs, edits, checks, undo data, and reviews                             |
-| `/undo`                 | `ctrl+x u` | Rewind the conversation or undo a file change                                  |
-| `/redo`                 | `ctrl+x r` | Redo the last undone conversation or file change                               |
-| `/diff`                 | `ctrl+x d` | Review the current uncommitted changes                                         |
-| `/editor`               | `ctrl+x e` | Open the current prompt in an editor                                           |
-| `/compact`              | `ctrl+x k` | Immediately compact the current conversation                                   |
-| `/model`                | `ctrl+x m` | Switch primary model (`/model --utility` for switching utility model)          |
-| `/status`               | `ctrl+x s` | Show utility model status, suggestions, and overall health                     |
-| `/auto`                 | `ctrl+x a` | Switch autonomy level (`off\|read\|write\|yolo`) for the current session       |
-| `/help`                 | `ctrl+x ?` | Show help and keybindings                                                      |
-| `/quit` (`/exit`, `/q`) | `ctrl+x q` | Quit Aila                                                                      |
+| Command                 | Shortcut   | Description                                                              |
+| ----------------------- | ---------- | ------------------------------------------------------------------------ |
+| `/new` / `/clear`       | `ctrl+x n` | Start a new session and reload project memory                            |
+| `/continue`             | `ctrl+x c` | Browse and restore saved sessions                                        |
+| `/review`               | `ctrl+x i` | Review the current change set, risks, and sources                        |
+| `/history`              | `ctrl+x h` | Browse runs, edits, checks, undo data, and reviews                       |
+| `/undo`                 | `ctrl+x u` | Rewind the conversation or undo a file change                            |
+| `/redo`                 | `ctrl+x r` | Redo the last undone conversation or file change                         |
+| `/diff`                 | `ctrl+x d` | Review the current uncommitted changes                                   |
+| `/editor`               | `ctrl+x e` | Open the current prompt in an editor                                     |
+| `/compact`              | `ctrl+x k` | Immediately compact the current conversation                             |
+| `/model`                | `ctrl+x m` | Switch primary model (`/model --utility` for switching utility model)    |
+| `/status`               | `ctrl+x s` | Show utility model status, suggestions, and overall health               |
+| `/auto`                 | `ctrl+x a` | Switch autonomy level (`off\|read\|write\|yolo`) for the current session |
+| `/help`                 | `ctrl+x ?` | Show help and keybindings                                                |
+| `/quit` (`/exit`, `/q`) | `ctrl+x q` | Quit Aila                                                                |
 
 ### Shell commands
 
@@ -252,7 +285,7 @@ Aila supports two shell prefixes:
 
 | Prefix      | Behavior                                                           |
 | ----------- | ------------------------------------------------------------------ |
-| `!command`  | Runs the command, and shows the result in the chat interface       |
+| `!command`  | Runs the command and shows the result in the chat interface        |
 | `!!command` | Runs the command, summarizes the output, and sends it to the agent |
 
 Examples:
@@ -265,6 +298,12 @@ Examples:
 ```
 
 Aila saves important command output. Summaries keep the conversation moving, but exact failures, diffs, paths, commands, stack traces, and user constraints stay available when they matter.
+
+## Data and privacy
+
+Assume anything Aila needs to answer may be sent to the configured provider: prompts, repository context, diffs, tool results, and summarized command output. Do not use it on code or data you cannot send there.
+
+`.aila/` is meant to be committed, so treat it as project-visible state.
 
 ---
 
