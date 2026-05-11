@@ -1,3 +1,6 @@
+# Secrets
+.env
+
 # Personal notes
 docs/notes/*
 
