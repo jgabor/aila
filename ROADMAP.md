@@ -131,13 +131,16 @@ The automated gate is:
 2. Add or update pure update tests when input, focus, queueing, approvals,
    resize, interrupt, or command behavior changes.
 3. Add or update pure render snapshots for relevant fixed sizes: `80x24`,
-   `100x30`, `120x32`, and `160x45` as appropriate for the scenario.
+   `100x30`, `120x32`, and `160x45` as appropriate for the scenario. Each
+   milestone that changes rendered state must name the covered sizes or record
+   why a size is not relevant.
 4. Add or update semantic JSON snapshots for agent-readable meaning.
 5. Add or update command/keybinding parity tests whenever slash commands or
    shortcuts are involved.
 6. Run PTY smoke tests when real terminal behavior changed, such as startup,
    alternate screen behavior, input, focus, resize, paste, streaming, approvals,
-   queueing, interrupt, or quit.
+   queueing, interrupt, or quit. Conditional PTY smoke skips must cite the
+   specific terminal behaviors that did not change.
 7. Run `mage check`.
 
 The agentic validation gate is:
@@ -188,8 +191,11 @@ Scope:
 
 - This is the only bootstrap exception to the slice size contract.
 - Add `cmd/aila` with a minimal entrypoint.
-- Add empty or minimal `internal/app`, `internal/tui`, and `internal/workflow`
-  packages.
+- Add empty or minimal package boundaries for `internal/app`, `internal/tui`,
+  `internal/runtime`, `internal/workflow`, `internal/policy`,
+  `internal/capability`, `internal/agent`, `internal/tools`,
+  `internal/permission`, `internal/state`, `internal/context`,
+  `internal/utility`, and `internal/history`.
 - Add package-level tests that prove the skeleton compiles.
 
 TUI validation gate:
@@ -281,6 +287,8 @@ Goal: Prove slash commands and keyboard shortcuts share one routing path.
 Scope:
 
 - Add command route types for `/status`, `/help`, and `/quit`.
+- Keep route recommendation types outside `internal/tui`, owned by the shared
+  policy/command boundary.
 - Add shortcut parity for status and quit.
 - Show deterministic fake status and help surfaces.
 
@@ -386,6 +394,48 @@ Exit condition:
 
 - User configuration exists without coupling config persistence to session state.
 
+## Milestone 9A: Provider Gateway And Credential Boundary
+
+Goal: Make provider identity, credential lookup, and model availability failures
+typed before the first real model turn.
+
+Scope:
+
+- Resolve provider and model names from `llm.model`, `llm.utility.model`, and
+  `llm.base_url` without starting a model turn.
+- Define provider families for API-key, OpenAI-compatible local, and device-code
+  plan providers.
+- Load credentials from documented environment or config sources through a
+  testable boundary.
+- Model missing credentials, expired tokens, invalid API keys, rate limits,
+  timeouts, unsupported providers, and unavailable models as typed errors.
+- Implement bounded `aila models` behavior against fake provider metadata,
+  including filtering, deterministic output, and clear unavailable/degraded
+  status.
+- Device-code authentication is represented as explicit effects with fake
+  clients, fake clocks, cancellation, timeout, and retry tests. Real browser or
+  provider polling may remain behind an optional smoke flag.
+- Keep real agent turns and tool execution out of scope.
+
+TUI validation gate:
+
+- Add provider-ready, provider-missing-credential, provider-unavailable, and
+  model-unavailable semantic fixtures if provider state is visible in the TUI.
+- CLI tests prove `aila models` output is bounded, filterable, deterministic,
+  and returns structured provider errors.
+- Provider tests cover API-key lookup, device-code fake flow, timeout,
+  cancellation, token refresh, unsupported provider, rate limit, and unavailable
+  model cases.
+- PTY smoke covers startup with a missing credential or provider-degraded label
+  if provider state is visible in the running app.
+- Optional real-provider smoke must be explicitly opt-in, bounded by timeout,
+  and skipped by default in `mage check`.
+
+Exit condition:
+
+- Aila can explain provider and model readiness failures before `go-agent` is
+  allowed to execute a real turn.
+
 ## Milestone 10: Workflow Phase Kernel
 
 Goal: Implement workflow phases and labels without runtime transitions.
@@ -441,6 +491,8 @@ Goal: Add the central runtime update/effect loop with fake effects only.
 Scope:
 
 - Add `internal/runtime` messages, model, effects, and dispatcher shape.
+- Shape effects with typed operation metadata so later permission gates can be
+  inserted without rewriting effect handlers.
 - Route TUI-submitted prompts and command messages into runtime messages.
 - Interpret only fake, in-memory effects.
 
@@ -489,8 +541,8 @@ Scope:
 
 TUI validation gate:
 
-- Update tests prove interrupt keys emit interrupt messages without directly
-  canceling lower layers.
+- Update/keybinding tests prove all interrupt shortcuts emit interrupt messages
+  without directly canceling lower layers.
 - Render and semantic snapshots show interrupting/canceled state.
 - PTY smoke covers interrupt during fake active work.
 
@@ -510,8 +562,10 @@ Scope:
 
 TUI validation gate:
 
-- Existing TUI startup/status fixtures show whether project state is initialized
-  only if this is user-visible.
+- Store tests prove initialization, path resolution, atomic writes, and
+  idempotent re-open behavior.
+- Existing TUI startup/status fixtures show initialized, uninitialized, or
+  degraded project state once a status surface exists.
 - Semantic snapshots do not expose incidental filesystem paths unless the UI is
   intentionally displaying them.
 - PTY smoke runs only if store initialization changes startup behavior.
@@ -519,6 +573,44 @@ TUI validation gate:
 Exit condition:
 
 - `.aila/` has a tested creation boundary without coupling storage to TUI state.
+
+## Milestone 15A: Diagnostics And State Recovery Boundary
+
+Goal: Make failures inspectable and recoverable before sessions and mutations
+depend on durable project state.
+
+Scope:
+
+- Add a diagnostics boundary for structured runtime events, effect errors,
+  provider errors, permission decisions, and recovery actions.
+- Add `--debug` or equivalent bounded diagnostic output for startup and
+  non-interactive commands.
+- Supervise runtime/effect goroutines so panics become recorded failure messages
+  where recovery is possible.
+- Handle SIGINT and SIGTERM by canceling active contexts, recording a checkpoint
+  when project state is available, and exiting cleanly.
+- Detect corrupted, partial, or version-mismatched `.aila/` metadata and surface
+  a typed recovery state instead of silently trusting it.
+- Keep automated retry policy, provider fallback, and undo execution out of
+  scope.
+
+TUI validation gate:
+
+- Add diagnostics-ready, graceful-shutdown, and corrupt-state fixtures once those
+  states are visible in the status or startup surface.
+- Semantic snapshots expose diagnostic severity, recovery action, affected
+  artifact, and whether user input is needed.
+- State tests prove corrupted metadata is detected and does not overwrite valid
+  snapshots.
+- Runtime tests prove panics, cancellations, and signal-triggered shutdowns emit
+  recorded messages without mutating workflow phase directly.
+- PTY smoke covers SIGTERM or interrupt-triggered clean shutdown when terminal
+  startup or active-work cancellation behavior changes.
+
+Exit condition:
+
+- Aila can fail, shut down, and resume with explicit diagnostics instead of raw
+  crashes, silent state loss, or corrupted `.aila/` trust.
 
 ## Milestone 16: Session Snapshot Resume
 
@@ -548,13 +640,15 @@ Goal: Make stored fake runs inspectable before real tool or model history exists
 
 Scope:
 
-- Record fake prompt, response, command, and runtime events.
+- Record fake prompt, response, command, and runtime events through
+  `internal/history` records backed by the state store.
 - Add a read-only history view.
 - Keep undo and mutation records out of scope.
 
 TUI validation gate:
 
 - Add `history-view` fixture.
+- Update tests cover history navigation, selection, and focus behavior.
 - Semantic snapshots expose run IDs or stable fake identifiers, event kinds, and
   selected history item.
 - Command/keybinding tests cover `/history` if introduced here.
@@ -617,7 +711,8 @@ Scope:
 
 - Allow safe inspection commands such as `pwd`, `ls`, `git status`, and
   `git diff` through explicit effects.
-- Classify allowed commands separately from mutating shell commands.
+- Describe safe inspection commands with typed operation metadata. Final
+  autonomy decisions remain owned by `internal/permission` in Milestone 22.
 - Bound output and preserve exact command/status/error lines.
 
 TUI validation gate:
@@ -665,8 +760,8 @@ Scope:
 TUI validation gate:
 
 - Add an autonomy display fixture if not already present.
-- Semantic snapshots expose current autonomy and blocked read-only decisions when
-  user-visible.
+- Semantic snapshots expose current autonomy, decision source, and at least one
+  blocked read-only decision through status or tool-failed state.
 - Permission tests prove `off` blocks and `read` allows expected read classes.
 - PTY smoke runs only if autonomy changes are visible interactively.
 
@@ -695,8 +790,7 @@ TUI validation gate:
 
 Exit condition:
 
-- Provider event mapping is tested before real credentials or provider IO are
-  introduced.
+- Provider event mapping is tested before real provider execution is introduced.
 
 ## Milestone 24: go-agent Read-Only Turn
 
@@ -711,15 +805,20 @@ Scope:
   mapping introduced in Milestone 23.
 - Allow read-only tool requests through permission and tool effects.
 - Never let `go-agent` own Aila workflow, prompts, permissions, state, or UI.
+- Map provider/auth failures, rate limits, timeouts, unavailable models, and
+  stream errors into typed runtime messages.
 - Keep mutations and approvals out of scope.
 
 TUI validation gate:
 
 - Add `build-active` with streaming output and read-only tool activity.
+- Add provider-auth-failed, provider-timeout, rate-limited, and
+  model-unavailable fixtures.
 - Render and semantic snapshots show active model, active tool, incomplete state,
-  errors, and final response.
-- PTY smoke covers prompt submission, streaming, and clean cancellation if
-  terminal behavior changes.
+  typed provider errors, degraded state, and final response at `80x24` and
+  `120x32`.
+- PTY smoke covers prompt submission, streaming, provider failure display, and
+  clean cancellation.
 
 Exit condition:
 
@@ -732,7 +831,9 @@ Goal: Make risky operation proposals visible before enabling writes.
 
 Scope:
 
-- Represent write proposals as data.
+- Represent write proposals as generic proposal data with operation kind, target,
+  risk summary, preview, and default action, without depending on final write
+  permission classes.
 - Render approval, denial, and defer choices.
 - Emit approval decisions as messages without executing mutations.
 
@@ -755,7 +856,8 @@ Goal: Extend autonomy and permission decisions to write-shaped operations.
 
 Scope:
 
-- Classify `edit`, `write`, and mutating shell proposals.
+- Map generic proposals onto `edit`, `write`, and mutating shell permission
+  classes.
 - Enforce `off`, `read`, `write`, and `yolo` decisions.
 - Record automatic and manual decisions.
 - Do not execute file mutations yet.
@@ -786,7 +888,8 @@ Scope:
 TUI validation gate:
 
 - Add mutation success and mutation failure fixtures.
-- Render and semantic snapshots show changed file paths and recorded result.
+- Render and semantic snapshots show changed file paths and recorded result at
+  `80x24` and `120x32`.
 - PTY smoke covers a fake or temp-workspace approval-to-write path.
 - `mage check` must run after mutation tests.
 
@@ -808,6 +911,7 @@ Scope:
 TUI validation gate:
 
 - Add `diff-view` fixture.
+- Update tests cover diff navigation, focus, and exit behavior.
 - Render and semantic snapshots cover narrow and wide diff layouts.
 - ANSI snapshots cover additions and removals where styling matters.
 - PTY smoke covers opening and exiting the diff view if interactive navigation is
@@ -875,7 +979,7 @@ Scope:
 TUI validation gate:
 
 - The interactive TUI can render the stored non-interactive session in history or
-  status.
+  status through the session/history surfaces introduced in Milestones 16 and 17.
 - Semantic snapshots expose inspected files, commands, blockers, and source refs.
 - PTY smoke verifies interactive startup still works after a non-interactive run.
 
@@ -948,6 +1052,8 @@ TUI validation gate:
 
 - Fixtures cover active build, approval pending, diff view, history view,
   tool-running, tool-failed, queued input, and final summary.
+- Render and semantic snapshots cover `80x24`, `120x32`, and `160x45` for active
+  build, approval, diff, and final summary states.
 - PTY smoke covers submit prompt, approval, denial, queue, interrupt, paste,
   resize, and quit.
 - Agentic validation uses semantic snapshots first and one bounded tmux session
@@ -992,8 +1098,10 @@ Scope:
 TUI validation gate:
 
 - Fixtures show fresh session, resumed session, and cleared session states.
+- Update tests cover new, clear, continue, session selection, and focus behavior.
 - Semantic snapshots expose session identity and visible memory status without
   leaking storage internals.
+- Command/keybinding tests cover slash/shortcut parity.
 - PTY smoke covers new, continue, clear, and quit where interactive.
 
 Exit condition:
@@ -1007,13 +1115,15 @@ Goal: Add selection UI for model and autonomy without provider execution changes
 Scope:
 
 - Implement `/model` and `/auto` against current config/session state.
-- Persist or session-scope selections according to documented config behavior.
-- Keep provider discovery and real model availability checks separate if needed.
+- Persist or session-scope selections according to documented config behavior;
+  persisted writes use temp XDG directories in tests.
+- Use provider gateway readiness data without adding new provider execution
+  paths.
 
 TUI validation gate:
 
-- `model-switch` and `autonomy-switch` fixtures cover selection and active value
-  states.
+- Add or update `model-switch` and `autonomy-switch` fixtures for selection and
+  active value states.
 - Semantic snapshots expose selected model, utility model, autonomy, and focus.
 - Command/keybinding tests cover slash/shortcut parity.
 - PTY smoke covers switching values if terminal interaction is introduced.
@@ -1023,21 +1133,56 @@ Exit condition:
 - Users can see and change model/autonomy state without altering provider or tool
   boundaries.
 
+## Milestone 37A: Prompt Input UX Family
+
+Goal: Implement documented prompt-input affordances without letting the TUI own
+tool execution or persistence.
+
+Scope:
+
+- Implement `/editor` and `ctrl+x e` by emitting an editor-open request and
+  applying the edited prompt text through messages.
+- Implement `@` file reference search and insertion using read-only project
+  discovery effects.
+- Format pastes longer than two lines as `[Pasted lines +X]` while preserving the
+  exact pasted text in prompt/session state.
+- Keep actual file reads, writes, provider context assembly, and shell execution
+  behind existing runtime effects.
+
+TUI validation gate:
+
+- Add editor-open, file-reference-picker, file-reference-inserted, and
+  pasted-lines fixtures.
+- Update tests cover editor request/result/cancel, `@` search focus, file link
+  insertion, paste formatting, and prompt restoration.
+- Command/keybinding tests prove `/editor` and `ctrl+x e` share the same handler.
+- Render and semantic snapshots expose displayed prompt text, inserted file refs,
+  paste summary, and preserved exact-text reference.
+- PTY smoke covers a fake `$EDITOR`, `@` picker selection, multiline paste,
+  resize, and quit.
+
+Exit condition:
+
+- The README-promised editor, file-reference, and paste affordances work through
+  typed input messages rather than hidden TUI side effects.
+
 ## Milestone 38: Shell Prefixes
 
-Goal: Add `!` and `!!` as command input paths after shell and summarization
-boundaries exist.
+Goal: Add `!` as a command input path after shell boundaries exist.
 
 Scope:
 
 - `!command` runs through permission, shell effect, history, and visible result.
-- `!!command` additionally routes output into the agent context/summarization
-  path once that path exists.
+- `!!command` is parsed as a reserved summarized-shell prefix with a clear
+  deferred message until the context builder is available in Milestone 39.
 - Keep mutating shell commands guarded by existing permission rules.
 
 TUI validation gate:
 
-- Add fixtures for shell result, shell failure, and summarized shell output.
+- Add fixtures for shell result, shell failure, and deferred summarized shell
+  output.
+- Prefix routing tests prove `!` and reserved `!!` paths do not bypass command,
+  permission, or history handling.
 - Semantic snapshots expose command, status, output summary, and exact preserved
   failure lines.
 - PTY smoke covers `!git status --short` or a safe temp command.
@@ -1056,12 +1201,17 @@ Scope:
 - Add `internal/context` source reference model.
 - Build context from prompts, tool results, diffs, command output, and user
   constraints.
+- Complete `!!command` by routing shell output into the context/summarization
+  path with source refs and exact preserved failure lines.
 - Keep background utility jobs out of scope.
 
 TUI validation gate:
 
-- Fixtures show context meter and source-backed claims when visible.
+- Fixtures show context meter, source-backed claims, and summarized shell output
+  when visible.
 - Semantic snapshots expose source refs supporting rendered claims.
+- Prefix routing tests prove `!!command` shares the shell permission/history path
+  and additionally feeds context.
 - Tests prove source refs survive context assembly.
 - PTY smoke runs only if context state changes visible terminal behavior.
 
@@ -1203,14 +1353,63 @@ Exit condition:
 
 - Utility summaries can improve without becoming hidden final judgment.
 
+## Milestone 45A: Capability Contract And Policy Boundary
+
+Goal: Establish capability and policy contracts before implementing concrete
+capabilities.
+
+Scope:
+
+- Define the fixed built-in capability interface, request type, registry, and
+  exit payload shape in `internal/capability`.
+- Define `internal/policy` selectors that recommend command routes,
+  state-local behavior, and capability candidates without mutating workflow
+  phase.
+- Route explicit slash commands, low-confidence natural-language routing,
+  waiting/stuck signals, and valid successor recommendations through typed
+  messages.
+- Prove capabilities may request model calls, tool execution, permission checks,
+  and artifact access only through runtime messages/effects and the state store
+  boundary.
+- Keep concrete `brief`, `plan`, `build`, `audit`, and other capability behavior
+  out of scope.
+
+Capability implementation rule for all later capability milestones:
+
+- Model calls, tool requests, permission checks, artifact access, context access,
+  and state writes route through runtime messages/effects and store/resolver
+  boundaries.
+- Capabilities must not call `internal/tools`, `internal/permission`,
+  `internal/agent`, or persistence internals directly.
+- Each invocation emits exactly one exit payload, and the workflow FSM validates
+  any recommended successor.
+- Capability slash routes and shortcuts, when introduced, must share command
+  handlers and have command/keybinding parity tests.
+
+TUI validation gate:
+
+- Add policy-routing fixtures for explicit command route, natural-language route,
+  low-confidence waiting state, and invalid successor rejection where visible.
+- Semantic snapshots expose active capability candidate, confidence, needed input,
+  and source refs without claiming a phase transition before the FSM validates it.
+- Policy tests prove route recommendations do not mutate workflow phase.
+- Capability contract tests prove exactly one exit payload and effect-only access
+  to model/tool/permission/artifact operations.
+- PTY smoke runs only if routing state changes visible interactive behavior.
+
+Exit condition:
+
+- Concrete capabilities can be added without inventing ad-hoc interfaces or
+  bypassing runtime, policy, permission, state, or workflow authority.
+
 ## Milestone 46: Brief Capability
 
 Goal: Implement the smallest real capability as a status/orientation path.
 
 Scope:
 
-- Add `brief` capability behavior over current state, history, context, and
-  health where available.
+- Add `brief` capability behavior through the capability contract over current
+  state, history, context, and health where available.
 - Emit exactly one exit payload.
 - Keep planning, build, audit, and orchestration capabilities out of scope.
 
@@ -1220,6 +1419,8 @@ TUI validation gate:
   action.
 - Semantic snapshots expose next action and source references.
 - Capability tests prove one exit payload and no direct phase mutation.
+- Contract tests prove `brief` uses runtime/store boundaries for state and
+  artifact access.
 - PTY smoke covers invoking or displaying brief if interactive.
 
 Exit condition:
@@ -1254,8 +1455,8 @@ Goal: Connect plan items to bounded build execution.
 
 Scope:
 
-- Implement `build` capability over the existing runtime, tools, permission,
-  history, and state paths.
+- Implement `build` capability through the existing runtime message/effect,
+  tool, permission, history, and state paths.
 - Execute one bounded task or step, then hold.
 - Preserve surprises and caveats.
 
@@ -1263,6 +1464,8 @@ TUI validation gate:
 
 - `build-active`, `queued-message`, `approval-pending`, `diff-view`,
   `tool-running`, and `tool-failed` fixtures remain current.
+- Render snapshots cover at least `80x24`, `120x32`, and `160x45` for active
+  plan/tool/approval states.
 - Semantic snapshots show active plan item, tool state, approvals, changes,
   blockers, and final summary.
 - PTY smoke covers a bounded fake or temp-workspace build task.
@@ -1293,54 +1496,107 @@ Exit condition:
 
 - Aila can check work and route follow-up without bypassing workflow authority.
 
-## Milestone 50: Vision And Discuss Capabilities
+## Milestone 50: Vision Capability
 
-Goal: Add goal-shaping and deliberation capabilities before broader research or
-optimization work.
+Goal: Add goal-shaping capability before broader deliberation or research work.
 
 Scope:
 
 - Implement `vision` for project direction and long-term goals.
-- Implement `discuss` for consequential decisions.
-- Persist owned artifacts through the state store.
+- Persist vision artifacts through the state store.
 - Emit exactly one exit payload per capability invocation.
+- Keep consequential decision discussion, research, and optimization out of
+  scope.
 
 TUI validation gate:
 
-- Add fixtures for vision output, discussion output, waiting-for-input, and
-  recorded decision state where visible.
+- Add fixtures for vision output and waiting-for-input where visible.
 - Semantic snapshots expose phase, active capability, needed input, blockers,
-  decisions, and source refs.
+  vision artifacts, and source refs.
 - Capability/workflow tests prove valid ownership and exit routing.
-- PTY smoke runs only when these capabilities change interactive behavior.
+- PTY smoke runs only when vision changes interactive behavior.
 
 Exit condition:
 
-- Aila can shape goals and decisions without bypassing workflow authority.
+- Aila can shape goals without bypassing workflow authority.
 
-## Milestone 51: Research And Profile Capabilities
+## Milestone 50A: Discuss Capability
 
-Goal: Add cross-cutting information and preference support without allowing phase
+Goal: Add deliberation capability for consequential decisions after vision is
+separate and testable.
+
+Scope:
+
+- Implement `discuss` for consequential decisions.
+- Persist decision artifacts through the state store.
+- Emit exactly one exit payload per capability invocation.
+- Keep research, profile, optimization, and build execution out of scope.
+
+TUI validation gate:
+
+- Add fixtures for discussion output, waiting-for-input, and recorded decision
+  state where visible.
+- Semantic snapshots expose phase, active capability, decision options, needed
+  input, blockers, decisions, and source refs.
+- Capability/workflow tests prove valid ownership and exit routing.
+- PTY smoke runs only when discussion changes interactive behavior.
+
+Exit condition:
+
+- Aila can deliberate on consequential decisions without bypassing workflow
+  authority.
+
+## Milestone 51: Research Capability
+
+Goal: Add cross-cutting external-pattern research without allowing direct phase
 transitions.
 
 Scope:
 
 - Implement `research` as a cross-cutting external-pattern capability.
-- Implement `profile` as a cross-cutting decision-profile capability.
-- Ensure neither capability triggers workflow transitions by itself.
+- Ensure research results fold into context without directly triggering workflow
+  transitions.
+- Keep profile, optimization, and build execution out of scope.
 
 TUI validation gate:
 
-- Add fixtures for research results and profile context.
+- Add fixtures for research results, evidence, confidence, and caveats.
 - Semantic snapshots expose cross-cutting status, evidence, confidence, and
   source refs.
-- Capability tests prove cross-cutting results fold into context without direct
-  phase mutation.
-- PTY smoke runs only when interactive surfaces change.
+- Capability tests prove research results fold into context without direct phase
+  mutation.
+- PTY smoke runs only when research changes interactive surfaces.
 
 Exit condition:
 
-- Cross-cutting context can improve work without becoming workflow authority.
+- External-pattern research can improve context without becoming workflow
+  authority.
+
+## Milestone 51A: Profile Capability
+
+Goal: Add cross-cutting decision-profile support independently from research.
+
+Scope:
+
+- Implement `profile` as a cross-cutting decision-profile capability.
+- Persist profile artifacts through the state store when they are intentionally
+  durable.
+- Ensure profile results fold into context without directly triggering workflow
+  transitions.
+
+TUI validation gate:
+
+- Add fixtures for profile context, profile update suggestions, evidence, and
+  caveats.
+- Semantic snapshots expose cross-cutting status, profile artifact refs,
+  confidence, and source refs.
+- Capability tests prove profile results fold into context without direct phase
+  mutation.
+- PTY smoke runs only when profile changes interactive surfaces.
+
+Exit condition:
+
+- Decision-profile context can improve work without becoming workflow authority.
 
 ## Milestone 52: Optimize Capability
 
@@ -1424,6 +1680,8 @@ TUI validation gate:
 - Add a multi-agent active work fixture.
 - Semantic snapshots show parent run, subagent purpose, status, and evidence
   links.
+- Update tests cover subagent progress, completion, failure, cancellation, and
+  focus/selection behavior where visible.
 - Runtime tests prove no active subagent can become unobservable.
 - PTY smoke covers visible subagent progress only if interactive.
 
@@ -1439,8 +1697,8 @@ subagents.
 Scope:
 
 - Orchestration supervises plan execution, retries, evaluation, and recovery.
-- It uses existing capability, runtime, tool, permission, history, and state
-  paths.
+- It uses existing capability contracts and runtime message/effect, tool,
+  permission, history, and state paths.
 - It does not create a generic graph engine or plugin surface.
 
 TUI validation gate:
@@ -1467,11 +1725,14 @@ Scope:
   history, context, and state.
 - The TUI gives enough visibility into active work, blockers, diffs, history,
   approvals, queueing, checks, and context to trust the session.
+- Provider readiness, provider failure display, diagnostics, graceful shutdown,
+  and corrupt-state recovery have been exercised in dogfood-relevant scenarios.
 
 TUI validation gate:
 
 - Full TUI test suite passes: update tests, render snapshots, semantic
   snapshots, command/keybinding tests, and stable PTY smoke tests.
+- Provider gateway, diagnostics, recovery, and state-corruption tests pass.
 - Agentic validation performs at least one bounded real TUI walkthrough using
   semantic snapshots and tmux capture as supporting evidence.
 - Human visual review is required for major layout or interaction changes.
