@@ -17,6 +17,8 @@ changes deliberately.
 
 - `README.md`: product intent, user-facing behavior, commands, tools,
   configuration, and UX promises.
+- `ROADMAP.md`: incremental milestones, slice order, and mandatory TUI
+  validation gates for each milestone.
 - `ARCHITECTURE.md`: durable implementation boundaries, package ownership,
   event flow, persistence rules, and anti-patterns.
 - `docs/workflow-architecture.md`: workflow protocol, valid phase transitions,
