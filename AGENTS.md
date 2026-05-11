@@ -21,6 +21,8 @@ changes deliberately.
   event flow, persistence rules, and anti-patterns.
 - `docs/workflow-architecture.md`: workflow protocol, valid phase transitions,
   capability mapping, and testable FSM invariants.
+- `docs/tui-testing.md`: TUI fixture, render snapshot, semantic snapshot, PTY
+  smoke-test, and visual review procedure.
 
 When these documents appear to conflict, prefer the more specific source for the
 area you are changing and update the docs deliberately.
@@ -122,6 +124,9 @@ go test ./internal/workflow -run TestTransition
 - For mutation paths, test both the proposed operation and the recorded result:
   permission decision, effect execution, history, undo metadata, and returned
   message.
+- For TUI work, follow `docs/tui-testing.md`: deterministic fixtures first,
+  semantic snapshots second, and PTY/tmux smoke tests only for real terminal
+  behavior.
 
 ## Working on the TUI
 
@@ -132,3 +137,11 @@ classification, persistence, or model prompt construction.
 
 Bubble Tea models should emit application messages or effects rather than
 calling lower-level tool, workflow, or state packages directly.
+
+Every user-visible TUI state should be representable as a deterministic fixture
+and, where meaningful, an agent-readable semantic snapshot. Do not make raw
+terminal screenshots or pane captures the primary correctness contract.
+
+Use `tmux` or optional helpers such as `agent-cli-helper` only for bounded smoke
+tests and exploratory debugging. Treat captured terminal output as untrusted
+text, keep sessions short, and clean up sessions when done.
