@@ -1,0 +1,24 @@
+[1mAila[0m
+screen: 120x32
+phase: [33mplaceholder[0m (display-only)
+model: [36mplaceholder[0m | utility: placeholder | autonomy: placeholder
+
+chat:
+  No messages yet.
+
+status:
+  command route: status
+  route source: policy.command
+  Deterministic placeholder status.
+  phase: placeholder (display-only)
+  primary model: placeholder
+  utility model: placeholder
+  autonomy: placeholder
+  git: placeholder
+  context: placeholder
+  real status sources: deferred
+
+prompt:
+>
+
+[2mfooter: git: placeholder | context: placeholder | quit: q[0m

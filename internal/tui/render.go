@@ -27,6 +27,10 @@ type ViewState struct {
 	FooterGit     string
 	FooterContext string
 	Transcript    []TranscriptTurn
+	CommandRoute  string
+	RouteSource   string
+	SurfaceTitle  string
+	SurfaceLines  []string
 	PromptInput   string
 }
 
@@ -57,6 +61,7 @@ func RenderPlain(state ViewState, size Size) string {
 		"chat:",
 	}
 	lines = append(lines, chatLines(state.Transcript)...)
+	lines = append(lines, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	lines = append(lines,
 		"",
 		"prompt:",
@@ -79,6 +84,7 @@ func RenderANSI(state ViewState, size Size) string {
 		"chat:",
 	}
 	lines = append(lines, chatLines(state.Transcript)...)
+	lines = append(lines, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	lines = append(lines,
 		"",
 		"prompt:",
@@ -94,6 +100,7 @@ type SemanticSnapshot struct {
 	Scenario string           `json:"scenario"`
 	Screen   SemanticScreen   `json:"screen"`
 	Session  SemanticSession  `json:"session"`
+	Command  *SemanticCommand `json:"command,omitempty"`
 	Regions  []SemanticRegion `json:"regions"`
 	Actions  []SemanticAction `json:"actions"`
 }
@@ -115,6 +122,16 @@ type SemanticSession struct {
 	Autonomy           string `json:"autonomy"`
 }
 
+// SemanticCommand describes a visible command surface without implying execution.
+type SemanticCommand struct {
+	Route              string `json:"route"`
+	RouteSource        string `json:"route_source"`
+	Surface            string `json:"surface"`
+	Visible            bool   `json:"visible"`
+	Executed           bool   `json:"executed"`
+	WorkflowTransition bool   `json:"workflow_transition"`
+}
+
 // SemanticRegion describes a visible region of the static shell.
 type SemanticRegion struct {
 	Name    string   `json:"name"`
@@ -131,6 +148,30 @@ type SemanticAction struct {
 // Semantic returns the semantic snapshot for a static shell render.
 func Semantic(state ViewState, size Size) SemanticSnapshot {
 	size = normalizeSize(size)
+	regions := []SemanticRegion{
+		{Name: "header", Visible: true, Items: []string{state.AppName}},
+		{Name: "phase", Visible: true, Items: []string{state.Phase, "display-only"}},
+		{Name: "model", Visible: true, Items: []string{"primary: " + state.PrimaryModel, "utility: " + state.UtilityModel, "autonomy: " + state.Autonomy}},
+		{Name: "chat", Visible: true, Items: semanticChatItems(state.Transcript)},
+	}
+	if state.SurfaceTitle != "" {
+		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
+	}
+	var command *SemanticCommand
+	if state.CommandRoute != "" || state.SurfaceTitle != "" {
+		command = &SemanticCommand{
+			Route:              state.CommandRoute,
+			RouteSource:        state.RouteSource,
+			Surface:            state.SurfaceTitle,
+			Visible:            state.SurfaceTitle != "",
+			Executed:           false,
+			WorkflowTransition: false,
+		}
+	}
+	regions = append(regions,
+		SemanticRegion{Name: "prompt", Visible: true, Items: []string{promptLine(state.PromptInput)}},
+		SemanticRegion{Name: "footer", Visible: true, Items: []string{"git: " + state.FooterGit, "context: " + state.FooterContext, "quit: q"}},
+	)
 	return SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
@@ -146,14 +187,8 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			QueuedMessages:     0,
 			Autonomy:           state.Autonomy,
 		},
-		Regions: []SemanticRegion{
-			{Name: "header", Visible: true, Items: []string{state.AppName}},
-			{Name: "phase", Visible: true, Items: []string{state.Phase, "display-only"}},
-			{Name: "model", Visible: true, Items: []string{"primary: " + state.PrimaryModel, "utility: " + state.UtilityModel, "autonomy: " + state.Autonomy}},
-			{Name: "chat", Visible: true, Items: semanticChatItems(state.Transcript)},
-			{Name: "prompt", Visible: true, Items: []string{promptLine(state.PromptInput)}},
-			{Name: "footer", Visible: true, Items: []string{"git: " + state.FooterGit, "context: " + state.FooterContext, "quit: q"}},
-		},
+		Command: command,
+		Regions: regions,
 		Actions: []SemanticAction{
 			{Name: "quit", Input: "q"},
 		},
@@ -187,6 +222,39 @@ func semanticChatItems(transcript []TranscriptTurn) []string {
 		items = append(items, "user: "+turn.UserText, "assistant: "+turn.AssistantText)
 	}
 	return items
+}
+
+func surfaceLines(route string, source string, title string, items []string) []string {
+	if title == "" {
+		return nil
+	}
+	lines := []string{"", title + ":"}
+	if route != "" {
+		lines = append(lines, "  command route: "+route)
+	}
+	if source != "" {
+		lines = append(lines, "  route source: "+source)
+	}
+	for _, item := range items {
+		lines = append(lines, "  "+item)
+	}
+	return lines
+}
+
+func semanticSurfaceItems(route string, source string, title string, items []string) []string {
+	if title == "" {
+		return nil
+	}
+	result := make([]string, 0, len(items)+3)
+	result = append(result, title)
+	if route != "" {
+		result = append(result, "command route: "+route)
+	}
+	if source != "" {
+		result = append(result, "route source: "+source)
+	}
+	result = append(result, items...)
+	return result
 }
 
 // RenderSemanticJSON renders an indented semantic JSON snapshot.

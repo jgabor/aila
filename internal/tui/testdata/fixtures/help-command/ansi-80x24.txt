@@ -1,0 +1,24 @@
+[1mAila[0m
+screen: 80x24
+phase: [33mplaceholder[0m (display-only)
+model: [36mplaceholder[0m | utility: placeholder | autonomy: placeholder
+
+chat:
+  No messages yet.
+
+help:
+  command route: help
+  route source: policy.command
+  Deterministic placeholder help.
+  commands:
+  /status - Show deterministic placeholder status.
+  /help - Show this deterministic placeholder help.
+  /quit - Quit Aila.
+  shortcuts:
+  ctrl+x s - Show deterministic placeholder status.
+  ctrl+x q - Quit Aila.
+
+prompt:
+>
+
+[2mfooter: git: placeholder | context: placeholder | quit: q[0m

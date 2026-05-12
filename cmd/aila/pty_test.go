@@ -78,6 +78,72 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM5CommandPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	ctx, cancel, terminal, wait := startAilaPTY(t)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntil(t, terminal, "Aila", 20*time.Second)
+	if !strings.Contains(startup, "Aila") {
+		t.Fatalf("startup output missing Aila marker: %q", startup)
+	}
+
+	if _, err := terminal.Write([]byte{0x18, 's'}); err != nil {
+		t.Fatalf("send ctrl+x s command input: %v", err)
+	}
+	shortcutStatus := readUntil(t, terminal, "real status sources: deferred", 10*time.Second)
+	if !strings.Contains(startup+shortcutStatus, "screen: 80x24") {
+		t.Fatalf("PTY smoke did not observe fixed-size marker: startup=%q status=%q", startup, shortcutStatus)
+	}
+	for _, marker := range []string{
+		"status:",
+		"command route: status",
+		"route source: policy.command",
+		"Deterministic placeholder status.",
+		"real status sources: deferred",
+	} {
+		if !strings.Contains(shortcutStatus, marker) {
+			t.Fatalf("ctrl+x s output missing explicit marker %q: %q", marker, shortcutStatus)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("/help\r\n")); err != nil {
+		t.Fatalf("send /help command input: %v", err)
+	}
+	readUntil(t, terminal, "Deterministic placeholder help.", 10*time.Second)
+
+	if _, err := terminal.Write([]byte("/status\r\n")); err != nil {
+		t.Fatalf("send /status command input: %v", err)
+	}
+	status := readUntil(t, terminal, "real status sources: deferred", 10*time.Second)
+	for _, marker := range []string{
+		"status:",
+		"command route: status",
+		"Deterministic placeholder status.",
+		"real status sources: deferred",
+	} {
+		if !strings.Contains(status, marker) {
+			t.Fatalf("/status output missing explicit marker %q: %q", marker, status)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("/quit\r\n")); err != nil {
+		t.Fatalf("send /quit command input: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("/quit command route returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("/quit command route did not clean up before timeout: %v", ctx.Err())
+	}
+}
+
 func startAilaPTY(t *testing.T) (context.Context, context.CancelFunc, *os.File, <-chan error) {
 	t.Helper()
 
@@ -147,6 +213,7 @@ func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Durat
 
 	result := make(chan string, 1)
 	failure := make(chan error, 1)
+	progress := make(chan string, 1)
 	go func() {
 		var out strings.Builder
 		buf := make([]byte, 1024)
@@ -154,6 +221,10 @@ func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Durat
 			n, err := reader.Read(buf)
 			if n > 0 {
 				out.Write(buf[:n])
+				select {
+				case progress <- out.String():
+				default:
+				}
 				if strings.Contains(out.String(), needle) {
 					result <- out.String()
 					return
@@ -166,13 +237,18 @@ func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Durat
 		}
 	}()
 
-	select {
-	case output := <-result:
-		return output
-	case err := <-failure:
-		t.Fatal(err)
-	case <-time.After(timeout):
-		t.Fatalf("timed out waiting for %q", needle)
+	var partial string
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case output := <-result:
+			return output
+		case err := <-failure:
+			t.Fatal(err)
+		case partial = <-progress:
+		case <-timer.C:
+			t.Fatalf("timed out waiting for %q; partial output: %q", needle, partial)
+		}
 	}
-	return ""
 }

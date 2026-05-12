@@ -673,5 +673,328 @@ cycles:
       unknowns: "none"
       scope: >-
         Agentera progress and plan archival artifacts only.
+  - number: 16
+    timestamp: "2026-05-12 18:00"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M5 Task 1 only by adding a policy-owned closed command
+      route boundary for /status, /help, /quit, ctrl+x s, and ctrl+x q with no
+      TUI update routing or command rendering.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 5"
+    discovered: >-
+      The existing internal/policy package was only a boundary placeholder, so the
+      M5 route types could stay isolated there. No TUI command update routing,
+      status/help surface, PTY smoke, roadmap closeout, or Tasks 2-6 behavior was
+      implemented.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/policy` passed
+      TestM5CommandRoutesAreClosedPolicyRecommendations, proving /status, /help,
+      /quit, ctrl+x s, and ctrl+x q resolve to policy-owned command
+      recommendations outside internal/tui. Criterion 2: the same targeted run
+      passed TestM5SlashAndShortcutRoutesShareRoute, proving /status and ctrl+x s
+      share CommandRouteStatus and /quit and ctrl+x q share CommandRouteQuit.
+      Criterion 3: the same targeted run passed
+      TestM5CommandBoundaryRejectsDeferredFamilies and
+      TestM5CommandBoundaryStaysPureAndClosed, proving no dynamic registry,
+      command args, shell prefixes, aliases, CLI routing, capability invocation,
+      workflow routing, or plugin/MCP marker entered the boundary. Criterion 4:
+      the same purity test parsed imports and source markers for command.go,
+      proving the boundary imports no filesystem, shell, git, config, provider,
+      model, tool, permission, persistence, workflow, runtime, agent,
+      capability, app, or network IO packages. `mage fmt` passed before the
+      targeted policy test.
+    next: >-
+      Execute M5 Task 2 only when explicitly requested: TUI command update
+      routing. Tasks 2-6 remain pending; do not implement status/help rendering,
+      PTY smoke, ROADMAP closeout, or M6+ scope yet.
+    context:
+      intent: >-
+        Establish the closed, pure, policy-owned route recommendation boundary for
+        the first M5 command router slice.
+      constraints: >-
+        Implement only M5 task 1; do not add TUI command update routing,
+        status/help rendering, PTY behavior, ROADMAP closeout, CLI routing,
+        command args, shell prefixes, aliases, config/provider/model/go-agent/
+        tool/permission/persistence/workflow behavior, plugins, MCP, dynamic
+        tools, workflow DSLs, generic graph engines, provider marketplaces,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/policy command route boundary and tests plus Agentera task and
+        progress artifacts only.
+  - number: 17
+    timestamp: "2026-05-12 18:07"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M5 Task 2 only by wiring internal/tui prompt submission and
+      ctrl+x shortcuts through the policy-owned command recommendation boundary,
+      while preserving M4 fake prompt behavior for ordinary and unrecognized
+      slash-like input.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 5"
+    discovered: >-
+      The legacy bare-q quit path remained compatible with Task 2 because it only
+      fires when prompt input is empty; ctrl+x q now routes before that legacy path
+      and q typed during composition stays in the prompt input.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestPrompt|TestCommandShortcuts|TestStaticModelQuitPath'` passed
+      TestPromptEnterRoutesRecognizedCommandThroughPolicyBoundary, proving /status
+      entered through policy.RecommendSlashCommand, cleared prompt input, and did
+      not call the fake prompt handler or render a fake transcript. Criterion 2:
+      the same run passed TestCommandShortcutsUseSamePolicyRoutesAsSlashCommands,
+      proving ctrl+x s and ctrl+x q route policy CommandInputShortcut
+      recommendations for status and quit without using fake prompt handling or
+      the legacy bare-q quit path. Criterion 3: the same run passed
+      TestPromptQWhileComposingRemainsInput, proving q typed into non-empty prompt
+      input remains prompt text and does not quit or route a command. Criterion 4:
+      the same run passed TestPromptEnterKeepsOrdinaryAndUnknownSlashFakeBehavior,
+      proving ordinary prompt text and /unknown still use the M4 fake prompt
+      handler rather than command behavior. `go test -count=1 ./internal/policy`
+      passed, `go test -count=1 ./internal/tui` passed, and `mage fmt` passed.
+    next: >-
+      Execute M5 Task 3 only when explicitly requested: deterministic fake status
+      and help surfaces. Tasks 3-6 remain pending; do not implement snapshots, PTY
+      smoke, ROADMAP closeout, archive, M6+ behavior, CLI shape, config/provider/
+      model/go-agent/tool/permission/persistence/workflow behavior, plugins, MCP,
+      dynamic tools, workflow DSLs, generic graphs, provider marketplaces, commits,
+      or pushes.
+    context:
+      intent: >-
+        Connect TUI update handling to the closed policy command boundary without
+        moving route semantics into internal/tui.
+      constraints: >-
+        Implement only M5 task 2; do not add status/help rendering, snapshots, PTY
+        behavior, ROADMAP closeout, CLI routing, command args, shell prefixes,
+        aliases, config/provider/model/go-agent/tool/permission/persistence/
+        workflow behavior, plugins, MCP, dynamic tools, workflow DSLs, generic
+        graph engines, provider marketplaces, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui update routing and tests plus Agentera task/progress artifacts
+        only.
+  - number: 18
+    timestamp: "2026-05-12 18:17"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M5 Task 3 only by adding deterministic placeholder status
+      and help command surfaces inside internal/tui presentation state, with no
+      real status source reads or future command family expansion.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 5"
+    discovered: >-
+      Full TUI package testing initially showed that adding an invisible semantic
+      command region would rewrite existing M3/M4 snapshots, which belongs to Task
+      4. The semantic renderer now emits the command region only when a command
+      surface is visible, keeping existing fixtures unchanged.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'Test(StatusCommand|HelpCommand|CommandSurfaces|PromptEnterRoutesRecognizedCommand|CommandShortcuts)'`
+      passed TestStatusCommandShowsStableDeterministicPlaceholderSurface, proving
+      /status and ctrl+x s render stable fake status content labeled as a
+      deterministic placeholder. Criterion 2: the same run passed
+      TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder, proving /help
+      lists only /status, /help, /quit, ctrl+x s, and ctrl+x q. Criterion 3: the
+      same status/help tests compare repeated renders for byte-stable wording and
+      order and reject timestamp markers. Criterion 4: the same run passed
+      TestCommandSurfacesStayDeterministicAndIOFree, inspecting model.go and
+      render.go for forbidden git, .aila, filesystem, shell, network, app, agent,
+      capability, permission, runtime, state, tools, and workflow source markers.
+      `go test -count=1 ./internal/tui`, `go test -count=1 ./internal/policy`,
+      `go test -count=1 ./internal/app -run 'TestPrompt|TestFake'`, and `mage fmt`
+      also passed.
+    next: >-
+      Execute M5 Task 4 only when explicitly requested: M5 command fixtures and
+      parity tests. Tasks 4-6 remain pending; do not implement PTY smoke, ROADMAP
+      closeout, archive, M6+ behavior, CLI shape, config/provider/model/go-agent/
+      tool/permission/persistence/workflow behavior, plugins, MCP, dynamic tools,
+      workflow DSLs, generic graphs, provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Make routed M5 status and help commands visible through deterministic fake
+        presentation-only surfaces.
+      constraints: >-
+        Implement only M5 task 3; do not add status/help fixtures or snapshots,
+        PTY behavior, ROADMAP closeout, CLI routing, command args, shell prefixes,
+        aliases, config/provider/model/go-agent/tool/permission/persistence/
+        workflow behavior, plugins, MCP, dynamic tools, workflow DSLs, generic
+        graph engines, provider marketplaces, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui command surface rendering/update code and tests plus Agentera
+        task/progress artifacts only.
+  - number: 19
+    timestamp: "2026-05-12 18:35"
+    type: test
+    phase: build
+    what: >-
+      Executed active M5 Task 4 only by adding checked-in status/help command
+      fixtures at 80x24 and 120x32, semantic command metadata for visible command
+      surfaces, and slash/shortcut parity tests at the policy and TUI update
+      boundaries.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 5"
+    discovered: >-
+      Existing command surfaces were deterministic, but semantic snapshots needed
+      explicit command metadata so agents can read route, route source, visible
+      surface, execution=false, and workflow_transition=false before PTY. The
+      metadata is omitted for non-command snapshots so existing M3/M4 fixtures stay
+      valid.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestM5CommandFixtureSet|TestSlashAndShortcutParityAtPolicyAndTUIBoundaries|TestRequiredM3RenderSnapshots|TestRequiredM3SemanticSnapshots|TestRequiredM3SemanticContractConsistency|TestRequiredM3FixtureScopes|TestM4SubmittedPrompt'`
+      passed, including plain, ANSI, and semantic status/help snapshots at 80x24
+      and 120x32 that show the routed surface, command route, route source, and
+      deterministic placeholder content. Criterion 2: the same run passed
+      TestM5CommandFixtureSet semantic assertions that command route, visible
+      surface, focus, regions, and actions are machine-readable while
+      command.executed=false, command.workflow_transition=false, and session
+      workflow_transition=false. Criterion 3: `go test -count=1 ./internal/policy
+      -run
+      'TestM5SlashAndShortcutRoutesShareRoute|TestM5CommandRoutesAreClosedPolicyRecommendations|TestM5CommandBoundary'`
+      passed policy route parity, and `go test -count=1 ./internal/tui
+      ./internal/policy` passed after adding TestSlashAndShortcutParityAtPolicyAndTUIBoundaries
+      for /status equals ctrl+x s and /quit equals ctrl+x q at the TUI update
+      boundary. Criterion 4: `go test -count=1 ./internal/tui -run
+      'TestRequiredM3FixtureSet|TestRequiredM3RenderSnapshots|TestRequiredM3SemanticSnapshots|TestRequiredM3SemanticContractConsistency|TestRequiredM3FixtureScopes|TestM4SubmittedPromptRenderSnapshots|TestM4SubmittedPromptSemanticSnapshot'`
+      passed, proving idle-empty, narrow-80, desktop-wide, and submitted-prompt
+      fixtures remain valid. `mage fmt` completed successfully.
+    next: >-
+      Execute M5 Task 5 only when explicitly requested: PTY command smoke and
+      validation. Task 6 remains pending; do not implement ROADMAP closeout,
+      archive, M6+ resize/right rail behavior, M7 CLI shape, config/provider/model/
+      go-agent/tool/permission/persistence/workflow behavior, plugins, MCP,
+      dynamic tools, workflow DSLs, generic graphs, provider marketplaces, commits,
+      or pushes.
+    context:
+      intent: >-
+        Make M5 command surfaces and slash/shortcut parity inspectable through the
+        existing deterministic fixture harness before PTY validation.
+      constraints: >-
+        Implement only M5 task 4; do not add PTY smoke, ROADMAP closeout, archive,
+        CLI routing, command args, shell prefixes, aliases, config/provider/model/
+        go-agent/tool/permission/persistence/workflow behavior, plugins, MCP,
+        dynamic tools, workflow DSLs, generic graph engines, provider marketplaces,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui command fixture metadata/snapshots, semantic command metadata,
+        parity tests, and Agentera task/progress artifacts only.
+  - number: 20
+    timestamp: "2026-05-12 18:45"
+    type: test
+    phase: build
+    what: >-
+      Executed active M5 Task 5 only by making the policy-owned quit command route
+      terminate the Bubble Tea program, adding bounded fixed-size PTY command smoke
+      coverage for ctrl+x s, /status, and /quit through the existing scrubbed fake
+      app path, and running targeted plus full validation.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 5"
+    discovered: >-
+      The existing command route selected /quit and ctrl+x q but did not terminate
+      the program, so PTY /quit coverage could not pass until command-route quit
+      emitted tea.Quit. Bubble Tea diff rendering omits unchanged lines when the
+      same status surface is rendered twice, so the smoke uses ctrl+x s, then the
+      existing M5 /help surface as an intermediate repaint, then /status before
+      /quit.
+    verified: >-
+      Criterion 1: `go test -count=1 ./cmd/aila -run
+      'TestM5CommandPTYSmoke|TestMainPackageCompiles'` passed, including fixed
+      80x24 startup, scrubbed environment helper use, fake app dependencies,
+      explicit status route/source/placeholder markers for ctrl+x s and /status,
+      bounded read timeouts, /quit process exit, and deferred PTY cleanup.
+      Criterion 2: targeted tests passed for policy, TUI, app, and cmd command
+      paths: `go test -count=1 ./internal/policy`; `go test -count=1 ./internal/tui
+      -run
+      'TestPromptEnterRoutesRecognizedCommandThroughPolicyBoundary|TestCommandShortcutsUseSamePolicyRoutesAsSlashCommands|TestSlashAndShortcutParityAtPolicyAndTUIBoundaries|TestStatusCommandShowsStableDeterministicPlaceholderSurface|TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder|TestCommandSurfacesStayDeterministicAndIOFree'`;
+      `go test -count=1 ./internal/app`; and the cmd command smoke above.
+      Criterion 3: `go test -count=1 ./...` passed and `mage check` passed with
+      all package tests, 0 lint issues, and no vulnerabilities. Criterion 4: Task
+      5 is marked complete in `.agentera/plan.yaml`, Task 6 remains pending, and
+      ROADMAP.md still reports last completed milestone 4, next milestone 5, and
+      does not mark M5 complete.
+    next: >-
+      Execute M5 Task 6 only when explicitly requested: plan-level freshness
+      checkpoint, ROADMAP closeout, and Agentera plan archival. Do not implement
+      M6+ resize/right rail behavior, M7 CLI shape, config/provider/model/go-agent/
+      tool/permission/persistence/workflow behavior, plugins, MCP, dynamic tools,
+      workflow DSLs, generic graphs, provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Prove the M5 command behavior through terminal smoke and validation before
+        any roadmap closeout or plan archival.
+      constraints: >-
+        Implement only M5 task 5; do not update ROADMAP M5 complete, archive or
+        remove the active plan, implement Task 6, add command args, shell prefixes,
+        aliases, command palettes, CLI routing, config/provider/model/go-agent/tool/
+        permission/persistence/workflow behavior, M6+ layout behavior, plugins,
+        MCP, dynamic tools, workflow DSLs, generic graph engines, provider
+        marketplaces, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY command smoke, internal/tui command-route quit behavior and
+        parity tests, plus Agentera task/progress artifacts only.
+  - number: 21
+    timestamp: "2026-05-12 19:05"
+    type: chore
+    phase: build
+    what: >-
+      Completed the final M5 plan-level freshness checkpoint by reviewing the M5
+      diff against the roadmap, prompt, architecture, README, TUI testing, and
+      workflow architecture sources; updating ROADMAP.md closeout; archiving the
+      completed plan; removing the active plan; and running post-closeout
+      validation.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 5; docs/notes/PROMPT.md"
+    discovered: >-
+      The M5 closeout diff remained confined to the closed policy command route,
+      TUI command routing/surfaces/snapshots/tests, command PTY smoke, roadmap
+      status, and Agentera artifacts. No M6 resize/right-rail behavior, M7 CLI
+      command shape, config/provider/model/go-agent/tool/permission/persistence/
+      workflow behavior, broader command families, args, aliases, shell prefixes,
+      command palette, plugin, MCP, dynamic-tool, workflow-DSL, generic-graph,
+      provider-marketplace, or public runtime harness behavior entered the change.
+    verified: >-
+      Criterion 1: reviewed the final M5 diff against ROADMAP.md, docs/notes/PROMPT.md,
+      ARCHITECTURE.md, README.md, docs/tui-testing.md, and docs/workflow-architecture.md;
+      scope remains M5-only with fixed /status, /help, /quit, ctrl+x s, and ctrl+x q
+      behavior through policy-owned recommendations and presentation-only fake
+      surfaces. Criterion 2: closeout keeps M6 resize/right rail, M7 CLI command
+      shape, config/provider/model/go-agent/tool/permission/persistence/workflow
+      behavior, and broader command families deferred. Criterion 3: ROADMAP.md now
+      records Milestone 5 complete, Milestone 6 next, active milestone none, and M5
+      validation evidence including command PTY smoke, targeted command tests,
+      go test ./..., and post-closeout mage check. Criterion 4: the completed plan
+      is archived at .agentera/archive/plan-2026-05-12-m5.yaml, active
+      .agentera/plan.yaml is removed, `AGENTERA_HOME=/home/jgabor/git/agentera uv run
+      /home/jgabor/git/agentera/scripts/agentera plan` reports no active plan,
+      `AGENTERA_HOME=/home/jgabor/git/agentera uv run
+      /home/jgabor/git/agentera/scripts/agentera progress` reports this final M5
+      evidence, and post-closeout `mage check` passed.
+    next: >-
+      Plan or execute ROADMAP.md Milestone 6: Resize And Layout Responsiveness.
+      Keep M7 CLI command shape, config/provider/model/go-agent/tool/permission/
+      persistence/workflow behavior, and broader command families deferred until
+      their roadmap milestones.
+    context:
+      intent: >-
+        Close the M5 command router milestone only after validating freshness
+        against all relevant source-of-truth documents.
+      constraints: >-
+        Implement only M5 task 6 closeout; do not add M6+ resize/right-rail
+        behavior, M7 CLI shape, config/provider/model/go-agent/tool/permission/
+        persistence/workflow behavior, broader command families, plugins, MCP,
+        dynamic tools, workflow DSLs, generic graph engines, provider marketplaces,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md closeout, Agentera final progress evidence, plan archival, and
+        active plan removal only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
+  - .agentera/archive/plan-2026-05-12-m5.yaml

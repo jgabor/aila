@@ -1,0 +1,24 @@
+Aila
+screen: 80x24
+phase: placeholder (display-only)
+model: placeholder | utility: placeholder | autonomy: placeholder
+
+chat:
+  No messages yet.
+
+status:
+  command route: status
+  route source: policy.command
+  Deterministic placeholder status.
+  phase: placeholder (display-only)
+  primary model: placeholder
+  utility model: placeholder
+  autonomy: placeholder
+  git: placeholder
+  context: placeholder
+  real status sources: deferred
+
+prompt:
+>
+
+footer: git: placeholder | context: placeholder | quit: q

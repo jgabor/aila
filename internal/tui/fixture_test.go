@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jgabor/aila/internal/policy"
 )
 
 func TestRequiredM3FixtureSet(t *testing.T) {
@@ -91,6 +93,105 @@ func loadSubmittedPromptFixture(t *testing.T) renderFixture {
 		AssistantText: "Fake Aila response: explain this repo",
 	}}
 	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
+	t.Helper()
+
+	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, nil, nil)
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(input)})
+	if cmd != nil {
+		t.Fatalf("typing %s emitted a command", input)
+	}
+	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("routing %s emitted a command", input)
+	}
+	state := updated.(Model).state
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM5CommandFixtureSet(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		input string
+		route policy.CommandRoute
+	}{
+		{name: "status-command", input: "/status", route: policy.CommandRouteStatus},
+		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadCommandFixture(t, tc.name, tc.input)
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			if fixture.TerminalBehavior != "bubbletea_static" {
+				t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+			}
+			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}})
+
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					assertOrdered(t, got, string(tc.route)+":", "command route: "+string(tc.route))
+					assertOrdered(t, got, "command route: "+string(tc.route), "route source: policy.command")
+					assertOrdered(t, got, "route source: policy.command", "Deterministic placeholder")
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					assertCommandSemanticContract(t, tc.name, semanticCase.size, string(tc.route), snapshot)
+				})
+			}
+		})
+	}
+}
+
+func assertCommandSemanticContract(t *testing.T, scenario string, size Size, route string, snapshot SemanticSnapshot) {
+	t.Helper()
+
+	assertSemanticContract(t, scenario, size, snapshot)
+	if snapshot.Command == nil {
+		t.Fatal("command semantic metadata is missing")
+	}
+	if snapshot.Command.Route != route || snapshot.Command.RouteSource != "policy.command" || snapshot.Command.Surface != route || !snapshot.Command.Visible {
+		t.Fatalf("command metadata = %+v, want visible %s from policy.command", *snapshot.Command, route)
+	}
+	if snapshot.Command.Executed || snapshot.Command.WorkflowTransition {
+		t.Fatalf("command metadata implies execution or workflow transition: %+v", *snapshot.Command)
+	}
+	if snapshot.Screen.Focus != "prompt" {
+		t.Fatalf("focus = %q, want prompt", snapshot.Screen.Focus)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	command, ok := regions["command"]
+	if !ok {
+		t.Fatal("command region missing")
+	}
+	if !containsAll(strings.Join(command.Items, "\n"), []string{route, "command route: " + route, "route source: policy.command", "Deterministic placeholder"}) {
+		t.Fatalf("command region items = %v, want route, source, and placeholder content", command.Items)
+	}
 }
 
 func TestM4SubmittedPromptRenderSnapshots(t *testing.T) {

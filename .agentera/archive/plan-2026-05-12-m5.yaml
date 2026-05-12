@@ -1,0 +1,108 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: archived
+  reviewed: 2026-05-12
+  critic_issues: "7 found, 7 addressed, 0 dismissed"
+  title: M5 Minimal Command Router
+what: >-
+  Add the first closed command routing slice for /status, /help, and /quit so
+  slash commands and the documented ctrl+x shortcuts share one route path while
+  the TUI remains presentation-only.
+why: >-
+  ROADMAP.md Milestone 5 needs a small tested command pattern before Aila adds
+  broader command families, responsive layout, CLI command shape, config,
+  providers, workflow, model, tool, permission, or persistence behavior.
+constraints: >-
+  Implement only ROADMAP.md Milestone 5. Use fixed built-in command routes only:
+  /status, /help, and /quit plus ctrl+x s for status and ctrl+x q for quit. Do
+  not add /exit or /q aliases, command args, shell prefixes, command palettes,
+  natural-language routing, CLI command shape, dynamic registries, plugins, MCP,
+  dynamic tools, workflow DSLs, generic graph engines, provider marketplaces,
+  config/provider/model/go-agent/tool/permission/persistence/workflow behavior,
+  resize/right rail behavior, or public runtime harnesses. Existing empty-prompt
+  q quit behavior may remain only as legacy behavior and must not steal q while
+  composing prompt text.
+scope:
+  included:
+    - Closed policy-owned command route/recommendation types for /status, /help, and /quit.
+    - Shared routing for slash commands and documented ctrl+x status/quit shortcuts.
+    - Deterministic fake status and help presentation surfaces.
+    - Command/keybinding parity tests, render snapshots, semantic snapshots, and bounded PTY command smoke.
+    - ROADMAP.md closeout and Agentera plan archival only after all validation and freshness checks pass.
+  excluded:
+    - M6 resize/right rail behavior, M7 CLI command shape, config/credential IO, provider/model/go-agent integration, tool execution, permission checks, persistence, workflow transitions, runtime capability routing, plugin/MCP/dynamic-tool/workflow-DSL/generic-graph/provider-marketplace behavior, public runtime harnesses, command args, shell prefixes, command palettes, aliases beyond exact M5 routes, and future command families.
+  deferred:
+    - "M6 Resize And Layout Responsiveness: responsive layout, right rail, and resize PTY smoke."
+    - "M7 CLI Command Shape: run/continue/config/models/help commands and global flags."
+    - "M8-M9A: config display/creation and provider credential readiness."
+design: >-
+  Keep the router deliberately closed and product-specific. Route parsing and
+  shortcut mapping belong outside internal/tui, likely in the existing policy
+  boundary, while internal/tui only collects keys, renders deterministic command
+  surfaces, and applies app/policy results. Status and help are explicit fake
+  surfaces for this slice; they must be labeled as deterministic placeholders and
+  perform no real project, git, config, workflow, provider, model, tool,
+  permission, persistence, or filesystem lookups. Snapshot sizes are 80x24 and
+  120x32 for status/help; 100x30 and 160x45 remain covered by existing fixtures
+  or deferred until M6 responsive layout work.
+tasks:
+  - number: 1
+    name: Closed command route boundary
+    depends_on: []
+    status: complete
+  - number: 2
+    name: TUI command update routing
+    depends_on:
+      - "1"
+    status: complete
+  - number: 3
+    name: Deterministic fake status and help surfaces
+    depends_on:
+      - "2"
+    status: complete
+  - number: 4
+    name: M5 command fixtures and parity tests
+    depends_on:
+      - "3"
+    status: complete
+  - number: 5
+    name: PTY command smoke and validation
+    depends_on:
+      - "4"
+    status: complete
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "5"
+    status: complete
+overall_acceptance:
+  - >-
+    GIVEN this plan is active WHEN orkestrera executes it THEN only M5 command
+    router scope is eligible for implementation.
+  - >-
+    GIVEN M5 is complete WHEN a user tests the TUI THEN /status, ctrl+x s, /help,
+    /quit, and ctrl+x q have deterministic fake behavior through one closed route
+    path without credentials or real agent execution.
+  - >-
+    GIVEN source docs are checked WHEN M5 closes THEN future command families,
+    resize, CLI, config, provider, workflow, model, tool, permission, and
+    persistence work remain deferred to later milestones.
+surprises:
+  - >-
+    The command-route quit path needed to emit tea.Quit before PTY /quit smoke
+    could validate process cleanup.
+  - >-
+    Bubble Tea diff rendering required an intermediate repaint between shortcut
+    status and slash status in the PTY smoke.
+closeout:
+  completed: 2026-05-12
+  validation: >-
+    Targeted policy/TUI/app/cmd command tests passed, command PTY smoke passed,
+    go test ./... passed, and post-closeout mage check passed.
+  deferred: >-
+    M6 resize/right rail, M7 CLI command shape, config/provider/model/go-agent/tool/
+    permission/persistence/workflow behavior, broader command families, args,
+    aliases, shell prefixes, command palette, plugins, MCP, dynamic tools,
+    workflow DSLs, generic graphs, provider marketplaces, and public runtime
+    harnesses remain deferred.
