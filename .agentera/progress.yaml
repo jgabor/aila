@@ -57,4 +57,266 @@ cycles:
         cmd/aila, internal/app, internal/tui, idle-empty fixture snapshots,
         go.mod/go.sum, ROADMAP.md, CHANGELOG.md, and Agentera progress/plan
         artifacts.
+  - number: 3
+    timestamp: "2026-05-12 15:30"
+    type: test
+    phase: build
+    what: >-
+      Normalized the M2 idle-empty render coverage into a package-private TUI
+      fixture harness that loads deterministic checked-in metadata and snapshots,
+      then renders from explicit ViewState inputs without launching Bubble Tea.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 3"
+    discovered: >-
+      Semantic snapshot JSON was structurally identical but not byte-identical due
+      to existing checked-in compact array formatting versus encoder indentation;
+      the harness now compares semantic snapshots as parsed JSON while continuing
+      to read checked-in snapshot files.
+    verified: >-
+      `mage fmt` completed successfully; `go test ./internal/tui` passed with the
+      package-private fixture harness, text snapshot checks, semantic JSON checks,
+      and existing static model quit-path coverage. The diff is limited to
+      internal/tui package-private `_test.go` harness/test code plus Agentera
+      metadata, so it adds no CLI command, exported extension point, plugin
+      surface, runtime harness entrypoint, Bubble Tea launch path, filesystem
+      mutation, shell/git/model IO, or workflow IO.
+    next: >-
+      Execute M3 task 2: snapshot review and explicit update procedure.
+    context:
+      intent: >-
+        Establish the reusable deterministic fixture harness shape for current
+        static-shell TUI meaning without creating user-facing or runtime surfaces.
+      constraints: >-
+        Implement only M3 task 1; do not add CLI commands, runtime harness
+        entrypoints, plugin surfaces, workflow IO, model/tool execution, or
+        snapshot update behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui fixture tests and package-private harness helpers plus
+        Agentera task/progress artifacts.
+  - number: 4
+    timestamp: "2026-05-12 15:40"
+    type: test
+    phase: build
+    what: >-
+      Added the M3 task 2 snapshot review/update procedure: fixture failures now
+      name the snapshot output path under review, normal tests remain read-only,
+      and explicit local snapshot regeneration is gated by
+      AILA_UPDATE_TUI_SNAPSHOTS.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; docs/tui-testing.md Snapshot Update Procedure"
+    discovered: >-
+      The existing fixture harness only compared checked-in outputs. The update
+      path could stay package-private and test-only, with no runtime, CLI,
+      workflow, model, tool, plugin, MCP, or dynamic-tool surface.
+    verified: >-
+      `mage fmt` completed successfully after Go test edits; `go test
+      ./internal/tui` passed. `go test ./internal/tui -run
+      TestSnapshotUpdateModeIsExplicit` passed, proving snapshot update mode is
+      disabled by default and enabled only by an explicit local flag. A bounded
+      mismatch probe against
+      `testdata/fixtures/idle-empty/plain-80x24.txt` failed with `render
+      mismatch for fixture output testdata/fixtures/idle-empty/plain-80x24.txt`,
+      proving failures point to the fixture output under review and normal tests
+      do not rewrite snapshots. The same probe with
+      `AILA_UPDATE_TUI_SNAPSHOTS=1` rewrote the fixture output and still failed
+      with `review the git diff before accepting this change`, proving explicit
+      update mode is review-gated. `git diff --
+      internal/tui/testdata/fixtures/idle-empty/plain-80x24.txt` then produced no
+      output, confirming the probe left checked-in snapshots restored.
+    next: >-
+      Execute M3 task 3: required fixture set.
+    context:
+      intent: >-
+        Make snapshot updates explicit, local, and review-gated without changing
+        runtime behavior or expanding fixture coverage.
+      constraints: >-
+        Implement only M3 task 2; do not add required narrow/desktop fixtures,
+        semantic expansion, CLI commands, runtime harness entrypoints, workflow
+        transitions, model/tool execution, plugins, MCP, dynamic tools, or
+        snapshot rewrites during normal tests.
+      unknowns: "none"
+      scope: >-
+        internal/tui test-only fixture helpers, snapshot procedure documentation,
+        and Agentera task/progress artifacts.
+  - number: 5
+    timestamp: "2026-05-12 16:05"
+    type: test
+    phase: build
+    what: >-
+      Added the required M3 fixture set by declaring per-fixture render sizes and
+      adding narrow-80 and desktop-wide static-shell fixture metadata with plain,
+      ANSI, and semantic outputs.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 3"
+    discovered: >-
+      desktop-wide can remain a 160x45 snapshot of the current static shell; no
+      right rail or responsive layout behavior is needed for this task.
+    verified: >-
+      Criterion 1: `go test ./internal/tui -run 'TestRequiredM3'` passed, including
+      TestRequiredM3FixtureSet which reads metadata for idle-empty, narrow-80, and
+      desktop-wide, checks declared sizes, and verifies plain, ANSI, and semantic
+      output files exist. Criterion 2: the same command passed
+      TestRequiredM3FixtureScopes for narrow-80 at 80x24, confirming the render is
+      the current static shell with chat, prompt, and q quit only, and without
+      submit, slash command, command router, right rail, or resize text. Criterion
+      3: the same command passed TestRequiredM3FixtureScopes for desktop-wide at
+      160x45, confirming current static shell regions and no right-rail region.
+      Snapshot verification also passed for required fixtures through
+      TestRequiredM3RenderSnapshots and TestRequiredM3SemanticSnapshots. `go test
+      ./internal/tui` passed for the full TUI package. `mage fmt` completed
+      successfully after Go test edits.
+    next: >-
+      Execute M3 task 4: semantic contract consistency, without treating Task 3's
+      fixture files as permission to add workflow or responsive behavior.
+    context:
+      intent: >-
+        Provide the required checked-in fixture scenarios and outputs agents can
+        inspect before terminal use.
+      constraints: >-
+        Implement only M3 task 3; do not add input submission, slash commands,
+        shortcut parity, resize responsiveness, config, provider, workflow
+        transition, model/tool execution, plugin, MCP, dynamic-tool, or
+        workflow-DSL behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui fixture metadata, package-private fixture tests, new required
+        snapshot files, and Agentera task/progress artifacts.
+  - number: 6
+    timestamp: "2026-05-12 16:10"
+    type: test
+    phase: build
+    what: >-
+      Added explicit M3 task 4 semantic contract assertions over the checked-in
+      required fixture JSON files so agents can identify screen dimensions,
+      focus, session phase semantics, visible regions, and available actions
+      before PTY or tmux use.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; docs/tui-testing.md Semantic Snapshots"
+    discovered: >-
+      The semantic renderer already exposed the required fields; the missing
+      piece was a direct contract test that parses checked-in semantic fixture
+      files and proves placeholder phase semantics remain display-only rather
+      than a TUI-owned workflow transition.
+    verified: >-
+      Criterion 1: `go test ./internal/tui -run
+      'TestRequiredM3Semantic|TestRequiredM3FixtureScopes'` passed, including
+      TestRequiredM3SemanticContractConsistency assertions that every required
+      semantic fixture exposes deterministic screen width, screen height, focus,
+      session phase, visible regions, and actions. Criterion 2: the same command
+      passed assertions that placeholder/not_started snapshots have
+      workflow_transition=false, active=false, queued_messages=0, and a
+      display-only phase region, proving no workflow transition behavior is
+      implied or introduced. Criterion 3: the same command passed assertions that
+      focus names a visible region, required regions are present with
+      agent-readable items, and the only available action is deterministic q
+      quit. `mage fmt` completed successfully after Go test edits.
+    next: >-
+      Execute M3 task 5 only when explicitly requested: validation and closeout.
+      Task 6 remains pending until Task 5 is complete.
+    context:
+      intent: >-
+        Make the semantic fixture files a deterministic agent-readable contract
+        for current static-shell TUI meaning.
+      constraints: >-
+        Implement only M3 task 4; do not add input submission, slash commands,
+        shortcut parity, resize responsiveness, config, provider, workflow
+        transition, model/tool execution, plugin, MCP, dynamic-tool, workflow-DSL,
+        generic-graph, or provider-marketplace behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui package-private semantic fixture tests and Agentera
+        task/progress artifacts only.
+  - number: 7
+    timestamp: "2026-05-12 16:12"
+    type: test
+    phase: build
+    what: >-
+      Executed M3 task 5 validation and closeout for the fixture and snapshot
+      harness. No implementation fixes were needed; closeout updated ROADMAP.md
+      after validation passed and kept the active plan in place for the final
+      freshness checkpoint.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 3"
+    discovered: >-
+      PTY smoke was intentionally skipped for M3 because this slice changed only
+      deterministic fixture/snapshot test contracts and documentation closeout;
+      it did not change terminal startup, alternate-screen, input, resize, or
+      quit behavior.
+    verified: >-
+      Criterion 1: PTY skip rationale recorded because M3 did not change
+      terminal startup, alternate-screen, input, resize, or quit behavior.
+      Criterion 2: targeted TUI validation `go test ./internal/tui -run
+      'TestRequiredM3|TestSnapshotUpdateModeIsExplicit|TestStaticModelQuit'`
+      passed; full project validation `go test ./...` passed; full Mage gate
+      `mage check` passed with 0 lint issues and no vulnerabilities. Criterion
+      3: ROADMAP.md now marks Milestone 3 complete, Milestone 4 next, active
+      milestone none, and records the validation evidence.
+    next: >-
+      Execute M3 task 6 final freshness checkpoint only when explicitly
+      requested; do not archive or remove the active plan until that checkpoint
+      is complete.
+    context:
+      intent: >-
+        Close out M3 validation while preserving the Task 6 handoff checkpoint.
+      constraints: >-
+        Implement only M3 task 5; do not add M4 input behavior, slash commands,
+        shortcuts, resize behavior, config, providers, workflow transitions,
+        model/tool execution, plugins, MCP, dynamic tools, workflow DSLs,
+        generic graphs, provider marketplaces, public runtime harnesses, CLI
+        surfaces, commits, pushes, or plan archival.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md validation status and Agentera plan/progress artifacts only.
+  - number: 8
+    timestamp: "2026-05-12 16:14"
+    type: test
+    phase: build
+    what: >-
+      Executed the final M3 plan-level freshness checkpoint, marked Task 6
+      complete in the archived plan, removed the active plan, and verified the
+      final M3 diff against the source roadmap, prompt, architecture, README,
+      TUI testing, and workflow architecture documents.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 3; docs/notes/PROMPT.md; ARCHITECTURE.md; README.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      The final M3 diff remains limited to test-only TUI fixture harness code,
+      deterministic fixture metadata and snapshots, snapshot review procedure
+      documentation, roadmap closeout, and Agentera artifacts. No M4+ input loop,
+      command routing, resize responsiveness, right rail, config, provider,
+      workflow transition, model, tool, plugin, MCP, dynamic-tool, workflow-DSL,
+      generic-graph, provider-marketplace, public runtime harness, or CLI surface
+      behavior entered the change. The prior progress entry for Task 5 had a
+      timestamp/order inconsistency; its evidence text was preserved and the
+      timestamp was corrected conservatively so cycle order remains monotonic.
+    verified: >-
+      Criterion 1: reviewed the final M3 diff against ROADMAP.md,
+      docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+      docs/workflow-architecture.md, confirming the implementation preserves
+      statechart-MVU, fixed-product, and TUI presentation-only rules. Criterion
+      2: confirmed future work remains deferred: M4 input loop and fake app
+      adapter, M5 command routing and shortcut parity, M6 resize responsiveness
+      and right rail, plus config/provider/workflow/model/tool behavior are not
+      implemented by M3. Criterion 3: archived the completed plan to
+      .agentera/archive/plan-2026-05-12-m3.yaml, marked Task 6 complete there,
+      removed active .agentera/plan.yaml, and preserved Agentera progress
+      evidence. Criterion 4: post-closeout `mage check` passed with cached Go
+      package tests, 0 lint issues, and no vulnerabilities; `agentera plan`
+      reported no active plan; `agentera progress` reported final cycle number
+      8.
+    next: >-
+      Active Agentera plan is closed; use ROADMAP.md Next milestone only if the
+      user explicitly starts M4 work.
+    context:
+      intent: >-
+        Close M3 after proving the completed change stayed within the fixture and
+        snapshot harness milestone.
+      constraints: >-
+        Implement only M3 task 6; do not add input, slash, shortcut, resize,
+        right-rail, config, provider, workflow, model, tool, plugin, MCP,
+        dynamic-tool, workflow-DSL, generic-graph, provider-marketplace, public
+        runtime harness, CLI surface, commit, or push behavior.
+      unknowns: "none"
+      scope: >-
+        Agentera progress and plan archival artifacts only.
 archive: []

@@ -1,0 +1,12 @@
+Aila
+screen: 80x24
+phase: placeholder (display-only)
+model: placeholder | utility: placeholder | autonomy: placeholder
+
+chat:
+  No messages yet.
+
+prompt:
+>
+
+footer: git: placeholder | context: placeholder | quit: q

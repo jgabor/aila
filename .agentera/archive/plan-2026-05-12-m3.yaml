@@ -1,0 +1,105 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: complete
+  reviewed: 2026-05-12
+  critic_issues: "7 found, 7 addressed, 0 dismissed"
+  title: M3 Fixture And Snapshot Harness
+what: >-
+  Normalize the M2 static-shell render coverage into a reusable deterministic
+  TUI fixture harness so agents can inspect current UI meaning from checked-in
+  files before using a terminal.
+why: >-
+  Aila needs a durable TUI test contract before input, command routing, resize,
+  config, provider, or workflow behavior are added. The harness keeps later UI
+  work agent-readable while preserving statechart-MVU and presentation-only
+  boundaries.
+constraints: >-
+  Implement only ROADMAP.md Milestone 3. Do not add M4+ input submission, slash
+  commands, shortcut parity, resize responsiveness, config, provider, workflow
+  transitions, model or tool execution, plugins, MCP, dynamic tools, workflow
+  DSLs, generic graph engines, or provider marketplace behavior. Snapshot
+  update support must stay test-only, explicit, and read-only by default.
+  desktop-wide is a 160x45 static-shell fixture for current UI meaning; right
+  rail behavior remains deferred to Milestone 6.
+scope:
+  included:
+    - Reusable deterministic fixture coverage for the current static shell.
+    - Test-only snapshot review and optional explicit update procedure.
+    - Required M3 fixtures: idle-empty, narrow-80, and desktop-wide.
+    - Plain, ANSI, and semantic render outputs for required fixture sizes.
+    - Semantic snapshot consistency for screen, focus, phase, regions, and actions.
+    - ROADMAP.md status update only after validation passes.
+  excluded:
+    - Input submission, fake chat response behavior, slash command routing, shortcut parity, resize responsiveness, config loading, provider readiness, workflow transitions, model turns, tool execution, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, provider marketplace behavior, and public test-harness APIs.
+    - New terminal startup, alternate-screen, input, resize, or quit behavior beyond the already validated M2 shell.
+  deferred:
+    - "M4 Basic Input Loop: typing, Enter submission, fake app adapter, and PTY prompt response."
+    - "M5 Minimal Command Router: slash commands and shortcut parity."
+    - "M6 Resize And Layout Responsiveness: responsive layout, right rail, and resize PTY smoke."
+design: >-
+  Extend and normalize the existing M2 ViewState and render tests into a reusable
+  fixture-driven contract. The harness is a test representation of current TUI
+  meaning, not a product API, CLI surface, plugin point, or runtime mode. Snapshot
+  update support may exist only behind an explicit local opt-in and must leave
+  normal tests read-only.
+tasks:
+  - number: 1
+    name: Fixture harness shape
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN the M2 static shell exists WHEN fixture tests render scenarios THEN they use deterministic view-state inputs without launching Bubble Tea or touching filesystem, shell, git, model, or workflow IO except reading checked-in snapshots.
+      - GIVEN the harness is inspected WHEN user-facing surfaces are considered THEN no new CLI command, exported extension point, plugin surface, or runtime harness entrypoint is added.
+      - GIVEN existing M2 render helpers exist WHEN M3 work is complete THEN they are extended or normalized rather than replaced with unnecessary public API churn.
+  - number: 2
+    name: Snapshot review and update procedure
+    depends_on:
+      - "1"
+    status: complete
+    acceptance:
+      - GIVEN a snapshot mismatch WHEN the test fails THEN the failure points to the fixture output under review.
+      - GIVEN normal CI or local test execution WHEN tests run THEN no snapshot files are rewritten.
+      - GIVEN explicit local snapshot update mode is used WHEN outputs are regenerated THEN the developer still reviews the git diff before accepting the change.
+  - number: 3
+    name: Required fixture set
+    depends_on:
+      - "1"
+      - "2"
+    status: complete
+    acceptance:
+      - GIVEN M3 fixture metadata is read WHEN required scenarios are listed THEN idle-empty, narrow-80, and desktop-wide all exist with declared sizes and plain, ANSI, and semantic outputs.
+      - GIVEN narrow-80 is rendered WHEN output is inspected THEN it represents the current static shell at 80x24 without adding M4 input behavior or M6 resize behavior.
+      - GIVEN desktop-wide renders at 160x45 WHEN output is inspected THEN it represents current static shell regions while deferring right-rail behavior to Milestone 6.
+  - number: 4
+    name: Semantic contract consistency
+    depends_on:
+      - "3"
+    status: complete
+    acceptance:
+      - GIVEN any required fixture semantic JSON WHEN it is parsed THEN screen width, screen height, focus, session phase, regions, and actions are present and deterministic.
+      - GIVEN placeholder phase semantics are inspected WHEN M3 snapshots are read THEN they still do not imply workflow transition behavior.
+      - GIVEN an agent validates TUI meaning WHEN it reads semantic snapshots THEN it can identify the current screen size, focused region, visible regions, and available action before using tmux or PTY output.
+  - number: 5
+    name: Validation and closeout
+    depends_on:
+      - "4"
+    status: complete
+    acceptance:
+      - GIVEN M3 changes no terminal startup, alternate-screen, input, resize, or quit behavior WHEN PTY smoke is considered THEN PTY is skipped with that explicit reason.
+      - GIVEN validation runs WHEN the slice is complete THEN targeted TUI tests, go test ./..., and mage check pass.
+      - GIVEN validation passes WHEN closeout is written THEN ROADMAP.md marks M3 complete, M4 next, active none, and records validation evidence.
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "5"
+    status: complete
+    acceptance:
+      - GIVEN the final diff WHEN checked against ROADMAP.md, docs/notes/PROMPT.md, ARCHITECTURE.md, docs/tui-testing.md, README.md, and docs/workflow-architecture.md THEN the change remains M3-only and preserves statechart-MVU and TUI presentation-only rules.
+      - GIVEN future roadmap work remains WHEN the handoff is read THEN M4 and later behavior is deferred rather than activated by this plan.
+overall_acceptance:
+  - GIVEN this plan is active WHEN realisera starts work THEN only M3 fixture and snapshot harness scope is eligible for execution.
+  - GIVEN M3 is complete WHEN an agent validates the TUI THEN it can inspect deterministic fixture files before using tmux or PTY output.
+  - GIVEN the repository is validated WHEN ROADMAP.md is updated THEN targeted TUI tests, go test ./..., and mage check have passed.
+surprises:
+  - The Task 5 progress timestamp was corrected during Task 6 closeout to preserve monotonic progress order while retaining the original evidence text.

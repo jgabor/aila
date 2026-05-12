@@ -19,21 +19,22 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                               |
-| ------------------------ | ------------------------------------------------------------------- |
-| Last completed milestone | Milestone 2: Static TUI Shell                                       |
-| Next milestone           | Milestone 3: Fixture And Snapshot Harness                           |
-| Active milestone         | none                                                                |
-| Last updated             | 2026-05-12                                                          |
-| Last validation          | M2 render, semantic, PTY, `go test ./...`, and `mage check` passed. |
+| Field                    | Value                                                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 3: Fixture And Snapshot Harness                                                                              |
+| Next milestone           | Milestone 4: Basic Input Loop                                                                                          |
+| Active milestone         | none                                                                                                                   |
+| Last updated             | 2026-05-12                                                                                                             |
+| Last validation          | M3 targeted TUI tests, `go test ./...`, and `mage check` passed; PTY skipped because terminal behavior did not change. |
 
 Completion log:
 
-| Milestone | Status    | Date       | Validation summary                                                 |
-| --------- | --------- | ---------- | ------------------------------------------------------------------ |
-| 0         | completed | 2026-05-11 | Source docs and TUI procedure exist; `mage check` passes baseline. |
-| 1         | completed | 2026-05-12 | Go skeleton packages and idle-empty semantic fixture validated.    |
-| 2         | completed | 2026-05-12 | Static TUI shell renders and quits through PTY smoke.              |
+| Milestone | Status    | Date       | Validation summary                                                              |
+| --------- | --------- | ---------- | ------------------------------------------------------------------------------- |
+| 0         | completed | 2026-05-11 | Source docs and TUI procedure exist; `mage check` passes baseline.              |
+| 1         | completed | 2026-05-12 | Go skeleton packages and idle-empty semantic fixture validated.                 |
+| 2         | completed | 2026-05-12 | Static TUI shell renders and quits through PTY smoke.                           |
+| 3         | completed | 2026-05-12 | Fixture harness snapshots validated; PTY skipped, no terminal behavior changed. |
 
 Status values:
 

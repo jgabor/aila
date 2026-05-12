@@ -211,12 +211,17 @@ free of timestamps unless timestamps are the feature being tested.
 When changing TUI rendering:
 
 1. Run the relevant render tests.
-2. Inspect failing plain-text, ANSI, and semantic snapshots.
+2. Inspect failing plain-text, ANSI, and semantic snapshots. Test failures must
+   name the fixture output path under review.
 3. Decide whether each difference is intended.
-4. Update snapshots only for intended differences.
+4. Update snapshots only for intended differences by rerunning the targeted test
+   locally with `AILA_UPDATE_TUI_SNAPSHOTS=1`. Normal local and CI test runs
+   must leave snapshot files read-only.
 5. Add or adjust semantic assertions when the changed behavior is meaningful.
-6. Run the full TUI package tests.
-7. Run the PTY smoke test if input, focus, sizing, streaming, or terminal control
+6. Review `git diff` for every regenerated fixture output. The update mode must
+   fail after writing snapshots so the diff is reviewed before acceptance.
+7. Run the full TUI package tests without `AILA_UPDATE_TUI_SNAPSHOTS`.
+8. Run the PTY smoke test if input, focus, sizing, streaming, or terminal control
    changed.
 
 Never bulk-update snapshots without reviewing the diff. Snapshot churn is a bug

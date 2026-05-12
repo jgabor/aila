@@ -4,6 +4,10 @@
   "terminal_behavior": "bubbletea_static",
   "quit_input": "q",
   "states": ["idle"],
+  "render_sizes": [
+    { "name": "80x24", "width": 80, "height": 24 },
+    { "name": "120x32", "width": 120, "height": 32 }
+  ],
   "render_outputs": {
     "plain_80x24": "plain-80x24.txt",
     "plain_120x32": "plain-120x32.txt",

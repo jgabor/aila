@@ -2,120 +2,302 @@ package tui
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestIdleEmptyFixtureShape(t *testing.T) {
+func TestRequiredM3FixtureSet(t *testing.T) {
 	t.Parallel()
 
-	data := readFixtureFile(t, "fixture.json")
-	var fixture struct {
-		Name             string            `json:"name"`
-		Kind             string            `json:"kind"`
-		TerminalBehavior string            `json:"terminal_behavior"`
-		QuitInput        string            `json:"quit_input"`
-		States           []string          `json:"states"`
-		RenderOutputs    map[string]string `json:"render_outputs"`
+	required := map[string][]fixtureSize{
+		"idle-empty": {
+			{Name: "80x24", Width: 80, Height: 24},
+			{Name: "120x32", Width: 120, Height: 32},
+		},
+		"narrow-80": {
+			{Name: "80x24", Width: 80, Height: 24},
+		},
+		"desktop-wide": {
+			{Name: "160x45", Width: 160, Height: 45},
+		},
 	}
-	if err := json.Unmarshal(data, &fixture); err != nil {
-		t.Fatalf("unmarshal idle-empty fixture: %v", err)
+
+	for name, sizes := range required {
+		name := name
+		sizes := sizes
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadStaticShellFixture(t, name)
+			if fixture.Name != name {
+				t.Fatalf("fixture name = %q, want %s", fixture.Name, name)
+			}
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			if fixture.TerminalBehavior != "bubbletea_static" {
+				t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+			}
+			if fixture.QuitInput != "q" {
+				t.Fatalf("quit input = %q, want q", fixture.QuitInput)
+			}
+			if len(fixture.States) != 1 || fixture.States[0] != "idle" {
+				t.Fatalf("fixture states = %v, want [idle]", fixture.States)
+			}
+			assertFixtureSizes(t, fixture, sizes)
+			for _, size := range fixture.Sizes {
+				for _, kind := range []string{"plain", "ansi", "semantic"} {
+					key := fixtureOutputKey(kind, size.Name)
+					if fixture.Outputs[key] == "" {
+						t.Fatalf("render output %q missing from fixture metadata", key)
+					}
+					fixture.ReadFile(t, fixture.Outputs[key])
+				}
+			}
+		})
 	}
-	if fixture.Name != "idle-empty" {
-		t.Fatalf("fixture name = %q, want idle-empty", fixture.Name)
+}
+
+func assertFixtureSizes(t *testing.T, fixture renderFixture, want []fixtureSize) {
+	t.Helper()
+
+	if len(fixture.Sizes) != len(want) {
+		t.Fatalf("fixture sizes = %+v, want %+v", fixture.Sizes, want)
 	}
-	if fixture.Kind != "static_shell" {
-		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
-	}
-	if fixture.TerminalBehavior != "bubbletea_static" {
-		t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
-	}
-	if fixture.QuitInput != "q" {
-		t.Fatalf("quit input = %q, want q", fixture.QuitInput)
-	}
-	if len(fixture.States) != 1 || fixture.States[0] != "idle" {
-		t.Fatalf("fixture states = %v, want [idle]", fixture.States)
-	}
-	for _, name := range []string{
-		"plain_80x24",
-		"plain_120x32",
-		"ansi_80x24",
-		"ansi_120x32",
-		"semantic_80x24",
-		"semantic_120x32",
-	} {
-		if fixture.RenderOutputs[name] == "" {
-			t.Fatalf("render output %q missing from fixture metadata", name)
+	for i, size := range fixture.Sizes {
+		if size != want[i] {
+			t.Fatalf("fixture size %d = %+v, want %+v", i, size, want[i])
 		}
 	}
 }
 
-func TestIdleEmptyRenderSnapshots(t *testing.T) {
+func loadStaticShellFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestRequiredM3FixtureScopes(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name   string
-		size   Size
-		file   string
-		render func(ViewState, Size) string
+	for _, tc := range []struct {
+		name string
+		size Size
 	}{
-		{name: "plain 80x24", size: Size{Width: 80, Height: 24}, file: "plain-80x24.txt", render: RenderPlain},
-		{name: "plain 120x32", size: Size{Width: 120, Height: 32}, file: "plain-120x32.txt", render: RenderPlain},
-		{name: "ansi 80x24", size: Size{Width: 80, Height: 24}, file: "ansi-80x24.txt", render: RenderANSI},
-		{name: "ansi 120x32", size: Size{Width: 120, Height: 32}, file: "ansi-120x32.txt", render: RenderANSI},
-	}
-	for _, tc := range cases {
+		{name: "narrow-80", size: Size{Width: 80, Height: 24}},
+		{name: "desktop-wide", size: Size{Width: 160, Height: 45}},
+	} {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := tc.render(IdleEmptyState(), tc.size)
-			want := snapshotString(t, tc.file)
-			if got != want {
-				t.Fatalf("render mismatch for %s\nwant:\n%s\n\ngot:\n%s", tc.file, want, got)
+			fixture := loadStaticShellFixture(t, tc.name)
+			plain := RenderPlain(fixture.State, tc.size)
+			if !containsAll(plain, []string{"chat:\n  No messages yet.", "prompt:\n>", "quit: q"}) {
+				t.Fatalf("%s plain render does not represent the current static shell:\n%s", tc.name, plain)
+			}
+			if containsAny(plain, []string{"submit", "slash", "command", "right rail", "resize"}) {
+				t.Fatalf("%s plain render includes deferred behavior:\n%s", tc.name, plain)
+			}
+
+			semantic := Semantic(fixture.State, tc.size)
+			if semantic.Screen.Width != tc.size.Width || semantic.Screen.Height != tc.size.Height {
+				t.Fatalf("%s screen = %dx%d, want %dx%d", tc.name, semantic.Screen.Width, semantic.Screen.Height, tc.size.Width, tc.size.Height)
+			}
+			if len(semantic.Actions) != 1 || semantic.Actions[0].Input != "q" {
+				t.Fatalf("%s actions = %+v, want single q quit action", tc.name, semantic.Actions)
+			}
+			for _, region := range semantic.Regions {
+				if region.Name == "right_rail" || region.Name == "right-rail" {
+					t.Fatalf("%s should defer right rail behavior to Milestone 6", tc.name)
+				}
 			}
 		})
 	}
 }
 
-func TestIdleEmptySemanticSnapshots(t *testing.T) {
+func containsAll(value string, needles []string) bool {
+	for _, needle := range needles {
+		if !contains(value, needle) {
+			return false
+		}
+	}
+	return true
+}
+
+func containsAny(value string, needles []string) bool {
+	for _, needle := range needles {
+		if contains(value, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func contains(value string, needle string) bool {
+	return strings.Contains(value, needle)
+}
+
+func TestRequiredM3RenderSnapshots(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name string
-		size Size
-		file string
-	}{
-		{name: "semantic 80x24", size: Size{Width: 80, Height: 24}, file: "semantic-80x24.json"},
-		{name: "semantic 120x32", size: Size{Width: 120, Height: 32}, file: "semantic-120x32.json"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, name := range []string{"idle-empty", "narrow-80", "desktop-wide"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := RenderSemanticJSON(IdleEmptyState(), tc.size)
-			want := snapshotString(t, tc.file)
-			if got != want {
-				t.Fatalf("semantic mismatch for %s\nwant:\n%s\n\ngot:\n%s", tc.file, want, got)
-			}
+			fixture := loadStaticShellFixture(t, name)
+			for _, tc := range fixture.TextCases() {
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
 
-			var snapshot SemanticSnapshot
-			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
-				t.Fatalf("unmarshal semantic snapshot: %v", err)
-			}
-			if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
-				t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
-			}
-			if snapshot.Session.WorkflowTransition {
-				t.Fatal("placeholder phase must not imply workflow transition behavior")
-			}
-			if len(snapshot.Actions) != 1 || snapshot.Actions[0].Input != "q" {
-				t.Fatalf("actions = %+v, want single q quit action", snapshot.Actions)
+					got := tc.render(fixture.State, tc.size)
+					assertTextSnapshot(t, fixture, tc.file, got)
+				})
 			}
 		})
+	}
+}
+
+func TestRequiredM3SemanticSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"idle-empty", "narrow-80", "desktop-wide"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadStaticShellFixture(t, name)
+			for _, tc := range fixture.SemanticCases() {
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, tc.size)
+					assertSemanticSnapshot(t, fixture, tc.file, got)
+
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
+						t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
+					}
+					if snapshot.Session.WorkflowTransition {
+						t.Fatal("placeholder phase must not imply workflow transition behavior")
+					}
+					if len(snapshot.Actions) != 1 || snapshot.Actions[0].Input != "q" {
+						t.Fatalf("actions = %+v, want single q quit action", snapshot.Actions)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestRequiredM3SemanticContractConsistency(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"idle-empty", "narrow-80", "desktop-wide"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadStaticShellFixture(t, name)
+			for _, tc := range fixture.SemanticCases() {
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
+
+					snapshot := readSemanticSnapshot(t, fixture, tc.file)
+					assertSemanticContract(t, name, tc.size, snapshot)
+				})
+			}
+		})
+	}
+}
+
+func readSemanticSnapshot(t *testing.T, fixture renderFixture, file string) SemanticSnapshot {
+	t.Helper()
+
+	var snapshot SemanticSnapshot
+	if err := json.Unmarshal(fixture.ReadFile(t, file), &snapshot); err != nil {
+		t.Fatalf("unmarshal semantic snapshot %s: %v", fixture.SnapshotPath(file), err)
+	}
+	return snapshot
+}
+
+func assertSemanticContract(t *testing.T, scenario string, size Size, snapshot SemanticSnapshot) {
+	t.Helper()
+
+	if snapshot.Scenario != scenario {
+		t.Fatalf("scenario = %q, want %q", snapshot.Scenario, scenario)
+	}
+	if snapshot.Screen.Width != size.Width || snapshot.Screen.Height != size.Height {
+		t.Fatalf("screen = %dx%d, want %dx%d", snapshot.Screen.Width, snapshot.Screen.Height, size.Width, size.Height)
+	}
+	if snapshot.Screen.Focus == "" {
+		t.Fatal("screen focus is empty")
+	}
+	if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
+		t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
+	}
+	if snapshot.Session.WorkflowTransition || snapshot.Session.Active || snapshot.Session.QueuedMessages != 0 {
+		t.Fatalf("placeholder session implies runtime workflow behavior: %+v", snapshot.Session)
+	}
+	if snapshot.Session.Autonomy == "" {
+		t.Fatal("session autonomy is empty")
+	}
+
+	regions := map[string]SemanticRegion{}
+	for _, region := range snapshot.Regions {
+		if region.Name == "" {
+			t.Fatal("semantic region name is empty")
+		}
+		if _, exists := regions[region.Name]; exists {
+			t.Fatalf("duplicate semantic region %q", region.Name)
+		}
+		if !region.Visible {
+			t.Fatalf("semantic region %q is hidden in the static shell contract", region.Name)
+		}
+		if len(region.Items) == 0 {
+			t.Fatalf("semantic region %q has no agent-readable items", region.Name)
+		}
+		regions[region.Name] = region
+	}
+	for _, name := range []string{"header", "phase", "model", "chat", "prompt", "footer"} {
+		if _, ok := regions[name]; !ok {
+			t.Fatalf("semantic region %q missing from snapshot", name)
+		}
+	}
+	if _, ok := regions[snapshot.Screen.Focus]; !ok {
+		t.Fatalf("focus %q does not identify a visible semantic region", snapshot.Screen.Focus)
+	}
+	if !containsAll(strings.Join(regions["phase"].Items, "\n"), []string{"placeholder", "display-only"}) {
+		t.Fatalf("phase region items = %v, want placeholder display-only semantics", regions["phase"].Items)
+	}
+
+	if len(snapshot.Actions) != 1 || snapshot.Actions[0].Name != "quit" || snapshot.Actions[0].Input != "q" {
+		t.Fatalf("actions = %+v, want deterministic q quit action only", snapshot.Actions)
+	}
+}
+
+func TestSnapshotUpdateModeIsExplicit(t *testing.T) {
+	t.Setenv(updateSnapshotsEnv, "")
+	if snapshotUpdateRequested(t) {
+		t.Fatal("unset snapshot update mode should be read-only")
+	}
+
+	t.Setenv(updateSnapshotsEnv, "0")
+	if snapshotUpdateRequested(t) {
+		t.Fatal("disabled snapshot update mode should be read-only")
+	}
+
+	t.Setenv(updateSnapshotsEnv, "1")
+	if !snapshotUpdateRequested(t) {
+		t.Fatal("explicit snapshot update mode should be enabled")
 	}
 }
 
@@ -143,21 +325,4 @@ func TestStaticModelQuitPath(t *testing.T) {
 	if updated.(Model).Quitting() {
 		t.Fatal("Esc should not mark the static model as quitting")
 	}
-}
-
-func readFixtureFile(t *testing.T, name string) []byte {
-	t.Helper()
-
-	path := filepath.Join("testdata", "fixtures", "idle-empty", name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return data
-}
-
-func snapshotString(t *testing.T, name string) string {
-	t.Helper()
-
-	return strings.TrimSuffix(string(readFixtureFile(t, name)), "\n")
 }

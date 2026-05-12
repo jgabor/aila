@@ -1,0 +1,17 @@
+{
+  "name": "desktop-wide",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle"],
+  "render_sizes": [{ "name": "160x45", "width": 160, "height": 45 }],
+  "render_outputs": {
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_160x45": "semantic-160x45.json"
+  },
+  "notes": [
+    "Milestone 3 required desktop fixture for the current static shell only.",
+    "Right rail and responsive layout behavior are deferred to Milestone 6."
+  ]
+}

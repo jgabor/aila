@@ -1,0 +1,12 @@
+[1mAila[0m
+screen: 160x45
+phase: [33mplaceholder[0m (display-only)
+model: [36mplaceholder[0m | utility: placeholder | autonomy: placeholder
+
+chat:
+  No messages yet.
+
+prompt:
+>
+
+[2mfooter: git: placeholder | context: placeholder | quit: q[0m
