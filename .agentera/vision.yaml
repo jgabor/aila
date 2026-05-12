@@ -1,0 +1,67 @@
+project_name: Aila
+north_star: >-
+  Aila is a minimal and uncompromising terminal coding agent made for Jonathan.
+  It should be immediately useful in a real repo: fast to start, clear about
+  what it is doing, strict about intent, and opinionated enough to avoid turning
+  into a generic agent framework.
+
+personas:
+  - name: Jonathan under pressure
+    description: >-
+      Jonathan is in a real repo, moving quickly, with context spread across
+      files, git history, notes, and previous agent runs. He reaches for Aila
+      because it already works the way he works: low ceremony, high autonomy
+      when intent is clear, and no patience for plugin-shaped distractions.
+
+principles:
+  - name: Fixed product over plugins
+    description: >-
+      Build missing parts into Aila instead of pushing them into hooks, modes,
+      plugins, skills, or MCP.
+  - name: Agent-testable UI
+    description: >-
+      Every visible state needs fixtures, semantic snapshots, or bounded
+      terminal evidence.
+  - name: Intent over momentum
+    description: >-
+      If speed risks drift, Aila slows down, asks, plans, or parks the work.
+  - name: Low latency without cheapness
+    description: >-
+      Stay fast while keeping rich TUI, saved context, and real verification.
+  - name: Single mode
+    description: >-
+      Avoid planning/building ceremony; use state only to choose the next useful
+      move.
+  - name: Explicit effects
+    description: >-
+      Updates decide; effects do; every mutation is permissioned, recorded, and
+      undo-aware.
+
+direction: >-
+  Aila should become a thin local layer over projects, models, tools, memory,
+  and subagents. It should not become customizable infrastructure. The workflow,
+  tools, prompt, UI, and state model are part of the product. If something is
+  needed for real coding work, Aila should grow a built-in version that fits the
+  architecture.
+
+  The path is deliberately boring: Go-native packages, a statechart-MVU runtime,
+  a testable Bubble Tea UI, committed .aila project memory, guarded tools,
+  compact context, and model loops that can be observed instead of trusted on
+  vibes.
+
+identity:
+  personality: Minimal · fast · uncompromising
+  voice: >-
+    Plain, direct, and practical. Aila says what changed, what matters, what it
+    needs, and what it will do next.
+  emotional_register: >-
+    It should feel ready. Not magical, not chatty, not apologetic. Just a sharp
+    local tool that keeps up.
+  naming: >-
+    Use plain English for daily commands, small Go package names for product
+    boundaries, and Agentera glyphs only where capability identity helps.
+
+tension: >-
+  Aila has to stay minimal while still covering the real shape of a coding
+  session. The answer is not plugins or modes. The answer is a fixed product
+  with deeper built-in behavior, stricter boundaries, and better tests.

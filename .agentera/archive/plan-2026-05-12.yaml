@@ -1,0 +1,68 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: completed
+  reviewed: 2026-05-12
+  critic_issues: "6 found, 6 addressed, 0 dismissed"
+  title: M1 Go Skeleton
+what: >-
+  Establish Aila's first compileable Go skeleton without product behavior. The
+  slice creates the documented package boundaries, a minimal command entrypoint,
+  package compile tests, and the first inert TUI fixture and semantic contract.
+why: >-
+  Aila needs a real Go package shape before later TUI, runtime, workflow,
+  config, and provider slices can be validated by normal Go and Mage checks.
+constraints: >-
+  Implement only ROADMAP.md Milestone 1. Do not start the TUI, add runtime
+  behavior, create provider/config/state IO, introduce plugins, MCP, dynamic
+  tools, workflow DSLs, or mark the roadmap complete before validation passes.
+  Follow-on M2-M9A items are portfolio handoff notes, not active tasks.
+scope:
+  included:
+    - Minimal cmd/aila entrypoint.
+    - Documented internal package boundaries for Aila's fixed product shape.
+    - Package compile tests that make Go package gates real.
+    - First inert idle-empty fixture and semantic snapshot stub.
+    - ROADMAP.md status update only after validation passes.
+  excluded:
+    - Static terminal startup, interactive input, command routing, resizing, CLI behavior, config IO, provider IO, workflow transitions, model turns, tool execution, plugins, MCP, dynamic tools, workflow DSLs, and provider marketplace behavior.
+    - Any implementation from milestones after M1.
+  deferred:
+    - "M2 Static TUI Shell: plan only after M1 completion; terminal startup and quit, with no workflow-owned phase types."
+    - "M3 Fixture/Snapshot Harness: plan only after M2 completion; reusable deterministic render and semantic helpers."
+    - "M4 Basic Input Loop: plan only after M3 completion; fake app adapter outside the TUI."
+    - "M5 Minimal Command Router: plan only after M4 completion; routing owned outside internal/tui."
+    - "M6 Resize/Layout Responsiveness: plan only after M5 completion; deterministic layout and resize gates."
+    - "M7 CLI Command Shape: plan only after M6 completion; documented command surface with bounded outputs."
+    - "M8 Config Display Stub: plan only after M7 completion; display-only config source, no XDG creation."
+    - "M9 Config Creation/XDG Paths: plan only after M8 completion; temp-XDG-tested config creation, no .aila coupling."
+    - "M9A Provider Gateway/Credential Boundary: plan only after M9 completion; fixed built-in provider boundary, typed readiness errors, no real turns."
+design: >-
+  Keep this as a bootstrap boundary check. The command entrypoint and internal
+  packages exist only deeply enough for Go validation and later slices to attach
+  behavior. The TUI fixture is an inert contract, not terminal behavior.
+tasks:
+  - number: 1
+    name: Milestone 1 Go Skeleton
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN the repository is at the documented baseline WHEN the M1 slice is complete THEN Aila has the package boundary shape required for later roadmap slices without adding runtime behavior.
+      - GIVEN validation is run WHEN tests execute THEN Go package gates run against real packages rather than being skipped because no packages exist.
+      - GIVEN the skeleton has no product behavior WHEN tests are added THEN they verify boundary presence proportionally without inventing negative behavior cases.
+      - GIVEN the empty-screen contract is inspected WHEN the semantic fixture is reviewed THEN it describes an inert empty TUI state without terminal startup, workflow transitions, or runtime behavior.
+      - GIVEN M1 validation passes WHEN roadmap status changes THEN ROADMAP.md records M1 complete, M2 next, active none, and validation evidence.
+  - number: 2
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "1"
+    status: complete
+    acceptance:
+      - GIVEN M1 is validated WHEN handoff notes are prepared THEN the Slice Completion Template records fixtures, semantic snapshots, skipped PTY rationale, architecture checks, and verification commands.
+      - GIVEN future work remains WHEN the handoff is read THEN milestones after M1 are deferred portfolio items rather than active implementation scope.
+      - GIVEN validation fails WHEN the slice stops THEN ROADMAP.md is not marked complete and the blocker is preserved for the next developer or agent.
+overall_acceptance:
+  - GIVEN this plan is active WHEN realisera starts work THEN only M1 scope is eligible for execution.
+  - GIVEN the plan is complete WHEN the repository is validated THEN go test ./... and mage check have run against real Go packages.
+  - GIVEN the user asks for the path through M9A WHEN the plan is read THEN the follow-on milestone portfolio is visible without activating later milestones.
+surprises: []

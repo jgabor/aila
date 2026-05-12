@@ -1,0 +1,60 @@
+cycles:
+  - number: 1
+    timestamp: "2026-05-12 13:50"
+    type: chore
+    phase: build
+    what: >-
+      Created the M1 Go skeleton with cmd/aila, documented internal package
+      boundaries, compile tests, and the inert idle-empty TUI fixture contract.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/archive/plan-2026-05-12.yaml task 1; ROADMAP.md Milestone 1"
+    discovered: "No implementation blockers. PTY smoke was not applicable because cmd/aila does not start a terminal UI in M1."
+    verified: >-
+      `mage fmt && go test ./...` passed; `mage check` passed with real Go
+      package gates, zero lint issues, and no vulnerabilities.
+    next: >-
+      Plan or execute ROADMAP.md Milestone 2: Static TUI Shell.
+    context:
+      intent: >-
+        Establish compileable Go boundaries and first inert TUI contract.
+      constraints: >-
+        Implement only M1; no runtime behavior, config IO, provider IO, workflow
+        transitions, plugin paths, or terminal UI startup.
+      unknowns: "none"
+      scope: >-
+        cmd/aila, internal package doc/test files, internal/tui testdata,
+        ROADMAP.md, CHANGELOG.md, and Agentera progress/plan artifacts.
+  - number: 2
+    timestamp: "2026-05-12 14:33"
+    type: feat
+    phase: build
+    what: >-
+      Implemented the M2 static TUI shell: cmd/aila now starts a Bubble Tea
+      program through internal/app and internal/tui, renders the idle-empty
+      static shell, and exits through the single q quit path.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/archive/plan-2026-05-12-m2.yaml tasks 1-6; ROADMAP.md Milestone 2"
+    discovered: >-
+      `go mod tidy` was required after adding Bubble Tea and PTY dependencies;
+      PTY startup uses the visible Aila header as the marker instead of a hidden
+      debug token.
+    verified: >-
+      `mage fmt && go test ./internal/tui ./cmd/aila` passed with render,
+      semantic, q-update, and PTY startup/quit coverage; `go test ./...` passed;
+      `mage check` passed with zero lint issues and no vulnerabilities.
+    next: >-
+      Plan or execute ROADMAP.md Milestone 3: Fixture And Snapshot Harness.
+    context:
+      intent: >-
+        Launch a static, non-agent terminal UI that can be opened and quit
+        without provider credentials.
+      constraints: >-
+        Implement only M2; no command router, config IO, provider IO, workflow
+        transitions, real model turns, plugins, MCP, dynamic tools, or M3
+        snapshot harness generalization.
+      unknowns: "none"
+      scope: >-
+        cmd/aila, internal/app, internal/tui, idle-empty fixture snapshots,
+        go.mod/go.sum, ROADMAP.md, CHANGELOG.md, and Agentera progress/plan
+        artifacts.
+archive: []

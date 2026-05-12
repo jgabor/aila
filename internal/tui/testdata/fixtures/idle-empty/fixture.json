@@ -1,0 +1,19 @@
+{
+  "name": "idle-empty",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle"],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "plain_120x32": "plain-120x32.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "ansi_120x32": "ansi-120x32.txt",
+    "semantic_80x24": "semantic-80x24.json",
+    "semantic_120x32": "semantic-120x32.json"
+  },
+  "notes": [
+    "Milestone 2 static shell; no command router, config loading, provider gateway, or workflow transition behavior.",
+    "The phase label is display-only until workflow-owned phase types arrive in Milestone 10."
+  ]
+}

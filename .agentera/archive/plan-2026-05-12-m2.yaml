@@ -1,0 +1,144 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: completed
+  reviewed: 2026-05-12
+  critic_issues: "3 found, 3 addressed, 0 dismissed"
+  title: M2 Static TUI Shell
+
+what: >-
+  Implement ROADMAP.md Milestone 2 only: make `go run ./cmd/aila` open a
+  static non-agent terminal screen that can be quit without provider
+  credentials, while upgrading `idle-empty` to validated plain, ANSI, and
+  semantic render outputs.
+
+why: >-
+  M2 turns the M1 compileable skeleton into the first real user-visible Aila
+  surface, establishing the Bubble Tea startup and render boundary before M3
+  generalizes the fixture and snapshot harness.
+
+constraints:
+  - Implement exactly Milestone 2 from ROADMAP.md lines 212-237; do not start M3.
+  - Preserve statechart-MVU: deterministic updates decide, effects do.
+  - Keep `internal/tui` presentation-only; no workflow transitions, model prompts,
+    tool execution, permissions, persistence, git, shell, or network behavior.
+  - The phase label is display-only until workflow-owned phase types arrive in M10.
+  - "Use exactly one explicit M2 quit input: `q`; `/quit`, Esc, shortcut parity, slash routing, and input submission remain out of scope."
+  - Do not introduce plugins, MCP, dynamic tools, workflow DSLs, graph engines,
+    provider marketplaces, config loading, provider gateway behavior, or real
+    model turns.
+  - Do not commit unless explicitly asked.
+
+scope:
+  included:
+    - Static Bubble Tea startup from `cmd/aila` through `internal/app` and `internal/tui`.
+    - Static shell view with app name, placeholder phase, model/autonomy placeholders,
+      empty chat, prompt, and footer placeholders.
+    - Deterministic `idle-empty` plain text, ANSI text, and semantic JSON outputs.
+    - Render tests at `80x24` and `120x32`.
+    - Bounded PTY smoke for startup marker and clean `q` quit.
+    - Post-validation ROADMAP and Agentera progress closeout.
+  excluded:
+    - M3 reusable snapshot harness beyond what M2 needs.
+    - Command router, `/quit`, shortcut parity, typed input submission, or fake
+      assistant responses.
+    - Config display, config creation, provider credentials, provider metadata,
+      workflow FSM implementation, and real go-agent execution.
+
+design: >-
+  Keep M2 narrow by adding only the startup/render shell needed for a static
+  Bubble Tea program. `cmd/aila` should delegate to `internal/app`; `internal/app`
+  composes the static TUI; `internal/tui` owns local view state, rendering,
+  semantic output, and the single `q` quit update. Use the visible app header as
+  the PTY startup marker instead of adding a debug-only marker. Adversarial
+  review found three issues: underspecified quit path, startup marker risk, and
+  closeout scope creep. The plan addresses them by naming `q`, using the real
+  header as the marker, and limiting closeout to ROADMAP plus Agentera progress.
+
+tasks:
+  - number: 1
+    name: Terminal startup boundary
+    status: complete
+    depends_on: []
+    description: >-
+      Make `go run ./cmd/aila` start a static Bubble Tea terminal program through
+      `internal/app` and `internal/tui` without reading credentials or touching
+      workspace/project state.
+    acceptance:
+      - Given the current repository and no provider credentials, when `go run ./cmd/aila` starts, then a terminal program opens from the app/TUI boundary.
+      - Given M2 scope, when the startup path runs, then no config files, `.aila` state, git, shell, network, model provider, or workflow transition is touched.
+
+  - number: 2
+    name: Static shell view state
+    status: complete
+    depends_on:
+      - 1
+    description: >-
+      Render app name, display-only phase placeholder, model/autonomy placeholders,
+      empty chat area, prompt area, and footer placeholders from deterministic view
+      state.
+    acceptance:
+      - Given `idle-empty` view state, when rendered at M2 sizes, then header, phase placeholder, model/autonomy placeholders, chat, prompt, and footer regions are visible.
+      - Given semantic output, when inspected, then the phase is marked as placeholder/not_started and does not imply workflow-owned phase behavior.
+
+  - number: 3
+    name: Single quit path
+    status: complete
+    depends_on:
+      - 1
+      - 2
+    description: >-
+      Implement exactly one explicit quit input, `q`, for the static shell. Leave
+      slash command routing and shortcut parity for later milestones.
+    acceptance:
+      - Given the static TUI is running, when `q` is sent, then the process exits cleanly.
+      - Given M2 scope, when tests inspect command behavior, then `/quit`, Esc, shortcut parity, and command routing are not implemented.
+
+  - number: 4
+    name: M2 render and semantic fixtures
+    status: complete
+    depends_on:
+      - 2
+    description: >-
+      Upgrade `internal/tui/testdata/fixtures/idle-empty` from an inert stub to the
+      M2 static shell contract with plain text, ANSI text, and semantic JSON
+      snapshots at `80x24` and `120x32`.
+    acceptance:
+      - Given deterministic fixture tests, when `go test ./internal/tui` runs, then plain, ANSI, and semantic outputs match the approved static shell snapshots.
+      - Given the semantic snapshots, when read by an agent, then placeholder phase meaning, visible regions, screen size, focus, session, and actions are explicit.
+
+  - number: 5
+    name: PTY smoke and verification
+    status: complete
+    depends_on:
+      - 1
+      - 3
+      - 4
+    description: >-
+      Add bounded PTY smoke for startup and clean quit, then run formatting,
+      targeted tests, full Go tests, and Mage verification.
+    acceptance:
+      - Given the M2 implementation, when PTY smoke runs, then the visible app header confirms startup and `q` exits cleanly, or any skip has a documented environmental reason.
+      - Given verification, when `mage fmt`, `go test ./internal/tui`, `go test ./...`, and `mage check` run, then all pass.
+
+  - number: 6
+    name: Milestone closeout and freshness checkpoint
+    status: complete
+    depends_on:
+      - 5
+    description: >-
+      After validation only, update ROADMAP and Agentera progress, archive this
+      plan, and stop before M3.
+    acceptance:
+      - Given all M2 gates pass, when closeout occurs, then ROADMAP says M2 complete, M3 next, and active none.
+      - Given closeout artifacts, when inspected, then `.agentera/progress.yaml` records verification evidence and the active plan is archived or removed.
+      - "Plan-level freshness checkpoint: Given the final diff, when compared to ROADMAP.md, docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and docs/workflow-architecture.md, then no M3+ scope or fixed-product violation has entered the change."
+
+overall_acceptance:
+  - Given no provider credentials, when a developer runs `go run ./cmd/aila`, then the static Aila TUI opens and can be quit with `q`.
+  - Given the `idle-empty` scenario, when render tests run at `80x24` and `120x32`, then plain, ANSI, and semantic snapshots validate the static shell.
+  - Given M2 completion, when `mage check` passes, then ROADMAP and Agentera progress are updated only after validation.
+
+surprises:
+  - M1 left an inert `idle-empty` semantic stub; M2 should replace it with real static shell meaning but avoid the broader M3 fixture harness.
+  - The PTY startup marker should be a real visible header, not a hidden debug token.
