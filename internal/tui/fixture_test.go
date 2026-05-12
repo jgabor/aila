@@ -81,6 +81,85 @@ func loadStaticShellFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadSubmittedPromptFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = "submitted-prompt"
+	state.Transcript = []TranscriptTurn{{
+		UserText:      "explain this repo",
+		AssistantText: "Fake Aila response: explain this repo",
+	}}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM4SubmittedPromptRenderSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadSubmittedPromptFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	if fixture.TerminalBehavior != "bubbletea_static" {
+		t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+	}
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+	for _, tc := range fixture.TextCases() {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.render(fixture.State, tc.size)
+			assertTextSnapshot(t, fixture, tc.file, got)
+			assertOrdered(t, got, "  user: explain this repo", "  assistant: Fake Aila response: explain this repo")
+			if !contains(got, "prompt:\n>") {
+				t.Fatalf("submitted prompt fixture should show cleared prompt state:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestM4SubmittedPromptSemanticSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadSubmittedPromptFixture(t)
+	for _, tc := range fixture.SemanticCases() {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, tc.size)
+			assertSemanticSnapshot(t, fixture, tc.file, got)
+
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			assertSemanticContract(t, "submitted-prompt", tc.size, snapshot)
+
+			regions := semanticRegionsByName(t, snapshot)
+			assertOrdered(t, strings.Join(regions["chat"].Items, "\n"), "user: explain this repo", "assistant: Fake Aila response: explain this repo")
+			if got := regions["prompt"].Items; len(got) != 1 || got[0] != ">" {
+				t.Fatalf("prompt region items = %v, want cleared prompt marker", got)
+			}
+			if len(snapshot.Actions) != 1 || snapshot.Actions[0].Name != "quit" || snapshot.Actions[0].Input != "q" {
+				t.Fatalf("actions = %+v, want q quit only with no M5 routing semantics", snapshot.Actions)
+			}
+		})
+	}
+}
+
+func semanticRegionsByName(t *testing.T, snapshot SemanticSnapshot) map[string]SemanticRegion {
+	t.Helper()
+
+	regions := map[string]SemanticRegion{}
+	for _, region := range snapshot.Regions {
+		regions[region.Name] = region
+	}
+	return regions
+}
+
 func TestRequiredM3FixtureScopes(t *testing.T) {
 	t.Parallel()
 

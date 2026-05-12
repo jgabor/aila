@@ -319,4 +319,359 @@ cycles:
       unknowns: "none"
       scope: >-
         Agentera progress and plan archival artifacts only.
-archive: []
+  - number: 9
+    timestamp: "2026-05-12 16:43"
+    type: feat
+    phase: build
+    what: >-
+      Executed M4 task 1 only by adding the minimal app-level prompt boundary in
+      internal/app: typed prompt submission/result values and a deterministic fake
+      prompt handler outside internal/tui.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 4; ARCHITECTURE.md split-plane and fixed-product rules"
+    discovered: >-
+      The current product remains the static TUI shell; Task 1 did not wire input,
+      Enter submission, transcript rendering, PTY behavior, command routing,
+      workflow routing, provider/model/go-agent integration, tools, permissions,
+      persistence, filesystem, shell, or git behavior.
+    verified: >-
+      Criterion 1: `go test ./internal/app` passed
+      TestFakePromptHandlerReturnsDeterministicTypedResult, proving a minimal typed
+      PromptSubmission to PromptResult path and deterministic FakePromptHandler
+      exist outside internal/tui. Criterion 2: the same targeted test passed, and
+      TestPromptBoundaryStaysMinimalAndIOFree parsed internal/app/prompt.go and
+      confirmed it imports none of context, io, os, os/exec, net/http, agent,
+      capability, permission, runtime, state, tools, or workflow packages.
+      Criterion 3: TestPromptBoundaryStaysMinimalAndIOFree also confirmed the M4
+      boundary does not define a prompt/handler interface or contain router,
+      provider, adapter, workflow, command, or slash abstractions. `mage fmt`
+      completed successfully before the targeted test.
+    next: >-
+      Execute M4 task 2 only when explicitly requested: local input update
+      behavior. Tasks 3-6 remain pending.
+    context:
+      intent: >-
+        Establish the smallest app-owned fake prompt/result seam that later TUI
+        input work can call without making internal/tui own prompt handling.
+      constraints: >-
+        Implement only M4 task 1; do not add slash parsing, shortcut parity,
+        command routing, resize behavior, config/credential IO, provider/model or
+        go-agent integration, tool execution, permission checks, persistence,
+        workflow transitions, plugins, MCP, dynamic tools, workflow DSLs, generic
+        graph engines, provider marketplace behavior, public runtime harness,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/app prompt boundary and focused app tests plus Agentera
+        plan/progress artifacts.
+  - number: 10
+    timestamp: "2026-05-12 16:52"
+    type: feat
+    phase: build
+    what: >-
+      Executed M4 task 2 only by adding local prompt input state to the TUI model,
+      presentation-only typing/backspace updates, and non-empty Enter routing
+      through the app-owned fake prompt submitter without transcript rendering.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 4; ARCHITECTURE.md TUI presentation-only split"
+    discovered: >-
+      The existing app-to-TUI dependency means internal/tui cannot import
+      internal/app without a cycle. The task was satisfied with a narrow injected
+      TUI submit function; internal/app wires that function to the existing
+      FakePromptHandler and Task 3 transcript rendering remains unimplemented.
+    verified: >-
+      Criterion 1: `go test ./internal/tui` passed
+      TestPromptTypingUpdatesLocalViewStateOnly, proving typed key messages update
+      PromptInput and the prompt view locally while returning nil command and not
+      invoking the app submit route. Criterion 2: the same targeted test command
+      passed TestPromptBackspaceUpdatesLocalViewStateOnly, proving KeyBackspace
+      and KeyCtrlH only edit prompt input/view state and do not route app messages
+      or commands. Criterion 3: `go test ./internal/tui` passed
+      TestPromptEnterRoutesNonEmptyInputWithoutSlashInterpretation, proving Enter
+      clears non-empty input, routes `/status` as plain prompt text through the
+      submit path, returns nil command, and does not render fake responses yet;
+      `go test ./internal/app` passed TestPromptSubmitterRoutesThroughFakeHandler,
+      proving the app-level result path reaches FakePromptHandler. Criterion 4:
+      `go test ./internal/tui` passed TestPromptEnterOnEmptyInputDoesNothing,
+      proving empty Enter returns nil command, routes no prompt, keeps prompt
+      empty, and renders no fake response. IO/scope evidence: `go test
+      ./internal/tui` passed TestPromptInputUpdateStaysPresentationOnly, proving
+      the TUI model imports no os, os/exec, net/http, internal/app, runtime,
+      state, tools, workflow, provider, permission, or capability packages and
+      contains no slash/router/workflow/provider/adapter markers. `mage fmt`
+      completed successfully before targeted tests; `go test ./internal/tui` and
+      `go test ./internal/app` passed.
+    next: >-
+      Execute M4 task 3 only when explicitly requested: fake response transcript
+      rendering. Tasks 4-6 remain pending.
+    context:
+      intent: >-
+        Make the prompt editable and submissible while keeping the TUI a pure
+        presentation model and leaving response rendering to the next M4 task.
+      constraints: >-
+        Implement only M4 task 2; do not add fake response transcript rendering,
+        slash command parsing, shortcut parity, command routing, resize behavior,
+        config/credential IO, provider/model/go-agent integration, tool
+        execution, permission checks, persistence, workflow transitions, plugins,
+        MCP, dynamic tools, workflow DSLs, generic graph engines, provider
+        marketplace behavior, public runtime harness, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui prompt input update behavior, minimal internal/app submitter
+        wiring, focused TUI/app tests, and Agentera task/progress artifacts.
+  - number: 11
+    timestamp: "2026-05-12 17:00"
+    type: feat
+    phase: build
+    what: >-
+      Executed M4 task 3 only by rendering submitted fake-response transcript
+      turns in internal/tui: the chat region now shows user text before assistant
+      text, while internal/app continues to own the deterministic fake handler and
+      maps its result into TUI presentation data.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 4; ARCHITECTURE.md TUI presentation-only split"
+    discovered: >-
+      The existing app-to-TUI dependency still prevents internal/tui from importing
+      internal/app. The minimal safe seam is a TUI-owned TranscriptTurn returned by
+      the injected submit function, with internal/app adapting FakePromptHandler
+      output to that presentation type.
+    verified: >-
+      Criterion 1: `go test ./internal/tui` passed
+      TestPromptEnterRoutesNonEmptyInputWithoutSlashInterpretation, proving a
+      submitted prompt renders as `user: /status` before `assistant: Fake Aila
+      response: /status` in the chat region. Criterion 2: `go test ./internal/tui`
+      passed TestFakeResponseTranscriptRenderingIsStable, proving repeated
+      deterministic renders are byte-identical and contain no timestamp markers.
+      Criterion 3: `go test ./internal/tui` passed
+      TestPromptInputUpdateStaysPresentationOnly, proving internal/tui/model.go
+      and internal/tui/render.go import no time, os, os/exec, net/http,
+      internal/app, agent, capability, permission, runtime, state, tools, or
+      workflow packages and contain no slash/router/provider/adapter/shell/git IO
+      markers. App seam evidence: `go test ./internal/app` passed
+      TestPromptSubmitterRoutesThroughFakeHandler, proving the app fake handler
+      remains outside internal/tui. `mage fmt` completed successfully before
+      targeted tests; `go test ./internal/tui` and `go test ./internal/app`
+      passed.
+    next: >-
+      Execute M4 task 4 only when explicitly requested: M4 render and semantic
+      fixtures. Tasks 5-6 remain pending.
+    context:
+      intent: >-
+        Render the deterministic fake response transcript without expanding into
+        snapshot fixture work or future command/runtime behavior.
+      constraints: >-
+        Implement only M4 task 3; do not add slash command parsing/router/shortcut,
+        resize/right rail, config/credential IO, provider/model/go-agent
+        integration, tool execution, permission checks, persistence, workflow
+        transitions, plugins, MCP, dynamic tools, workflow DSLs, generic graph
+        engines, provider marketplace behavior, public runtime harness, commits,
+        or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui transcript presentation state/rendering, internal/app fake
+        submitter adaptation, focused TUI/app tests, and Agentera task/progress
+        artifacts.
+  - number: 12
+    timestamp: "2026-05-12 17:10"
+    type: test
+    phase: build
+    what: >-
+      Executed M4 task 4 only by adding the submitted-prompt render fixture with
+      plain, ANSI, and semantic snapshots plus focused semantic contract tests for
+      the deterministic fake assistant response.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 4; docs/tui-testing.md fixture and semantic snapshot contract"
+    discovered: >-
+      The existing M3 fixture harness already supported the needed ViewState-driven
+      snapshots. No runtime behavior, slash routing, shortcut parity, command
+      selection, command execution, resize behavior, IO, provider/model/tool
+      integration, permission checks, persistence, workflow transitions, plugins,
+      MCP, dynamic tools, workflow DSLs, generic graph engines, provider
+      marketplace behavior, public runtime harness, commits, or pushes were
+      needed.
+    verified: >-
+      Criterion 1: `go test ./internal/tui -run
+      'TestM4SubmittedPrompt|TestRequiredM3RenderSnapshots|TestRequiredM3SemanticSnapshots|TestRequiredM3SemanticContractConsistency|TestRequiredM3FixtureScopes'`
+      passed, proving the submitted-prompt fixture's plain, ANSI, and semantic
+      snapshots show `user: explain this repo` before `assistant: Fake Aila
+      response: explain this repo`. Criterion 2: the same command passed
+      TestM4SubmittedPromptSemanticSnapshot and assertSemanticContract, proving
+      semantic output exposes machine-readable screen width/height, focus,
+      placeholder phase/source, chat items, cleared prompt state, and actions.
+      Criterion 3: the same command passed the submitted-prompt action assertions,
+      proving actions remain q quit only and do not imply slash routing, shortcut
+      parity, command selection, or command execution. Criterion 4: `git diff --
+      internal/tui/testdata/fixtures/idle-empty
+      internal/tui/testdata/fixtures/narrow-80
+      internal/tui/testdata/fixtures/desktop-wide` produced no output after the
+      normal test run, proving existing M3 fixture snapshots were not rewritten;
+      `go test ./internal/tui` also passed. `mage fmt` completed successfully after
+      Go test edits.
+    next: >-
+      Execute M4 task 5 only when explicitly requested: PTY submit smoke and
+      validation closeout. Task 6 remains pending until Task 5 is complete.
+    context:
+      intent: >-
+        Add deterministic M4 submitted-prompt render and semantic fixture coverage
+        before any PTY validation or future command-router milestone work.
+      constraints: >-
+        Implement only M4 task 4; do not implement tasks 5-6; do not add slash
+        command parsing/router/shortcut, resize/right rail, config/credential IO,
+        provider/model/go-agent integration, tool execution, permission checks,
+        persistence, workflow transitions, plugins, MCP, dynamic tools, workflow
+        DSLs, generic graph engines, provider marketplace behavior, public runtime
+        harness, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui submitted-prompt fixture metadata and snapshots,
+        package-private fixture tests, and Agentera task/progress artifacts.
+  - number: 13
+    timestamp: "2026-05-12 17:30"
+    type: test
+    phase: build
+    what: >-
+      Executed M4 task 5 only by adding bounded PTY submit smoke coverage for the
+      existing fake app handler, running required validation, and closing ROADMAP.md
+      for M4 after validation passed. Task 6 remains pending and the active plan was
+      not archived or removed.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 4 TUI validation gate"
+    discovered: >-
+      No implementation blockers during the initial Task 5 pass. A follow-up
+      inspektera audit later found that the shared cmd/aila PTY smoke harness
+      inherited the full parent environment with os.Environ, which could pass
+      provider or model credentials into the PTY child despite the fake app path.
+      No slash command parsing/router/shortcut, resize/right rail,
+      config/credential IO, provider/model/go-agent integration, tool execution,
+      permission checks, persistence, workflow transitions, plugins, MCP, dynamic
+      tools, workflow DSLs, generic graph engines, provider marketplace behavior,
+      public runtime harness, commits, or pushes were added.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila -run TestPromptSubmitPTYSmoke` passed via the
+      targeted cmd package run inside `go test ./internal/tui ./internal/app
+      ./cmd/aila`; the smoke starts `go run .` in an 80x24 PTY, types `explain this
+      repo`, presses Enter, observes `user: explain this repo` and `assistant: Fake
+      Aila response: explain this repo`, then sends `q` and waits for clean exit
+      under bounded context/read timeouts with PTY cleanup. Criterion 2: `go test
+      ./internal/tui ./internal/app ./cmd/aila` passed; `go test ./...` passed; and
+      `mage check` passed with 0 lint issues and no vulnerabilities. Criterion 3:
+      after validation passed, `ROADMAP.md` was updated to mark Milestone 4
+      complete, Milestone 5 next, active milestone none, with validation evidence;
+      `.agentera/plan.yaml` marks only Task 5 complete while Task 6 remains pending
+      and the active plan remains in place.
+    next: >-
+      Execute M4 task 6 only when explicitly requested: plan-level freshness
+      checkpoint. Do not implement M5 command routing until a new active plan or
+      explicit instruction starts that milestone.
+    context:
+      intent: >-
+        Validate the M4 interactive fake-chat loop through real terminal input and
+        close the roadmap milestone without archiving the active plan.
+      constraints: >-
+        Implement only M4 task 5; do not implement Task 6; do not add slash command
+        parsing/router/shortcut, resize/right rail, config/credential IO,
+        provider/model/go-agent integration, tool execution, permission checks,
+        persistence, workflow transitions, plugins, MCP, dynamic tools, workflow
+        DSLs, generic graph engines, provider marketplace behavior, public runtime
+        harness, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY smoke test, ROADMAP.md M4 closeout, and Agentera task/progress
+        artifacts only.
+  - number: 14
+    timestamp: "2026-05-12 17:48"
+    type: fix
+    phase: build
+    what: >-
+      Retried and fixed only active M4 task 5 after inspektera audit failure by
+      replacing cmd/aila PTY smoke parent-environment inheritance with an explicit
+      scrubbed environment for the `go run .` PTY child.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; inspektera audit failure for cmd/aila/pty_test.go"
+    discovered: >-
+      The audit failure was valid: `append(os.Environ(), "TERM=xterm-256color")`
+      could leak provider/model credential variables from the parent environment.
+      The first retry using fake HOME without explicit GOMODCACHE passed the prompt
+      behavior but failed TempDir cleanup because Go populated a temporary module
+      cache with read-only module files. The final env keeps fixed terminal size,
+      bounded context/read timeouts, fake app path via `go run .`, response
+      observation, and PTY/process cleanup while allowlisting only TERM, temp HOME
+      and cache paths, PATH, GOENV=off, GOROOT, and GOMODCACHE.
+    verified: >-
+      `mage fmt` passed. `go test -count=1 ./cmd/aila -run
+      TestPromptSubmitPTYSmoke` first exposed the temporary module-cache cleanup
+      issue, then passed after GOMODCACHE was explicit. `go test -count=1
+      ./internal/tui ./internal/app ./cmd/aila` passed. `go test -count=1 ./...`
+      passed. `.agentera/plan.yaml` still marks Task 5 complete and Task 6
+      pending; Task 6 was not implemented.
+    next: >-
+      Execute M4 task 6 only when explicitly requested: plan-level freshness
+      checkpoint. Do not implement M5 command routing until a new active plan or
+      explicit instruction starts that milestone.
+    context:
+      intent: >-
+        Close the credential-leak audit gap in Task 5 PTY smoke validation without
+        expanding M4 scope or advancing Task 6.
+      constraints: >-
+        Fix only M4 task 5 audit failure; do not implement Task 6; do not add slash
+        command parsing/router/shortcut, resize/right rail, config/credential IO,
+        provider/model/go-agent integration, tool execution, permission checks,
+        persistence, workflow transitions, plugins, MCP, dynamic tools, workflow
+        DSLs, generic graph engines, provider marketplace behavior, public runtime
+        harness, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY smoke test environment and Agentera progress evidence only.
+  - number: 15
+    timestamp: "2026-05-12 17:49"
+    type: test
+    phase: build
+    what: >-
+      Executed the final M4 plan-level freshness checkpoint, marked Task 6
+      complete in the archived plan, removed the active plan, and verified the
+      final M4 diff against the roadmap, prompt note, architecture, README, TUI
+      testing, and workflow architecture authorities.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 4; docs/notes/PROMPT.md; ARCHITECTURE.md; README.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      The final M4 diff remains limited to the fake chat input loop, app-owned
+      deterministic prompt handler, TUI presentation state/rendering, submitted
+      prompt fixture snapshots, bounded PTY submit smoke with a scrubbed
+      environment, roadmap closeout, and Agentera artifacts. No M5+ slash command
+      parsing/router/shortcut parity, M6 resize/right rail, config or credential
+      IO, provider/model/go-agent integration, tool execution, permission checks,
+      persistence, workflow transitions, plugins, MCP, dynamic tools, workflow
+      DSLs, generic graph engines, provider marketplace behavior, or public
+      runtime harness entered the change.
+    verified: >-
+      Criterion 1: reviewed the final M4 diff against ROADMAP.md,
+      docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+      docs/workflow-architecture.md, confirming the change preserves the
+      fixed-product, statechart-MVU, and TUI presentation-only rules. Criterion 2:
+      confirmed future work remains deferred: M5 command router/shortcut parity,
+      M6 resize/right rail, and config/provider/model/go-agent/tool/permission/
+      persistence/workflow behavior are not implemented by M4. Criterion 3:
+      archived the completed plan to .agentera/archive/plan-2026-05-12-m4.yaml,
+      marked Task 6 complete there, removed active .agentera/plan.yaml, and
+      preserved Agentera artifact integrity. Criterion 4: post-closeout `mage
+      check` passed; `agentera plan` reported no active plan; `agentera progress`
+      reported final M4 cycle number 15.
+    next: >-
+      Active Agentera plan is closed; use ROADMAP.md Next milestone only if the
+      user explicitly starts M5 work.
+    context:
+      intent: >-
+        Close M4 after proving the completed change stayed within the Basic Input
+        Loop milestone and did not activate future runtime scope.
+      constraints: >-
+        Implement only M4 task 6; do not add slash command parsing/router/shortcut,
+        resize/right rail, config/credential IO, provider/model/go-agent
+        integration, tool execution, permission checks, persistence, workflow
+        transitions, plugins, MCP, dynamic tools, workflow DSLs, generic graph
+        engines, provider marketplace behavior, public runtime harness, commits,
+        or pushes.
+      unknowns: "none"
+      scope: >-
+        Agentera progress and plan archival artifacts only.
+archive:
+  - .agentera/archive/plan-2026-05-12-m4.yaml

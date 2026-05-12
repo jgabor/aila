@@ -26,6 +26,8 @@ type ViewState struct {
 	Autonomy      string
 	FooterGit     string
 	FooterContext string
+	Transcript    []TranscriptTurn
+	PromptInput   string
 }
 
 // IdleEmptyState returns the static first-launch view state.
@@ -46,39 +48,45 @@ func IdleEmptyState() ViewState {
 // RenderPlain renders the static shell without terminal styling.
 func RenderPlain(state ViewState, size Size) string {
 	size = normalizeSize(size)
-	return strings.Join([]string{
+	lines := []string{
 		state.AppName,
 		fmt.Sprintf("screen: %dx%d", size.Width, size.Height),
 		fmt.Sprintf("phase: %s (display-only)", state.Phase),
 		fmt.Sprintf("model: %s | utility: %s | autonomy: %s", state.PrimaryModel, state.UtilityModel, state.Autonomy),
 		"",
 		"chat:",
-		"  No messages yet.",
+	}
+	lines = append(lines, chatLines(state.Transcript)...)
+	lines = append(lines,
 		"",
 		"prompt:",
-		">",
+		promptLine(state.PromptInput),
 		"",
 		fmt.Sprintf("footer: git: %s | context: %s | quit: q", state.FooterGit, state.FooterContext),
-	}, "\n")
+	)
+	return strings.Join(lines, "\n")
 }
 
 // RenderANSI renders the static shell with stable ANSI styling.
 func RenderANSI(state ViewState, size Size) string {
 	size = normalizeSize(size)
-	return strings.Join([]string{
+	lines := []string{
 		ansiBold + state.AppName + ansiReset,
 		fmt.Sprintf("screen: %dx%d", size.Width, size.Height),
 		"phase: " + ansiYellow + state.Phase + ansiReset + " (display-only)",
 		"model: " + ansiCyan + state.PrimaryModel + ansiReset + " | utility: " + state.UtilityModel + " | autonomy: " + state.Autonomy,
 		"",
 		"chat:",
-		"  No messages yet.",
+	}
+	lines = append(lines, chatLines(state.Transcript)...)
+	lines = append(lines,
 		"",
 		"prompt:",
-		">",
+		promptLine(state.PromptInput),
 		"",
-		ansiDim + fmt.Sprintf("footer: git: %s | context: %s | quit: q", state.FooterGit, state.FooterContext) + ansiReset,
-	}, "\n")
+		ansiDim+fmt.Sprintf("footer: git: %s | context: %s | quit: q", state.FooterGit, state.FooterContext)+ansiReset,
+	)
+	return strings.Join(lines, "\n")
 }
 
 // SemanticSnapshot is the agent-readable meaning of the rendered static shell.
@@ -142,14 +150,43 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			{Name: "header", Visible: true, Items: []string{state.AppName}},
 			{Name: "phase", Visible: true, Items: []string{state.Phase, "display-only"}},
 			{Name: "model", Visible: true, Items: []string{"primary: " + state.PrimaryModel, "utility: " + state.UtilityModel, "autonomy: " + state.Autonomy}},
-			{Name: "chat", Visible: true, Items: []string{"No messages yet."}},
-			{Name: "prompt", Visible: true, Items: []string{">"}},
+			{Name: "chat", Visible: true, Items: semanticChatItems(state.Transcript)},
+			{Name: "prompt", Visible: true, Items: []string{promptLine(state.PromptInput)}},
 			{Name: "footer", Visible: true, Items: []string{"git: " + state.FooterGit, "context: " + state.FooterContext, "quit: q"}},
 		},
 		Actions: []SemanticAction{
 			{Name: "quit", Input: "q"},
 		},
 	}
+}
+
+func promptLine(input string) string {
+	if input == "" {
+		return ">"
+	}
+	return "> " + input
+}
+
+func chatLines(transcript []TranscriptTurn) []string {
+	if len(transcript) == 0 {
+		return []string{"  No messages yet."}
+	}
+	lines := make([]string, 0, len(transcript)*2)
+	for _, turn := range transcript {
+		lines = append(lines, "  user: "+turn.UserText, "  assistant: "+turn.AssistantText)
+	}
+	return lines
+}
+
+func semanticChatItems(transcript []TranscriptTurn) []string {
+	if len(transcript) == 0 {
+		return []string{"No messages yet."}
+	}
+	items := make([]string, 0, len(transcript)*2)
+	for _, turn := range transcript {
+		items = append(items, "user: "+turn.UserText, "assistant: "+turn.AssistantText)
+	}
+	return items
 }
 
 // RenderSemanticJSON renders an indented semantic JSON snapshot.

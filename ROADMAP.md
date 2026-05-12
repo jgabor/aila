@@ -21,11 +21,11 @@ find the next slice.
 
 | Field                    | Value                                                                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 3: Fixture And Snapshot Harness                                                                              |
-| Next milestone           | Milestone 4: Basic Input Loop                                                                                          |
+| Last completed milestone | Milestone 4: Basic Input Loop                                                                                          |
+| Next milestone           | Milestone 5: Minimal Command Router                                                                                    |
 | Active milestone         | none                                                                                                                   |
 | Last updated             | 2026-05-12                                                                                                             |
-| Last validation          | M3 targeted TUI tests, `go test ./...`, and `mage check` passed; PTY skipped because terminal behavior did not change. |
+| Last validation          | M4 PTY submit smoke, targeted TUI/app/cmd tests, `go test ./...`, and `mage check` passed with fake dependencies only. |
 
 Completion log:
 
@@ -35,6 +35,7 @@ Completion log:
 | 1         | completed | 2026-05-12 | Go skeleton packages and idle-empty semantic fixture validated.                 |
 | 2         | completed | 2026-05-12 | Static TUI shell renders and quits through PTY smoke.                           |
 | 3         | completed | 2026-05-12 | Fixture harness snapshots validated; PTY skipped, no terminal behavior changed. |
+| 4         | completed | 2026-05-12 | Basic input loop validated with PTY submit smoke and full `mage check`.         |
 
 Status values:
 

@@ -1,0 +1,174 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: complete
+  reviewed: 2026-05-12
+  critic_issues: "6 found, 6 addressed, 0 dismissed"
+  title: M4 Basic Input Loop
+what: >-
+  Add the first interactive fake-chat loop: typed prompt input updates local TUI
+  state, Enter submits a non-empty prompt as an application-level message, a
+  deterministic fake app handler outside internal/tui returns assistant text, and
+  the TUI renders the submitted user prompt and fake assistant response.
+why: >-
+  ROADMAP.md Milestone 4 makes Aila usable as a fake chat surface before command
+  routing, resize responsiveness, config, providers, workflow phases, tools, or
+  real model execution exist.
+constraints: >-
+  Implement only M4. Do not add slash command parsing, shortcut parity, command
+  routing, resize behavior, config or credential IO, provider/model/go-agent
+  integration, tool execution, permission checks, persistence, workflow phase
+  transitions, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+  provider marketplace behavior, or a public runtime harness. The TUI may collect
+  and render input and emit/route app messages, but it must not own model prompts,
+  workflow transitions, persistence, tools, permissions, or real IO.
+scope:
+  included:
+    - Minimal app-level prompt/result seam outside internal/tui for deterministic fake responses.
+    - Local prompt input state and Enter submission behavior.
+    - Chat rendering for submitted user text and fake assistant text.
+    - M4 render and semantic fixtures for submitted prompt plus fake response.
+    - Bounded PTY submit-prompt smoke using fake dependencies only.
+    - ROADMAP.md and Agentera artifact closeout after validation passes.
+  excluded:
+    - Slash commands, keyboard shortcut parity, command router, resize/right-rail behavior, config creation/display, providers, credentials, go-agent turns, tools, permissions, persistence, workflow transitions, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, provider marketplace behavior, and public harness surfaces.
+  deferred:
+    - "M5 Minimal Command Router: slash commands, shortcut parity, and deterministic status/help surfaces."
+    - "M6 Resize And Layout Responsiveness: resize handling, right rail, and wide/narrow responsive behavior."
+    - "M7+ CLI/config/provider/workflow/tool/model behavior remains future milestone scope."
+design: >-
+  Keep the M4 seam minimal and product-specific. The app side owns the fake prompt
+  handler and returns deterministic assistant text; internal/tui remains a
+  presentation model that tracks local input, exposes app-level prompt messages,
+  and renders supplied transcript state. PTY validation is required because real
+  terminal input behavior changes, but it must be bounded, use fake dependencies,
+  and avoid credentials or real model/tool calls.
+tasks:
+  - number: 1
+    name: Minimal app prompt boundary
+    depends_on: []
+    status: complete
+    acceptance:
+      - >-
+        GIVEN M4 starts from the static shell WHEN the app prompt boundary is
+        added THEN only a minimal typed prompt/result path and deterministic fake
+        handler exist outside internal/tui.
+      - >-
+        GIVEN a prompt is submitted WHEN the fake handler responds THEN no real
+        model, provider, tool, permission, persistence, filesystem, shell, git, or
+        workflow IO is performed.
+      - >-
+        GIVEN future runtime work remains WHEN the M4 boundary is inspected THEN
+        it is not a generic adapter framework, command router, workflow router, or
+        provider abstraction.
+  - number: 2
+    name: Local input update behavior
+    depends_on:
+      - "1"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN typed key messages WHEN the TUI model updates THEN prompt input
+        state changes locally and no app message or external IO is produced.
+      - >-
+        GIVEN editable input WHEN backspace or equivalent text-edit keys are used
+        THEN only the prompt input view state changes.
+      - >-
+        GIVEN non-empty input WHEN Enter is pressed THEN an application-level
+        prompt message/result path is emitted or routed, the prompt clears, and no
+        slash command interpretation occurs.
+      - >-
+        GIVEN empty input WHEN Enter is pressed THEN no fake response is added and
+        no external IO occurs.
+  - number: 3
+    name: Fake response transcript rendering
+    depends_on:
+      - "2"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN a submitted prompt and deterministic fake response WHEN the view
+        renders THEN the chat region shows the user text before the assistant text.
+      - >-
+        GIVEN repeated deterministic test runs WHEN the fake response is rendered
+        THEN output ordering and wording remain stable without timestamps.
+      - >-
+        GIVEN transcript state is updated WHEN tests inspect architecture effects
+        THEN internal/tui did not perform persistence, workflow mutation, model IO,
+        tool IO, shell IO, or git IO.
+  - number: 4
+    name: M4 render and semantic fixtures
+    depends_on:
+      - "3"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN the submitted-prompt fixture is rendered WHEN plain, ANSI, and
+        semantic snapshots are checked THEN they show the typed user prompt and
+        deterministic fake assistant response.
+      - >-
+        GIVEN semantic output is inspected WHEN agents read it before PTY THEN
+        screen size, focus, placeholder phase, chat items, prompt state, and
+        actions are machine-readable.
+      - >-
+        GIVEN M5 remains future work WHEN semantic actions are present THEN they
+        do not imply slash routing, shortcut parity, command selection, or command
+        execution.
+      - >-
+        GIVEN existing M3 fixtures are checked WHEN M4 snapshots are added THEN
+        idle-empty, narrow-80, and desktop-wide remain valid unless the M4 prompt
+        behavior intentionally changes their current visible contract.
+  - number: 5
+    name: PTY submit smoke and validation closeout
+    depends_on:
+      - "4"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN M4 changes real terminal input behavior WHEN PTY smoke runs THEN it
+        starts Aila with fixed terminal dimensions, fake dependencies only, no
+        provider credentials, bounded timeouts, cleanup, and visible markers.
+      - >-
+        GIVEN the PTY smoke types a prompt and presses Enter WHEN the screen is
+        observed THEN the prompt and deterministic fake response appear.
+      - >-
+        GIVEN validation runs WHEN M4 is complete THEN targeted TUI/app/cmd tests,
+        go test ./..., and mage check pass before ROADMAP.md is updated.
+      - >-
+        GIVEN validation passes WHEN ROADMAP.md is updated THEN it records M4
+        complete, M5 next, active none, and the validation evidence.
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "5"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN the final M4 diff WHEN compared to ROADMAP.md, docs/notes/PROMPT.md,
+        ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+        docs/workflow-architecture.md THEN no M5+ scope or fixed-product violation
+        has entered the change.
+      - >-
+        GIVEN future milestones remain WHEN the checkpoint completes THEN command
+        routing, resize/right rail, config, provider, workflow, model, tool, and
+        persistence behavior are still deferred.
+      - >-
+        GIVEN the checkpoint passes WHEN Agentera artifacts are closed THEN Task 6
+        is complete in the archived plan, active plan is removed, final progress
+        evidence is recorded, and post-closeout mage check passes.
+overall_acceptance:
+  - >-
+    GIVEN the M4 plan is active WHEN Orkestrera dispatches implementation THEN
+    only Basic Input Loop scope is eligible for execution.
+  - >-
+    GIVEN the milestone is complete WHEN a developer runs Aila in a terminal THEN
+    they can type a prompt, submit it, see a deterministic fake response, and quit
+    without credentials or real agent execution.
+  - >-
+    GIVEN tests inspect the code WHEN validation completes THEN TUI input remains
+    presentation-only and app-level prompt handling remains outside internal/tui.
+surprises:
+  - >-
+    Task 5 inspektera follow-up found the PTY harness inherited parent environment
+    credentials; Task 5 was fixed before this final checkpoint and the archived
+    plan closes with that evidence preserved in progress.

@@ -14,8 +14,18 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return fmt.Errorf("start aila: %w", err)
 	}
 
-	if _, err := tui.NewProgram(input, output).Run(); err != nil {
+	if _, err := tui.NewProgramWithPromptSubmit(input, output, newPromptSubmitter(FakePromptHandler{})).Run(); err != nil {
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	return nil
+}
+
+func newPromptSubmitter(handler FakePromptHandler) tui.PromptSubmitFunc {
+	return func(text string) tui.TranscriptTurn {
+		result := handler.Handle(PromptSubmission{Text: text})
+		return tui.TranscriptTurn{
+			UserText:      result.PromptText,
+			AssistantText: result.AssistantText,
+		}
+	}
 }

@@ -1,0 +1,13 @@
+Aila
+screen: 80x24
+phase: placeholder (display-only)
+model: placeholder | utility: placeholder | autonomy: placeholder
+
+chat:
+  user: explain this repo
+  assistant: Fake Aila response: explain this repo
+
+prompt:
+>
+
+footer: git: placeholder | context: placeholder | quit: q
