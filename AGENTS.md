@@ -104,6 +104,25 @@ Use targeted Go commands when debugging a specific package or test, for example:
 go test ./internal/workflow -run TestTransition
 ```
 
+## Commit And Agentera Metadata
+
+- Commit messages should be concise, imperative descriptions of the actual
+  product or documentation change, for example `add config file contract` or
+  `remove tui phase ownership`.
+- Commit identity must come from the substantive engineering outcome, not from
+  Agentera or roadmap bookkeeping. Prefer messages like `validate workflow
+transition table` over `close workflow transition table`.
+- Do not create standalone commits whose only changes are Agentera status,
+  progress evidence, plan archival/removal, or ROADMAP closeout/status updates.
+  Fold those changes into the related implementation, test, validation, or
+  documentation commit.
+- Include `.agentera/plan.yaml` and `.agentera/progress.yaml` updates in the
+  same commit as the related implementation or validation change.
+- If progress metadata is committed during implementation, squash or fold it
+  into the meaningful task commit before considering the task complete.
+- The final commit for a task should include the corresponding status-complete
+  metadata update when Agentera artifacts are part of the task.
+
 ## Code Style Guidelines
 
 - Format Go code with `mage fmt` before finishing any Go edit. `mage fmt` is the
