@@ -22,6 +22,7 @@ type cliRunner struct {
 	errors  io.Writer
 	version string
 	start   func(context.Context, io.Reader, io.Writer) error
+	config  func(bool) (string, error)
 }
 
 func main() {
@@ -31,6 +32,7 @@ func main() {
 		errors:  os.Stderr,
 		version: version,
 		start:   app.Run,
+		config:  app.ConfigCommandOutput,
 	}
 	if err := runner.run(context.Background(), os.Args[1:]); err != nil {
 		_, _ = fmt.Fprintln(runner.errors, err)
@@ -49,7 +51,16 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 	}
 
 	line := m7StubOutput(r.version, parsed)
-	if parsed.version {
+	if parsed.command == "config" {
+		configOutput := r.config
+		if configOutput == nil {
+			configOutput = app.ConfigCommandOutput
+		}
+		line, err = configOutput(parsed.all)
+		if err != nil {
+			return fmt.Errorf("load config command: %w", err)
+		}
+	} else if parsed.version {
 		line = fmt.Sprintf("aila %s\n", r.version)
 	}
 	if _, err := fmt.Fprint(r.output, line); err != nil {
@@ -151,7 +162,7 @@ func m7StubOutput(version string, parsed m7CLI) string {
 	case "continue":
 		return fmt.Sprintf("aila %s\ncommand: continue\nstatus: deferred-continuation stub\naccepted: continue | --continue | -c\ndeferred: session discovery, state lookup, persistence IO, continuation execution\n", version)
 	case "config":
-		return fmt.Sprintf("aila %s\ncommand: config\nstatus: deferred-config stub\naccepted: config [--all]\ndeferred: config files, XDG paths, TOML defaults, environment, config UI\n", version)
+		return fmt.Sprintf("aila %s\ncommand: config\nstatus: deferred-config-ui\naccepted: config [--all]\ndeferred: interactive config UI\n", version)
 	case "models":
 		return fmt.Sprintf("aila %s\ncommand: models\nstatus: deferred-models stub\naccepted: models [filter...]\ndeferred: provider metadata, filtering behavior, credential lookup, degraded status, provider errors\n", version)
 	case "help":

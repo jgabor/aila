@@ -9,10 +9,13 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jgabor/aila/internal/app"
 )
 
 const wantRunStub = "aila test-version\n" +
@@ -27,11 +30,13 @@ const wantContinueStub = "aila test-version\n" +
 	"accepted: continue | --continue | -c\n" +
 	"deferred: session discovery, state lookup, persistence IO, continuation execution\n"
 
-const wantConfigStub = "aila test-version\n" +
-	"command: config\n" +
-	"status: deferred-config stub\n" +
-	"accepted: config [--all]\n" +
-	"deferred: config files, XDG paths, TOML defaults, environment, config UI\n"
+const wantConfigOutput = "path: /tmp/aila-test/config.toml\n" +
+	"deferred: interactive config UI\n"
+
+const wantConfigAllOutput = "path: /tmp/aila-test/config.toml\n" +
+	"llm.model: test/primary:high\n" +
+	"llm.utility.model: test/utility:max\n" +
+	"autonomy.level: test-yolo\n"
 
 const wantModelsStub = "aila test-version\n" +
 	"command: models\n" +
@@ -137,7 +142,7 @@ func TestCLIRunnerRecognizesM7Commands(t *testing.T) {
 	tests := map[string]string{
 		"run":      "status: deferred-run stub",
 		"continue": "status: deferred-continuation stub",
-		"config":   "status: deferred-config stub",
+		"config":   "deferred: interactive config UI",
 		"models":   "status: deferred-models stub",
 		"help":     "M7 accepted shape:",
 	}
@@ -213,8 +218,8 @@ func TestM7CLIAcceptedShapesExitWithExpectedStreams(t *testing.T) {
 		{name: "continue command", args: []string{"continue"}, wantStdout: wantContinueStub},
 		{name: "continue flag", args: []string{"--continue"}, wantStdout: wantContinueStub},
 		{name: "short continue flag", args: []string{"-c"}, wantStdout: wantContinueStub},
-		{name: "config", args: []string{"config"}, wantStdout: wantConfigStub},
-		{name: "config all", args: []string{"config", "--all"}, wantStdout: wantConfigStub},
+		{name: "config", args: []string{"config"}, wantStdout: wantConfigOutput},
+		{name: "config all", args: []string{"config", "--all"}, wantStdout: wantConfigAllOutput},
 		{name: "models", args: []string{"models"}, wantStdout: wantModelsStub},
 		{name: "models filter", args: []string{"models", "openai", "gpt"}, wantStdout: wantModelsStub},
 		{name: "help", args: []string{"help"}, wantStdout: wantHelpOutput},
@@ -364,25 +369,69 @@ func TestCLIRunnerRunStubDefersPromptStdinAndExecution(t *testing.T) {
 	}
 }
 
-func TestCLIRunnerConfigStubDefersConfigIO(t *testing.T) {
-	t.Parallel()
+func TestCLIRunnerConfigCommandReportsPathAndDefersUI(t *testing.T) {
+	configHome := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
 
-	for _, args := range [][]string{{"config"}, {"config", "--all"}} {
-		args := args
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			t.Parallel()
+	stdout, stderr, err := runCLIWithConfigCommand(t, []string{"config"})
+	if err != nil {
+		t.Fatalf("run config command: %v", err)
+	}
+	wantPath := filepath.Join(configHome, "aila", "config.toml")
+	want := "path: " + wantPath + "\n" +
+		"deferred: interactive config UI\n"
+	if stdout != want {
+		t.Fatalf("stdout mismatch: got %q want %q", stdout, want)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for config command: %q", stderr)
+	}
+	if _, err := os.Stat(wantPath); err != nil {
+		t.Fatalf("created config stat: %v", err)
+	}
+}
 
-			stdout, stderr, err := runCLITest(t, args)
-			if err != nil {
-				t.Fatalf("run config stub %v: %v", args, err)
-			}
-			if stdout != wantConfigStub {
-				t.Fatalf("stdout mismatch: got %q want %q", stdout, wantConfigStub)
-			}
-			if stderr != "" {
-				t.Fatalf("stderr for config stub: %q", stderr)
-			}
-		})
+func TestCLIRunnerConfigAllCreatesDefaultsAndPrintsBoundedValues(t *testing.T) {
+	configHome := filepath.Join(t.TempDir(), "xdg")
+	home := filepath.Join(t.TempDir(), "home")
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", home)
+
+	done := make(chan error, 1)
+	var stdout string
+	var stderr string
+	go func() {
+		var err error
+		stdout, stderr, err = runCLIWithConfigCommand(t, []string{"config", "--all"})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("run config --all: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("config --all did not return without hanging")
+	}
+
+	wantPath := filepath.Join(configHome, "aila", "config.toml")
+	want := "path: " + wantPath + "\n" +
+		"llm.model: opencode-go/deepseek-v4-pro:high\n" +
+		"llm.utility.model: opencode-go/deepseek-v4-flash:max\n" +
+		"autonomy.level: yolo\n"
+	if stdout != want {
+		t.Fatalf("stdout mismatch:\ngot  %q\nwant %q", stdout, want)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for config --all: %q", stderr)
+	}
+	if _, err := os.Stat(wantPath); err != nil {
+		t.Fatalf("created config stat: %v", err)
+	}
+	if lineCount := strings.Count(stdout, "\n"); lineCount != 4 {
+		t.Fatalf("config --all output line count = %d, want 4: %q", lineCount, stdout)
 	}
 }
 
@@ -476,6 +525,28 @@ func runCLITest(t *testing.T, args []string) (string, string, error) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		config: testConfigOutput,
+	}
+
+	err := runner.run(context.Background(), args)
+	return output.String(), errors.String(), err
+}
+
+func runCLIWithConfigCommand(t *testing.T, args []string) (string, string, error) {
+	t.Helper()
+
+	var output bytes.Buffer
+	var errors bytes.Buffer
+	runner := cliRunner{
+		input:   failReader{t: t},
+		output:  &output,
+		errors:  &errors,
+		version: "test-version",
+		start: func(context.Context, io.Reader, io.Writer) error {
+			t.Fatal("config command must not start the interactive TUI path")
+			return nil
+		},
+		config: app.ConfigCommandOutput,
 	}
 
 	err := runner.run(context.Background(), args)
@@ -496,6 +567,7 @@ func runCLIExitTest(t *testing.T, args []string) (string, string, int) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		config: testConfigOutput,
 	}
 
 	done := make(chan error, 1)
@@ -514,6 +586,13 @@ func runCLIExitTest(t *testing.T, args []string) (string, string, int) {
 		t.Fatalf("CLI args %v did not return without hanging", args)
 		return "", "", 1
 	}
+}
+
+func testConfigOutput(all bool) (string, error) {
+	if all {
+		return wantConfigAllOutput, nil
+	}
+	return wantConfigOutput, nil
 }
 
 func TestCLIRunnerBoundaryImports(t *testing.T) {

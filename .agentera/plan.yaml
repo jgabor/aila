@@ -39,7 +39,7 @@ tasks:
   - number: 3
     name: Bound config command behavior
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN no config WHEN aila config --all runs THEN it creates defaults and prints only path plus three supported values.
       - GIVEN aila config runs THEN it reports path and defers config UI.

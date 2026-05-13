@@ -96,6 +96,17 @@ func LoadConfigFile(path string) (Config, error) {
 	return config, nil
 }
 
+func ConfigCommandOutput(all bool) (string, error) {
+	config, path, err := LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	if all {
+		return fmt.Sprintf("path: %s\nllm.model: %s\nllm.utility.model: %s\nautonomy.level: %s\n", path, config.LLM.Model, config.LLM.Utility.Model, config.Autonomy.Level), nil
+	}
+	return fmt.Sprintf("path: %s\ndeferred: interactive config UI\n", path), nil
+}
+
 func defaultConfigFile() string {
 	return `[llm]
 model = "opencode-go/deepseek-v4-pro:high" # <provider>/<model>[:reasoning]

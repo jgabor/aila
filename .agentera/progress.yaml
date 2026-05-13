@@ -2289,6 +2289,43 @@ cycles:
       scope: >-
         internal/app startup display wiring and tests plus Agentera task/progress
         artifacts only.
+  - number: 46
+    timestamp: "2026-05-13 09:38"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9 Task 3 by replacing the config command stub with bounded
+      config command output: plain config reports the resolved path and deferred
+      interactive UI, while config --all creates defaults and prints only path,
+      llm.model, llm.utility.model, and autonomy.level.
+    commit: "e219f76"
+    inspiration: ".agentera/plan.yaml task 3; commit 4bcd177 config contract"
+    discovered: >-
+      Command tests need an injected config renderer for unrelated M7 stub
+      regression cases so they do not touch the developer's real user config.
+      This progress metadata is recorded in a follow-up metadata commit because
+      the implementation commit hash was not knowable before commit creation.
+    verified: >-
+      `mage fmt` completed after Go edits. `go test ./cmd/aila ./internal/app`
+      passed, proving config command creation/output behavior and preserving
+      config path/load contract tests. `go test ./...` passed across all
+      packages. `git diff --check` passed.
+    next: >-
+      Execute M9 Task 4 only when requested: refresh display evidence.
+    context:
+      intent: >-
+        Bound the user-facing config command to the three supported M9 values
+        without implementing an interactive config UI or future config domains.
+      constraints: >-
+        Execute only M9 Task 3; do not refresh fixtures/PTI beyond command tests;
+        do not implement models, run, or continue real behavior; do not add
+        provider readiness, credentials, real model turns, tools, permissions,
+        workflow/session/project state, config UI, plugin/MCP/dynamic/generic
+        surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila config command behavior and command tests, internal/app config
+        command rendering, and Agentera task/progress artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
