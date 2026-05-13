@@ -1,13 +1,24 @@
-Aila
-screen: 80x24
-phase: placeholder (display-only)
-model: placeholder | utility: placeholder | autonomy: placeholder
-
-chat:
-  user: explain this repo
-  assistant: Fake Aila response: explain this repo
-
-prompt:
->
-
-footer: git: placeholder | context: placeholder | quit: q
+Aila                                                                       80x24
+Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder  
++ Conversation ----------------------------------------------------------------+
+| user: explain this repo                                                      |
+| assistant: Fake Aila response: explain this repo                             |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

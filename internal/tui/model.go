@@ -27,10 +27,28 @@ type Size struct {
 	Height int
 }
 
+// LayoutClass names the deterministic responsive layout bucket for a terminal size.
+type LayoutClass string
+
+const (
+	LayoutCompact  LayoutClass = "compact"
+	LayoutStandard LayoutClass = "standard"
+	LayoutSpacious LayoutClass = "spacious"
+	LayoutDesktop  LayoutClass = "desktop"
+)
+
+// LayoutState is presentation-only responsive state derived from terminal size.
+type LayoutState struct {
+	Size             Size
+	Class            LayoutClass
+	RightRailVisible bool
+}
+
 // Model is the Bubble Tea model for the static shell.
 type Model struct {
 	state        ViewState
 	size         Size
+	layout       LayoutState
 	submitPrompt PromptSubmitFunc
 	routeCommand CommandRouteFunc
 	commandChord bool
@@ -54,9 +72,11 @@ func NewModelWithSizeAndPromptSubmit(size Size, submitPrompt PromptSubmitFunc) M
 
 // NewModelWithSizePromptSubmitAndCommandRoute creates a shell model with prompt and command routes.
 func NewModelWithSizePromptSubmitAndCommandRoute(size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) Model {
+	size = normalizeSize(size)
 	return Model{
 		state:        IdleEmptyState(),
-		size:         normalizeSize(size),
+		size:         size,
+		layout:       layoutForSize(size),
 		submitPrompt: submitPrompt,
 		routeCommand: routeCommand,
 	}
@@ -89,6 +109,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.size = normalizeSize(Size{Width: msg.Width, Height: msg.Height})
+		m.layout = layoutForSize(m.size)
 	case tea.KeyMsg:
 		if m.commandChord {
 			m.commandChord = false
@@ -120,6 +141,11 @@ func (m Model) Quitting() bool {
 // PromptInput reports the current prompt input view state.
 func (m Model) PromptInput() string {
 	return m.state.PromptInput
+}
+
+// Layout reports the current presentation-only responsive layout state.
+func (m Model) Layout() LayoutState {
+	return m.layout
 }
 
 func (m *Model) handlePromptKey(msg tea.KeyMsg) tea.Cmd {
@@ -181,9 +207,9 @@ func (m *Model) showCommandSurface(recommendation policy.CommandRecommendation) 
 		m.state.SurfaceTitle = "status"
 		m.state.SurfaceLines = []string{
 			"Deterministic placeholder status.",
-			"phase: " + m.state.Phase + " (display-only)",
-			"primary model: " + m.state.PrimaryModel,
-			"utility model: " + m.state.UtilityModel,
+			"stage " + m.state.Phase + " (display-only)",
+			"primary model " + m.state.PrimaryModel,
+			"utility model " + m.state.UtilityModel,
 			"autonomy: " + m.state.Autonomy,
 			"git: " + m.state.FooterGit,
 			"context: " + m.state.FooterContext,
@@ -220,4 +246,19 @@ func normalizeSize(size Size) Size {
 		size.Height = 24
 	}
 	return size
+}
+
+func layoutForSize(size Size) LayoutState {
+	size = normalizeSize(size)
+	layout := LayoutState{Size: size, Class: LayoutCompact}
+	switch {
+	case size.Width >= 140:
+		layout.Class = LayoutDesktop
+		layout.RightRailVisible = true
+	case size.Width >= 120:
+		layout.Class = LayoutSpacious
+	case size.Width >= 100:
+		layout.Class = LayoutStandard
+	}
+	return layout
 }

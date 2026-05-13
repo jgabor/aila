@@ -1,0 +1,30 @@
+Aila                                                                                          100x30
+Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder                      
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| status:                                                                                          |
+| command route: status                                                                            |
+| route source: policy.command                                                                     |
+| Deterministic placeholder status.                                                                |
+| stage placeholder (display-only)                                                                 |
+| primary model placeholder                                                                        |
+| utility model placeholder                                                                        |
+| autonomy: placeholder                                                                            |
+| git: placeholder                                                                                 |
+| context: placeholder                                                                             |
+| real status sources: deferred                                                                    |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit
+                                                                                                    

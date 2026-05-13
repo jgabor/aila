@@ -110,7 +110,12 @@ func (f renderFixture) ReadFile(t *testing.T, name string) []byte {
 func assertTextSnapshot(t *testing.T, fixture renderFixture, file string, got string) {
 	t.Helper()
 
-	want := fixture.SnapshotString(t, file)
+	want, ok := fixture.SnapshotStringIfExists(t, file)
+	if !ok {
+		path := fixture.SnapshotPath(file)
+		updateSnapshot(t, path, got)
+		t.Fatalf("render snapshot missing for fixture output %s", path)
+	}
 	if got == want {
 		return
 	}
@@ -123,7 +128,12 @@ func assertTextSnapshot(t *testing.T, fixture renderFixture, file string, got st
 func assertSemanticSnapshot(t *testing.T, fixture renderFixture, file string, got string) {
 	t.Helper()
 
-	want := fixture.SnapshotString(t, file)
+	want, ok := fixture.SnapshotStringIfExists(t, file)
+	if !ok {
+		path := fixture.SnapshotPath(file)
+		updateSnapshot(t, path, got)
+		t.Fatalf("semantic snapshot missing for fixture output %s", path)
+	}
 	var wantJSON any
 	if err := json.Unmarshal([]byte(want), &wantJSON); err != nil {
 		t.Fatalf("unmarshal semantic snapshot %s: %v", fixture.SnapshotPath(file), err)
@@ -137,6 +147,21 @@ func assertSemanticSnapshot(t *testing.T, fixture renderFixture, file string, go
 		updateSnapshot(t, path, got)
 		t.Fatalf("semantic mismatch for fixture output %s\nwant:\n%s\n\ngot:\n%s", path, want, got)
 	}
+}
+
+func (f renderFixture) SnapshotStringIfExists(t *testing.T, name string) (string, bool) {
+	t.Helper()
+
+	path := f.SnapshotPath(name)
+	data, err := os.ReadFile(path)
+	if err == nil {
+		return strings.TrimSuffix(string(data), "\n"), true
+	}
+	if os.IsNotExist(err) {
+		return "", false
+	}
+	t.Fatalf("read %s: %v", path, err)
+	return "", false
 }
 
 func updateSnapshot(t *testing.T, path string, got string) {

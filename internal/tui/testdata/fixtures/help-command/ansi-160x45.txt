@@ -1,0 +1,45 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage placeholder | Model placeholder | Utility placeholder | Auto placeholder                                                                                  [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| No messages yet.                                                                                                 |  | phase source: not_started              |
+|                                                                                                                  |  | primary model: placeholder             |
+| help:                                                                                                            |  | utility model: placeholder             |
+| command route: help                                                                                              |  | autonomy: placeholder                  |
+| route source: policy.command                                                                                     |  | git: placeholder                       |
+| Deterministic placeholder help.                                                                                  |  | context: placeholder                   |
+| commands:                                                                                                        |  |                                        |
+| /status - Show deterministic placeholder status.                                                                 |  |                                        |
+| /help - Show this deterministic placeholder help.                                                                |  |                                        |
+| /quit - Quit Aila.                                                                                               |  |                                        |
+| shortcuts:                                                                                                       |  |                                        |
+| ctrl+x s - Show deterministic placeholder status.                                                                |  |                                        |
+| ctrl+x q - Quit Aila.                                                                                            |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m
+                                                                                                                                                                

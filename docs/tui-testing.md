@@ -327,6 +327,13 @@ Human review is still required for major TUI changes. Automated tests can prove
 structure, behavior, and regressions; they cannot fully judge pacing, hierarchy,
 or taste.
 
+Golden render snapshots prove deterministic output, not design approval. A
+snapshot can faithfully preserve an embarrassing layout. Semantic snapshots can
+prove that regions and actions are machine-readable while still missing the
+intended product hierarchy. Treat those automated layers as regression evidence
+that must be reviewed alongside the mockups, not as permission to skip visual
+judgment.
+
 Perform human visual review when changing:
 
 - Overall layout.
@@ -346,6 +353,22 @@ Recommended human review checklist:
 - Verify risky operations are impossible to miss.
 - Verify queued input is visible but not distracting.
 - Verify the footer helps orientation without competing with the prompt.
+
+For layout milestones that change rendered structure, reject the change when any
+of these mockup-driven failures are present:
+
+- Product output looks like debug/plain test output rather than the mockup.
+- The wide layout is missing the intended split content/rail structure.
+- The right rail is appended as loose text instead of integrated into the layout.
+- Header or footer anchoring is weak, drifting, or visually incidental.
+- Prompt and content zones are unclear or compete for attention.
+- Narrow screens lose essential header, phase/model, active content, prompt, or
+  footer information.
+
+Agents auditing TUI layout must fail the audit if render snapshots or terminal
+screenshots would be embarrassing next to the relevant mockup, even when semantic
+snapshots and golden render tests pass. Passing tests mean the output is stable
+and machine-readable; they do not mean the interface is acceptable.
 
 ## Security and Trust
 

@@ -5,6 +5,10 @@
     "height": 45,
     "focus": "prompt"
   },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
   "session": {
     "phase": "placeholder",
     "phase_source": "not_started",
@@ -47,6 +51,18 @@
       "name": "footer",
       "visible": true,
       "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: not_started",
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "git: placeholder",
+        "context: placeholder"
+      ]
     }
   ],
   "actions": [

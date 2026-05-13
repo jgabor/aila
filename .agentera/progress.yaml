@@ -995,6 +995,506 @@ cycles:
       scope: >-
         ROADMAP.md closeout, Agentera final progress evidence, plan archival, and
         active plan removal only.
+  - number: 22
+    timestamp: "2026-05-12 19:19"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M6 Task 1 only by adding deterministic presentation-only
+      layout state to the TUI model and constraining WindowSizeMsg handling to
+      update normalized size/layout without routing prompts, commands, Bubble Tea
+      effects, or external IO.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 6"
+    discovered: >-
+      The existing resize path already avoided commands and external effects, but
+      it only stored normalized size. The new boundary test initially flagged
+      legitimate presentation state references too broadly, so the source-boundary
+      assertion was tightened to IO and ownership markers.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestWindowSizeMsgUpdatesOnlyLayoutState|TestLayoutForFixedM6SizesIsDeterministic|TestResizePathStaysPresentationOnlyAndIOFree|TestPromptInputUpdateStaysPresentationOnly|TestCommandSurfacesStayDeterministicAndIOFree'`
+      passed, including assertions that WindowSizeMsg emits no Bubble Tea command,
+      prompt submission, command route, or external-effect marker. Criterion 2: the
+      same targeted command passed TestWindowSizeMsgUpdatesOnlyLayoutState, proving
+      prompt input, transcript turns, and the active status command surface remain
+      unchanged across resize. Criterion 3: the same targeted command passed
+      TestLayoutForFixedM6SizesIsDeterministic, proving 80x24 maps to compact,
+      100x30 to standard, 120x32 to spacious, and 160x45 to desktop with right rail
+      visibility true only at desktop width. Criterion 4: the same targeted command
+      passed TestResizePathStaysPresentationOnlyAndIOFree, checking internal/tui
+      production imports/source for forbidden filesystem, shell, git, config,
+      provider, model, tool, permission, persistence, and workflow IO boundaries.
+      `mage fmt` completed successfully and `go test -count=1 ./internal/tui`
+      passed.
+    next: >-
+      Execute M6 Task 2 only when explicitly requested: responsive render contract.
+      Tasks 2-6 remain pending; do not implement semantic layout contract,
+      snapshot matrix, PTY resize smoke, ROADMAP closeout, plan archival, M7 CLI
+      shape, config/provider/model/go-agent/tool/permission/persistence/workflow
+      behavior, plugins, MCP, dynamic tools, workflow DSLs, generic graphs,
+      provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Establish a deterministic resize/layout update boundary that later M6
+        render and semantic contracts can consume.
+      constraints: >-
+        Implement only M6 task 1; do not change render snapshots, semantic layout
+        JSON, PTY smoke, ROADMAP closeout, plan archival, input behavior, command
+        families, CLI shape, config/provider/model/go-agent/tool/permission/
+        persistence/workflow behavior, plugins, MCP, dynamic tools, workflow DSLs,
+        generic graph engines, provider marketplaces, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui resize/layout model state and update-boundary tests plus
+        Agentera task/progress artifacts only.
+  - number: 23
+    timestamp: "2026-05-12 19:29"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M6 Task 2 only by making plain and ANSI renders consume the
+      existing deterministic layout threshold, keeping 80x24/100x30/120x32 rail-free,
+      and showing a 160x45 presentation-only right rail made only from existing
+      ViewState placeholder/supporting labels.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 6"
+    discovered: >-
+      The current renderer already kept all status/help content within 24 rows at
+      80x24. The desktop-wide M3 scope assertion still expected no right rail at
+      160x45, so it was narrowed for M6 to allow only the new placeholder rail
+      while continuing to forbid deferred command/resize behavior.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestM6ResponsiveRenderContract|TestRequiredM3RenderSnapshots|TestRequiredM3FixtureScopes|TestM5CommandFixtureSet|TestM4SubmittedPromptRenderSnapshots|TestLayoutForFixedM6SizesIsDeterministic|TestWindowSizeMsgUpdatesOnlyLayoutState|TestResizePathStaysPresentationOnlyAndIOFree'`
+      passed, including assertions that every current fixture at 80x24 keeps the
+      header, phase, model/autonomy, prompt, footer, and active chat or command
+      content visible within 24 rows. Criterion 2: the same command passed
+      assertions that 100x30 and 120x32 renders keep deterministic screen/phase/model
+      labels and introduce no right rail in plain or ANSI output. Criterion 3: the
+      same command passed assertions that 160x45 renders include a right rail whose
+      content is limited to phase source, primary model, utility model, autonomy,
+      git, and context placeholders, with no command route, route source, workflow,
+      provider, permission, or real status lookup content in the rail. Criterion 4:
+      the same command passed assertions that empty chat, submitted user/assistant
+      text, status route/source/placeholder, and help route/source/placeholder remain
+      visible for their respective fixtures. `mage fmt` completed successfully and
+      `go test -count=1 ./internal/tui` passed.
+    next: >-
+      Execute M6 Task 3 only when explicitly requested: semantic layout contract.
+      Tasks 3-6 remain pending; do not implement the full snapshot matrix, PTY
+      resize smoke, ROADMAP closeout, plan archival, M7 CLI shape, config/provider/
+      model/go-agent/tool/permission/persistence/workflow behavior, plugins, MCP,
+      dynamic tools, workflow DSLs, generic graphs, provider marketplaces, commits,
+      or pushes.
+    context:
+      intent: >-
+        Establish the responsive render contract for current fixtures before adding
+        semantic layout metadata or the full M6 fixture matrix.
+      constraints: >-
+        Implement only M6 task 2; do not add new input behavior, command families,
+        command args, aliases, shell prefixes, command palette, M7 CLI shape,
+        config/provider/model/go-agent/tool/permission/persistence/workflow
+        behavior, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+        provider marketplaces, real status lookup, full M6 snapshot matrix, PTY
+        resize smoke, closeout, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui plain/ANSI render layout behavior, render-contract tests,
+        desktop-wide text snapshots, and Agentera task/progress artifacts only.
+  - number: 24
+    timestamp: "2026-05-12 19:41"
+    type: feat
+    phase: build
+    what: >-
+      Executed active M6 Task 3 only by adding deterministic semantic layout
+      metadata to TUI semantic JSON, exposing the right rail as a machine-readable
+      region only at the wide layout threshold, and preserving placeholder phase
+      and command metadata as presentation-only semantics.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 6"
+    discovered: >-
+      The generated semantic model already exposed screen, session, regions,
+      actions, and command metadata, but checked-in semantic snapshots had no
+      explicit layout object and desktop-wide semantics did not identify the
+      placeholder right rail. The Agentera `plan --json` and `progress --json`
+      forms are not supported by this checkout, so the CLI summary was used first
+      and YAML artifacts were read as fallback.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestM6SemanticLayoutContract|TestM6CommandSemanticsSurviveLayoutSizes|TestRequiredM3SemanticSnapshots|TestRequiredM3SemanticContractConsistency|TestM5CommandFixtureSet|TestM4SubmittedPromptSemanticSnapshot|TestRequiredM3FixtureScopes'`
+      passed, including assertions that generated semantic JSON for current
+      fixtures at 80x24, 100x30, 120x32, and 160x45 exposes screen width/height/
+      focus, layout class, right rail visibility, visible regions, active content,
+      and actions. Criterion 2: the same command passed assertions that semantic
+      right_rail is absent below the wide threshold and present only when
+      right_rail_visible is true. Criterion 3: the same command passed assertions
+      that placeholder phase semantics keep workflow_transition=false, active=false,
+      and queued_messages=0 after layout metadata was added. Criterion 4: the same
+      command passed assertions that status/help command semantic metadata keeps
+      route, route_source=policy.command, executed=false, and
+      workflow_transition=false across 80x24, 100x30, 120x32, and 160x45. `mage
+      fmt` completed successfully; `go test -count=1 ./internal/tui -run
+      'TestM6ResponsiveRenderContract|TestLayoutForFixedM6SizesIsDeterministic|TestWindowSizeMsgUpdatesOnlyLayoutState'`
+      passed; `go test -count=1 ./internal/tui` passed.
+    next: >-
+      Execute M6 Task 4 only when explicitly requested: M6 fixture and snapshot
+      matrix. Tasks 4-6 remain pending; do not implement PTY resize smoke, ROADMAP
+      closeout, plan archival, M7 CLI shape, config/provider/model/go-agent/tool/
+      permission/persistence/workflow behavior, plugins, MCP, dynamic tools,
+      workflow DSLs, generic graphs, provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Make layout and right-rail presentation semantics deterministic and
+        machine-readable before expanding the full M6 snapshot matrix.
+      constraints: >-
+        Implement only M6 task 3; do not add new input behavior, command families,
+        command args, aliases, shell prefixes, command palette, M7 CLI shape,
+        config/provider/model/go-agent/tool/permission/persistence/workflow
+        behavior, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+        provider marketplaces, full M6 snapshot matrix, PTY resize smoke, closeout,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui semantic layout metadata, semantic layout contract tests,
+        existing semantic fixture snapshots, and Agentera task/progress artifacts
+        only.
+  - number: 25
+    timestamp: "2026-05-12 19:52"
+    type: test
+    phase: build
+    what: >-
+      Executed active M6 Task 4 only by declaring the complete fixture-size matrix
+      for idle-empty, narrow-80, desktop-wide, submitted-prompt, status-command,
+      and help-command, then generating checked-in plain, ANSI, and semantic
+      outputs for 80x24, 100x30, 120x32, and 160x45 through the existing explicit
+      TUI snapshot update gate.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 6"
+    discovered: >-
+      The review-gated snapshot procedure already prevented implicit rewrites, but
+      missing newly-declared files needed test-only snapshot assertions to route
+      creation through the same explicit AILA_UPDATE_TUI_SNAPSHOTS path instead of
+      failing before the gate could run. No runtime, input, command, provider,
+      workflow, tool, permission, persistence, plugin, MCP, dynamic-tool, or public
+      harness behavior was added.
+    verified: >-
+      Criterion 1: `go test -count=1 ./internal/tui -run
+      'TestM6FixtureSnapshotMatrix|TestRequiredM3FixtureSet'` passed, proving all
+      six current fixtures declare 80x24, 100x30, 120x32, and 160x45 and every
+      declared plain, ANSI, and semantic output file exists. Criterion 2:
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test -count=1 ./internal/tui -run
+      'TestRequiredM3RenderSnapshots|TestRequiredM3SemanticSnapshots|TestM4SubmittedPromptRenderSnapshots|TestM4SubmittedPromptSemanticSnapshot|TestM5CommandFixtureSet'`
+      first failed with `updated snapshot ... review the git diff before accepting
+      this change` messages while writing the matrix, then passed on a second run
+      after the reviewed outputs matched. Criterion 3: normal targeted snapshot
+      tests passed for M3-M5 fixture meanings plus M6 layout contracts, limiting
+      content changes to layout size labels, layout metadata, and wide-threshold
+      right-rail rendering/metadata. Criterion 4: `TestSnapshotUpdateModeIsExplicit`
+      passed and normal-mode runs of the fixture matrix and snapshot comparison
+      tests passed without AILA_UPDATE_TUI_SNAPSHOTS, with `git status --short`
+      unchanged after those read-only runs. `mage fmt` completed successfully.
+    next: >-
+      Execute M6 Task 5 only when explicitly requested: PTY resize smoke and
+      validation gate. Task 6 remains pending; do not implement ROADMAP closeout,
+      plan archival, M7 CLI shape, config/provider/model/go-agent/tool/permission/
+      persistence/workflow behavior, plugins, MCP, dynamic tools, workflow DSLs,
+      generic graphs, provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Complete the deterministic checked-in M6 fixture and snapshot matrix before
+        PTY resize smoke and final milestone validation.
+      constraints: >-
+        Implement only M6 task 4; do not add new input behavior, command families,
+        command args, aliases, shell prefixes, command palette, M7 CLI shape,
+        config/provider/model/go-agent/tool/permission/persistence/workflow
+        behavior, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+        provider marketplaces, PTY resize smoke, ROADMAP closeout, plan archival,
+        commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui fixture metadata, test-only fixture snapshot assertions,
+        checked-in TUI fixture snapshots, and Agentera task/progress artifacts only.
+  - number: 26
+    timestamp: "2026-05-12 20:24"
+    type: test
+    phase: build
+    what: >-
+      Executed active M6 Task 5 only by adding a scrubbed-env PTY resize smoke
+      that starts Aila wide at 160x45, submits a fake prompt-backed active chat
+      turn, resizes to 80x24, verifies header, prompt, footer, and active content
+      remain visible with bounded waits, and exits cleanly. Task 6 ROADMAP
+      closeout/archive was not implemented.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 6; docs/tui-testing.md PTY Smoke Tests and Visual Review"
+    discovered: >-
+      Automated Task 5 gates passed. Required human visual review against
+      docs/mockup-desktop.png and docs/mockup-mobile.png was not completed by a
+      human reviewer in this cycle; because this milestone changes layout
+      behavior, M6 remains not closed out and Task 5 is blocked on that review
+      rather than marked complete.
+    verified: >-
+      Criterion 1: `go test -count=1 ./cmd/aila -run 'TestM6ResizePTYSmoke'`
+      passed, covering scrubbed HOME/XDG_CACHE_HOME/GOCACHE/TMPDIR/GOENV PTY
+      startup at 160x45, fake prompt response rendering, resize to 80x24,
+      visibility of `Aila`, `screen: 80x24`, chat user/assistant content,
+      prompt, and footer, absence of right rail at 80x24, bounded timeouts, and
+      clean q quit cleanup. Criterion 2: targeted validation passed before full
+      validation: resize update tests
+      `TestWindowSizeMsgUpdatesOnlyLayoutState|TestLayoutForFixedM6SizesIsDeterministic|TestResizePathStaysPresentationOnlyAndIOFree`,
+      fixture snapshot tests
+      `TestM6FixtureSnapshotMatrix|TestRequiredM3RenderSnapshots|TestRequiredM3SemanticSnapshots`,
+      semantic layout tests
+      `TestM6SemanticLayoutContract|TestM6CommandSemanticsSurviveLayoutSizes|TestRequiredM3SemanticContractConsistency`,
+      and existing command/input tests
+      `TestPromptInput|TestPromptSubmit|TestSlashCommand|TestShortcutCommand|TestCommandInputParity|TestStatusCommand|TestHelpCommand|TestQWhileComposing`.
+      Criterion 3: full validation `go test ./...` passed and `mage check`
+      passed with 0 lint issues and no vulnerabilities. Criterion 4: human visual
+      review was evaluated as required but not completed by a human, so Task 5 is
+      recorded blocked and no ROADMAP closeout or plan archival was performed.
+    next: >-
+      A human must complete visual review against docs/mockup-desktop.png and
+      docs/mockup-mobile.png before M6 closeout. After that review is recorded,
+      execute M6 Task 6 only when explicitly requested: plan-level freshness
+      checkpoint, ROADMAP closeout, and plan archival. Do not implement M7 CLI
+      shape, config/provider/model/go-agent/tool/permission/persistence/workflow
+      behavior, plugins, MCP, dynamic tools, workflow DSLs, generic graphs,
+      provider marketplaces, commits, or pushes.
+    context:
+      intent: >-
+        Validate real terminal resize behavior and all automated M6 gates before
+        any milestone closeout while preserving the required human visual-review
+        gate.
+      constraints: >-
+        Implement only M6 task 5; do not implement Task 6, ROADMAP closeout, plan
+        archival, new input behavior, command families, command args, aliases,
+        shell prefixes, command palette, M7 CLI shape, config/provider/model/
+        go-agent/tool/permission/persistence/workflow behavior, plugins, MCP,
+        dynamic tools, workflow DSLs, generic graph engines, provider
+        marketplaces, commits, or pushes.
+      unknowns: >-
+        Human visual-review outcome for docs/mockup-desktop.png and
+        docs/mockup-mobile.png.
+      scope: >-
+        cmd/aila PTY smoke test helper coverage and Agentera task/progress
+        artifacts only.
+  - number: 27
+    timestamp: "2026-05-12 20:46"
+    type: docs
+    phase: build
+    what: >-
+      Executed active revised M6 Task 6 only by hardening the TUI testing
+      methodology after the failed M6 visual review. The documentation now makes
+      visual approval a separate mockup-driven gate from deterministic golden and
+      semantic snapshot evidence.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; docs/tui-testing.md Visual Review; failed M6 visual review recorded in the active plan"
+    discovered: >-
+      The existing Visual Review section required human review for major TUI
+      changes but did not explicitly prevent agents from treating stable golden
+      snapshots and semantic metadata as design approval. No implementation,
+      snapshot regeneration, PTY, ROADMAP closeout, plan archival, Task 7, or Task
+      8 work was needed.
+    verified: >-
+      Criterion 1: `docs/tui-testing.md` now states that golden render snapshots
+      prove deterministic output, not design approval, and that stable snapshots
+      can preserve an embarrassing layout. Criterion 2: the visual review
+      checklist now includes mockup-driven rejection criteria for debug/plain
+      product renders, missing split layout, appended rather than integrated right
+      rail, weak header/footer anchoring, unclear prompt/content zones, and
+      narrow-screen loss of essential header, phase/model, active content, prompt,
+      or footer information. Criterion 3: the doc now instructs agents auditing
+      TUI layout to fail the audit if render snapshots or terminal screenshots
+      would be embarrassing next to the relevant mockup, even when semantic
+      snapshots and golden render tests pass. Criterion 4: verification was a
+      documentation and Agentera artifact diff review only; no product behavior,
+      public harness, plugin, provider, workflow, model, tool, permission,
+      persistence, runtime behavior, snapshot regeneration, PTY behavior, ROADMAP
+      closeout, plan archival, Task 7, or Task 8 changes were added.
+    next: >-
+      Leave Task 5 blocked on human visual review, Task 7 pending for the
+      mockup-aligned M6 layout revision, and Task 8 pending for the later
+      plan-level freshness checkpoint. Do not close or archive the plan until the
+      remaining gates are explicitly executed.
+    context:
+      intent: >-
+        Make the failed visual review operational in the evergreen TUI testing
+        methodology so future agents cannot confuse deterministic snapshots with
+        acceptable product design.
+      constraints: >-
+        Implement only active revised M6 Task 6; do not implement Tasks 7-8,
+        revise layout rendering, regenerate snapshots, alter PTY tests, close out
+        ROADMAP M6, archive the plan, commit, push, or add product behavior,
+        public harness, plugin, provider, workflow, model, tool, permission,
+        persistence, or runtime behavior.
+      unknowns: >-
+        Human visual-review outcome remains unresolved because Task 5 is still
+        blocked and Task 7 has not been executed.
+      scope: >-
+        docs/tui-testing.md methodology text and Agentera task/progress artifacts
+        only.
+  - number: 28
+    timestamp: "2026-05-12 21:30"
+    type: feat
+    phase: build
+    what: >-
+      Executed active revised M6 Task 7 only by replacing the debug/plain TUI
+      product render with a mockup-aligned framed layout: anchored title/status
+      header, framed conversation content, framed prompt zone, anchored footer,
+      and a width-gated integrated Session rail at 160x45.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 7; docs/mockup-desktop.png; docs/mockup-mobile.png; docs/tui-testing.md visual-review methodology"
+    discovered: >-
+      Real tmux terminal capture is possible in this environment and now exists as
+      desktop/mobile ANSI evidence, but explicit human approval of the revised
+      desktop and mobile layout direction cannot be obtained autonomously. The
+      Agentera CLI supports read formatting through `--format`, but not direct
+      task/progress mutation commands, so plan/progress artifacts were updated
+      directly after CLI inspection.
+    verified: >-
+      Criterion 1 partial: wide plain and ANSI renders now show a product-like
+      left Conversation pane, integrated Session rail, anchored header/footer,
+      distinct Prompt/content zones, and no product render labels `screen:`,
+      `phase:`, or `right rail:`. Real desktop terminal evidence was captured at
+      `docs/artifacts/m6-task7-desktop-160x45.ansi`. Criterion 2: the 80x24
+      narrow render keeps header, stage/model/autonomy, Conversation, Prompt, and
+      footer usable with no Session rail leakage; real mobile terminal evidence was
+      captured at `docs/artifacts/m6-task7-mobile-80x24.ansi`. Criterion 3:
+      `go test -count=1 ./internal/tui` passed, preserving the exact M6 fixture
+      matrix and semantic no-transition/no-execution metadata; `go test -count=1
+      ./cmd/aila -run 'TestM6ResizePTYSmoke|TestM5CommandPTYSmoke|TestStaticTUISmokeStartupAndQuit|TestPromptSubmitPTYSmoke'`
+      passed; `go test -count=1 ./...` passed; `mage check` passed with 0 lint
+      issues and no vulnerabilities; `mage fmt` and `mage build` completed
+      successfully. Criterion 4 is not satisfied because no human explicitly
+      approved the desktop and mobile layout direction.
+    next: >-
+      A human reviewer must inspect docs/mockup-desktop.png,
+      docs/mockup-mobile.png, the revised plain/ANSI snapshots, and the tmux
+      terminal captures, then explicitly approve or reject the desktop and mobile
+      layout direction. Do not unblock Task 5, execute Task 8, close/archive the
+      plan, commit, push, or implement M7+ scope until that approval exists.
+    context:
+      intent: >-
+        Resolve the failed M6 visual direction by making current presentation-only
+        TUI output look like product layout rather than debug/plain diagnostic
+        output.
+      constraints: >-
+        Implement only M6 task 7; do not add Task 8, ROADMAP closeout, plan
+        archival, M7 CLI shape, config/provider/model/go-agent/tool/permission/
+        persistence/workflow behavior, command families, command args, aliases,
+        shell prefixes, command palette, plugins, MCP, dynamic tools, workflow
+        DSLs, generic graph engines, provider marketplaces, commits, or pushes.
+      unknowns: >-
+        Human visual-review approval for the revised desktop and mobile layout
+        direction remains unresolved.
+      scope: >-
+        internal/tui presentation rendering, presentation-only test expectations,
+        deterministic fixture snapshots, PTY smoke expectations, terminal capture
+        artifacts, and Agentera plan/progress artifacts.
+  - number: 29
+    timestamp: "2026-05-12 21:45"
+    type: review
+    phase: build
+    what: >-
+      Recorded the human visual-review approval for the revised M6 desktop/mobile
+      layout and resolved the active revised M6 Task 5 and Task 7 blockers without
+      executing Task 8 closeout.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml tasks 5 and 7; human reviewer approval `LGTM. Approved.`"
+    discovered: >-
+      The only remaining blockers for Task 5 and Task 7 were the missing explicit
+      human visual approval. The reviewer has now explicitly approved the revised
+      M6 desktop/mobile layout with `LGTM. Approved.` Task 8 remains pending, so
+      ROADMAP closeout, plan archival, commits, and pushes remain out of scope.
+    verified: >-
+      Task 5 criterion 4 is satisfied by the explicit human approval `LGTM.
+      Approved.` after review against docs/mockup-desktop.png,
+      docs/mockup-mobile.png, revised fixture snapshots including
+      internal/tui/testdata/fixtures/desktop-wide/plain-160x45.txt,
+      internal/tui/testdata/fixtures/desktop-wide/ansi-160x45.txt,
+      internal/tui/testdata/fixtures/narrow-80/plain-80x24.txt, and
+      internal/tui/testdata/fixtures/narrow-80/ansi-80x24.txt, plus real terminal
+      capture artifacts docs/artifacts/m6-task7-desktop-160x45.ansi and
+      docs/artifacts/m6-task7-mobile-80x24.ansi. Task 7 criterion 1 is satisfied
+      by the approved desktop evidence showing a product-like left Conversation
+      pane, integrated Session rail, anchored header/footer, distinct Prompt and
+      content zones, and no debug/plain product labels such as `screen:`,
+      `phase:`, or `right rail:`. Task 7 criterion 2 is satisfied by the approved
+      mobile evidence showing header, stage/model, active content, Prompt, and
+      footer remain usable at 80x24 without desktop rail leakage. Task 7 criterion
+      4 is satisfied by the same explicit human approval of the revised desktop
+      and mobile layout direction. `.agentera/plan.yaml` now marks Tasks 5 and 7
+      complete while leaving Task 8 pending and the active plan open.
+    next: >-
+      Task 8 remains pending for the later plan-level freshness checkpoint,
+      ROADMAP closeout, and plan archival. Do not close/archive the plan, commit,
+      push, or implement M7+ scope until Task 8 is explicitly executed.
+    context:
+      intent: >-
+        Resolve only the visual-review blockers after explicit human approval of
+        the revised M6 desktop/mobile layout.
+      constraints: >-
+        Change only Agentera tracking artifacts for blocker resolution; do not
+        change product code, snapshots, ROADMAP, docs, plan archive state, commits,
+        pushes, M7 CLI shape, config/provider/model/go-agent/tool/permission/
+        persistence/workflow behavior, plugins, MCP, dynamic tools, workflow DSLs,
+        generic graph engines, or provider marketplaces.
+      unknowns: "none"
+      scope: >-
+        .agentera/plan.yaml task statuses and .agentera/progress.yaml approval
+        evidence only.
+  - number: 30
+    timestamp: "2026-05-12 22:10"
+    type: chore
+    phase: build
+    what: >-
+      Executed active revised M6 Task 8 only by performing the plan-level
+      freshness checkpoint, closing ROADMAP.md for M6, archiving the completed M6
+      plan, and removing the active plan artifact.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 8; ROADMAP.md Milestone 6; docs/notes/PROMPT.md closeout rules"
+    discovered: >-
+      The final M6 diff remained inside resize/layout responsiveness scope. The
+      only code changes were TUI presentation layout, deterministic fixture and
+      semantic snapshot coverage, and PTY resize smoke tests; methodology docs and
+      terminal capture artifacts support the required visual-review gate. No M7+
+      command shape, config/provider/model/go-agent/tool/permission/persistence/
+      workflow behavior, plugin, MCP, dynamic-tool, workflow-DSL, generic-graph,
+      provider-marketplace, public runtime harness, command family, alias, shell
+      prefix, or command palette behavior entered the change.
+    verified: >-
+      Criterion 1: reviewed the final M6 diff against ROADMAP.md,
+      docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+      docs/workflow-architecture.md and found no M7+ scope or fixed-product
+      violation. Criterion 2: closeout keeps M7 CLI command shape, config/provider/
+      model/go-agent/tool/permission/persistence/workflow behavior, and broader UI
+      states deferred. Criterion 3: ROADMAP.md now records M6 complete, M7 next,
+      active none, and validation evidence including PTY resize smoke, fixture
+      matrix coverage, mage check, methodology hardening, and approved human visual
+      review. Criterion 4: the completed plan is archived at
+      .agentera/archive/plan-2026-05-12-m6.yaml, active .agentera/plan.yaml is
+      removed, `agentera plan` reports no active plan, `agentera progress` reports
+      this final M6 evidence, and post-closeout `mage check` passed.
+    next: >-
+      M6 is closed. Plan or execute ROADMAP.md Milestone 7: CLI Command Shape only
+      when explicitly requested; keep config/provider/model/go-agent/tool/
+      permission/persistence/workflow behavior and broader UI states deferred to
+      their later milestones.
+    context:
+      intent: >-
+        Close M6 after all automated validation, methodology hardening, layout
+        revision, and human visual review gates are satisfied.
+      constraints: >-
+        Implement only active revised M6 Task 8; do not commit, push, or implement
+        M7 CLI shape, config/provider/model/go-agent/tool/permission/persistence/
+        workflow behavior, new command families, aliases, shell prefixes, command
+        palette, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+        provider marketplaces, public runtime harnesses, or broader UI states.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md closeout, Agentera final progress evidence, plan archival, and
+        active plan removal only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
+  - .agentera/archive/plan-2026-05-12-m6.yaml

@@ -5,6 +5,10 @@
     "height": 32,
     "focus": "prompt"
   },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
   "session": {
     "phase": "placeholder",
     "phase_source": "not_started",
@@ -54,9 +58,9 @@
         "command route: status",
         "route source: policy.command",
         "Deterministic placeholder status.",
-        "phase: placeholder (display-only)",
-        "primary model: placeholder",
-        "utility model: placeholder",
+        "stage placeholder (display-only)",
+        "primary model placeholder",
+        "utility model placeholder",
         "autonomy: placeholder",
         "git: placeholder",
         "context: placeholder",

@@ -1,0 +1,65 @@
+{
+  "scenario": "submitted-prompt",
+  "screen": {
+    "width": 100,
+    "height": 30,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "standard",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "placeholder",
+    "phase_source": "not_started",
+    "workflow_transition": false,
+    "active": false,
+    "queued_messages": 0,
+    "autonomy": "placeholder"
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["placeholder", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": [
+        "user: explain this repo",
+        "assistant: Fake Aila response: explain this repo"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

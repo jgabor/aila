@@ -19,24 +19,25 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Last completed milestone | Milestone 5: Minimal Command Router                                                                                      |
-| Next milestone           | Milestone 6: Resize And Layout Responsiveness                                                                            |
-| Active milestone         | none                                                                                                                     |
-| Last updated             | 2026-05-12                                                                                                               |
-| Last validation          | M5 command PTY smoke, targeted policy/TUI/app/cmd command tests, `go test ./...`, and post-closeout `mage check` passed. |
+| Field                    | Value                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 6: Resize And Layout Responsiveness                                                                                                                                     |
+| Next milestone           | Milestone 7: CLI Command Shape                                                                                                                                                    |
+| Active milestone         | none                                                                                                                                                                              |
+| Last updated             | 2026-05-12                                                                                                                                                                        |
+| Last validation          | M6 fixture matrix, semantic layout, resize tests, PTY resize smoke, methodology hardening, approved human visual review, freshness review, and post-closeout `mage check` passed. |
 
 Completion log:
 
-| Milestone | Status    | Date       | Validation summary                                                                              |
-| --------- | --------- | ---------- | ----------------------------------------------------------------------------------------------- |
-| 0         | completed | 2026-05-11 | Source docs and TUI procedure exist; `mage check` passes baseline.                              |
-| 1         | completed | 2026-05-12 | Go skeleton packages and idle-empty semantic fixture validated.                                 |
-| 2         | completed | 2026-05-12 | Static TUI shell renders and quits through PTY smoke.                                           |
-| 3         | completed | 2026-05-12 | Fixture harness snapshots validated; PTY skipped, no terminal behavior changed.                 |
-| 4         | completed | 2026-05-12 | Basic input loop validated with PTY submit smoke and full `mage check`.                         |
-| 5         | completed | 2026-05-12 | Minimal command router validated with fixtures, parity tests, PTY smoke, and full `mage check`. |
+| Milestone | Status    | Date       | Validation summary                                                                                                                                        |
+| --------- | --------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0         | completed | 2026-05-11 | Source docs and TUI procedure exist; `mage check` passes baseline.                                                                                        |
+| 1         | completed | 2026-05-12 | Go skeleton packages and idle-empty semantic fixture validated.                                                                                           |
+| 2         | completed | 2026-05-12 | Static TUI shell renders and quits through PTY smoke.                                                                                                     |
+| 3         | completed | 2026-05-12 | Fixture harness snapshots validated; PTY skipped, no terminal behavior changed.                                                                           |
+| 4         | completed | 2026-05-12 | Basic input loop validated with PTY submit smoke and full `mage check`.                                                                                   |
+| 5         | completed | 2026-05-12 | Minimal command router validated with fixtures, parity tests, PTY smoke, and full `mage check`.                                                           |
+| 6         | completed | 2026-05-12 | Resize/layout responsiveness validated with fixture matrix, PTY resize smoke, methodology hardening, approved human visual review, and full `mage check`. |
 
 Status values:
 

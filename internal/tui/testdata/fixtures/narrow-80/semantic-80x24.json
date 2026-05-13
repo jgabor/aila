@@ -5,6 +5,10 @@
     "height": 24,
     "focus": "prompt"
   },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
   "session": {
     "phase": "placeholder",
     "phase_source": "not_started",

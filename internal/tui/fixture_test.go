@@ -14,16 +14,9 @@ func TestRequiredM3FixtureSet(t *testing.T) {
 	t.Parallel()
 
 	required := map[string][]fixtureSize{
-		"idle-empty": {
-			{Name: "80x24", Width: 80, Height: 24},
-			{Name: "120x32", Width: 120, Height: 32},
-		},
-		"narrow-80": {
-			{Name: "80x24", Width: 80, Height: 24},
-		},
-		"desktop-wide": {
-			{Name: "160x45", Width: 160, Height: 45},
-		},
+		"idle-empty":   m6FixtureSizes(),
+		"narrow-80":    m6FixtureSizes(),
+		"desktop-wide": m6FixtureSizes(),
 	}
 
 	for name, sizes := range required {
@@ -134,7 +127,7 @@ func TestM5CommandFixtureSet(t *testing.T) {
 			if fixture.TerminalBehavior != "bubbletea_static" {
 				t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
 			}
-			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}})
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
 
 			for _, renderCase := range fixture.TextCases() {
 				renderCase := renderCase
@@ -204,7 +197,7 @@ func TestM4SubmittedPromptRenderSnapshots(t *testing.T) {
 	if fixture.TerminalBehavior != "bubbletea_static" {
 		t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
 	}
-	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+	assertFixtureSizes(t, fixture, m6FixtureSizes())
 
 	for _, tc := range fixture.TextCases() {
 		tc := tc
@@ -213,11 +206,43 @@ func TestM4SubmittedPromptRenderSnapshots(t *testing.T) {
 
 			got := tc.render(fixture.State, tc.size)
 			assertTextSnapshot(t, fixture, tc.file, got)
-			assertOrdered(t, got, "  user: explain this repo", "  assistant: Fake Aila response: explain this repo")
-			if !contains(got, "prompt:\n>") {
+			assertOrdered(t, got, "user: explain this repo", "assistant: Fake Aila response: explain this repo")
+			if !containsAll(got, []string{"Prompt", ">"}) {
 				t.Fatalf("submitted prompt fixture should show cleared prompt state:\n%s", got)
 			}
 		})
+	}
+}
+
+func TestM6FixtureSnapshotMatrix(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range currentRenderFixtures(t) {
+		fixture := fixture
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
+			for _, size := range fixture.Sizes {
+				for _, kind := range []string{"plain", "ansi", "semantic"} {
+					key := fixtureOutputKey(kind, size.Name)
+					file := fixture.Outputs[key]
+					if file == "" {
+						t.Fatalf("render output %q missing from fixture metadata", key)
+					}
+					fixture.ReadFile(t, file)
+				}
+			}
+		})
+	}
+}
+
+func m6FixtureSizes() []fixtureSize {
+	return []fixtureSize{
+		{Name: "80x24", Width: 80, Height: 24},
+		{Name: "100x30", Width: 100, Height: 30},
+		{Name: "120x32", Width: 120, Height: 32},
+		{Name: "160x45", Width: 160, Height: 45},
 	}
 }
 
@@ -265,11 +290,13 @@ func TestRequiredM3FixtureScopes(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name string
-		size Size
+		name      string
+		size      Size
+		wantRail  bool
+		forbidden []string
 	}{
-		{name: "narrow-80", size: Size{Width: 80, Height: 24}},
-		{name: "desktop-wide", size: Size{Width: 160, Height: 45}},
+		{name: "narrow-80", size: Size{Width: 80, Height: 24}, forbidden: []string{"submit", "slash", "command", "right rail", "resize"}},
+		{name: "desktop-wide", size: Size{Width: 160, Height: 45}, wantRail: true, forbidden: []string{"submit", "slash", "command", "resize"}},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -277,11 +304,14 @@ func TestRequiredM3FixtureScopes(t *testing.T) {
 
 			fixture := loadStaticShellFixture(t, tc.name)
 			plain := RenderPlain(fixture.State, tc.size)
-			if !containsAll(plain, []string{"chat:\n  No messages yet.", "prompt:\n>", "quit: q"}) {
+			if !containsAll(plain, []string{"Conversation", "No messages yet.", "Prompt", ">", "q quit"}) {
 				t.Fatalf("%s plain render does not represent the current static shell:\n%s", tc.name, plain)
 			}
-			if containsAny(plain, []string{"submit", "slash", "command", "right rail", "resize"}) {
+			if containsAny(plain, tc.forbidden) {
 				t.Fatalf("%s plain render includes deferred behavior:\n%s", tc.name, plain)
+			}
+			if tc.wantRail && !containsAll(plain, []string{"Session", "phase source: not_started", "primary model: placeholder"}) {
+				t.Fatalf("%s plain render missing M6 placeholder rail:\n%s", tc.name, plain)
 			}
 
 			semantic := Semantic(fixture.State, tc.size)
@@ -292,8 +322,8 @@ func TestRequiredM3FixtureScopes(t *testing.T) {
 				t.Fatalf("%s actions = %+v, want single q quit action", tc.name, semantic.Actions)
 			}
 			for _, region := range semantic.Regions {
-				if region.Name == "right_rail" || region.Name == "right-rail" {
-					t.Fatalf("%s should defer right rail behavior to Milestone 6", tc.name)
+				if !tc.wantRail && (region.Name == "right_rail" || region.Name == "right-rail") {
+					t.Fatalf("%s should not expose right rail semantics below the wide threshold", tc.name)
 				}
 			}
 		})
@@ -421,6 +451,10 @@ func assertSemanticContract(t *testing.T, scenario string, size Size, snapshot S
 	if snapshot.Screen.Focus == "" {
 		t.Fatal("screen focus is empty")
 	}
+	wantLayout := layoutForSize(size)
+	if snapshot.Layout.Class != wantLayout.Class || snapshot.Layout.RightRailVisible != wantLayout.RightRailVisible {
+		t.Fatalf("layout = %+v, want class %q right rail %v", snapshot.Layout, wantLayout.Class, wantLayout.RightRailVisible)
+	}
 	if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
 		t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
 	}
@@ -451,6 +485,13 @@ func assertSemanticContract(t *testing.T, scenario string, size Size, snapshot S
 		if _, ok := regions[name]; !ok {
 			t.Fatalf("semantic region %q missing from snapshot", name)
 		}
+	}
+	if snapshot.Layout.RightRailVisible {
+		if _, ok := regions["right_rail"]; !ok {
+			t.Fatal("semantic right rail region missing when layout exposes the rail")
+		}
+	} else if _, ok := regions["right_rail"]; ok {
+		t.Fatal("semantic right rail region present below the wide threshold")
 	}
 	if _, ok := regions[snapshot.Screen.Focus]; !ok {
 		t.Fatalf("focus %q does not identify a visible semantic region", snapshot.Screen.Focus)

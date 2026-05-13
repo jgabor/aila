@@ -96,7 +96,7 @@ func TestM5CommandPTYSmoke(t *testing.T) {
 		t.Fatalf("send ctrl+x s command input: %v", err)
 	}
 	shortcutStatus := readUntil(t, terminal, "real status sources: deferred", 10*time.Second)
-	if !strings.Contains(startup+shortcutStatus, "screen: 80x24") {
+	if !strings.Contains(startup+shortcutStatus, "80x24") {
 		t.Fatalf("PTY smoke did not observe fixed-size marker: startup=%q status=%q", startup, shortcutStatus)
 	}
 	for _, marker := range []string{
@@ -144,14 +144,68 @@ func TestM5CommandPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM6ResizePTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	ctx, cancel, terminal, wait := startAilaPTYWithSize(t, 160, 45)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntil(t, terminal, "160x45", 20*time.Second)
+	if !strings.Contains(startup, "Aila") {
+		t.Fatalf("wide startup output missing Aila marker: %q", startup)
+	}
+
+	if _, err := terminal.Write([]byte("resize smoke\r")); err != nil {
+		t.Fatalf("send resize smoke prompt input: %v", err)
+	}
+	readUntil(t, terminal, "assistant: Fake Aila response: resize smoke", 10*time.Second)
+
+	if err := pty.Setsize(terminal, &pty.Winsize{Rows: 24, Cols: 80}); err != nil {
+		t.Fatalf("resize PTY to 80x24: %v", err)
+	}
+	resized := readUntilAll(t, terminal, []string{
+		"Aila",
+		"80x24",
+		"Conversation",
+		"user: resize smoke",
+		"assistant: Fake Aila response: resize smoke",
+		"Prompt",
+		">",
+		"git: placeholder | context: placeholder | q quit",
+	}, 10*time.Second)
+	if strings.Contains(resized, "Session") {
+		t.Fatalf("80x24 resize output exposed right rail: %q", resized)
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after resize: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("resize TUI quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("resize TUI did not clean up before timeout: %v", ctx.Err())
+	}
+}
+
 func startAilaPTY(t *testing.T) (context.Context, context.CancelFunc, *os.File, <-chan error) {
+	t.Helper()
+	return startAilaPTYWithSize(t, 80, 24)
+}
+
+func startAilaPTYWithSize(t *testing.T, cols uint16, rows uint16) (context.Context, context.CancelFunc, *os.File, <-chan error) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	cmd := exec.CommandContext(ctx, "go", "run", ".")
 	cmd.Env = ailaPTYEnv(t)
 
-	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
+	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: rows, Cols: cols})
 	if err != nil {
 		cancel()
 		t.Fatalf("start static TUI in PTY: %v", err)
@@ -210,6 +264,25 @@ func goEnv(t *testing.T, name string) string {
 
 func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Duration) string {
 	t.Helper()
+	return readUntilMatch(t, reader, timeout, func(output string) bool {
+		return strings.Contains(output, needle)
+	}, needle)
+}
+
+func readUntilAll(t *testing.T, reader io.Reader, needles []string, timeout time.Duration) string {
+	t.Helper()
+	return readUntilMatch(t, reader, timeout, func(output string) bool {
+		for _, needle := range needles {
+			if !strings.Contains(output, needle) {
+				return false
+			}
+		}
+		return true
+	}, strings.Join(needles, ", "))
+}
+
+func readUntilMatch(t *testing.T, reader io.Reader, timeout time.Duration, match func(string) bool, description string) string {
+	t.Helper()
 
 	result := make(chan string, 1)
 	failure := make(chan error, 1)
@@ -225,7 +298,7 @@ func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Durat
 				case progress <- out.String():
 				default:
 				}
-				if strings.Contains(out.String(), needle) {
+				if match(out.String()) {
 					result <- out.String()
 					return
 				}
@@ -248,7 +321,7 @@ func readUntil(t *testing.T, reader io.Reader, needle string, timeout time.Durat
 			t.Fatal(err)
 		case partial = <-progress:
 		case <-timer.C:
-			t.Fatalf("timed out waiting for %q; partial output: %q", needle, partial)
+			t.Fatalf("timed out waiting for %q; partial output: %q", description, partial)
 		}
 	}
 }

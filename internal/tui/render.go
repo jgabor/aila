@@ -51,54 +51,168 @@ func IdleEmptyState() ViewState {
 
 // RenderPlain renders the static shell without terminal styling.
 func RenderPlain(state ViewState, size Size) string {
-	size = normalizeSize(size)
-	lines := []string{
-		state.AppName,
-		fmt.Sprintf("screen: %dx%d", size.Width, size.Height),
-		fmt.Sprintf("phase: %s (display-only)", state.Phase),
-		fmt.Sprintf("model: %s | utility: %s | autonomy: %s", state.PrimaryModel, state.UtilityModel, state.Autonomy),
-		"",
-		"chat:",
-	}
-	lines = append(lines, chatLines(state.Transcript)...)
-	lines = append(lines, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
-	lines = append(lines,
-		"",
-		"prompt:",
-		promptLine(state.PromptInput),
-		"",
-		fmt.Sprintf("footer: git: %s | context: %s | quit: q", state.FooterGit, state.FooterContext),
-	)
-	return strings.Join(lines, "\n")
+	return renderProduct(state, size, false)
 }
 
 // RenderANSI renders the static shell with stable ANSI styling.
 func RenderANSI(state ViewState, size Size) string {
+	return renderProduct(state, size, true)
+}
+
+func renderProduct(state ViewState, size Size, ansi bool) string {
 	size = normalizeSize(size)
-	lines := []string{
-		ansiBold + state.AppName + ansiReset,
-		fmt.Sprintf("screen: %dx%d", size.Width, size.Height),
-		"phase: " + ansiYellow + state.Phase + ansiReset + " (display-only)",
-		"model: " + ansiCyan + state.PrimaryModel + ansiReset + " | utility: " + state.UtilityModel + " | autonomy: " + state.Autonomy,
-		"",
-		"chat:",
+	layout := layoutForSize(size)
+	lines := make([]string, 0, size.Height)
+	header := fitLine(state.AppName, sizeLabel(size), size.Width)
+	status := fitLine(statusLine(state), "", size.Width)
+	if ansi {
+		header = ansiBold + header + ansiReset
+		status = ansiDim + status + ansiReset
 	}
-	lines = append(lines, chatLines(state.Transcript)...)
-	lines = append(lines, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
-	lines = append(lines,
-		"",
-		"prompt:",
-		promptLine(state.PromptInput),
-		"",
-		ansiDim+fmt.Sprintf("footer: git: %s | context: %s | quit: q", state.FooterGit, state.FooterContext)+ansiReset,
-	)
+	lines = append(lines, header, status)
+
+	contentHeight := size.Height - 7
+	if contentHeight < 8 {
+		contentHeight = 8
+	}
+	if layout.RightRailVisible {
+		leftWidth := size.Width - 44
+		lines = append(lines, pairedPanelLines("Conversation", contentItems(state), leftWidth, "Session", rightRailSemanticItems(state), 42, contentHeight, ansi)...)
+	} else {
+		lines = append(lines, panelLines("Conversation", contentItems(state), size.Width, contentHeight, ansi)...)
+	}
+	lines = append(lines, promptPanelLines(state, size.Width, ansi)...)
+	footer := fitLine("", "git: "+state.FooterGit+" | context: "+state.FooterContext+" | q quit", size.Width)
+	if ansi {
+		footer = ansiDim + footer + ansiReset
+	}
+	lines = append(lines, footer)
+	if len(lines) > size.Height {
+		lines = lines[:size.Height]
+	}
+	for len(lines) < size.Height {
+		lines = append(lines, strings.Repeat(" ", size.Width))
+	}
 	return strings.Join(lines, "\n")
+}
+
+func sizeLabel(size Size) string {
+	return fmt.Sprintf("%dx%d", size.Width, size.Height)
+}
+
+func statusLine(state ViewState) string {
+	return "Stage " + state.Phase + " | Model " + state.PrimaryModel + " | Utility " + state.UtilityModel + " | Auto " + state.Autonomy
+}
+
+func contentItems(state ViewState) []string {
+	items := chatLines(state.Transcript)
+	items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
+	return items
+}
+
+func panelLines(title string, items []string, width int, height int, ansi bool) []string {
+	if width < 20 {
+		width = 20
+	}
+	if height < 3 {
+		height = 3
+	}
+	lines := []string{panelTop(title, width, ansi)}
+	contentHeight := height - 2
+	for i := 0; i < contentHeight; i++ {
+		text := ""
+		if i < len(items) {
+			text = strings.TrimPrefix(items[i], "  ")
+		}
+		lines = append(lines, panelRow(text, width))
+	}
+	lines = append(lines, panelBottom(width))
+	return lines
+}
+
+func pairedPanelLines(leftTitle string, leftItems []string, leftWidth int, rightTitle string, rightItems []string, rightWidth int, height int, ansi bool) []string {
+	left := panelLines(leftTitle, leftItems, leftWidth, height, ansi)
+	right := panelLines(rightTitle, rightItems, rightWidth, height, ansi)
+	lines := make([]string, 0, height)
+	for i := 0; i < height; i++ {
+		lines = append(lines, left[i]+"  "+right[i])
+	}
+	return lines
+}
+
+func promptPanelLines(state ViewState, width int, ansi bool) []string {
+	input := promptLine(state.PromptInput)
+	if ansi {
+		input = ansiCyan + input + ansiReset
+	}
+	return []string{
+		panelTop("Prompt", width, ansi),
+		panelRow(input, width),
+		panelBottom(width),
+	}
+}
+
+func panelTop(title string, width int, ansi bool) string {
+	label := " " + title + " "
+	if ansi {
+		label = " " + ansiYellow + title + ansiReset + " "
+	}
+	return "+" + fitVisible(label, width-2, "-") + "+"
+}
+
+func panelBottom(width int) string {
+	return "+" + strings.Repeat("-", width-2) + "+"
+}
+
+func panelRow(text string, width int) string {
+	return "| " + fitVisible(text, width-4, " ") + " |"
+}
+
+func fitLine(left string, right string, width int) string {
+	left = trimVisible(left, width)
+	right = trimVisible(right, width)
+	space := width - visibleLen(left) - visibleLen(right)
+	if space < 1 {
+		return trimVisible(left+" "+right, width)
+	}
+	return left + strings.Repeat(" ", space) + right
+}
+
+func fitVisible(text string, width int, pad string) string {
+	text = trimVisible(text, width)
+	return text + strings.Repeat(pad, width-visibleLen(text))
+}
+
+func trimVisible(text string, width int) string {
+	if visibleLen(text) <= width {
+		return text
+	}
+	if width <= 1 {
+		if width < 1 {
+			return ""
+		}
+		return "."
+	}
+	plain := stripANSI(text)
+	return plain[:width-1] + "~"
+}
+
+func visibleLen(text string) int {
+	return len(stripANSI(text))
+}
+
+func stripANSI(text string) string {
+	for _, code := range []string{ansiBold, ansiDim, ansiCyan, ansiYellow, ansiReset} {
+		text = strings.ReplaceAll(text, code, "")
+	}
+	return text
 }
 
 // SemanticSnapshot is the agent-readable meaning of the rendered static shell.
 type SemanticSnapshot struct {
 	Scenario string           `json:"scenario"`
 	Screen   SemanticScreen   `json:"screen"`
+	Layout   SemanticLayout   `json:"layout"`
 	Session  SemanticSession  `json:"session"`
 	Command  *SemanticCommand `json:"command,omitempty"`
 	Regions  []SemanticRegion `json:"regions"`
@@ -110,6 +224,12 @@ type SemanticScreen struct {
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
 	Focus  string `json:"focus"`
+}
+
+// SemanticLayout describes deterministic presentation layout metadata.
+type SemanticLayout struct {
+	Class            LayoutClass `json:"class"`
+	RightRailVisible bool        `json:"right_rail_visible"`
 }
 
 // SemanticSession describes session-level presentation state.
@@ -148,6 +268,7 @@ type SemanticAction struct {
 // Semantic returns the semantic snapshot for a static shell render.
 func Semantic(state ViewState, size Size) SemanticSnapshot {
 	size = normalizeSize(size)
+	layout := layoutForSize(size)
 	regions := []SemanticRegion{
 		{Name: "header", Visible: true, Items: []string{state.AppName}},
 		{Name: "phase", Visible: true, Items: []string{state.Phase, "display-only"}},
@@ -172,12 +293,19 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		SemanticRegion{Name: "prompt", Visible: true, Items: []string{promptLine(state.PromptInput)}},
 		SemanticRegion{Name: "footer", Visible: true, Items: []string{"git: " + state.FooterGit, "context: " + state.FooterContext, "quit: q"}},
 	)
+	if layout.RightRailVisible {
+		regions = append(regions, SemanticRegion{Name: "right_rail", Visible: true, Items: rightRailSemanticItems(state)})
+	}
 	return SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
 			Width:  size.Width,
 			Height: size.Height,
 			Focus:  "prompt",
+		},
+		Layout: SemanticLayout{
+			Class:            layout.Class,
+			RightRailVisible: layout.RightRailVisible,
 		},
 		Session: SemanticSession{
 			Phase:              state.Phase,
@@ -255,6 +383,17 @@ func semanticSurfaceItems(route string, source string, title string, items []str
 	}
 	result = append(result, items...)
 	return result
+}
+
+func rightRailSemanticItems(state ViewState) []string {
+	return []string{
+		"phase source: " + state.PhaseSource,
+		"primary model: " + state.PrimaryModel,
+		"utility model: " + state.UtilityModel,
+		"autonomy: " + state.Autonomy,
+		"git: " + state.FooterGit,
+		"context: " + state.FooterContext,
+	}
 }
 
 // RenderSemanticJSON renders an indented semantic JSON snapshot.

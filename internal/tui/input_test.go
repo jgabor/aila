@@ -399,7 +399,7 @@ func TestPromptEnterKeepsOrdinaryAndUnknownSlashFakeBehavior(t *testing.T) {
 			if len(routed) != 1 || routed[0] != input {
 				t.Fatalf("routed prompts = %v, want [%s]", routed, input)
 			}
-			if !strings.Contains(got.View(), "  user: "+input+"\n  assistant: Fake Aila response: "+input) {
+			if !containsAll(got.View(), []string{"user: " + input, "assistant: Fake Aila response: " + input}) {
 				t.Fatalf("view does not show fake prompt transcript:\n%s", got.View())
 			}
 		})
@@ -423,7 +423,7 @@ func TestFakeResponseTranscriptRenderingIsStable(t *testing.T) {
 	if first != second {
 		t.Fatalf("transcript render is not stable:\nfirst:\n%s\n\nsecond:\n%s", first, second)
 	}
-	assertOrdered(t, first, "  user: explain this repo", "  assistant: Fake Aila response: explain this repo")
+	assertOrdered(t, first, "user: explain this repo", "assistant: Fake Aila response: explain this repo")
 	for _, forbidden := range []string{"2026-", "T16:", "timestamp", "time:"} {
 		if strings.Contains(first, forbidden) {
 			t.Fatalf("transcript render contains unstable time marker %q:\n%s", forbidden, first)

@@ -1,0 +1,123 @@
+header:
+  level: full
+  created: 2026-05-12
+  status: completed
+  reviewed: 2026-05-12
+  critic_issues: "6 found, 6 addressed, 0 dismissed; visual review failed and plan revised before closeout"
+  title: M6 Resize And Layout Responsiveness
+what: >-
+  Make the current M5 TUI responsive across the roadmap's fixed terminal sizes,
+  with deterministic resize state, render snapshots, semantic layout metadata,
+  and PTY resize smoke from a wide terminal down to 80x24.
+why: >-
+  Aila needs a tested layout foundation before later CLI, config, provider,
+  workflow, model, tool, permission, persistence, and richer UI states depend on
+  terminal dimensions or a desktop right rail.
+constraints: >-
+  Implement only ROADMAP.md Milestone 6. Do not add new input behavior, command
+  families, command args, aliases, shell prefixes, command palette, M7 CLI shape,
+  config or credential IO, provider/model/go-agent integration, tool execution,
+  permission checks, persistence, workflow transitions, plugins, MCP, dynamic
+  tools, workflow DSLs, generic graph engines, provider marketplaces, or public
+  runtime harnesses. The TUI remains presentation-only. Right rail content, if
+  visible at 160x45, may only arrange existing ViewState placeholder/supporting
+  labels; it must not perform or imply real git, config, provider, workflow,
+  model, tool, permission, persistence, filesystem, shell, or network lookup.
+scope:
+  included:
+    - Deterministic layout classification and resize update behavior in internal/tui.
+    - Render and semantic layout contract for current fixtures at 80x24, 100x30, 120x32, and 160x45.
+    - Width-gated right rail presentation only when the wide layout allows it.
+    - PTY smoke that starts wide, resizes to 80x24, and verifies core content remains visible.
+    - Testing-methodology hardening so deterministic snapshots cannot approve debug/plain layouts by themselves.
+    - Mockup-aligned M6 rendering revision before ROADMAP closeout.
+    - Human visual review gate handling for this layout milestone before ROADMAP closeout.
+  excluded:
+    - M7 CLI command shape, config/credential IO, provider/model/go-agent integration, tool execution, permission checks, persistence, workflow transitions, new command families, command args, aliases, shell prefixes, command palette, plugin/MCP/dynamic-tool/workflow-DSL/generic-graph/provider-marketplace behavior, public runtime harnesses, and any real status/git/project lookup for the right rail.
+  deferred:
+    - "M7 CLI Command Shape: documented CLI commands and global flags."
+    - "M8-M9A: config display/creation and provider credential readiness."
+    - "Later UI states: approval, queue, interrupt, paste, diff, history, tool, audit, and model/autonomy selection surfaces."
+design: >-
+  Treat layout as deterministic presentation state derived from terminal size and
+  current ViewState only. WindowSizeMsg updates the model's size/layout state and
+  must not route commands, submit prompts, mutate transcripts, change command
+  surfaces, perform IO, or touch workflow state. Render snapshots cover the exact
+  current fixture matrix: idle-empty, narrow-80, desktop-wide, submitted-prompt,
+  status-command, and help-command at 80x24, 100x30, 120x32, and 160x45 for
+  plain, ANSI, and semantic outputs. Human review rejected the first M6 wide
+  layout because it looked like debug/plain output rather than the desktop mockup
+  hierarchy. Therefore this plan now treats deterministic snapshots as regression
+  evidence, not design approval. Before Task 6 closeout, docs/tui-testing.md must
+  make that rule operational, and the M6 layout must be revised so wide snapshots
+  and the live TUI show product-like desktop structure: anchored header/footer,
+  distinct prompt/content zones, an integrated right rail, and no debug labels such
+  as screen:, phase:, or right rail: in product render output. M6 is a layout
+  milestone, so human visual review is required before marking M6 complete; if
+  review fails or cannot be performed, leave the plan active or blocked rather
+  than marking ROADMAP.md complete.
+tasks:
+  - number: 1
+    name: Layout state and resize update boundary
+    depends_on: []
+    status: complete
+  - number: 2
+    name: Responsive render contract
+    depends_on:
+      - "1"
+    status: complete
+  - number: 3
+    name: Semantic layout contract
+    depends_on:
+      - "2"
+    status: complete
+  - number: 4
+    name: M6 fixture and snapshot matrix
+    depends_on:
+      - "3"
+    status: complete
+  - number: 5
+    name: PTY resize smoke and validation gate
+    depends_on:
+      - "4"
+    status: complete
+  - number: 6
+    name: Testing methodology hardening
+    depends_on:
+      - "4"
+    status: complete
+  - number: 7
+    name: Mockup-aligned M6 layout revision
+    depends_on:
+      - "6"
+    status: complete
+  - number: 8
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "7"
+    status: complete
+overall_acceptance:
+  - >-
+    GIVEN this plan is active WHEN orkestrera executes it THEN only M6 resize and
+    layout responsiveness scope is eligible for implementation.
+  - >-
+    GIVEN M6 is complete WHEN a user resizes the terminal THEN current chat,
+    command, prompt, header, phase, model, and footer content remain visible at
+    80x24 and deterministic at 100x30, 120x32, and 160x45.
+  - >-
+    GIVEN M6 closes WHEN source docs are checked THEN future CLI, config,
+    provider, workflow, model, tool, permission, persistence, and richer UI states
+    remain deferred to later milestones.
+surprises:
+  - >-
+    M6 Task 5 automated resize and validation gates passed, but required human
+    visual review against docs/mockup-desktop.png and docs/mockup-mobile.png was
+    completed later by explicit human approval: `LGTM. Approved.`
+  - >-
+    M6 Task 7 revised the product render away from debug/plain labels and captured
+    real tmux desktop/mobile terminal evidence. The human reviewer explicitly
+    approved the revised desktop/mobile layout direction with `LGTM. Approved.`
+  - >-
+    M6 Task 8 freshness review found no M7+ scope or fixed-product violation. M7
+    CLI command shape, config/provider/model/go-agent/tool/permission/persistence/
+    workflow behavior, and broader UI states remain deferred.

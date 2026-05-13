@@ -1,24 +1,32 @@
-Aila
-screen: 120x32
-phase: placeholder (display-only)
-model: placeholder | utility: placeholder | autonomy: placeholder
-
-chat:
-  No messages yet.
-
-help:
-  command route: help
-  route source: policy.command
-  Deterministic placeholder help.
-  commands:
-  /status - Show deterministic placeholder status.
-  /help - Show this deterministic placeholder help.
-  /quit - Quit Aila.
-  shortcuts:
-  ctrl+x s - Show deterministic placeholder status.
-  ctrl+x q - Quit Aila.
-
-prompt:
->
-
-footer: git: placeholder | context: placeholder | quit: q
+Aila                                                                                                              120x32
+Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder                                          
++ Conversation --------------------------------------------------------------------------------------------------------+
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+| help:                                                                                                                |
+| command route: help                                                                                                  |
+| route source: policy.command                                                                                         |
+| Deterministic placeholder help.                                                                                      |
+| commands:                                                                                                            |
+| /status - Show deterministic placeholder status.                                                                     |
+| /help - Show this deterministic placeholder help.                                                                    |
+| /quit - Quit Aila.                                                                                                   |
+| shortcuts:                                                                                                           |
+| ctrl+x s - Show deterministic placeholder status.                                                                    |
+| ctrl+x q - Quit Aila.                                                                                                |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit
+                                                                                                                        
