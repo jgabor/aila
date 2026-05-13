@@ -23,8 +23,8 @@ func DefaultDisplayConfig() DisplayConfig {
 // DisplayConfigFromConfig converts loaded user config into TUI display labels.
 func DisplayConfigFromConfig(config Config) DisplayConfig {
 	return DisplayConfig{
-		PrimaryModel: config.LLM.Model,
-		UtilityModel: config.LLM.Utility.Model,
+		PrimaryModel: config.LLM.Model.Label,
+		UtilityModel: config.LLM.Utility.Model.Label,
 		Autonomy:     config.Autonomy.Level,
 	}
 }

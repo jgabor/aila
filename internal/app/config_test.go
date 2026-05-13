@@ -78,6 +78,9 @@ func TestLoadConfigFileCreatesReadmeDefaultsWhenAbsent(t *testing.T) {
 			t.Fatalf("created config missing %q:\n%s", token, content)
 		}
 	}
+	if strings.Contains(content, "base_url") {
+		t.Fatalf("created default config unexpectedly wrote base_url:\n%s", content)
+	}
 }
 
 func TestLoadConfigFilePreservesPresentConfig(t *testing.T) {
@@ -85,6 +88,7 @@ func TestLoadConfigFilePreservesPresentConfig(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "aila", "config.toml")
 	writeFile(t, path, `[llm]
+	base_url = "http://localhost:11434/v1"
 model = "test/primary:low"
 
 [llm.utility]
@@ -100,9 +104,10 @@ level = "read"
 	}
 	want := Config{
 		LLM: LLMConfig{
-			Model: "test/primary:low",
+			BaseURL: "http://localhost:11434/v1",
+			Model:   mustParseTestModelRef(t, "test/primary:low"),
 			Utility: UtilityLLMConfig{
-				Model: "test/utility:min",
+				Model: mustParseTestModelRef(t, "test/utility:min"),
 			},
 		},
 		Autonomy: AutonomyConfig{Level: "read"},
@@ -112,6 +117,101 @@ level = "read"
 	}
 	if after := readFile(t, path); after != before {
 		t.Fatalf("present config was modified:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func TestLoadConfigFileLeavesBaseURLAbsentWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "aila", "config.toml")
+	writeFile(t, path, `[llm]
+model = "test/primary:low"
+
+[llm.utility]
+model = "test/utility:min"
+
+[autonomy]
+level = "read"
+`)
+	got, err := LoadConfigFile(path)
+	if err != nil {
+		t.Fatalf("load present config: %v", err)
+	}
+	if got.LLM.BaseURL != "" {
+		t.Fatalf("base_url = %q, want empty", got.LLM.BaseURL)
+	}
+}
+
+func TestParseModelRefParsesTypedFieldsAndPreservesLabel(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		label     string
+		provider  string
+		model     string
+		reasoning string
+	}{
+		{label: "openai/gpt-4.1", provider: "openai", model: "gpt-4.1"},
+		{label: "opencode-go/deepseek-v4-pro:high", provider: "opencode-go", model: "deepseek-v4-pro", reasoning: "high"},
+	} {
+		tc := tc
+		t.Run(tc.label, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := ParseModelRef(tc.label)
+			if err != nil {
+				t.Fatalf("parse model ref: %v", err)
+			}
+			if got.Label != tc.label || got.String() != tc.label || got.Provider != tc.provider || got.Model != tc.model || got.Reasoning != tc.reasoning {
+				t.Fatalf("model ref = %+v, want label=%q provider=%q model=%q reasoning=%q", got, tc.label, tc.provider, tc.model, tc.reasoning)
+			}
+		})
+	}
+}
+
+func TestLoadConfigFileMalformedModelRefsErrorBoundedlyAndPreserveFile(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		model   string
+		wantErr string
+	}{
+		{name: "missing provider", model: "/primary", wantErr: "missing provider"},
+		{name: "missing model", model: "test/", wantErr: "missing model"},
+		{name: "missing separator", model: "test-primary", wantErr: "<provider>/<model>[:reasoning]"},
+		{name: "empty reasoning", model: "test/primary:", wantErr: "empty reasoning suffix"},
+		{name: "nested parts", model: "test//primary", wantErr: "empty or nested parts"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := filepath.Join(t.TempDir(), "aila", "config.toml")
+			content := `[llm]
+model = "` + tc.model + `"
+
+[llm.utility]
+model = "test/utility:min"
+
+[autonomy]
+level = "yolo"
+`
+			writeFile(t, path, content)
+			_, err := LoadConfigFile(path)
+			if err == nil {
+				t.Fatal("load malformed model ref succeeded")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) || !strings.Contains(err.Error(), "llm.model") {
+				t.Fatalf("malformed model ref error = %v, want %q", err, tc.wantErr)
+			}
+			if len(err.Error()) > 300 {
+				t.Fatalf("malformed model ref error is not bounded: %d bytes: %v", len(err.Error()), err)
+			}
+			if after := readFile(t, path); after != content {
+				t.Fatalf("malformed config was modified:\n%s", after)
+			}
+		})
 	}
 }
 
@@ -158,13 +258,13 @@ level = "yolo"
 	}
 }
 
-func TestLoadConfigFileRejectsUnsupportedM9Keys(t *testing.T) {
+func TestLoadConfigFileRejectsUnsupportedKeys(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "aila", "config.toml")
 	unsupported := `[llm]
 model = "test/primary:low"
-base_url = "http://localhost:11434/v1"
+temperature = "0.2"
 
 [llm.utility]
 model = "test/utility:min"
@@ -177,7 +277,7 @@ level = "yolo"
 	if err == nil {
 		t.Fatal("load config with unsupported key succeeded")
 	}
-	if !strings.Contains(err.Error(), `unsupported key "llm.base_url"`) {
+	if !strings.Contains(err.Error(), `unsupported key "llm.temperature"`) {
 		t.Fatalf("unsupported key error = %v", err)
 	}
 	if after := readFile(t, path); after != unsupported {
@@ -185,8 +285,11 @@ level = "yolo"
 	}
 }
 
-func TestLoadConfigDoesNotCreateWorkspaceAilaState(t *testing.T) {
+func TestLoadConfigDoesNotCreateWorkspaceAilaStateOrTouchSecrets(t *testing.T) {
 	workspace := t.TempDir()
+	secretPath := filepath.Join(workspace, ".env")
+	secretContent := "OPENAI_API_KEY=do-not-read-or-print\n"
+	writeFile(t, secretPath, secretContent)
 	configHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
@@ -214,6 +317,18 @@ func TestLoadConfigDoesNotCreateWorkspaceAilaState(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("workspace .aila stat error = %v, want not exist", err)
 	}
+	if after := readFile(t, secretPath); after != secretContent {
+		t.Fatalf("secret file was modified:\n%s", after)
+	}
+}
+
+func mustParseTestModelRef(t *testing.T, label string) ModelRef {
+	t.Helper()
+	ref, err := ParseModelRef(label)
+	if err != nil {
+		t.Fatalf("parse test model ref %q: %v", label, err)
+	}
+	return ref
 }
 
 func writeFile(t *testing.T, path string, content string) {

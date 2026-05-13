@@ -16,19 +16,31 @@ const (
 
 var errConfigMissingRequiredKey = errors.New("config missing required key")
 
-// Config is the complete user configuration supported in M9.
+// Config is the complete user configuration supported by the app startup path.
 type Config struct {
 	LLM      LLMConfig
 	Autonomy AutonomyConfig
 }
 
 type LLMConfig struct {
-	Model   string
+	BaseURL string
+	Model   ModelRef
 	Utility UtilityLLMConfig
 }
 
 type UtilityLLMConfig struct {
-	Model string
+	Model ModelRef
+}
+
+type ModelRef struct {
+	Label     string
+	Provider  string
+	Model     string
+	Reasoning string
+}
+
+func (ref ModelRef) String() string {
+	return ref.Label
 }
 
 type AutonomyConfig struct {
@@ -39,15 +51,23 @@ type AutonomyConfig struct {
 func DefaultConfig() Config {
 	return Config{
 		LLM: LLMConfig{
-			Model: defaultPrimaryModel,
+			Model: mustParseDefaultModelRef(defaultPrimaryModel),
 			Utility: UtilityLLMConfig{
-				Model: defaultUtilityModel,
+				Model: mustParseDefaultModelRef(defaultUtilityModel),
 			},
 		},
 		Autonomy: AutonomyConfig{
 			Level: defaultAutonomy,
 		},
 	}
+}
+
+func mustParseDefaultModelRef(label string) ModelRef {
+	ref, err := ParseModelRef(label)
+	if err != nil {
+		panic(err)
+	}
+	return ref
 }
 
 func ResolveConfigPath() (string, error) {
@@ -161,10 +181,20 @@ func parseConfig(content []byte) (Config, error) {
 			fullKey = section + "." + key
 		}
 		switch fullKey {
+		case "llm.base_url":
+			config.LLM.BaseURL = parsedValue
 		case "llm.model":
-			config.LLM.Model = parsedValue
+			model, err := ParseModelRef(parsedValue)
+			if err != nil {
+				return Config{}, fmt.Errorf("line %d: llm.model: %w", lineNumber, err)
+			}
+			config.LLM.Model = model
 		case "llm.utility.model":
-			config.LLM.Utility.Model = parsedValue
+			model, err := ParseModelRef(parsedValue)
+			if err != nil {
+				return Config{}, fmt.Errorf("line %d: llm.utility.model: %w", lineNumber, err)
+			}
+			config.LLM.Utility.Model = model
 		case "autonomy.level":
 			config.Autonomy.Level = parsedValue
 		default:
@@ -182,6 +212,46 @@ func parseConfig(content []byte) (Config, error) {
 		}
 	}
 	return config, nil
+}
+
+func ParseModelRef(label string) (ModelRef, error) {
+	if label == "" {
+		return ModelRef{}, fmt.Errorf("model reference is empty")
+	}
+	if strings.TrimSpace(label) != label {
+		return ModelRef{}, fmt.Errorf("model reference has surrounding whitespace")
+	}
+	provider, modelPart, ok := strings.Cut(label, "/")
+	if !ok {
+		return ModelRef{}, fmt.Errorf("model reference must be <provider>/<model>[:reasoning]")
+	}
+	if provider == "" {
+		return ModelRef{}, fmt.Errorf("model reference missing provider")
+	}
+	if modelPart == "" {
+		return ModelRef{}, fmt.Errorf("model reference missing model")
+	}
+	model, reasoning, hasReasoning := strings.Cut(modelPart, ":")
+	if model == "" {
+		return ModelRef{}, fmt.Errorf("model reference missing model")
+	}
+	if strings.Contains(model, "/") {
+		return ModelRef{}, fmt.Errorf("model reference model contains empty or nested parts")
+	}
+	if hasReasoning {
+		if reasoning == "" {
+			return ModelRef{}, fmt.Errorf("model reference has empty reasoning suffix")
+		}
+		if strings.Contains(reasoning, ":") || strings.Contains(reasoning, "/") {
+			return ModelRef{}, fmt.Errorf("model reference reasoning suffix is malformed")
+		}
+	}
+	for name, part := range map[string]string{"provider": provider, "model": model, "reasoning": reasoning} {
+		if strings.TrimSpace(part) != part {
+			return ModelRef{}, fmt.Errorf("model reference %s contains whitespace", name)
+		}
+	}
+	return ModelRef{Label: label, Provider: provider, Model: model, Reasoning: reasoning}, nil
 }
 
 func stripComment(line string) string {

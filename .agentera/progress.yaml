@@ -2445,6 +2445,42 @@ cycles:
       scope: >-
         ROADMAP.md, .agentera/archive/plan-2026-05-13-m9.yaml,
         .agentera/progress.yaml, and removal of .agentera/plan.yaml.
+  - number: 50
+    timestamp: "2026-05-13 12:03"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9A Task 1 by extending app config loading to accept optional
+      llm.base_url and parse llm.model plus llm.utility.model into typed model
+      references while preserving exact display labels.
+    commit: "407a1ae"
+    inspiration: ".agentera/plan.yaml task 1; README default config contract"
+    discovered: >-
+      The existing config display path only needed exact labels, so the typed
+      ModelRef keeps Label/String for display and provider/model/reasoning fields
+      for later readiness work without adding provider, credential, network, or
+      runtime behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app` passed with
+      absent/present base_url, typed ref parsing, malformed bounded errors,
+      unsupported-key rejection, file preservation, and workspace .aila/secret
+      untouched coverage. `git diff --check` passed. `go test ./...` passed.
+      Commit 407a1ae was created locally and no push/remotes were touched.
+    next: >-
+      Execute M9A Task 2 only when requested; Tasks 2-8 remain pending.
+    context:
+      intent: >-
+        Add only the config/model-reference contract needed before provider
+        readiness.
+      constraints: >-
+        Execute only M9A Task 1; do not add credential lookup, provider readiness,
+        network calls, aila models behavior, device-code flow, runtime/model turns,
+        tools, permissions, workflow/session/project .aila state, config UI,
+        plugins, MCP, dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/app config parsing/display adaptation, focused config tests,
+        Task 1 plan status, and this progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
