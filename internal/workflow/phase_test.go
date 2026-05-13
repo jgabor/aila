@@ -1,11 +1,9 @@
 package workflow
 
 import (
+	"errors"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -117,46 +115,152 @@ func TestParsePhaseInvalidErrorIsBounded(t *testing.T) {
 	}
 }
 
-func TestWorkflowPackageDefinesNoTransitionSurface(t *testing.T) {
+func TestProtocolSuccessorsMatchReferenceTable(t *testing.T) {
 	t.Parallel()
 
-	files, err := filepath.Glob("*.go")
-	if err != nil {
-		t.Fatalf("glob workflow files: %v", err)
+	want := map[Phase][]Phase{
+		PhaseEnvision:   {PhaseDeliberate, PhasePlan, PhaseBuild},
+		PhaseDeliberate: {PhasePlan, PhaseBuild, PhaseEnvision},
+		PhasePlan:       {PhaseBuild, PhaseDeliberate},
+		PhaseBuild:      {PhaseBuild, PhaseAudit, PhasePlan},
+		PhaseAudit:      {PhaseBuild, PhasePlan, PhaseDeliberate, PhaseEnvision},
 	}
 
-	for _, file := range files {
-		if strings.HasSuffix(file, "_test.go") || file == "doc.go" {
-			continue
-		}
-
-		set := token.NewFileSet()
-		parsed, err := parser.ParseFile(set, file, nil, 0)
+	for from, expected := range want {
+		got, err := ProtocolSuccessors(from)
 		if err != nil {
-			t.Fatalf("parse %s: %v", file, err)
+			t.Fatalf("ProtocolSuccessors(%s) returned error: %v", from, err)
+		}
+		if !reflect.DeepEqual(got, expected) {
+			t.Fatalf("ProtocolSuccessors(%s) = %v, want %v", from, got, expected)
+		}
+		for _, to := range expected {
+			if err := ValidateProtocolSuccessor(from, to); err != nil {
+				t.Fatalf("ValidateProtocolSuccessor(%s, %s) returned error: %v", from, to, err)
+			}
+		}
+	}
+}
+
+func TestValidateProtocolSuccessorRejectsEveryDisallowedProtocolPair(t *testing.T) {
+	t.Parallel()
+
+	protocolPhases := []Phase{PhaseEnvision, PhaseDeliberate, PhasePlan, PhaseBuild, PhaseAudit}
+
+	for _, from := range protocolPhases {
+		allowed, err := ProtocolSuccessors(from)
+		if err != nil {
+			t.Fatalf("ProtocolSuccessors(%s) returned error: %v", from, err)
+		}
+		allowedSet := make(map[Phase]bool, len(allowed))
+		for _, to := range allowed {
+			allowedSet[to] = true
 		}
 
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			switch n := node.(type) {
-			case *ast.FuncDecl:
-				assertNoTransitionName(t, file, n.Name.Name)
-			case *ast.TypeSpec:
-				assertNoTransitionName(t, file, n.Name.Name)
-			case *ast.ValueSpec:
-				for _, name := range n.Names {
-					assertNoTransitionName(t, file, name.Name)
-				}
+		for _, to := range protocolPhases {
+			if allowedSet[to] {
+				continue
 			}
-			return true
+			err := ValidateProtocolSuccessor(from, to)
+			assertSuccessorValidationError(t, err, from, to, SuccessorValidationInvalidEdge)
+		}
+	}
+}
+
+func TestBuildToDeliberateIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateProtocolSuccessor(PhaseBuild, PhaseDeliberate)
+	assertSuccessorValidationError(t, err, PhaseBuild, PhaseDeliberate, SuccessorValidationInvalidEdge)
+}
+
+func TestIdleIsOutsideProtocolSuccessorValidation(t *testing.T) {
+	t.Parallel()
+
+	checks := []struct {
+		name string
+		from Phase
+		to   Phase
+	}{
+		{name: "idle from", from: PhaseIdle, to: PhaseEnvision},
+		{name: "idle to", from: PhaseBuild, to: PhaseIdle},
+		{name: "idle both", from: PhaseIdle, to: PhaseIdle},
+	}
+
+	for _, check := range checks {
+		check := check
+		t.Run(check.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateProtocolSuccessor(check.from, check.to)
+			assertSuccessorValidationError(t, err, check.from, check.to, SuccessorValidationNonProtocolPhase)
 		})
 	}
 }
 
-func assertNoTransitionName(t *testing.T, file, name string) {
+func TestProtocolSuccessorErrorsAreTypedAndBounded(t *testing.T) {
+	t.Parallel()
+
+	from := Phase(strings.Repeat("x", 4096))
+	to := Phase(strings.Repeat("y", 4096))
+	err := ValidateProtocolSuccessor(from, to)
+	assertSuccessorValidationError(t, err, from, to, SuccessorValidationNonProtocolPhase)
+	if len(err.Error()) > 180 {
+		t.Fatalf("error length = %d, want bounded <= 180: %q", len(err.Error()), err.Error())
+	}
+}
+
+func TestProtocolSuccessorValidationDoesNotExposeMutableState(t *testing.T) {
+	t.Parallel()
+
+	got, err := ProtocolSuccessors(PhaseBuild)
+	if err != nil {
+		t.Fatalf("ProtocolSuccessors returned error: %v", err)
+	}
+	got[0] = PhaseEnvision
+
+	if err := ValidateProtocolSuccessor(PhaseBuild, PhaseAudit); err != nil {
+		t.Fatalf("ValidateProtocolSuccessor after caller mutation returned error: %v", err)
+	}
+	if err := ValidateProtocolSuccessor(PhaseBuild, PhaseEnvision); err == nil {
+		t.Fatalf("ValidateProtocolSuccessor accepted caller-mutated successor")
+	}
+
+	again, err := ProtocolSuccessors(PhaseBuild)
+	if err != nil {
+		t.Fatalf("ProtocolSuccessors returned error: %v", err)
+	}
+	want := []Phase{PhaseBuild, PhaseAudit, PhasePlan}
+	if !reflect.DeepEqual(again, want) {
+		t.Fatalf("ProtocolSuccessors after caller mutation = %v, want %v", again, want)
+	}
+}
+
+func assertSuccessorValidationError(t *testing.T, err error, from, to Phase, reason SuccessorValidationReason) {
 	t.Helper()
 
-	lower := strings.ToLower(name)
-	if strings.Contains(lower, "transition") || strings.Contains(lower, "successor") {
-		t.Fatalf("%s defines transition surface %q during vocabulary-only task", file, name)
+	if err == nil {
+		t.Fatal("ValidateProtocolSuccessor returned nil error")
+	}
+	var validationErr SuccessorValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("error type = %T, want SuccessorValidationError", err)
+	}
+	if validationErr.From != from {
+		t.Fatalf("error From = %q, want %q", validationErr.From, from)
+	}
+	if validationErr.To != to {
+		t.Fatalf("error To = %q, want %q", validationErr.To, to)
+	}
+	if validationErr.Reason != reason {
+		t.Fatalf("error Reason = %q, want %q", validationErr.Reason, reason)
+	}
+
+	message := err.Error()
+	if !strings.HasPrefix(message, "invalid workflow successor ") {
+		t.Fatalf("error = %q, want invalid workflow successor prefix", message)
+	}
+	if len(message) > 180 {
+		t.Fatalf("error length = %d, want bounded <= 180: %q", len(message), message)
 	}
 }

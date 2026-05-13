@@ -3006,6 +3006,42 @@ cycles:
       unknowns: "none"
       scope: >-
         ROADMAP.md and Agentera plan/progress/archive artifacts only.
+  - number: 64
+    timestamp: "2026-05-13 16:01"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M11 Task 1 by adding workflow-owned Agentera protocol
+      successor validation for ENVISION, DELIBERATE, PLAN, BUILD, and AUDIT,
+      with IDLE kept outside protocol successor checks.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 1; docs/workflow-architecture.md Valid Successors"
+    discovered: >-
+      Existing M10 workflow tests deliberately rejected transition/successor
+      surfaces during the vocabulary-only milestone, so Task 1 replaced that
+      guard with positive successor table and validation coverage.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/workflow` passed.
+      `go test ./...` passed. `git diff --check` passed. Tests assert every
+      allowed edge matches the workflow reference table, every disallowed
+      protocol pair is rejected, BUILD -> DELIBERATE is invalid,
+      IDLE/non-protocol checks return typed bounded errors, and returned
+      successor slices cannot mutate package state.
+    next: >-
+      Execute M11 Task 2 only when requested; Tasks 2-6 remain pending.
+    context:
+      intent: >-
+        Make legal Agentera protocol phase movement testable in workflow without
+        wiring runtime execution or capability routing.
+      constraints: >-
+        Execute only M11 Task 1; no runtime loop, capability routing,
+        model/tool execution, permissions, persistence/project .aila,
+        config/provider behavior, TUI changes, plugins, MCP, dynamic/generic
+        surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/workflow successor validation source/tests plus Task 1
+        Agentera plan/progress artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

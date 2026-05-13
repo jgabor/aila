@@ -1,0 +1,68 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: active
+  reviewed: 2026-05-13
+  critic_issues: "5 found, addressed"
+  title: M11 Workflow Transition Table
+
+what: Add workflow-owned successor validation and runtime-status vocabulary without connecting capabilities.
+why: M10 centralized phase labels; M11 makes legal lifecycle movement testable before runtime wiring.
+constraints: >-
+  No capability routing, runtime loop, model/tool execution, permissions,
+  persistence/project .aila, config/provider behavior, plugins, MCP,
+  dynamic/generic surfaces, pushes, or remotes. Keep waiting/stuck/flagged
+  outside Phase. Fold Agentera metadata into related implementation or
+  validation commits; avoid status-only commits.
+scope:
+  included:
+    - Successor table and validation for ENVISION, DELIBERATE, PLAN, BUILD, AUDIT.
+    - Typed invalid-transition errors, all invalid protocol pairs, and explicit IDLE handling.
+    - waiting/stuck/flagged as non-phase runtime status data.
+    - Blocker/waiting fixture evidence and boundary validation.
+  excluded:
+    - Capability execution, runtime event loop, model/tool calls, permission policy, persistence, and project .aila state.
+design: Workflow validates transitions; app/TUI may display results but never decide them.
+
+tasks:
+  - number: 1
+    name: Define protocol successor validation
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN protocol phases WHEN successor tests run THEN every allowed edge matches the workflow reference table.
+      - GIVEN disallowed protocol pairs, BUILD to DELIBERATE, or IDLE successor validation WHEN checked THEN typed bounded errors are returned and no side effects occur.
+  - number: 2
+    name: Model runtime statuses outside phases
+    depends_on: ["1"]
+    status: pending
+    acceptance:
+      - GIVEN waiting, stuck, and flagged values WHEN tested THEN they are runtime statuses/signals, never Phase values, and invalid status errors are bounded.
+      - GIVEN status helpers are inspected THEN they add no complete/capability-exit routing or transition execution.
+  - number: 3
+    name: Display blocked or waiting transition state
+    depends_on: ["1", "2"]
+    status: pending
+    acceptance:
+      - GIVEN a blocked or waiting fixture WHEN rendered THEN semantic snapshots distinguish workflow phase from runtime status.
+      - GIVEN TUI source is inspected THEN it renders injected transition/status data and owns no transition decisions.
+  - number: 4
+    name: Refresh transition display evidence
+    depends_on: ["3"]
+    status: pending
+    acceptance:
+      - GIVEN affected snapshots change WHEN reviewed THEN diffs are limited to intentional blocker/waiting status evidence.
+      - GIVEN transition or blocker state becomes interactively visible WHEN validating THEN bounded PTY smoke runs; otherwise deterministic fixtures are sufficient.
+  - number: 5
+    name: Validate M11 boundaries
+    depends_on: ["1", "2", "3", "4"]
+    status: pending
+    acceptance:
+      - GIVEN targeted workflow/app/TUI/cmd tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass with no runtime/capability/agent/tools/permission/state/config behavior added.
+  - number: 6
+    name: Synchronize final M11 state
+    depends_on: ["5"]
+    status: pending
+    acceptance:
+      - GIVEN validation passes WHEN closing M11 THEN ROADMAP marks M11 complete/M12 next, plan archives/removes, progress records evidence in the closeout commit, agentera plan empty, mage check passes, and no push occurs.
+surprises: []
