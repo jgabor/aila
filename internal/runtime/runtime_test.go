@@ -135,7 +135,7 @@ func TestDispatchHandlesPromptEffect(t *testing.T) {
 	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "explain status", Source: "user"}
 	messages := Dispatch([]Effect{FakePromptEffect{Operation: operation, Prompt: "explain status"}})
 
-	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "fake prompt result: explain status"}}; !reflect.DeepEqual(got, want) {
+	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "Fake Aila response: explain status"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
 	}
 }
@@ -163,9 +163,9 @@ func TestDispatchReturnsMixedResultsInInputOrder(t *testing.T) {
 	})
 
 	want := []Message{
-		FakeEffectCompleted{Operation: prompt, Result: "fake prompt result: hello"},
+		FakeEffectCompleted{Operation: prompt, Result: "Fake Aila response: hello"},
 		FakeEffectCompleted{Operation: command, Result: "fake command result: status"},
-		FakeEffectCompleted{Operation: prompt, Result: "fake prompt result: again"},
+		FakeEffectCompleted{Operation: prompt, Result: "Fake Aila response: again"},
 	}
 	if !reflect.DeepEqual(messages, want) {
 		t.Fatalf("Dispatch() = %#v, want %#v", messages, want)
@@ -181,7 +181,7 @@ func TestDispatchIgnoresUnsupportedEffects(t *testing.T) {
 		FakePromptEffect{Operation: operation, Prompt: "kept"},
 	})
 
-	want := []Message{FakeEffectCompleted{Operation: operation, Result: "fake prompt result: kept"}}
+	want := []Message{FakeEffectCompleted{Operation: operation, Result: "Fake Aila response: kept"}}
 	if !reflect.DeepEqual(messages, want) {
 		t.Fatalf("Dispatch() = %#v, want %#v", messages, want)
 	}

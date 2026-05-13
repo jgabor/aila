@@ -99,6 +99,11 @@ func NewProgramWithPromptSubmit(input io.Reader, output io.Writer, submitPrompt 
 
 // NewProgramWithStateAndPromptSubmit constructs the Bubble Tea program with app-owned view state.
 func NewProgramWithStateAndPromptSubmit(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc) *tea.Program {
+	return NewProgramWithStatePromptSubmitAndCommandRoute(input, output, state, submitPrompt, nil)
+}
+
+// NewProgramWithStatePromptSubmitAndCommandRoute constructs the Bubble Tea program with app-owned callbacks.
+func NewProgramWithStatePromptSubmitAndCommandRoute(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) *tea.Program {
 	options := []tea.ProgramOption{tea.WithAltScreen()}
 	if input != nil {
 		options = append(options, tea.WithInput(input))
@@ -106,7 +111,7 @@ func NewProgramWithStateAndPromptSubmit(input io.Reader, output io.Writer, state
 	if output != nil {
 		options = append(options, tea.WithOutput(output))
 	}
-	return tea.NewProgram(NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, submitPrompt, nil), options...)
+	return tea.NewProgram(NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand), options...)
 }
 
 // Init has no startup effect for the static shell.

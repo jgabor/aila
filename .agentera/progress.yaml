@@ -3306,6 +3306,45 @@ cycles:
       unknowns: "none"
       scope: >-
         internal/runtime fake dispatcher and tests plus Task 2 Agentera metadata.
+  - number: 72
+    timestamp: "2026-05-13 19:45"
+    type: feat
+    phase: build
+    what: >-
+      Routed M12 Task 3 app prompt submit and scoped inert status-command
+      callbacks through the runtime update/effect/dispatch path while keeping TUI
+      source presentation-only and preserving the existing visible fake response.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 12"
+    discovered: >-
+      The TUI already owned only policy recommendations and presentation surfaces,
+      so the app callback could route status through runtime without moving policy
+      ownership or routing help/quit through runtime. .agentera/session.yaml
+      remained local state and was not edited or committed.
+    verified: >-
+      `mage fmt`, targeted `go test ./internal/app ./internal/tui
+      ./internal/runtime`, `go test ./cmd/aila`, `go test ./...`, and `git diff
+      --check` passed. App tests prove prompt submit and status command dispatch
+      runtime effects; non-status commands do not dispatch runtime effects; TUI
+      production source imports no runtime package.
+    next: >-
+      Execute M12 Task 4 only when selected; Tasks 4-6 remain pending.
+    context:
+      intent: >-
+        Put app/TUI input behind the deterministic runtime seam before fixtures,
+        PTY, validation closeout, providers, tools, permissions, persistence,
+        queueing, or workflow mutation.
+      constraints: >-
+        Execute only M12 Task 3; fake in-memory effects only. Do not add fixtures,
+        PTY, validation closeout, queueing, interrupts, cancellation behavior,
+        real model/provider/tool execution, permission policy, persistence/project
+        .aila, workflow mutation/transition, capability routing, state store,
+        plugins, MCP, dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/app runtime-backed callbacks, internal/tui callback constructor,
+        internal/runtime fake response normalization, tests, and Task 3 Agentera
+        metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

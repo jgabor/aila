@@ -41,7 +41,7 @@ tasks:
   - number: 3
     name: Route app input through runtime
     depends_on: ["1", "2"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN TUI prompt submit or the scoped inert status command WHEN routed through app callbacks THEN app converts input into runtime messages/effects and does not interpret prompt or command behavior itself.
       - GIVEN other commands or shortcuts WHEN tested THEN existing bounded policy behavior remains and no capability routing or workflow transition occurs.

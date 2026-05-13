@@ -1,5 +1,7 @@
 package runtime
 
+import "strings"
+
 // Status describes whether the runtime is waiting for user input or a fake
 // operation result.
 type Status string
@@ -105,7 +107,7 @@ func Dispatch(effects []Effect) []Message {
 		case FakePromptEffect:
 			messages = append(messages, FakeEffectCompleted{
 				Operation: typed.Operation,
-				Result:    "fake prompt result: " + typed.Prompt,
+				Result:    "Fake Aila response: " + typed.Prompt,
 			})
 		case FakeCommandEffect:
 			messages = append(messages, FakeEffectCompleted{
@@ -158,11 +160,12 @@ func Update(model Model, message Message) (Model, []Effect) {
 
 	switch msg := message.(type) {
 	case PromptSubmitted:
-		operation := nextOperation(&next, OperationPrompt, msg.Text)
+		text := strings.TrimSpace(msg.Text)
+		operation := nextOperation(&next, OperationPrompt, text)
 		next.Status = StatusActive
 		next.Result = ""
-		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: msg.Text})
-		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: msg.Text}}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
+		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
 	case CommandSelected:
 		operation := nextOperation(&next, OperationCommand, msg.Name)
 		next.Status = StatusActive

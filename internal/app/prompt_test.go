@@ -4,40 +4,62 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/policy"
+	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
 )
 
-func TestFakePromptHandlerReturnsDeterministicTypedResult(t *testing.T) {
+func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	t.Parallel()
 
-	handler := FakePromptHandler{}
-	submission := PromptSubmission{Text: "  explain this repo  "}
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
 
-	first := handler.Handle(submission)
-	second := handler.Handle(submission)
+	result := runner.submitPrompt("  explain this repo  ")
 
-	want := PromptResult{
-		PromptText:    "explain this repo",
+	want := tui.TranscriptTurn{
+		UserText:      "explain this repo",
 		AssistantText: "Fake Aila response: explain this repo",
 	}
-	if first != want {
-		t.Fatalf("result = %+v, want %+v", first, want)
+	if result != want {
+		t.Fatalf("submit result = %+v, want %+v", result, want)
 	}
-	if second != first {
-		t.Fatalf("handler is not deterministic: first=%+v second=%+v", first, second)
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("dispatched effects = %#v, want one runtime effect batch", dispatched)
+	}
+	effect, ok := dispatched[0][0].(runtime.FakePromptEffect)
+	if !ok {
+		t.Fatalf("dispatched effect = %T, want runtime.FakePromptEffect", dispatched[0][0])
+	}
+	if effect.Prompt != "explain this repo" || effect.Metadata().Kind != runtime.OperationPrompt {
+		t.Fatalf("prompt effect = %#v", effect)
+	}
+	wantTranscript := []runtime.TranscriptEntry{
+		{Kind: "prompt", Text: "explain this repo"},
+		{Kind: "result", Text: "Fake Aila response: explain this repo"},
+	}
+	if !reflect.DeepEqual(runner.model.Transcript, wantTranscript) {
+		t.Fatalf("runtime transcript = %#v, want %#v", runner.model.Transcript, wantTranscript)
+	}
+	if runner.model.Status != runtime.StatusIdle || runner.model.NextOperation != 1 {
+		t.Fatalf("runtime model = %#v, want idle after one operation", runner.model)
 	}
 }
 
-func TestPromptBoundaryStaysMinimalAndIOFree(t *testing.T) {
+func TestAppInputRunnerBoundaryStaysRuntimeAdapterOnly(t *testing.T) {
 	t.Parallel()
 
 	fileSet := token.NewFileSet()
 	parsed, err := parser.ParseFile(fileSet, "prompt.go", nil, parser.ImportsOnly)
 	if err != nil {
-		t.Fatalf("parse prompt boundary: %v", err)
+		t.Fatalf("parse input runner boundary: %v", err)
 	}
 
 	imports := map[string]bool{}
@@ -53,13 +75,12 @@ func TestPromptBoundaryStaysMinimalAndIOFree(t *testing.T) {
 		"github.com/jgabor/aila/internal/agent",
 		"github.com/jgabor/aila/internal/capability",
 		"github.com/jgabor/aila/internal/permission",
-		"github.com/jgabor/aila/internal/runtime",
 		"github.com/jgabor/aila/internal/state",
 		"github.com/jgabor/aila/internal/tools",
 		"github.com/jgabor/aila/internal/workflow",
 	} {
 		if imports[forbidden] {
-			t.Fatalf("prompt boundary imports forbidden IO or future-scope package %q", forbidden)
+			t.Fatalf("input runner imports forbidden IO or future-scope package %q", forbidden)
 		}
 	}
 
@@ -70,30 +91,68 @@ func TestPromptBoundaryStaysMinimalAndIOFree(t *testing.T) {
 	for _, forbidden := range []string{
 		"type PromptHandler interface",
 		"type Handler interface",
-		"Router",
 		"Provider",
 		"Adapter",
 		"Workflow",
-		"Command",
 		"Slash",
+		"Transition",
+		"transition",
+		"capability",
 	} {
 		if strings.Contains(string(source), forbidden) {
-			t.Fatalf("prompt boundary contains future-scope abstraction %q", forbidden)
+			t.Fatalf("input runner contains future-scope abstraction %q", forbidden)
 		}
 	}
 }
 
-func TestPromptSubmitterRoutesThroughFakeHandler(t *testing.T) {
+func TestStatusCommandRoutesThroughRuntimeOnly(t *testing.T) {
 	t.Parallel()
 
-	submit := newPromptSubmitter(FakePromptHandler{})
-	result := submit("  /status  ")
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
 
-	want := tui.TranscriptTurn{
-		UserText:      "/status",
-		AssistantText: "Fake Aila response: /status",
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteStatus, Kind: policy.CommandInputSlash})
+
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("dispatched effects = %#v, want one status command effect", dispatched)
 	}
-	if result != want {
-		t.Fatalf("submit result = %+v, want %+v", result, want)
+	effect, ok := dispatched[0][0].(runtime.FakeCommandEffect)
+	if !ok {
+		t.Fatalf("dispatched effect = %T, want runtime.FakeCommandEffect", dispatched[0][0])
+	}
+	if effect.Command != "status" || effect.Metadata().Kind != runtime.OperationCommand {
+		t.Fatalf("status effect = %#v", effect)
+	}
+	if runner.model.LastCommand != "status" || runner.model.Status != runtime.StatusIdle || runner.model.NextOperation != 1 {
+		t.Fatalf("runtime model after status = %#v", runner.model)
+	}
+	if got := runner.model.Transcript; !reflect.DeepEqual(got, []runtime.TranscriptEntry{
+		{Kind: "command", Text: "status"},
+		{Kind: "result", Text: "fake command result: status"},
+	}) {
+		t.Fatalf("status transcript = %#v", got)
+	}
+}
+
+func TestOtherCommandRoutesStayBoundedOutsideRuntime(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, effects)
+		return runtime.Dispatch(effects)
+	})
+
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteHelp, Kind: policy.CommandInputSlash})
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteQuit, Kind: policy.CommandInputShortcut})
+
+	if len(dispatched) != 0 {
+		t.Fatalf("non-status commands dispatched runtime effects: %#v", dispatched)
+	}
+	if runner.model.NextOperation != 0 || runner.model.LastCommand != "" || len(runner.model.Transcript) != 0 {
+		t.Fatalf("non-status commands changed runtime model: %#v", runner.model)
 	}
 }

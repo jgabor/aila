@@ -20,7 +20,8 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return err
 	}
 
-	if _, err := tui.NewProgramWithStateAndPromptSubmit(input, output, state, newPromptSubmitter(FakePromptHandler{})).Run(); err != nil {
+	runner := newInputRunner()
+	if _, err := tui.NewProgramWithStatePromptSubmitAndCommandRoute(input, output, state, runner.submitPrompt, runner.routeCommand).Run(); err != nil {
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	return nil
@@ -35,14 +36,4 @@ func initialDisplayState() (tui.ViewState, error) {
 	base.Phase = workflow.PhaseIdle.DisplayLabel()
 	base.PhaseSource = workflow.PhaseIdle.String()
 	return NewDisplayState(base, DisplayConfigFromConfig(config)), nil
-}
-
-func newPromptSubmitter(handler FakePromptHandler) tui.PromptSubmitFunc {
-	return func(text string) tui.TranscriptTurn {
-		result := handler.Handle(PromptSubmission{Text: text})
-		return tui.TranscriptTurn{
-			UserText:      result.PromptText,
-			AssistantText: result.AssistantText,
-		}
-	}
 }
