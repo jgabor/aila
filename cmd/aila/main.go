@@ -23,6 +23,7 @@ type cliRunner struct {
 	version string
 	start   func(context.Context, io.Reader, io.Writer) error
 	config  func(bool) (string, error)
+	models  func(string, []string) (string, error)
 }
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 		version: version,
 		start:   app.Run,
 		config:  app.ConfigCommandOutput,
+		models:  app.ModelsCommandOutput,
 	}
 	if err := runner.run(context.Background(), os.Args[1:]); err != nil {
 		_, _ = fmt.Fprintln(runner.errors, err)
@@ -59,6 +61,15 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 		line, err = configOutput(parsed.all)
 		if err != nil {
 			return fmt.Errorf("load config command: %w", err)
+		}
+	} else if parsed.command == "models" {
+		modelsOutput := r.models
+		if modelsOutput == nil {
+			modelsOutput = app.ModelsCommandOutput
+		}
+		line, err = modelsOutput(r.version, parsed.arguments)
+		if err != nil {
+			return err
 		}
 	} else if parsed.version {
 		line = fmt.Sprintf("aila %s\n", r.version)
@@ -163,10 +174,8 @@ func m7StubOutput(version string, parsed m7CLI) string {
 		return fmt.Sprintf("aila %s\ncommand: continue\nstatus: deferred-continuation stub\naccepted: continue | --continue | -c\ndeferred: session discovery, state lookup, persistence IO, continuation execution\n", version)
 	case "config":
 		return fmt.Sprintf("aila %s\ncommand: config\nstatus: deferred-config-ui\naccepted: config [--all]\ndeferred: interactive config UI\n", version)
-	case "models":
-		return fmt.Sprintf("aila %s\ncommand: models\nstatus: deferred-models stub\naccepted: models [filter...]\ndeferred: provider metadata, filtering behavior, credential lookup, degraded status, provider errors\n", version)
 	case "help":
-		return fmt.Sprintf("aila %s\nM7 accepted shape:\n  aila run [prompt...] [--model MODEL]\n  aila continue | aila --continue | aila -c\n  aila config [--all]\n  aila models [filter...]\n  aila help\n  aila --version | aila -V\nDeferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, provider metadata, credentials, model turns, tools, workflow transitions, persistence.\n", version)
+		return fmt.Sprintf("aila %s\nM7 accepted shape:\n  aila run [prompt...] [--model MODEL]\n  aila continue | aila --continue | aila -c\n  aila config [--all]\n  aila models [filter...]\n  aila help\n  aila --version | aila -V\nDeferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n", version)
 	default:
 		return fmt.Sprintf("aila %s: M7 %s command stub; behavior deferred\n", version, parsed.command)
 	}

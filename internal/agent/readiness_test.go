@@ -152,6 +152,55 @@ func TestClassifyFakeReadinessDoesNotReadSecretsOrUseNetworkState(t *testing.T) 
 	}
 }
 
+func TestListFakeModelDiagnosticsIsDeterministicSortedAndIncludesFailures(t *testing.T) {
+	t.Parallel()
+
+	first := ListFakeModelDiagnostics(ModelDiagnosticFilter{})
+	second := ListFakeModelDiagnostics(ModelDiagnosticFilter{})
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("diagnostics differ:\nfirst:  %#v\nsecond: %#v", first, second)
+	}
+	if len(first) != 18 {
+		t.Fatalf("diagnostic count = %d, want 18", len(first))
+	}
+	for index := 1; index < len(first); index++ {
+		previous := first[index-1].Provider + "/" + first[index-1].Model
+		current := first[index].Provider + "/" + first[index].Model
+		if previous > current {
+			t.Fatalf("diagnostics not sorted at %d: %s > %s", index, previous, current)
+		}
+	}
+	assertDiagnostic(t, first, ModelDiagnostic{Provider: "openai", Model: "gpt-4.1", Family: ProviderFamilyAPIKey, Class: "general", Status: ModelDiagnosticDegraded, Error: ErrReadinessTimeout.Error()})
+	assertDiagnostic(t, first, ModelDiagnostic{Provider: "custom", Model: "deepseek-chat", Family: ProviderFamilyCustom, Class: "general", Status: ModelDiagnosticUnavailable, Error: ErrProviderUnavailable.Error()})
+}
+
+func TestListFakeModelDiagnosticsFilters(t *testing.T) {
+	t.Parallel()
+
+	got := ListFakeModelDiagnostics(ModelDiagnosticFilter{Provider: "openai", Status: ModelDiagnosticAvailable, Search: []string{"gpt"}})
+	want := []ModelDiagnostic{{Provider: "openai", Model: "gpt-4.1-mini", Family: ProviderFamilyAPIKey, Class: "utility", Status: ModelDiagnosticAvailable, Error: "-"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("filtered diagnostics = %#v, want %#v", got, want)
+	}
+
+	got = ListFakeModelDiagnostics(ModelDiagnosticFilter{Family: ProviderFamilyDeviceCode, Class: "reasoning"})
+	for _, diagnostic := range got {
+		if diagnostic.Family != ProviderFamilyDeviceCode || diagnostic.Class != "reasoning" {
+			t.Fatalf("diagnostic escaped family/class filter: %#v", diagnostic)
+		}
+	}
+}
+
+func assertDiagnostic(t *testing.T, diagnostics []ModelDiagnostic, want ModelDiagnostic) {
+	t.Helper()
+	for _, diagnostic := range diagnostics {
+		if reflect.DeepEqual(diagnostic, want) {
+			return
+		}
+	}
+	t.Fatalf("diagnostic %#v not found in %#v", want, diagnostics)
+}
+
 func readinessText(readiness ProviderReadiness) string {
 	var builder strings.Builder
 	builder.WriteString(readiness.Provider)

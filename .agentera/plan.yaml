@@ -42,7 +42,7 @@ tasks:
   - number: 4
     name: Implement bounded fake-backed aila models
     depends_on: ["2", "3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN aila models with filters/degraded fakes WHEN run THEN deterministic sorted bounded output/status/errors print without network, credentials, turns, or tools.
   - number: 5

@@ -38,11 +38,41 @@ const wantConfigAllOutput = "path: /tmp/aila-test/config.toml\n" +
 	"llm.utility.model: test/utility:max\n" +
 	"autonomy.level: test-yolo\n"
 
-const wantModelsStub = "aila test-version\n" +
+const wantModelsOutput = "aila test-version\n" +
 	"command: models\n" +
-	"status: deferred-models stub\n" +
-	"accepted: models [filter...]\n" +
-	"deferred: provider metadata, filtering behavior, credential lookup, degraded status, provider errors\n"
+	"status: fake diagnostics\n" +
+	"filters: none\n" +
+	"columns: provider model family class status error\n" +
+	"codex codex-high device_code reasoning available -\n" +
+	"codex codex-low device_code utility available -\n" +
+	"copilot copilot-chat device_code general available -\n" +
+	"copilot copilot-fast device_code utility available -\n" +
+	"custom deepseek-chat custom general unavailable provider unavailable\n" +
+	"custom deepseek-reasoner custom reasoning available -\n" +
+	"custom local-chat custom general available -\n" +
+	"openai gpt-4.1 api_key general degraded readiness timeout\n" +
+	"openai gpt-4.1-mini api_key utility available -\n" +
+	"openai o4-mini api_key reasoning available -\n" +
+	"opencode-go deepseek-v4-flash device_code utility available -\n" +
+	"opencode-go deepseek-v4-pro device_code reasoning available -\n" +
+	"opencode-zen zen-flash api_key utility available -\n" +
+	"opencode-zen zen-pro api_key general available -\n" +
+	"xiaomi-plan mi-flash device_code utility available -\n" +
+	"xiaomi-plan mi-pro device_code general available -\n" +
+	"zai-plan glm-4.5 device_code reasoning available -\n" +
+	"zai-plan glm-4.5-air device_code utility available -\n" +
+	"count: 18\n" +
+	"source: deterministic-fakes\n"
+
+const wantOpenAIModelsOutput = "aila test-version\n" +
+	"command: models\n" +
+	"status: fake diagnostics\n" +
+	"filters: provider=openai,gpt\n" +
+	"columns: provider model family class status error\n" +
+	"openai gpt-4.1 api_key general degraded readiness timeout\n" +
+	"openai gpt-4.1-mini api_key utility available -\n" +
+	"count: 2\n" +
+	"source: deterministic-fakes\n"
 
 const wantHelpOutput = "aila test-version\n" +
 	"M7 accepted shape:\n" +
@@ -52,7 +82,7 @@ const wantHelpOutput = "aila test-version\n" +
 	"  aila models [filter...]\n" +
 	"  aila help\n" +
 	"  aila --version | aila -V\n" +
-	"Deferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, provider metadata, credentials, model turns, tools, workflow transitions, persistence.\n"
+	"Deferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n"
 
 func TestMainPackageCompiles(t *testing.T) {
 	t.Parallel()
@@ -143,7 +173,7 @@ func TestCLIRunnerRecognizesM7Commands(t *testing.T) {
 		"run":      "status: deferred-run stub",
 		"continue": "status: deferred-continuation stub",
 		"config":   "deferred: interactive config UI",
-		"models":   "status: deferred-models stub",
+		"models":   "status: fake diagnostics",
 		"help":     "M7 accepted shape:",
 	}
 
@@ -220,8 +250,8 @@ func TestM7CLIAcceptedShapesExitWithExpectedStreams(t *testing.T) {
 		{name: "short continue flag", args: []string{"-c"}, wantStdout: wantContinueStub},
 		{name: "config", args: []string{"config"}, wantStdout: wantConfigOutput},
 		{name: "config all", args: []string{"config", "--all"}, wantStdout: wantConfigAllOutput},
-		{name: "models", args: []string{"models"}, wantStdout: wantModelsStub},
-		{name: "models filter", args: []string{"models", "openai", "gpt"}, wantStdout: wantModelsStub},
+		{name: "models", args: []string{"models"}, wantStdout: wantModelsOutput},
+		{name: "models filter", args: []string{"models", "provider=openai", "gpt"}, wantStdout: wantOpenAIModelsOutput},
 		{name: "help", args: []string{"help"}, wantStdout: wantHelpOutput},
 		{name: "version", args: []string{"--version"}, wantStdout: "aila test-version\n"},
 		{name: "short version", args: []string{"-V"}, wantStdout: "aila test-version\n"},
@@ -435,25 +465,57 @@ func TestCLIRunnerConfigAllCreatesDefaultsAndPrintsBoundedValues(t *testing.T) {
 	}
 }
 
-func TestCLIRunnerModelsStubDefersProviderBehavior(t *testing.T) {
+func TestCLIRunnerModelsPrintsFakeDiagnostics(t *testing.T) {
 	t.Parallel()
 
-	for _, args := range [][]string{{"models"}, {"models", "openai", "gpt"}} {
-		args := args
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			t.Parallel()
+	stdout, stderr, err := runCLITest(t, []string{"models"})
+	if err != nil {
+		t.Fatalf("run models: %v", err)
+	}
+	if stdout != wantModelsOutput {
+		t.Fatalf("stdout mismatch: got %q want %q", stdout, wantModelsOutput)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for models: %q", stderr)
+	}
+}
 
-			stdout, stderr, err := runCLITest(t, args)
-			if err != nil {
-				t.Fatalf("run models stub %v: %v", args, err)
-			}
-			if stdout != wantModelsStub {
-				t.Fatalf("stdout mismatch: got %q want %q", stdout, wantModelsStub)
-			}
-			if stderr != "" {
-				t.Fatalf("stderr for models stub: %q", stderr)
-			}
-		})
+func TestCLIRunnerModelsFiltersFakeDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, err := runCLITest(t, []string{"models", "provider=openai", "gpt"})
+	if err != nil {
+		t.Fatalf("run filtered models: %v", err)
+	}
+	if stdout != wantOpenAIModelsOutput {
+		t.Fatalf("stdout mismatch: got %q want %q", stdout, wantOpenAIModelsOutput)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for filtered models: %q", stderr)
+	}
+}
+
+func TestCLIRunnerModelsOutputIsBoundedAndSecretFree(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "secret-from-env")
+	t.Setenv("OPENCODE_API_KEY", "other-secret-from-env")
+
+	stdout, stderr, err := runCLITest(t, []string{"models", "status=unavailable"})
+	if err != nil {
+		t.Fatalf("run unavailable models: %v", err)
+	}
+	for _, forbidden := range []string{"secret-from-env", "other-secret-from-env"} {
+		if strings.Contains(stdout, forbidden) || strings.Contains(stderr, forbidden) {
+			t.Fatalf("models output leaked secret %q: stdout=%q stderr=%q", forbidden, stdout, stderr)
+		}
+	}
+	if !strings.Contains(stdout, "custom deepseek-chat custom general unavailable provider unavailable") {
+		t.Fatalf("models output missing unavailable fake row: %q", stdout)
+	}
+	if len(stdout) > 4096 {
+		t.Fatalf("models output is not bounded: %d bytes", len(stdout))
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for unavailable models: %q", stderr)
 	}
 }
 

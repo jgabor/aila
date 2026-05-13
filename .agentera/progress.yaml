@@ -2558,6 +2558,48 @@ cycles:
       scope: >-
         internal/agent credential resolver and fake readiness failure tests, Task
         3 plan status, and this progress record only.
+  - number: 53
+    timestamp: "2026-05-13 12:32"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9A Task 4 by replacing the deferred `aila models` stub with
+      deterministic fake-backed provider/model diagnostics, bounded text output,
+      provider/status/family/class/search filtering, and degraded/unavailable fake
+      rows.
+    commit: "ac25d81"
+    inspiration: ".agentera/plan.yaml task 4; M9A Task 2 readiness domain commit bb52e80; M9A Task 3 credential boundary commit 7d2433f"
+    discovered: >-
+      The cmd/aila package intentionally depends only on internal/app, so the
+      model diagnostics use an app command-output boundary while internal/agent
+      owns the readiness-derived fake diagnostic catalog. No credential resolver,
+      env lookup, config load, network client, model turn, tool, permission,
+      workflow/session, project .aila state, plugin, MCP, or dynamic provider path
+      was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila ./internal/agent`
+      passed with default output, deterministic ordering, filtering,
+      degraded/unavailable fake rows, bounded/secret-free output, invalid
+      diagnostic preservation, and run/continue/config/help/version preservation.
+      `git diff --check` passed. `go test ./...` passed. Implementation commit
+      ac25d81 was created locally and no push/remotes were touched.
+    next: >-
+      Execute M9A Task 5 only when requested; Tasks 5-8 remain pending.
+    context:
+      intent: >-
+        Provide safe pre-turn model/provider diagnostics from existing fake
+        readiness metadata without live provider or credential behavior.
+      constraints: >-
+        Execute only M9A Task 4; do not implement live smoke, device-code auth
+        flow, startup readiness gating, real provider/network calls,
+        runtime/model turns, tools, permissions, workflow/session/project .aila
+        state, config UI, plugins, MCP, dynamic/generic surfaces, pushes, or
+        remotes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila models command output, internal/app command-output adapter,
+        internal/agent fake diagnostic catalog/tests, Task 4 plan status, and this
+        progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

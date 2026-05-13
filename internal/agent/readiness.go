@@ -3,6 +3,8 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 )
 
 type ProviderFamily string
@@ -45,6 +47,31 @@ type ProviderReadiness struct {
 type MetadataEntry struct {
 	Name  string
 	Value string
+}
+
+type ModelDiagnosticStatus string
+
+const (
+	ModelDiagnosticAvailable   ModelDiagnosticStatus = "available"
+	ModelDiagnosticDegraded    ModelDiagnosticStatus = "degraded"
+	ModelDiagnosticUnavailable ModelDiagnosticStatus = "unavailable"
+)
+
+type ModelDiagnostic struct {
+	Provider string
+	Model    string
+	Family   ProviderFamily
+	Class    string
+	Status   ModelDiagnosticStatus
+	Error    string
+}
+
+type ModelDiagnosticFilter struct {
+	Provider string
+	Family   ProviderFamily
+	Status   ModelDiagnosticStatus
+	Class    string
+	Search   []string
 }
 
 type UnsupportedProviderError struct {
@@ -147,6 +174,85 @@ var fakeProviders = map[string]fakeProvider{
 			"glm-4.5-air": "utility",
 		},
 	},
+}
+
+var fakeModelDiagnosticOverrides = map[string]struct {
+	status ModelDiagnosticStatus
+	err    string
+}{
+	"custom/deepseek-chat": {status: ModelDiagnosticUnavailable, err: ErrProviderUnavailable.Error()},
+	"openai/gpt-4.1":       {status: ModelDiagnosticDegraded, err: ErrReadinessTimeout.Error()},
+}
+
+func ListFakeModelDiagnostics(filter ModelDiagnosticFilter) []ModelDiagnostic {
+	diagnostics := make([]ModelDiagnostic, 0)
+	for providerName, provider := range fakeProviders {
+		models := make([]string, 0, len(provider.models))
+		for model := range provider.models {
+			models = append(models, model)
+		}
+		sort.Strings(models)
+
+		for _, model := range models {
+			readiness, err := ClassifyFakeReadiness(ReadinessRequest{Provider: providerName, Model: model})
+			if err != nil {
+				continue
+			}
+			diagnostic := ModelDiagnostic{
+				Provider: readiness.Provider,
+				Model:    readiness.Model,
+				Family:   readiness.Family,
+				Class:    metadataValue(readiness.Metadata, "model_class"),
+				Status:   ModelDiagnosticAvailable,
+				Error:    "-",
+			}
+			if override, ok := fakeModelDiagnosticOverrides[diagnostic.Provider+"/"+diagnostic.Model]; ok {
+				diagnostic.Status = override.status
+				diagnostic.Error = override.err
+			}
+			if matchesModelDiagnosticFilter(diagnostic, filter) {
+				diagnostics = append(diagnostics, diagnostic)
+			}
+		}
+	}
+	sort.Slice(diagnostics, func(i, j int) bool {
+		left, right := diagnostics[i], diagnostics[j]
+		if left.Provider != right.Provider {
+			return left.Provider < right.Provider
+		}
+		return left.Model < right.Model
+	})
+	return diagnostics
+}
+
+func metadataValue(metadata []MetadataEntry, name string) string {
+	for _, entry := range metadata {
+		if entry.Name == name {
+			return entry.Value
+		}
+	}
+	return ""
+}
+
+func matchesModelDiagnosticFilter(diagnostic ModelDiagnostic, filter ModelDiagnosticFilter) bool {
+	if filter.Provider != "" && diagnostic.Provider != filter.Provider {
+		return false
+	}
+	if filter.Family != "" && diagnostic.Family != filter.Family {
+		return false
+	}
+	if filter.Status != "" && diagnostic.Status != filter.Status {
+		return false
+	}
+	if filter.Class != "" && diagnostic.Class != filter.Class {
+		return false
+	}
+	for _, token := range filter.Search {
+		if !strings.Contains(diagnostic.Provider, token) && !strings.Contains(diagnostic.Model, token) && !strings.Contains(diagnostic.Class, token) {
+			return false
+		}
+	}
+	return true
 }
 
 func ClassifyFakeReadiness(request ReadinessRequest) (ProviderReadiness, error) {
