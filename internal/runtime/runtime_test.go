@@ -129,6 +129,85 @@ func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 	}
 }
 
+func TestDispatchHandlesPromptEffect(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "explain status", Source: "user"}
+	messages := Dispatch([]Effect{FakePromptEffect{Operation: operation, Prompt: "explain status"}})
+
+	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "fake prompt result: explain status"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDispatchHandlesCommandEffect(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-2", Kind: OperationCommand, Subject: "status", Source: "user"}
+	messages := Dispatch([]Effect{FakeCommandEffect{Operation: operation, Command: "status"}})
+
+	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "fake command result: status"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDispatchReturnsMixedResultsInInputOrder(t *testing.T) {
+	t.Parallel()
+
+	prompt := OperationMetadata{ID: "op-3", Kind: OperationPrompt, Subject: "hello", Source: "user"}
+	command := OperationMetadata{ID: "op-4", Kind: OperationCommand, Subject: "status", Source: "user"}
+	messages := Dispatch([]Effect{
+		FakePromptEffect{Operation: prompt, Prompt: "hello"},
+		FakeCommandEffect{Operation: command, Command: "status"},
+		FakePromptEffect{Operation: prompt, Prompt: "again"},
+	})
+
+	want := []Message{
+		FakeEffectCompleted{Operation: prompt, Result: "fake prompt result: hello"},
+		FakeEffectCompleted{Operation: command, Result: "fake command result: status"},
+		FakeEffectCompleted{Operation: prompt, Result: "fake prompt result: again"},
+	}
+	if !reflect.DeepEqual(messages, want) {
+		t.Fatalf("Dispatch() = %#v, want %#v", messages, want)
+	}
+}
+
+func TestDispatchIgnoresUnsupportedEffects(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-5", Kind: OperationPrompt, Subject: "ignored", Source: "user"}
+	messages := Dispatch([]Effect{
+		unsupportedEffect{operation: operation},
+		FakePromptEffect{Operation: operation, Prompt: "kept"},
+	})
+
+	want := []Message{FakeEffectCompleted{Operation: operation, Result: "fake prompt result: kept"}}
+	if !reflect.DeepEqual(messages, want) {
+		t.Fatalf("Dispatch() = %#v, want %#v", messages, want)
+	}
+}
+
+func TestDispatchIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-6", Kind: OperationCommand, Subject: "status", Source: "user"}
+	effects := []Effect{FakeCommandEffect{Operation: operation, Command: "status"}}
+	first := Dispatch(effects)
+	second := Dispatch(effects)
+
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("Dispatch is not deterministic:\nfirst:  %#v\nsecond: %#v", first, second)
+	}
+}
+
+func TestDispatchHandlesNoEffects(t *testing.T) {
+	t.Parallel()
+
+	if messages := Dispatch(nil); len(messages) != 0 {
+		t.Fatalf("len(messages) = %d, want 0", len(messages))
+	}
+}
+
 func TestUpdateDoesNotMutateInputModel(t *testing.T) {
 	t.Parallel()
 
@@ -241,4 +320,14 @@ func assertOperationMetadata(t *testing.T, got OperationMetadata, want Operation
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("metadata = %#v, want %#v", got, want)
 	}
+}
+
+type unsupportedEffect struct {
+	operation OperationMetadata
+}
+
+func (unsupportedEffect) runtimeEffect() {}
+
+func (effect unsupportedEffect) Metadata() OperationMetadata {
+	return effect.operation
 }

@@ -92,6 +92,32 @@ func (effect FakeCommandEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
+// Dispatch interprets fake in-memory effects synchronously and returns result
+// messages in the same order as the input effects.
+func Dispatch(effects []Effect) []Message {
+	if len(effects) == 0 {
+		return nil
+	}
+
+	messages := make([]Message, 0, len(effects))
+	for _, effect := range effects {
+		switch typed := effect.(type) {
+		case FakePromptEffect:
+			messages = append(messages, FakeEffectCompleted{
+				Operation: typed.Operation,
+				Result:    "fake prompt result: " + typed.Prompt,
+			})
+		case FakeCommandEffect:
+			messages = append(messages, FakeEffectCompleted{
+				Operation: typed.Operation,
+				Result:    "fake command result: " + typed.Command,
+			})
+		}
+	}
+
+	return messages
+}
+
 // OperationKind classifies a requested operation without performing it.
 type OperationKind string
 

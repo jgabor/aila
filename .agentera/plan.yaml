@@ -35,7 +35,7 @@ tasks:
   - number: 2
     name: Add fake in-memory dispatcher
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN fake effects WHEN dispatched THEN deterministic result messages are returned in order without goroutines, filesystem, shell, network, model, tool, permission, or persistence behavior.
   - number: 3

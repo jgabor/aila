@@ -3270,6 +3270,42 @@ cycles:
       unknowns: "none"
       scope: >-
         internal/runtime contracts and tests plus Task 1 Agentera metadata.
+  - number: 71
+    timestamp: "2026-05-13 19:02"
+    type: feat
+    phase: build
+    what: >-
+      Added the M12 Task 2 fake in-memory dispatcher for runtime effects. It
+      synchronously maps fake prompt and command effects to deterministic runtime
+      completion messages while preserving input order and ignoring unsupported
+      fake effects.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 12"
+    discovered: >-
+      The existing runtime production boundary test already enforced no
+      goroutine, filesystem, shell, network, model, tool, permission, or
+      persistence imports/tokens. .agentera/session.yaml remained untracked local
+      state and was not edited or committed.
+    verified: >-
+      `mage fmt`, `go test ./internal/runtime`, `go test ./...`, and `git diff
+      --check` passed for the fake dispatcher implementation, prompt dispatch,
+      command dispatch, mixed ordering, unsupported/no-op handling,
+      deterministic output, and production-source forbidden import/token checks.
+    next: >-
+      Execute M12 Task 3 only when selected; Tasks 3-6 remain pending.
+    context:
+      intent: >-
+        Add the pure fake effect interpreter before app/TUI routing, providers,
+        tools, permissions, persistence, queueing, or workflow mutation.
+      constraints: >-
+        Execute only M12 Task 2; fake in-memory effects only. Do not add app/TUI
+        routing, fixtures, PTY, validation closeout, real model/provider/tool
+        execution, permission policy, persistence/project .aila, workflow
+        mutation, capability routing, state store, plugins, MCP, dynamic/generic
+        surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/runtime fake dispatcher and tests plus Task 2 Agentera metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
