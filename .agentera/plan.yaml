@@ -36,7 +36,7 @@ tasks:
   - number: 3
     name: Add redacted credential lookup boundary
     depends_on: ["2"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN env/config credential sources and fake failures WHEN resolved THEN precedence is explicit, OPENAI_API_KEY/OPENCODE_API_KEY are supported, typed errors redact secrets.
   - number: 4

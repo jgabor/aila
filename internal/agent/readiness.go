@@ -174,6 +174,8 @@ func ClassifyFakeReadiness(request ReadinessRequest) (ProviderReadiness, error) 
 		)
 	}
 
+	requiresCredentialCheck := provider.family != ProviderFamilyDeviceCode
+
 	return ProviderReadiness{
 		Provider:                request.Provider,
 		Family:                  provider.family,
@@ -182,6 +184,6 @@ func ClassifyFakeReadiness(request ReadinessRequest) (ProviderReadiness, error) 
 		Reasoning:               request.Reasoning,
 		Metadata:                metadata,
 		AvailableBeforeTurn:     true,
-		RequiresCredentialCheck: true,
+		RequiresCredentialCheck: requiresCredentialCheck,
 	}, nil
 }

@@ -2519,6 +2519,45 @@ cycles:
       scope: >-
         internal/agent readiness domain and tests, Task 2 plan status, and this
         progress record only.
+  - number: 52
+    timestamp: "2026-05-13 12:44"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9A Task 3 by adding an injected internal/agent credential
+      resolver boundary with config-before-env precedence, documented API-key env
+      names, device-code no-secret behavior, redacted secret values, and fake
+      readiness failure errors.
+    commit: "7d2433f"
+    inspiration: ".agentera/plan.yaml task 3; M9A Task 2 readiness domain commit bb52e80"
+    discovered: >-
+      The existing readiness classifier could remain network/env-free. The new
+      resolver uses only injected config descriptors and env lookup functions, so
+      tests use synthetic strings and do not read repo .env or real environment
+      secrets.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/agent` passed with
+      OPENAI_API_KEY, OPENCODE_API_KEY, config-over-env precedence, device-code
+      no-secret, missing credential, invalid credential, expired token, rate
+      limit, timeout, provider unavailable, unavailable model, and redaction
+      coverage. `go test ./internal/agent ./internal/app` passed. `go test ./...`
+      passed. `git diff --check` passed before implementation commit 7d2433f.
+    next: >-
+      Execute M9A Task 4 only when requested; Tasks 4-8 remain pending.
+    context:
+      intent: >-
+        Add the credential lookup and fake failure boundary needed before bounded
+        model diagnostics, without introducing live provider behavior.
+      constraints: >-
+        Execute only M9A Task 3; do not implement aila models, live smoke,
+        device-code auth flow, startup readiness gating, real provider/network
+        calls, runtime/model turns, tools, permissions, workflow/session/project
+        .aila state, config UI, plugins, MCP, dynamic/generic surfaces, pushes,
+        or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/agent credential resolver and fake readiness failure tests, Task
+        3 plan status, and this progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
