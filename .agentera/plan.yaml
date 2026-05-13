@@ -30,7 +30,7 @@ tasks:
   - number: 2
     name: Define provider readiness domain
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN API-key/custom/device-code providers WHEN fakes classify readiness THEN families, credential source names, metadata, unsupported-provider, and unavailable-model errors are deterministic before turns.
   - number: 3

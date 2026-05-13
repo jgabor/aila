@@ -2481,6 +2481,44 @@ cycles:
       scope: >-
         internal/app config parsing/display adaptation, focused config tests,
         Task 1 plan status, and this progress record only.
+  - number: 51
+    timestamp: "2026-05-13 12:11"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9A Task 2 by adding an internal/agent provider readiness
+      domain with deterministic fake classification for API-key, custom
+      OpenAI-compatible, and device-code provider families before model turns.
+    commit: "bb52e80"
+    inspiration: ".agentera/plan.yaml task 2; M9A Task 1 model-ref contract commit 407a1ae"
+    discovered: >-
+      internal/agent was still a compile-only boundary, so the readiness domain
+      could stay self-contained and avoid importing app config, credential lookup,
+      filesystem reads, network clients, runtime turns, tools, permissions,
+      workflow/session state, plugins, MCP, or dynamic provider surfaces.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/agent` passed with
+      provider family classification, credential source names, deterministic
+      ordered metadata, unsupported-provider typed errors, unavailable-model typed
+      errors, and no secret/environment leakage coverage. `go test
+      ./internal/agent ./internal/app` passed. `go test ./...` passed. `git diff
+      --check` passed before metadata closeout.
+    next: >-
+      Execute M9A Task 3 only when requested; Tasks 3-8 remain pending.
+    context:
+      intent: >-
+        Define the pre-turn fake provider readiness vocabulary needed by later
+        credential and models work without performing credential lookup or live IO.
+      constraints: >-
+        Execute only M9A Task 2; do not implement credential lookup, env/.env
+        reading, real provider calls, network, aila models, device-code auth flow,
+        startup readiness gating, runtime/model turns, tools, permissions,
+        workflow/session/project .aila state, config UI, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/agent readiness domain and tests, Task 2 plan status, and this
+        progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
