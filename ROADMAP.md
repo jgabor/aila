@@ -21,11 +21,11 @@ find the next slice.
 
 | Field                    | Value                                                                                                                                                                                              |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 10: Workflow Phase Kernel                                                                                                                                                                |
-| Next milestone           | Milestone 11: Workflow Transition Table                                                                                                                                                            |
+| Last completed milestone | Milestone 11: Workflow Transition Table                                                                                                                                                            |
+| Next milestone           | Milestone 12: Runtime Message Loop                                                                                                                                                                 |
 | Active milestone         | none                                                                                                                                                                                               |
 | Last updated             | 2026-05-13                                                                                                                                                                                         |
-| Last validation          | M10 targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, `mage check`, and no push all passed/confirmed. |
+| Last validation          | M11 targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, `mage check`, and no push all passed/confirmed. |
 
 Completion log:
 
@@ -43,6 +43,7 @@ Completion log:
 | 9         | completed | 2026-05-13 | Config creation and XDG paths validated with app/cmd config path, load, startup, and command tests; TUI display/semantic checks; temp-XDG PTY startup/config-creation smoke; `go test ./...`; `git diff --check`; post-closeout `agentera plan --format json`; and full `mage check`.                                                                |
 | 9A        | completed | 2026-05-13 | Provider gateway and credential boundary validated with targeted app/agent/cmd/TUI tests, approved optional DeepSeek smoke against `https://api.deepseek.com/v1/chat/completions`, `go test ./...`, `git diff --check`, `mage check` with live smoke skipped by default, Agentera plan-empty closeout, boundary/secret inspection, and no push.      |
 | 10        | completed | 2026-05-13 | Workflow phase kernel validated with targeted workflow/app/TUI/cmd tests, deterministic fixture/snapshot evidence, bounded no-arg PTY startup smoke, `go test ./...`, Task 5 boundary/source inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                |
+| 11        | completed | 2026-05-13 | Workflow transition table validated with targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 source-boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                                                                                       |
 
 Status values:
 

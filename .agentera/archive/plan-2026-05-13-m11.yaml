@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-13
-  status: active
+  status: archived
   reviewed: 2026-05-13
   critic_issues: "5 found, addressed"
   title: M11 Workflow Transition Table
@@ -49,20 +49,20 @@ tasks:
   - number: 4
     name: Refresh transition display evidence
     depends_on: ["3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN affected snapshots change WHEN reviewed THEN diffs are limited to intentional blocker/waiting status evidence.
       - GIVEN transition or blocker state becomes interactively visible WHEN validating THEN bounded PTY smoke runs; otherwise deterministic fixtures are sufficient.
   - number: 5
     name: Validate M11 boundaries
     depends_on: ["1", "2", "3", "4"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN targeted workflow/app/TUI/cmd tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass with no runtime/capability/agent/tools/permission/state/config behavior added.
   - number: 6
     name: Synchronize final M11 state
     depends_on: ["5"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN validation passes WHEN closing M11 THEN ROADMAP marks M11 complete/M12 next, plan archives/removes, progress records evidence in the closeout commit, agentera plan empty, mage check passes, and no push occurs.
 surprises: []

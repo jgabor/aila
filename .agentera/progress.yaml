@@ -3120,6 +3120,119 @@ cycles:
       scope: >-
         internal/tui presentation state, deterministic render/semantic fixture
         tests and snapshots, and Task 3 Agentera plan/progress artifacts only.
+  - number: 67
+    timestamp: "2026-05-13 16:36"
+    type: test
+    phase: audit
+    what: >-
+      Executed only M11 Task 4 by reviewing the Task 3 waiting-transition TUI
+      fixture/snapshot diff and rerunning deterministic fixture, semantic, and
+      full Go tests.
+    commit: "folded into validation commit"
+    inspiration: ".agentera/plan.yaml task 4; Task 3 commit 64ecb7c"
+    discovered: >-
+      The Task 3 snapshot changes are limited to intentional presentation-only
+      runtime waiting evidence: the PLAN workflow phase remains separate from
+      runtime_status=waiting, status_source=runtime.fixture, and the injected
+      blocker detail. PTY smoke was not applicable because the new
+      waiting-transition state is a static deterministic fixture and is not
+      exposed by startup or a live interactive TUI path in this slice.
+    verified: >-
+      `go test ./internal/tui -run
+      TestM11WaitingStatusFixtureDistinguishesPhaseFromRuntimeStatus -count=1`
+      passed. `go test ./internal/tui -count=1` passed. `go test ./...` passed.
+      `git diff --check` passed. Only Task 4 was marked complete; Tasks 5-6
+      remain pending.
+    next: >-
+      Execute M11 Task 5 only when requested; Tasks 5-6 remain pending.
+    context:
+      intent: >-
+        Refresh evidence for blocked/waiting transition display without changing
+        product behavior after Task 3 introduced the deterministic fixture.
+      constraints: >-
+        Execute only M11 Task 4; no product behavior, runtime/capability
+        connection, FSM mutation, model/tool execution, permissions,
+        persistence/project .aila, config/provider behavior, plugins, MCP,
+        dynamic/generic surfaces, pushes, remotes, or AGENTS.md edits.
+      unknowns: "none"
+      scope: >-
+        Task 3 TUI fixture/snapshot diff review, deterministic test execution,
+        PTY applicability decision, and Task 4 Agentera metadata only.
+  - number: 68
+    timestamp: "2026-05-13 16:40"
+    type: test
+    phase: audit
+    what: >-
+      Executed only M11 Task 5 validation by running targeted workflow/app/TUI/cmd
+      tests, full Go and Mage gates, whitespace checks, and source-boundary
+      inspection for the M11 commit range.
+    commit: "same commit as validation"
+    inspiration: ".agentera/plan.yaml task 5; commits be4a9c4, fa8d1e7, 64ecb7c"
+    discovered: >-
+      M11 committed source changes are confined to internal/workflow successor
+      validation/runtime-status vocabulary and deterministic internal/tui
+      render/fixture/semantic evidence. Source inspection found no changed files
+      under internal/runtime, internal/capability, internal/agent, internal/tools,
+      internal/permission, internal/state, or config behavior paths. The TUI
+      changes render injected display-only status data and do not decide workflow
+      successors.
+    verified: >-
+      `go test ./internal/workflow -count=1`, `go test ./internal/app -count=1`,
+      `go test ./internal/tui -count=1`, and `go test ./cmd/aila -count=1`
+      passed. `go test ./...` passed. `git diff --check` passed. The first
+      `mage check` hit a transient `TestM6ResizePTYSmoke` timeout waiting for
+      `160x45`; rerunning `go test ./cmd/aila -run TestM6ResizePTYSmoke -count=1`,
+      `go test ./cmd/aila -count=1`, and `mage check` passed.
+    next: >-
+      Execute M11 Task 6 only when requested; Task 6 remains pending.
+    context:
+      intent: >-
+        Validate the M11 workflow/TUI boundary and record evidence without
+        closing the milestone or adding product behavior.
+      constraints: >-
+        Execute only M11 Task 5; do not close ROADMAP, archive/remove the active
+        plan, mark Task 6 complete, add runtime/capability/agent/tools/permission
+        /state/config behavior, run model/tool execution, create project .aila
+        state, push, use remotes, or touch AGENTS.md.
+      unknowns: "none"
+      scope: >-
+        Targeted and full validation gates, M11 source-boundary inspection, and
+        Task 4/5 Agentera metadata in one validation commit.
+  - number: 69
+    timestamp: "2026-05-13 16:42"
+    type: chore
+    phase: audit
+    what: >-
+      Executed only M11 Task 6 closeout by marking ROADMAP.md with Milestone 11
+      complete, Milestone 12 next, active none; archiving the completed M11 plan;
+      and removing the active plan.
+    commit: "same commit as closeout"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 11"
+    discovered: >-
+      The worktree had a pre-existing unrelated AGENTS.md modification before
+      closeout. It was not edited, staged, or committed. No runtime, capability,
+      agent, tools, permission, state, config, model/tool execution,
+      persistence/project .aila, plugin, MCP, dynamic/generic, remote, or push
+      behavior was added.
+    verified: >-
+      M11 Task 5 already validated targeted workflow/app/TUI/cmd tests, `go test
+      ./...`, source-boundary inspection, `git diff --check`, and `mage check`.
+      Task 6 closeout reran post-closeout Agentera active-plan-empty validation,
+      `git diff --check`, and full `mage check`; no push was performed.
+    next: >-
+      Execute ROADMAP.md Milestone 12: Runtime Message Loop when selected.
+    context:
+      intent: >-
+        Synchronize final M11 state after validation while leaving no active
+        Agentera plan.
+      constraints: >-
+        Execute only M11 Task 6; closeout artifacts and final checks only. Do not
+        add product source behavior, runtime/capability/agent/tools/permission
+        /state/config behavior, model/tool execution, persistence/project .aila,
+        plugins, MCP, dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md and Agentera plan/progress/archive artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -3129,3 +3242,4 @@ archive:
   - .agentera/archive/plan-2026-05-13-m9.yaml
   - .agentera/archive/plan-2026-05-13-m9a.yaml
   - .agentera/archive/plan-2026-05-13-m10.yaml
+  - .agentera/archive/plan-2026-05-13-m11.yaml
