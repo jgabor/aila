@@ -42,7 +42,7 @@ tasks:
   - number: 3
     name: Display blocked or waiting transition state
     depends_on: ["1", "2"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN a blocked or waiting fixture WHEN rendered THEN semantic snapshots distinguish workflow phase from runtime status.
       - GIVEN TUI source is inspected THEN it renders injected transition/status data and owns no transition decisions.

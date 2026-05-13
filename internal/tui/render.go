@@ -21,6 +21,9 @@ type ViewState struct {
 	AppName       string
 	Phase         string
 	PhaseSource   string
+	RuntimeStatus string
+	StatusSource  string
+	StatusDetail  string
 	PrimaryModel  string
 	UtilityModel  string
 	Autonomy      string
@@ -99,7 +102,11 @@ func sizeLabel(size Size) string {
 }
 
 func statusLine(state ViewState) string {
-	return "Stage " + state.Phase + " | Model " + state.PrimaryModel + " | Utility " + state.UtilityModel + " | Auto " + state.Autonomy
+	status := "Stage " + state.Phase
+	if state.RuntimeStatus != "" {
+		status += " | Runtime " + state.RuntimeStatus
+	}
+	return status + " | Model " + state.PrimaryModel + " | Utility " + state.UtilityModel + " | Auto " + state.Autonomy
 }
 
 func contentItems(state ViewState) []string {
@@ -107,9 +114,28 @@ func contentItems(state ViewState) []string {
 	if state.SurfaceTitle == "" {
 		items = displayLabelLines(state)
 	}
+	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
 	items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	return items
+}
+
+func runtimeStatusLines(state ViewState) []string {
+	if state.RuntimeStatus == "" {
+		return nil
+	}
+	lines := []string{
+		"  Runtime status:",
+		"  status: " + state.RuntimeStatus,
+	}
+	if state.StatusSource != "" {
+		lines = append(lines, "  status source: "+state.StatusSource)
+	}
+	if state.StatusDetail != "" {
+		lines = append(lines, "  detail: "+state.StatusDetail)
+	}
+	lines = append(lines, "")
+	return lines
 }
 
 func displayLabelLines(state ViewState) []string {
@@ -255,6 +281,9 @@ type SemanticLayout struct {
 type SemanticSession struct {
 	Phase          string `json:"phase"`
 	PhaseSource    string `json:"phase_source"`
+	RuntimeStatus  string `json:"runtime_status,omitempty"`
+	StatusSource   string `json:"status_source,omitempty"`
+	StatusDetail   string `json:"status_detail,omitempty"`
 	Active         bool   `json:"active"`
 	QueuedMessages int    `json:"queued_messages"`
 	PrimaryModel   string `json:"primary_model"`
@@ -297,6 +326,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if hasDisplayLabelDetails(state) {
 		regions = append(regions, SemanticRegion{Name: "display_labels", Visible: true, Items: semanticDisplayLabelItems(state)})
 	}
+	if state.RuntimeStatus != "" {
+		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -331,6 +363,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Session: SemanticSession{
 			Phase:          state.Phase,
 			PhaseSource:    state.PhaseSource,
+			RuntimeStatus:  state.RuntimeStatus,
+			StatusSource:   state.StatusSource,
+			StatusDetail:   state.StatusDetail,
 			Active:         false,
 			QueuedMessages: 0,
 			PrimaryModel:   state.PrimaryModel,
@@ -383,6 +418,18 @@ func semanticDisplayLabelItems(state ViewState) []string {
 	}
 }
 
+func semanticRuntimeStatusItems(state ViewState) []string {
+	items := []string{"status: " + state.RuntimeStatus}
+	if state.StatusSource != "" {
+		items = append(items, "status source: "+state.StatusSource)
+	}
+	if state.StatusDetail != "" {
+		items = append(items, "detail: "+state.StatusDetail)
+	}
+	items = append(items, "display-only")
+	return items
+}
+
 func surfaceLines(route string, source string, title string, items []string) []string {
 	if title == "" {
 		return nil
@@ -417,14 +464,17 @@ func semanticSurfaceItems(route string, source string, title string, items []str
 }
 
 func rightRailSemanticItems(state ViewState) []string {
-	return []string{
+	items := []string{
 		"phase source: " + state.PhaseSource,
 		"primary model: " + state.PrimaryModel,
 		"utility model: " + state.UtilityModel,
 		"autonomy: " + state.Autonomy,
-		"git: " + state.FooterGit,
-		"context: " + state.FooterContext,
 	}
+	if state.RuntimeStatus != "" {
+		items = append(items, semanticRuntimeStatusItems(state)...)
+	}
+	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
+	return items
 }
 
 // RenderSemanticJSON renders an indented semantic JSON snapshot.

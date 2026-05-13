@@ -139,6 +139,78 @@ func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadWaitingStatusFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = "PLAN"
+	state.PhaseSource = "workflow.fixture"
+	state.RuntimeStatus = "waiting"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "successor blocked by injected blocker"
+	state.Scenario = "waiting-transition"
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM11WaitingStatusFixtureDistinguishesPhaseFromRuntimeStatus(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadWaitingStatusFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := renderCase.render(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			if !containsAll(got, []string{
+				"Stage PLAN | Runtime waiting",
+				"Runtime status:",
+				"status: waiting",
+				"status source: runtime.fixture",
+				"detail: successor blocked by injected blocker",
+			}) {
+				t.Fatalf("waiting fixture render does not expose injected status separately from phase:\n%s", got)
+			}
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Session.Phase != "PLAN" || snapshot.Session.PhaseSource != "workflow.fixture" {
+				t.Fatalf("phase = %q from %q, want injected workflow phase", snapshot.Session.Phase, snapshot.Session.PhaseSource)
+			}
+			if snapshot.Session.RuntimeStatus != "waiting" || snapshot.Session.StatusSource != "runtime.fixture" || snapshot.Session.StatusDetail != "successor blocked by injected blocker" {
+				t.Fatalf("runtime status = %+v, want injected status data separate from phase", snapshot.Session)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			phase := strings.Join(regions["phase"].Items, "\n")
+			status := strings.Join(regions["runtime_status"].Items, "\n")
+			if !containsAll(phase, []string{"PLAN", "display-only"}) || contains(phase, "waiting") {
+				t.Fatalf("phase region = %v, want workflow phase only", regions["phase"].Items)
+			}
+			if !containsAll(status, []string{"status: waiting", "status source: runtime.fixture", "display-only"}) || contains(status, "phase") {
+				t.Fatalf("runtime status region = %v, want status data only", regions["runtime_status"].Items)
+			}
+		})
+	}
+}
+
 func TestM8DisplayFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage PLAN | Runtime waiting | Model placeholder | Utility placeholder | Auto p~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| status source: runtime.fixture                                               |
+| detail: successor blocked by injected blocker                                |
+|                                                                              |
+| No messages yet.                                                             |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

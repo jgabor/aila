@@ -599,6 +599,8 @@ func TestTUIProductionSourceDoesNotOwnWorkflowPhases(t *testing.T) {
 			}
 			for _, forbidden := range []string{
 				"PhaseIdle", "PhaseEnvision", "PhaseDeliberate", "PhasePlan", "PhaseBuild", "PhaseAudit",
+				"RuntimeStatusWaiting", "RuntimeStatusStuck", "RuntimeStatusFlagged", "ParseRuntimeStatus",
+				"waiting", "stuck", "flagged",
 				"phaseDisplayLabels", "ParsePhase", "WorkflowTransition", "workflow_transition", "transition table", "Transition(",
 			} {
 				if strings.Contains(string(source), forbidden) {
