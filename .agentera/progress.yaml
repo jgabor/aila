@@ -3233,6 +3233,43 @@ cycles:
       unknowns: "none"
       scope: >-
         ROADMAP.md and Agentera plan/progress/archive artifacts only.
+  - number: 70
+    timestamp: "2026-05-13 17:30"
+    type: feat
+    phase: build
+    what: >-
+      Defined the M12 Task 1 runtime MVU contracts with typed prompt, command,
+      fake completion, and fake failure messages; deterministic model updates;
+      fake in-memory effects; and inert operation/failure/cancel metadata.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 12"
+    discovered: >-
+      internal/runtime was still only the package doc and compile test. The M12
+      plan was untracked from Planera before implementation and is included with
+      this task metadata. .agentera/session.yaml was also pre-existing untracked
+      local state and was not edited or committed.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/runtime` passed,
+      including deterministic prompt and command updates, typed fake effect
+      metadata, fake completion/failure result handling, inert failure/cancel
+      metadata, input-model copy behavior, and production-source forbidden
+      import/token checks.
+    next: >-
+      Execute M12 Task 2 only when selected; Tasks 2-6 remain pending.
+    context:
+      intent: >-
+        Establish the pure runtime message/update/effect seam before dispatch,
+        app/TUI routing, providers, tools, permissions, persistence, or workflow
+        mutation.
+      constraints: >-
+        Execute only M12 Task 1; fake in-memory effects only. Do not add a
+        dispatcher, app/TUI routing, fixtures, PTY, validation closeout, real
+        model/provider/tool execution, permission policy, persistence/project
+        .aila, workflow mutation, capability routing, state store, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/runtime contracts and tests plus Task 1 Agentera metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

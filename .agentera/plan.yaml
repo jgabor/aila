@@ -1,0 +1,68 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: active
+  reviewed: 2026-05-13
+  critic_issues: "8 found, addressed"
+  title: M12 Runtime Message Loop
+
+what: Introduce deterministic runtime MVU and route fake prompt/command interactions through it.
+why: M12 creates the message/effect seam before queues, interrupts, providers, tools, permissions, or persistence.
+constraints: >-
+  Fake in-memory effects only. No real model/provider/tool execution, permission
+  policy, persistence/project .aila, workflow mutation, capability routing, state
+  store, plugins, MCP, dynamic/generic surfaces, pushes, or remotes. TUI remains
+  presentation-only. Fold Agentera metadata into related implementation or
+  validation commits; no status-only commits.
+scope:
+  included:
+    - internal/runtime messages, model, effects, update, and fake dispatcher shape.
+    - Typed operation metadata for later permission gates.
+    - App/TUI prompt and tiny inert command routing into runtime messages.
+    - Runtime fixture, semantic, PTY, validation, and closeout evidence.
+  excluded:
+    - Queueing, interrupts, cancellation behavior, real providers/tools, workflow transitions, permissions, persistence, and project state.
+design: Updates decide synchronously; fake dispatcher interprets effects and returns messages; TUI only adapts input and renders view state.
+
+tasks:
+  - number: 1
+    name: Define runtime MVU contracts
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN runtime messages/model/effects WHEN Update handles prompt, command, and fake-result messages THEN it changes state deterministically, emits typed effects with operation metadata, and performs no IO.
+      - GIVEN failure/cancel-like metadata exists WHEN inspected THEN it is inert typed metadata only.
+  - number: 2
+    name: Add fake in-memory dispatcher
+    depends_on: ["1"]
+    status: pending
+    acceptance:
+      - GIVEN fake effects WHEN dispatched THEN deterministic result messages are returned in order without goroutines, filesystem, shell, network, model, tool, permission, or persistence behavior.
+  - number: 3
+    name: Route app input through runtime
+    depends_on: ["1", "2"]
+    status: pending
+    acceptance:
+      - GIVEN TUI prompt submit or the scoped inert status command WHEN routed through app callbacks THEN app converts input into runtime messages/effects and does not interpret prompt or command behavior itself.
+      - GIVEN other commands or shortcuts WHEN tested THEN existing bounded policy behavior remains and no capability routing or workflow transition occurs.
+  - number: 4
+    name: Surface runtime status evidence
+    depends_on: ["3"]
+    status: pending
+    acceptance:
+      - GIVEN runtime-backed fake prompt/result state WHEN fixtures render THEN visible and semantic snapshots show idle/active/result runtime status without confusing it with workflow phase.
+      - GIVEN TUI source is inspected THEN it renders injected runtime status only and owns no runtime update/effect decisions.
+  - number: 5
+    name: Add bounded runtime PTY smoke
+    depends_on: ["4"]
+    status: pending
+    acceptance:
+      - GIVEN a bounded PTY session WHEN one prompt is submitted THEN visible output proves the prompt/result flow used the runtime path and no provider/tool/config side effects occur.
+  - number: 6
+    name: Validate and synchronize M12 state
+    depends_on: ["1", "2", "3", "4", "5"]
+    status: pending
+    acceptance:
+      - GIVEN targeted runtime/app/TUI/cmd tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass with no deferred behavior added.
+      - GIVEN validation passes WHEN closing M12 THEN ROADMAP marks M12 complete/M13 next, plan archives/removes, progress records evidence in the validation/closeout commit, agentera plan empty, and no push occurs.
+surprises: []
