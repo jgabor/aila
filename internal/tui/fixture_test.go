@@ -105,6 +105,218 @@ func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadDisplayFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = name
+	switch name {
+	case "model-display":
+		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+		state.Autonomy = "yolo"
+	case "autonomy-display":
+		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+		state.Autonomy = "read"
+	default:
+		t.Fatalf("unknown display fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM8DisplayFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		want []string
+	}{
+		{name: "model-display", want: []string{"primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: yolo (display-only)"}},
+		{name: "autonomy-display", want: []string{"primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: read (display-only)"}},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadDisplayFixture(t, tc.name)
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(got, tc.want) {
+						t.Fatalf("%s %s missing display labels %v:\n%s", tc.name, renderCase.name, tc.want, got)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					assertSemanticContract(t, tc.name, semanticCase.size, snapshot)
+					assertDisplaySemanticLabels(t, snapshot, fixture.State)
+				})
+			}
+		})
+	}
+}
+
+func assertDisplaySemanticLabels(t *testing.T, snapshot SemanticSnapshot, state ViewState) {
+	t.Helper()
+
+	if snapshot.Session.PrimaryModel != state.PrimaryModel {
+		t.Fatalf("semantic primary model = %q, want %q", snapshot.Session.PrimaryModel, state.PrimaryModel)
+	}
+	if snapshot.Session.UtilityModel != state.UtilityModel {
+		t.Fatalf("semantic utility model = %q, want %q", snapshot.Session.UtilityModel, state.UtilityModel)
+	}
+	if snapshot.Session.Autonomy != state.Autonomy {
+		t.Fatalf("semantic autonomy = %q, want %q", snapshot.Session.Autonomy, state.Autonomy)
+	}
+
+	regions := semanticRegionsByName(t, snapshot)
+	model := strings.Join(regions["model"].Items, "\n")
+	if !containsAll(model, []string{"primary: " + state.PrimaryModel, "utility: " + state.UtilityModel, "autonomy: " + state.Autonomy}) {
+		t.Fatalf("model semantic items = %v, want configured display labels", regions["model"].Items)
+	}
+	labels := strings.Join(regions["display_labels"].Items, "\n")
+	if !containsAll(labels, normalizedDisplayLabels(state)) {
+		t.Fatalf("display label semantic items = %v, want rendered display labels", regions["display_labels"].Items)
+	}
+	if snapshot.Layout.RightRailVisible {
+		rail := strings.Join(regions["right_rail"].Items, "\n")
+		if !containsAll(rail, normalizedDisplayLabels(state)) {
+			t.Fatalf("right rail semantic items = %v, want configured display labels", regions["right_rail"].Items)
+		}
+	}
+}
+
+func TestM8SemanticDisplayLabelsMatchRenderedLabels(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"model-display", "autonomy-display"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadDisplayFixture(t, name)
+			for _, size := range []Size{{Width: 80, Height: 24}, {Width: 100, Height: 30}, {Width: 120, Height: 32}, {Width: 160, Height: 45}} {
+				size := size
+				t.Run(sizeString(size), func(t *testing.T) {
+					t.Parallel()
+
+					rendered := RenderPlain(fixture.State, size)
+					snapshot := Semantic(fixture.State, size)
+					regions := semanticRegionsByName(t, snapshot)
+					renderedLabels := renderedDisplayLabels(t, rendered)
+					semanticLabels := normalizedDisplayLabels(fixture.State)
+
+					if !containsAll(strings.Join(regions["display_labels"].Items, "\n"), renderedLabels) {
+						t.Fatalf("semantic display labels do not match rendered labels %v: %+v", renderedLabels, regions["display_labels"].Items)
+					}
+					if !sameStringSet(renderedLabels, semanticLabels) {
+						t.Fatalf("rendered labels = %v, semantic contract labels = %v", renderedLabels, semanticLabels)
+					}
+					if snapshot.Session.PrimaryModel != fixture.State.PrimaryModel || snapshot.Session.UtilityModel != fixture.State.UtilityModel || snapshot.Session.Autonomy != fixture.State.Autonomy {
+						t.Fatalf("session labels are not machine-readable: %+v", snapshot.Session)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestM8DisplayLabelSnapshotsKeepLayoutHierarchy(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"model-display", "autonomy-display"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadDisplayFixture(t, name)
+			for _, size := range []Size{{Width: 80, Height: 24}, {Width: 100, Height: 30}, {Width: 120, Height: 32}, {Width: 160, Height: 45}} {
+				size := size
+				t.Run(sizeString(size), func(t *testing.T) {
+					t.Parallel()
+
+					rendered := RenderPlain(fixture.State, size)
+					if lineCount := strings.Count(rendered, "\n") + 1; lineCount != size.Height {
+						t.Fatalf("rendered %d lines, want fixed height %d:\n%s", lineCount, size.Height, rendered)
+					}
+					for _, marker := range []string{"Aila", "Conversation", "Prompt", "git: placeholder | context: placeholder | q quit"} {
+						if !strings.Contains(rendered, marker) {
+							t.Fatalf("render missing hierarchy marker %q:\n%s", marker, rendered)
+						}
+					}
+					if size.Width < 160 && strings.Contains(rendered, "Session") {
+						t.Fatalf("narrow display render exposed right rail:\n%s", rendered)
+					}
+					if size.Width >= 160 && !strings.Contains(rendered, "Session") {
+						t.Fatalf("wide display render lost right rail:\n%s", rendered)
+					}
+				})
+			}
+		})
+	}
+}
+
+func normalizedDisplayLabels(state ViewState) []string {
+	return []string{
+		"primary model: " + state.PrimaryModel,
+		"utility model: " + state.UtilityModel,
+		"autonomy: " + state.Autonomy,
+	}
+}
+
+func renderedDisplayLabels(t *testing.T, rendered string) []string {
+	t.Helper()
+
+	var labels []string
+	for _, line := range strings.Split(rendered, "\n") {
+		line = strings.Trim(line, "| ")
+		line = strings.SplitN(line, " |  | ", 2)[0]
+		line = strings.TrimSpace(line)
+		line = strings.TrimSuffix(line, " (display-only)")
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "primary model: ") || strings.HasPrefix(line, "utility model: ") || strings.HasPrefix(line, "autonomy: ") {
+			labels = append(labels, line)
+		}
+	}
+	if len(labels) != 3 {
+		t.Fatalf("rendered display labels = %v, want exactly primary, utility, autonomy labels", labels)
+	}
+	return labels
+}
+
+func sameStringSet(first []string, second []string) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	want := map[string]bool{}
+	for _, item := range second {
+		want[item] = true
+	}
+	for _, item := range first {
+		if !want[item] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestM5CommandFixtureSet(t *testing.T) {
 	t.Parallel()
 

@@ -38,6 +38,40 @@ func TestPromptTypingUpdatesLocalViewStateOnly(t *testing.T) {
 	}
 }
 
+func TestModelAcceptsAppOwnedDisplayStateWithoutChangingInputBehavior(t *testing.T) {
+	t.Parallel()
+
+	state := IdleEmptyState()
+	state.PrimaryModel = "test-primary"
+	state.UtilityModel = "test-utility"
+	state.Autonomy = "test-auto"
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		return TranscriptTurn{UserText: text, AssistantText: "Fake Aila response: " + text}
+	}, nil)
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hello")})
+	if cmd != nil {
+		t.Fatal("typing with app-owned display state must not emit a command")
+	}
+	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("ordinary prompt submit with app-owned display state must not emit a command")
+	}
+	if !containsAll(got.View(), []string{"Model test-primary", "Utility test-utility", "Auto test-auto", "user: hello", "assistant: Fake Aila response: hello"}) {
+		t.Fatalf("view missing app-owned labels or prompt transcript:\n%s", got.View())
+	}
+}
+
+func TestDefaultModelKeepsPlaceholderDisplayState(t *testing.T) {
+	t.Parallel()
+
+	view := NewModelWithSize(Size{Width: 80, Height: 24}).View()
+	if !strings.Contains(view, "Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder") {
+		t.Fatalf("default TUI model should preserve fixture placeholder labels:\n%s", view)
+	}
+}
+
 func TestPromptBackspaceUpdatesLocalViewStateOnly(t *testing.T) {
 	t.Parallel()
 

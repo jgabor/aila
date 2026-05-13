@@ -105,9 +105,30 @@ func statusLine(state ViewState) string {
 }
 
 func contentItems(state ViewState) []string {
-	items := chatLines(state.Transcript)
+	var items []string
+	if state.SurfaceTitle == "" {
+		items = displayLabelLines(state)
+	}
+	items = append(items, chatLines(state.Transcript)...)
 	items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	return items
+}
+
+func displayLabelLines(state ViewState) []string {
+	if !hasDisplayLabelDetails(state) {
+		return nil
+	}
+	return []string{
+		"  Display labels:",
+		"  primary model: " + state.PrimaryModel,
+		"  utility model: " + state.UtilityModel,
+		"  autonomy: " + state.Autonomy + " (display-only)",
+		"",
+	}
+}
+
+func hasDisplayLabelDetails(state ViewState) bool {
+	return state.PrimaryModel != "placeholder" || state.UtilityModel != "placeholder" || state.Autonomy != "placeholder"
 }
 
 func panelLines(title string, items []string, width int, height int, ansi bool) []string {
@@ -239,6 +260,8 @@ type SemanticSession struct {
 	WorkflowTransition bool   `json:"workflow_transition"`
 	Active             bool   `json:"active"`
 	QueuedMessages     int    `json:"queued_messages"`
+	PrimaryModel       string `json:"primary_model"`
+	UtilityModel       string `json:"utility_model"`
 	Autonomy           string `json:"autonomy"`
 }
 
@@ -274,6 +297,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		{Name: "phase", Visible: true, Items: []string{state.Phase, "display-only"}},
 		{Name: "model", Visible: true, Items: []string{"primary: " + state.PrimaryModel, "utility: " + state.UtilityModel, "autonomy: " + state.Autonomy}},
 		{Name: "chat", Visible: true, Items: semanticChatItems(state.Transcript)},
+	}
+	if hasDisplayLabelDetails(state) {
+		regions = append(regions, SemanticRegion{Name: "display_labels", Visible: true, Items: semanticDisplayLabelItems(state)})
 	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
@@ -313,6 +339,8 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			WorkflowTransition: false,
 			Active:             false,
 			QueuedMessages:     0,
+			PrimaryModel:       state.PrimaryModel,
+			UtilityModel:       state.UtilityModel,
 			Autonomy:           state.Autonomy,
 		},
 		Command: command,
@@ -350,6 +378,15 @@ func semanticChatItems(transcript []TranscriptTurn) []string {
 		items = append(items, "user: "+turn.UserText, "assistant: "+turn.AssistantText)
 	}
 	return items
+}
+
+func semanticDisplayLabelItems(state ViewState) []string {
+	return []string{
+		"primary model: " + state.PrimaryModel,
+		"utility model: " + state.UtilityModel,
+		"autonomy: " + state.Autonomy,
+		"display-only",
+	}
 }
 
 func surfaceLines(route string, source string, title string, items []string) []string {

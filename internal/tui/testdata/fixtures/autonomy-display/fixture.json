@@ -1,0 +1,31 @@
+{
+  "name": "autonomy-display",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle"],
+  "render_sizes": [
+    { "name": "80x24", "width": 80, "height": 24 },
+    { "name": "100x30", "width": 100, "height": 30 },
+    { "name": "120x32", "width": 120, "height": 32 },
+    { "name": "160x45", "width": 160, "height": 45 }
+  ],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "plain_100x30": "plain-100x30.txt",
+    "plain_120x32": "plain-120x32.txt",
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "ansi_100x30": "ansi-100x30.txt",
+    "ansi_120x32": "ansi-120x32.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_80x24": "semantic-80x24.json",
+    "semantic_100x30": "semantic-100x30.json",
+    "semantic_120x32": "semantic-120x32.json",
+    "semantic_160x45": "semantic-160x45.json"
+  },
+  "notes": [
+    "Milestone 8 display-only fixture for an alternate autonomy label.",
+    "The alternate autonomy label is not selectable here and does not imply permission or approval behavior."
+  ]
+}

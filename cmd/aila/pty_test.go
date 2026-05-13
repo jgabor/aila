@@ -193,6 +193,40 @@ func TestM6ResizePTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM8DisplayLabelsPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	ctx, cancel, terminal, wait := startAilaPTY(t)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntilAll(t, terminal, []string{
+		"Aila",
+		"primary model: opencode-go/deepseek-v4-pro:high",
+		"utility model: opencode-go/deepseek-v4-flash:max",
+		"autonomy: yolo (display-only)",
+	}, 20*time.Second)
+	for _, forbidden := range []string{"OPENAI", "ANTHROPIC", "GOOGLE_API", "config.toml", ".config/aila"} {
+		if strings.Contains(startup, forbidden) {
+			t.Fatalf("scrubbed PTY startup exposed config or credential marker %q: %q", forbidden, startup)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("display labels TUI quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("display labels TUI did not quit after q: %v", ctx.Err())
+	}
+}
+
 func startAilaPTY(t *testing.T) (context.Context, context.CancelFunc, *os.File, <-chan error) {
 	t.Helper()
 	return startAilaPTYWithSize(t, 80, 24)

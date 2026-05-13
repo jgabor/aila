@@ -1,0 +1,30 @@
+[1mAila                                                                                          100x30[0m
+[2mStage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:~[0m
++ [33mConversation[0m ------------------------------------------------------------------------------------+
+| Display labels:                                                                                  |
+| primary model: opencode-go/deepseek-v4-pro:high                                                  |
+| utility model: opencode-go/deepseek-v4-flash:max                                                 |
+| autonomy: read (display-only)                                                                    |
+|                                                                                                  |
+| No messages yet.                                                                                 |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                |
++--------------------------------------------------------------------------------------------------+
+[2m                                                    git: placeholder | context: placeholder | q quit[0m
+                                                                                                    

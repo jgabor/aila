@@ -14,10 +14,14 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return fmt.Errorf("start aila: %w", err)
 	}
 
-	if _, err := tui.NewProgramWithPromptSubmit(input, output, newPromptSubmitter(FakePromptHandler{})).Run(); err != nil {
+	if _, err := tui.NewProgramWithStateAndPromptSubmit(input, output, initialDisplayState(), newPromptSubmitter(FakePromptHandler{})).Run(); err != nil {
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	return nil
+}
+
+func initialDisplayState() tui.ViewState {
+	return NewDisplayState(tui.IdleEmptyState(), DefaultDisplayConfig())
 }
 
 func newPromptSubmitter(handler FakePromptHandler) tui.PromptSubmitFunc {

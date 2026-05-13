@@ -1861,8 +1861,357 @@ cycles:
       scope: >-
         Agentera progress evidence, completed plan archival, and active plan
         removal only.
+  - number: 38
+    timestamp: "2026-05-13 07:44"
+    type: feat
+    phase: build
+    what: >-
+      Executed only active M8 Task 1 by adding an app-owned in-memory display
+      config contract for primary model, utility model, and autonomy labels plus
+      targeted acceptance and source-boundary guard tests.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; README.md default configuration values; ROADMAP.md Milestone 8"
+    discovered: >-
+      The TUI already has presentation fields for primary model, utility model,
+      and autonomy, so Task 1 only needed an app-owned display contract and render
+      proof with injected values. App-to-TUI startup wiring, fixtures, PTY gates,
+      ROADMAP closeout, and archive remain deferred to M8 Tasks 2-6.
+    verified: >-
+      Criterion 1: TestDefaultDisplayConfigMatchesReadmeDefaults proves defaults
+      return primary model opencode-go/deepseek-v4-pro:high, utility model
+      opencode-go/deepseek-v4-flash:max, and autonomy yolo. Criterion 2:
+      TestInjectedDisplayConfigRendersWithoutGlobalState renders alternate labels
+      through tui.RenderPlain without modifying IdleEmptyState or global state.
+      Criterion 3: TestDisplayConfigSourceBoundaryStaysInMemory inspects
+      display_config.go imports and source tokens to guard against config files,
+      XDG/env/TOML/.aila reads, providers, credentials, sessions, workflow,
+      tools, permissions, persistence, and network resources. Criterion 4:
+      TestDisplayConfigAutonomyIsLabelOnly proves autonomy is a string label and
+      guards against classification, approval, policy, and permission behavior.
+      Verification commands passed: `mage fmt`; `go test ./internal/app`; `go
+      test ./internal/app -run 'TestDisplayConfig|TestDefaultDisplayConfig|TestInjectedDisplayConfig'`;
+      `go test ./internal/app -run 'TestDisplayConfigSourceBoundary|TestDisplayConfigAutonomy'`.
+    next: >-
+      Execute M8 Task 2 only when explicitly requested. Tasks 2-6 remain pending;
+      no config UI/CLI output, XDG/env/TOML reads, provider/model gateway,
+      credentials, real model turns, tools, permissions, persistence, workflow,
+      sessions, plugins, MCP, dynamic tools, workflow DSLs, generic graphs,
+      provider marketplaces, public runtime harnesses, commit, or push was added.
+    context:
+      intent: >-
+        Establish the app-owned display-value contract that later M8 tasks can
+        wire into the TUI without activating real configuration or runtime
+        behavior.
+      constraints: >-
+        Execute only M8 Task 1; do not implement app-to-TUI startup wiring,
+        fixtures/snapshots, semantic or PTY gates, ROADMAP closeout, archive,
+        real user config IO, XDG/env/TOML lookup, providers, credentials,
+        model turns, tools, permissions, persistence, workflow/session behavior,
+        plugins, MCP, dynamic tools, workflow DSLs, generic graphs, provider
+        marketplaces, public runtime harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/app display contract and tests plus Agentera task/progress
+        artifacts only.
+  - number: 39
+    timestamp: "2026-05-13 07:50"
+    type: feat
+    phase: build
+    what: >-
+      Executed only active M8 Task 2 by wiring the app-owned display state into
+      no-argument TUI startup while keeping default TUI fixtures on placeholder
+      labels and preserving M7 CLI stub output shapes.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 8; ARCHITECTURE.md app/TUI boundary"
+    discovered: >-
+      Existing TUI render paths already displayed primary model, utility model,
+      and autonomy from ViewState. The missing piece was a narrow constructor that
+      accepts app-owned ViewState, so app.Run can compose labels without moving
+      config loading, provider lookup, or display-source ownership into the TUI.
+      Task 3 fixture/snapshot updates, Task 4 semantic/PTY gate expansion, Task 5
+      validation/ROADMAP closeout, and Task 6 archive remain deferred.
+    verified: >-
+      Criterion 1: TestInitialDisplayStateUsesAppOwnedDefaults proves the app
+      initial view state receives README default primary model, utility model,
+      and autonomy labels from the app-owned display source. Criterion 2:
+      TestModelAcceptsAppOwnedDisplayStateWithoutChangingInputBehavior proves the
+      TUI renders injected labels in the header/status line from ViewState, while
+      TestDefaultModelKeepsPlaceholderDisplayState proves the TUI default path
+      still owns no config source. Criterion 3: `go test ./cmd/aila -run
+      'TestM7CLIAcceptedShapes|TestCLIRunner|TestStaticTUISmokeStartupAndQuit'`
+      passed, preserving config, models, run, continue, help, version, and
+      no-argument startup behavior without printing config values in CLI stubs.
+      Criterion 4: `go test ./internal/tui -run
+      'TestModelAcceptsAppOwnedDisplayState|TestDefaultModelKeepsPlaceholderDisplayState|TestPrompt|TestCommand|TestM6ResponsiveRenderContract'`
+      passed for ordinary prompt, command, resize/render, and quit-adjacent input
+      behavior; `go test ./internal/app -run
+      'TestDefaultDisplayConfig|TestInjectedDisplayConfig|TestInitialDisplayState|TestPromptSubmitter'`
+      passed for app display and prompt boundaries. `mage fmt` completed
+      successfully after Go edits.
+    next: >-
+      Execute M8 Task 3 only when explicitly requested. Tasks 3-6 remain pending;
+      no config fixtures/snapshots, semantic/PTY display gate expansion, ROADMAP
+      closeout, archive, real config file/env/TOML/XDG reads or writes, config UI
+      or CLI config output, provider/model gateway, credentials, real model turns,
+      tools, permissions, persistence, workflow/session behavior, plugins, MCP,
+      dynamic tools, workflow DSLs, generic graphs, provider marketplaces, public
+      runtime harnesses, commit, or push was added.
+    context:
+      intent: >-
+        Connect the already-defined app-owned display labels to no-argument TUI
+        startup while keeping the TUI a pure presentation layer.
+      constraints: >-
+        Execute only M8 Task 2; do not implement Tasks 3-6 or any M9+ real
+        config creation, provider gateway, credentials, model turns, tools,
+        permissions, persistence, workflow/session behavior, plugins, MCP,
+        dynamic tools, workflow DSLs, generic graphs, provider marketplaces,
+        public runtime harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/app startup composition, internal/tui ViewState injection
+        constructor and tests, plus Agentera plan/progress artifacts only.
+  - number: 40
+    timestamp: "2026-05-13 08:00"
+    type: test
+    phase: build
+    what: >-
+      Executed only active M8 Task 3 by adding display-only TUI fixtures and
+      snapshots for README model labels, default yolo autonomy, and an alternate
+      autonomy label without adding config selection or runtime behavior.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 8 display fixture requirements; docs/tui-testing.md snapshot review procedure"
+    discovered: >-
+      The long README model labels do not fit completely in the 80-column status
+      line, so non-placeholder idle/chat renders now include a presentation-only
+      Display labels block. A first full cmd package test caught that adding the
+      block to command surfaces would push M7 /status stub content out of the
+      80x24 PTY viewport; the block is therefore omitted when a command surface is
+      visible, preserving existing CLI stub behavior. Tasks 4-6 remain deferred.
+    verified: >-
+      Criterion 1: `go test ./internal/tui -run TestM8DisplayFixtureSnapshots`
+      passed for model-display plain, ANSI, and semantic outputs, proving primary
+      model opencode-go/deepseek-v4-pro:high and utility model
+      opencode-go/deepseek-v4-flash:max are visible and deterministic across
+      80x24, 100x30, 120x32, and 160x45. Criterion 2: the same test passed for
+      autonomy-display and model-display, proving autonomy yolo and alternate
+      autonomy read are visible as display-only labels in text and semantic
+      outputs. Criterion 3: `git diff --name-only -- internal/tui/testdata/fixtures`
+      produced no tracked fixture changes and `git status --short --
+      internal/tui/testdata/fixtures` showed only new model-display and
+      autonomy-display fixture directories, proving existing snapshots were not
+      bulk-regenerated. Criterion 4: `AILA_UPDATE_TUI_SNAPSHOTS=1 go test
+      ./internal/tui -run TestM8DisplayFixtureSnapshots` regenerated the new
+      snapshots and failed with the existing review-gated message, while normal
+      `go test ./internal/tui -run TestM8DisplayFixtureSnapshots && git status
+      --short -- internal/tui/testdata/fixtures && git diff --name-only --
+      internal/tui/testdata/fixtures` passed and left snapshots read-only except
+      for the new untracked fixture directories. Additional verification passed:
+      `mage fmt`; `go test ./internal/tui`; `go test ./internal/tui -run
+      'TestM6ResponsiveRenderContract|TestM6SemanticLayoutContract|TestM6FixtureSnapshotMatrix|TestSnapshotUpdateModeIsExplicit'`;
+      `go test ./internal/app`; `go test ./cmd/aila`.
+    next: >-
+      Execute M8 Task 4 only when explicitly requested. Tasks 4-6 remain pending;
+      no semantic/PTY display gate expansion beyond Task 3 fixtures, validation
+      closeout, ROADMAP update, archive, real config file/env/TOML/XDG reads or
+      writes, config UI or CLI config output, provider/model gateway,
+      credentials, model turns, tools, permissions, persistence,
+      workflow/session behavior, plugins, MCP, dynamic tools, workflow DSLs,
+      generic graphs, provider marketplaces, public runtime harnesses, commit, or
+      push was added.
+    context:
+      intent: >-
+        Add deterministic fixture and snapshot evidence for display labels while
+        keeping M8 a display stub and preserving normal read-only snapshot tests.
+      constraints: >-
+        Execute only M8 Task 3; do not implement Tasks 4-6 or any M9+ real config
+        creation, provider gateway, credentials, model turns, tools, permissions,
+        persistence, workflow/session behavior, plugins, MCP, dynamic tools,
+        workflow DSLs, generic graphs, provider marketplaces, public runtime
+        harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui display fixture tests, presentation-only display label render
+        details, new model-display and autonomy-display fixture snapshots, plus
+        Agentera plan/progress artifacts only.
+  - number: 41
+    timestamp: "2026-05-13 08:07"
+    type: test
+    phase: build
+    what: >-
+      Executed only active M8 Task 4 by strengthening the semantic and PTY display
+      gate for primary model, utility model, and autonomy labels without adding
+      config IO, provider behavior, validation closeout, or archival work.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; docs/tui-testing.md semantic snapshots, PTY smoke, and visual review gates"
+    discovered: >-
+      The 80-column status line intentionally truncates long model labels, so the
+      PTY startup smoke observes the full configured labels through the
+      display-only label block rather than requiring the status line to contain
+      every full label. Wide renders duplicate labels in the right rail; the new
+      semantic/render parity test extracts the primary display block and separately
+      checks right-rail semantics when visible.
+    verified: >-
+      Criterion 1: `go test ./internal/tui -run
+      'TestM8DisplayFixtureSnapshots|TestM8SemanticDisplayLabelsMatchRenderedLabels|TestM8DisplayLabelSnapshotsKeepLayoutHierarchy|TestM6SemanticLayoutContract|TestM6ResponsiveRenderContract'`
+      passed, including machine-readable semantic session fields for
+      primary_model, utility_model, and autonomy and assertions that semantic
+      display labels match rendered labels for model-display and autonomy-display
+      at 80x24, 100x30, 120x32, and 160x45. Criterion 2: `go test ./cmd/aila -run
+      'TestM8DisplayLabelsPTYSmoke|TestStaticTUISmokeStartupAndQuit|TestM7CLIAcceptedShapesExitWithExpectedStreams'`
+      passed, proving scrubbed-env no-argument TUI startup observes the configured
+      primary model, utility model, and autonomy labels and exits cleanly while M7
+      CLI stubs remain preserved. Criterion 3: the targeted TUI command passed
+      fixed-size layout and hierarchy assertions proving 80x24, 100x30, 120x32,
+      and 160x45 remain usable, narrow renders do not expose the right rail, and
+      160x45 retains it. Criterion 4: TestM8DisplayLabelSnapshotsKeepLayoutHierarchy
+      plus the checked-in render snapshots prove the change is label-only with no
+      visual hierarchy or narrow-behavior regression, so human visual review is
+      skipped for this task. Additional verification: `mage fmt` passed;
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run
+      'TestM6SemanticLayoutContract|TestM8DisplayFixtureSnapshots|TestM8SemanticDisplayLabelsMatchRenderedLabels|TestM8DisplayLabelSnapshotsKeepLayoutHierarchy'`
+      regenerated semantic snapshots after adding machine-readable model fields,
+      and the normal targeted TUI tests then passed read-only.
+    next: >-
+      Execute M8 Task 5 only when explicitly requested. Task 6 remains pending;
+      do not update ROADMAP.md, archive the plan, run M8 closeout, add real config
+      file/env/TOML/XDG reads or writes, config UI or CLI config output,
+      provider/model gateway, credentials, model turns, tools, permissions,
+      persistence, workflow/session behavior, plugins, MCP, dynamic tools,
+      workflow DSLs, generic graphs, provider marketplaces, public runtime
+      harnesses, commit, or push as part of Task 4.
+    context:
+      intent: >-
+        Convert Task 3's display fixtures into an explicit semantic and PTY gate
+        that agents and tests can rely on before later M8 validation and closeout.
+      constraints: >-
+        Execute only M8 Task 4; do not implement Tasks 5-6 or any M9+ real config
+        creation, provider gateway, credentials, model turns, tools, permissions,
+        persistence, workflow/session behavior, plugins, MCP, dynamic tools,
+        workflow DSLs, generic graphs, provider marketplaces, public runtime
+        harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        internal/tui semantic snapshot schema and tests, regenerated semantic
+        fixture snapshots, cmd/aila PTY startup label smoke, and Agentera
+        task/progress artifacts only.
+  - number: 42
+    timestamp: "2026-05-13 08:13"
+    type: test
+    phase: validate
+    what: >-
+      Executed only active M8 Task 5 validation gate for the config display stub,
+      repaired stale semantic fixture snapshots to match the M8 machine-readable
+      display contract, and left Task 6 closeout pending.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 8 validation requirements; docs/tui-testing.md snapshot review procedure"
+    discovered: >-
+      The first full `go test ./...` failed because older semantic snapshots for
+      idle, submitted-prompt, and command fixtures had not been regenerated after
+      M8 added primary_model and utility_model session fields. Updating those
+      semantic snapshots was required before Task 5 could honestly pass full
+      validation; the diff is snapshot-only for those fixture files and does not
+      add runtime behavior.
+    verified: >-
+      Criterion 1: targeted validation passed with `go test ./internal/app -run
+      'TestDefaultDisplayConfig|TestInjectedDisplayConfig|TestInitialDisplayState|TestPromptSubmitter'`,
+      `go test ./internal/tui -run
+      'TestM8DisplayFixtureSnapshots|TestM8SemanticDisplayLabelsMatchRenderedLabels|TestM8DisplayLabelSnapshotsKeepLayoutHierarchy|TestM6SemanticLayoutContract|TestM6ResponsiveRenderContract|TestModelAcceptsAppOwnedDisplayState|TestDefaultModelKeepsPlaceholderDisplayState'`,
+      and `go test ./cmd/aila -run
+      'TestM8DisplayLabelsPTYSmoke|TestStaticTUISmokeStartupAndQuit|TestM7CLIAcceptedShapesExitWithExpectedStreams|TestM7CLIAcceptedShapes|TestCLIRunner'`.
+      Criterion 2: after the semantic snapshot repair, `go test ./...` passed and
+      `mage check` passed with 0 lint issues and no vulnerabilities before any
+      ROADMAP.md or Agentera archive state was changed. Criterion 3: changed
+      source boundaries were inspected with `git diff -- cmd/aila internal/app
+      internal/tui` and a forbidden-scope grep over Go sources; matches were
+      limited to tests, deferred CLI stub text, package docs, and existing build
+      helpers, with no M9 config creation, M9A provider gateway, model turn, tool,
+      permission, persistence, workflow, session, plugin, MCP, dynamic-tool,
+      workflow-DSL, generic-graph, marketplace, or public-runtime-harness behavior
+      introduced by M8. Criterion 4: Agentera plan state was updated only for Task
+      5; the active plan remains open and Task 6 remains pending.
+    next: >-
+      Execute M8 Task 6 only when explicitly requested. Do not update ROADMAP.md,
+      archive the plan, remove .agentera/plan.yaml, or add freshness/closeout
+      behavior as part of Task 5.
+    context:
+      intent: >-
+        Prove the M8 display stub is ready for closeout without performing Task 6
+        freshness, ROADMAP, or archive work.
+      constraints: >-
+        Execute only M8 Task 5; no Task 6, ROADMAP update, Agentera archive, real
+        config file/env/TOML/XDG reads or writes, config UI or CLI config output,
+        provider/model gateway, credentials, model turns, tools, permissions,
+        persistence, workflow/session behavior, plugins, MCP, dynamic tools,
+        workflow DSLs, generic graphs, provider marketplaces, public runtime
+        harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        Targeted and full validation, semantic fixture snapshot repair required by
+        validation, Agentera Task 5 status, and Agentera progress evidence only.
+  - number: 43
+    timestamp: "2026-05-13 08:19"
+    type: chore
+    phase: build
+    what: >-
+      Executed only active M8 Task 6 plan-level freshness checkpoint by reviewing
+      the final M8 diff against source authorities, updating ROADMAP.md closeout,
+      archiving the completed plan, removing the active plan, and running
+      post-closeout validation.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 8; docs/notes/PROMPT.md; ARCHITECTURE.md; README.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      The final M8 diff remains confined to app-owned in-memory display config
+      labels, TUI presentation wiring for primary model, utility model, and
+      autonomy labels, deterministic display fixtures and semantic snapshots, PTY
+      startup label smoke, ROADMAP.md closeout, and Agentera artifacts. No M9+
+      config creation, XDG path behavior, provider gateway, credentials, model
+      metadata, real model turns, tools, permissions, persistence, workflow
+      behavior, real session continuation, plugin, MCP, dynamic-tool,
+      workflow-DSL, generic-graph, provider-marketplace, public-runtime-harness,
+      or fixed-product violation entered the change.
+    verified: >-
+      Criterion 1: reviewed the final M8 diff against ROADMAP.md,
+      docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+      docs/workflow-architecture.md, confirming the implementation preserves the
+      statechart-MVU, fixed-product, TUI presentation-only, and workflow authority
+      boundaries. Criterion 2: closeout explicitly keeps config creation, XDG
+      paths, provider gateway, credentials, model metadata, real model turns,
+      tools, permissions, persistence, workflow behavior, and real session
+      continuation deferred. Criterion 3: ROADMAP.md records M8 complete, M9 next,
+      active none, validation evidence, and human visual review skipped because
+      fixed-size snapshots showed only label text/display-field changes with no
+      layout, hierarchy, or narrow-screen regression. Criterion 4: archived the
+      completed plan to .agentera/archive/plan-2026-05-13-m8.yaml, marked Task 6
+      complete there, removed active .agentera/plan.yaml, and preserved Agentera
+      progress evidence. Post-closeout `mage check` passed with cmd/aila PTY tests,
+      cached package tests, 0 lint issues, and no vulnerabilities. `agentera plan
+      --format json` reported status empty, source exists false, and 0 entries;
+      `agentera progress --format json` reported status ok with this final M8
+      evidence as cycle 43.
+    next: >-
+      Active Agentera plan is closed. Plan or execute ROADMAP.md Milestone 9:
+      Config Creation And XDG Paths only when explicitly requested, and keep M9A
+      provider gateway/model metadata/credentials/errors, real model turns, tools,
+      permissions, persistence, workflow behavior, and real session continuation
+      deferred.
+    context:
+      intent: >-
+        Close M8 after proving the config display milestone stayed limited to
+        display-only labels and did not activate real configuration or runtime
+        behavior.
+      constraints: >-
+        Execute only M8 Task 6; do not implement M9 config creation/XDG/env/TOML
+        persistence, M9A provider gateway/model metadata/credentials/errors, real
+        model turns, tools, permissions, persistence, workflow/session behavior,
+        plugins, MCP, dynamic tools, workflow DSLs, generic graph engines,
+        provider marketplaces, public runtime harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md M8 closeout, Agentera progress evidence, completed plan
+        archival, and active plan removal only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
   - .agentera/archive/plan-2026-05-12-m6.yaml
   - .agentera/archive/plan-2026-05-13-m7.yaml
+  - .agentera/archive/plan-2026-05-13-m8.yaml

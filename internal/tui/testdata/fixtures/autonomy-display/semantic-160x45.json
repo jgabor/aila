@@ -1,0 +1,86 @@
+{
+  "scenario": "autonomy-display",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "placeholder",
+    "phase_source": "not_started",
+    "workflow_transition": false,
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "opencode-go/deepseek-v4-pro:high",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "read"
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["placeholder", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: opencode-go/deepseek-v4-pro:high",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: opencode-go/deepseek-v4-pro:high",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: not_started",
+        "primary model: opencode-go/deepseek-v4-pro:high",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: read",
+        "git: placeholder",
+        "context: placeholder"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

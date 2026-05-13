@@ -1,0 +1,196 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: completed
+  reviewed: 2026-05-13
+  critic_issues: "10 found, 10 addressed, 0 dismissed"
+  title: M8 Config Display Stub
+what: >-
+  Display primary model, utility model, and autonomy labels in the TUI from a
+  testable app-owned config-display source while preserving M7 CLI stubs and
+  avoiding user config creation or provider behavior.
+why: >-
+  ROADMAP.md Milestone 8 needs real-looking configuration labels visible in the
+  terminal before M9 adds XDG config creation and M9A adds provider and
+  credential readiness.
+constraints: >-
+  Implement only ROADMAP.md Milestone 8. Use injected or in-memory display values
+  for runtime startup; do not read real user config files, XDG paths,
+  environment variables, TOML files, .aila state, providers, credentials, model
+  metadata, sessions, workflow artifacts, tools, permissions, persistence, or
+  network resources. Display autonomy as a label only; do not add permission
+  classes, approval gates, or operation classification. Preserve the M7 CLI
+  config/models/run/continue/help stubs. Do not add config UI, config creation,
+  `aila config --all` behavior, provider gateway behavior, real model turns,
+  plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, provider
+  marketplaces, or public runtime harnesses.
+scope:
+  included:
+    - App-owned display config values for primary model, utility model, and autonomy.
+    - README default labels and injected test labels for deterministic TUI rendering.
+    - TUI header/status display of configured labels.
+    - Display-only model/autonomy fixtures and semantic snapshots.
+    - PTY startup smoke for visible configured labels.
+  excluded:
+    - User config file reads or writes, XDG path resolution, TOML parsing for runtime startup, config creation, config UI, CLI config output, model/provider listing or filtering, credentials, provider errors, go-agent turns, tools, permissions, persistence, workflow transitions, sessions, plugins, MCP, dynamic tools, workflow DSLs, generic graphs, provider marketplaces, and public runtime harnesses.
+  deferred:
+    - "M9 Config Creation And XDG Paths: first-run config files, XDG path behavior, temp-XDG file creation tests."
+    - "M9A Provider Gateway And Credential Boundary: provider/model resolution, credentials, provider errors, and bounded models behavior."
+design: >-
+  Keep M8 as a display stub, not a config subsystem. The app layer owns a small
+  display-value source with README defaults and test injection. The TUI renders
+  the labels it receives and remains presentation-only. Snapshot updates are
+  limited to fixtures whose visible header/status labels intentionally change and
+  the new display-only fixtures; every snapshot diff must be reviewed. Human
+  visual review may be skipped only if fixed-size snapshots show no layout,
+  hierarchy, or narrow-screen behavior change beyond label text.
+tasks:
+  - number: 1
+    name: Config display value contract
+    depends_on: []
+    status: complete
+    acceptance:
+      - >-
+        GIVEN README.md default configuration values WHEN the display config
+        source is asked for defaults THEN it returns primary model
+        opencode-go/deepseek-v4-pro:high, utility model
+        opencode-go/deepseek-v4-flash:max, and autonomy yolo.
+      - >-
+        GIVEN injected display values WHEN tests render alternate labels THEN the
+        app can supply those labels without changing global state or user config.
+      - >-
+        GIVEN runtime startup uses the M8 display source WHEN source boundaries
+        are inspected THEN it does not read real config files, XDG paths,
+        environment variables, TOML files, .aila state, providers, credentials,
+        sessions, workflow artifacts, tools, permissions, persistence, or network
+        resources.
+      - >-
+        GIVEN autonomy appears in the display contract WHEN tests inspect behavior
+        THEN it is label-only and does not add permission classification,
+        approvals, or operation policy.
+  - number: 2
+    name: App-to-TUI display wiring
+    depends_on:
+      - "1"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN no-argument Aila startup WHEN the app composes the TUI THEN the
+        view state receives primary model, utility model, and autonomy labels from
+        the app-owned display source.
+      - >-
+        GIVEN the TUI renders those labels WHEN the header/status line is
+        inspected THEN it shows the configured values without owning config
+        loading or provider lookup.
+      - >-
+        GIVEN M7 command stubs are invoked WHEN config, models, run, continue,
+        help, or version shapes run THEN their deterministic deferred outputs are
+        unchanged and do not load or print config values.
+      - >-
+        GIVEN ordinary prompt, command, resize, and quit behavior is tested WHEN
+        display wiring is added THEN existing input and command behavior remains
+        unchanged except for intentional visible labels.
+  - number: 3
+    name: Display fixtures and snapshots
+    depends_on:
+      - "2"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN model-display or equivalent fixture is rendered WHEN plain, ANSI,
+        and semantic outputs are checked THEN primary and utility model labels are
+        visible and deterministic.
+      - >-
+        GIVEN autonomy-display or equivalent fixture is rendered WHEN plain,
+        ANSI, and semantic outputs are checked THEN autonomy yolo and an alternate
+        autonomy label are visible as display-only state.
+      - >-
+        GIVEN existing fixtures are updated WHEN snapshot diffs are reviewed THEN
+        changes are limited to intentional placeholder-to-config-label display
+        updates and do not bulk-regenerate unrelated output.
+      - >-
+        GIVEN fixture update mode is used WHEN display snapshots are regenerated
+        THEN the existing explicit review-gated snapshot procedure remains
+        read-only during normal tests.
+  - number: 4
+    name: Semantic and PTY display gate
+    depends_on:
+      - "3"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN semantic snapshots are inspected WHEN M8 fixtures render THEN
+        primary model, utility model, and autonomy are machine-readable and match
+        the rendered labels.
+      - >-
+        GIVEN display labels are visible at startup WHEN PTY smoke runs THEN a
+        scrubbed-env no-argument TUI startup observes the configured labels and
+        exits cleanly without provider credentials or user config files.
+      - >-
+        GIVEN fixed-size render snapshots are reviewed WHEN labels lengthen the
+        header/status line THEN 80x24, 100x30, 120x32, and 160x45 remain usable
+        with no layout, hierarchy, or right-rail regression.
+      - >-
+        GIVEN human visual review is considered WHEN only labels changed THEN it
+        is skipped only if render snapshots prove no visual hierarchy or narrow
+        behavior changed beyond label text.
+  - number: 5
+    name: M8 validation gate
+    depends_on:
+      - "4"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN targeted validation runs WHEN M8 is ready THEN app, TUI, cmd, and
+        fixture tests for display config values, semantic labels, CLI stub
+        preservation, and PTY startup labels all pass.
+      - >-
+        GIVEN full validation runs WHEN the task completes THEN go test ./... and
+        mage check pass before ROADMAP.md or Agentera archive state is changed.
+      - >-
+        GIVEN source boundaries are inspected WHEN validation evidence is written
+        THEN no M9 config creation, M9A provider gateway, model turn, tool,
+        permission, persistence, workflow, session, plugin, MCP, dynamic-tool,
+        workflow-DSL, generic-graph, marketplace, or public-runtime-harness
+        behavior is present.
+      - >-
+        GIVEN Task 5 completes WHEN Agentera state is checked THEN the active plan
+        remains open with Task 6 pending.
+  - number: 6
+    name: Plan-level freshness checkpoint and closeout
+    depends_on:
+      - "5"
+    status: complete
+    acceptance:
+      - >-
+        GIVEN validation has passed WHEN the final M8 diff is reviewed against
+        ROADMAP.md, docs/notes/PROMPT.md, ARCHITECTURE.md, README.md,
+        docs/tui-testing.md, and docs/workflow-architecture.md THEN no M9+ scope
+        or fixed-product violation has entered the change.
+      - >-
+        GIVEN future work remains WHEN closeout is written THEN config creation,
+        XDG paths, provider gateway, credentials, model metadata, real model
+        turns, tools, permissions, persistence, workflow behavior, and real
+        session continuation remain deferred.
+      - >-
+        GIVEN all M8 gates are satisfied WHEN ROADMAP.md is updated THEN it
+        records M8 complete, M9 next, active none, validation evidence, and human
+        visual review skipped or performed with reason.
+      - >-
+        GIVEN Agentera artifacts are closed WHEN the checkpoint completes THEN the
+        completed plan is archived, active .agentera/plan.yaml is removed,
+        agentera plan reports no active plan, agentera progress reports final M8
+        evidence, and post-closeout mage check passes.
+overall_acceptance:
+  - >-
+    GIVEN this plan is active WHEN orkestrera executes it THEN only M8 config
+    display stub scope is eligible for implementation.
+  - >-
+    GIVEN M8 is complete WHEN a user starts Aila THEN the TUI displays configured
+    primary model, utility model, and autonomy labels without creating user config
+    or contacting providers.
+  - >-
+    GIVEN source docs are checked WHEN M8 closes THEN config creation, provider
+    readiness, real model turns, tools, permissions, persistence, workflow, and
+    sessions remain deferred to later milestones.
+surprises: []

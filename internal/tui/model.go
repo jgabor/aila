@@ -72,9 +72,14 @@ func NewModelWithSizeAndPromptSubmit(size Size, submitPrompt PromptSubmitFunc) M
 
 // NewModelWithSizePromptSubmitAndCommandRoute creates a shell model with prompt and command routes.
 func NewModelWithSizePromptSubmitAndCommandRoute(size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) Model {
+	return NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), size, submitPrompt, routeCommand)
+}
+
+// NewModelWithStateSizePromptSubmitAndCommandRoute creates a shell model from app-owned view state.
+func NewModelWithStateSizePromptSubmitAndCommandRoute(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) Model {
 	size = normalizeSize(size)
 	return Model{
-		state:        IdleEmptyState(),
+		state:        state,
 		size:         size,
 		layout:       layoutForSize(size),
 		submitPrompt: submitPrompt,
@@ -89,6 +94,11 @@ func NewProgram(input io.Reader, output io.Writer) *tea.Program {
 
 // NewProgramWithPromptSubmit constructs the Bubble Tea program with app prompt routing.
 func NewProgramWithPromptSubmit(input io.Reader, output io.Writer, submitPrompt PromptSubmitFunc) *tea.Program {
+	return NewProgramWithStateAndPromptSubmit(input, output, IdleEmptyState(), submitPrompt)
+}
+
+// NewProgramWithStateAndPromptSubmit constructs the Bubble Tea program with app-owned view state.
+func NewProgramWithStateAndPromptSubmit(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc) *tea.Program {
 	options := []tea.ProgramOption{tea.WithAltScreen()}
 	if input != nil {
 		options = append(options, tea.WithInput(input))
@@ -96,7 +106,7 @@ func NewProgramWithPromptSubmit(input io.Reader, output io.Writer, submitPrompt 
 	if output != nil {
 		options = append(options, tea.WithOutput(output))
 	}
-	return tea.NewProgram(NewModelWithSizeAndPromptSubmit(Size{Width: 80, Height: 24}, submitPrompt), options...)
+	return tea.NewProgram(NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, submitPrompt, nil), options...)
 }
 
 // Init has no startup effect for the static shell.

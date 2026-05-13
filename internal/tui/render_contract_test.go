@@ -25,9 +25,13 @@ func TestM6ResponsiveRenderContract(t *testing.T) {
 			for _, size := range []Size{{Width: 100, Height: 30}, {Width: 120, Height: 32}} {
 				plain := RenderPlain(fixture.State, size)
 				ansi := RenderANSI(fixture.State, size)
+				statusToken := statusLine(fixture.State)
+				if hasDisplayLabelDetails(fixture.State) {
+					statusToken = "Stage " + fixture.State.Phase + " | Model " + fixture.State.PrimaryModel
+				}
 				if !containsAll(plain, []string{
 					sizeString(size),
-					"Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder",
+					statusToken,
 					"Conversation",
 				}) {
 					t.Fatalf("%s render at %s lost deterministic layout structure:\n%s", fixture.Name, sizeString(size), plain)
@@ -39,7 +43,7 @@ func TestM6ResponsiveRenderContract(t *testing.T) {
 
 			wide := RenderPlain(fixture.State, Size{Width: 160, Height: 45})
 			assertActiveContentVisible(t, fixture.Name, wide)
-			assertRightRailPlaceholderOnly(t, wide)
+			assertRightRailDisplayOnly(t, fixture.State, wide)
 		})
 	}
 }
@@ -104,6 +108,8 @@ func currentRenderFixtures(t *testing.T) []renderFixture {
 		loadStaticShellFixture(t, "idle-empty"),
 		loadStaticShellFixture(t, "narrow-80"),
 		loadStaticShellFixture(t, "desktop-wide"),
+		loadDisplayFixture(t, "model-display"),
+		loadDisplayFixture(t, "autonomy-display"),
 		loadSubmittedPromptFixture(t),
 		loadCommandFixture(t, "status-command", "/status"),
 		loadCommandFixture(t, "help-command", "/help"),
@@ -112,9 +118,14 @@ func currentRenderFixtures(t *testing.T) []renderFixture {
 
 func assertVisibleAt80(t *testing.T, name string, render string) {
 	t.Helper()
+	state := loadFixtureStateForAssertion(name)
+	statusToken := statusLine(state)
+	if hasDisplayLabelDetails(state) {
+		statusToken = "Stage " + state.Phase + " | Model " + state.PrimaryModel
+	}
 	for _, token := range []string{
 		"Aila",
-		"Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder",
+		statusToken,
 		"Conversation",
 		"Prompt",
 		">",
@@ -124,6 +135,9 @@ func assertVisibleAt80(t *testing.T, name string, render string) {
 			t.Fatalf("%s 80x24 render missing %q:\n%s", name, token, render)
 		}
 	}
+	if hasDisplayLabelDetails(state) && !containsAll(render, []string{"primary model: " + state.PrimaryModel, "utility model: " + state.UtilityModel, "autonomy: " + state.Autonomy + " (display-only)"}) {
+		t.Fatalf("%s 80x24 render missing display label details:\n%s", name, render)
+	}
 }
 
 func assertActiveContentVisible(t *testing.T, name string, render string) {
@@ -132,6 +146,8 @@ func assertActiveContentVisible(t *testing.T, name string, render string) {
 		"idle-empty":       {"Conversation", "No messages yet."},
 		"narrow-80":        {"Conversation", "No messages yet."},
 		"desktop-wide":     {"Conversation", "No messages yet."},
+		"model-display":    {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: yolo (display-only)"},
+		"autonomy-display": {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: read (display-only)"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
 		"status-command":   {"status:", "command route: status", "route source: policy.command", "Deterministic placeholder status."},
 		"help-command":     {"help:", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
@@ -156,6 +172,8 @@ func assertActiveSemanticContent(t *testing.T, name string, snapshot SemanticSna
 		"idle-empty":       {"No messages yet."},
 		"narrow-80":        {"No messages yet."},
 		"desktop-wide":     {"No messages yet."},
+		"model-display":    {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: yolo"},
+		"autonomy-display": {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: read"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
 		"status-command":   {"status", "command route: status", "route source: policy.command", "Deterministic placeholder status."},
 		"help-command":     {"help", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
@@ -163,13 +181,13 @@ func assertActiveSemanticContent(t *testing.T, name string, snapshot SemanticSna
 	if len(want) == 0 {
 		t.Fatalf("test fixture %q has no semantic active content assertion", name)
 	}
-	content := joined["chat"] + "\n" + joined["command"]
+	content := joined["chat"] + "\n" + joined["command"] + "\n" + joined["model"]
 	if !containsAll(content, want) {
 		t.Fatalf("%s semantic output missing active content %v in %+v", name, want, regions)
 	}
 }
 
-func assertRightRailPlaceholderOnly(t *testing.T, render string) {
+func assertRightRailDisplayOnly(t *testing.T, state ViewState, render string) {
 	t.Helper()
 	railStart := strings.Index(render, "Session")
 	if railStart < 0 {
@@ -177,18 +195,34 @@ func assertRightRailPlaceholderOnly(t *testing.T, render string) {
 	}
 	rail := render[railStart:]
 	if !containsAll(rail, []string{
-		"phase source: not_started",
-		"primary model: placeholder",
-		"utility model: placeholder",
-		"autonomy: placeholder",
-		"git: placeholder",
-		"context: placeholder",
+		"phase source: " + state.PhaseSource,
+		"primary model: " + state.PrimaryModel,
+		"utility model: " + state.UtilityModel,
+		"autonomy: " + state.Autonomy,
+		"git: " + state.FooterGit,
+		"context: " + state.FooterContext,
 	}) {
-		t.Fatalf("right rail missing placeholder/supporting labels:\n%s", rail)
+		t.Fatalf("right rail missing display/supporting labels:\n%s", rail)
 	}
 	if containsAny(rail, []string{"workflow", "provider", "permission"}) {
 		t.Fatalf("right rail contains behavior or real lookup content:\n%s", rail)
 	}
+}
+
+func loadFixtureStateForAssertion(name string) ViewState {
+	state := IdleEmptyState()
+	state.Scenario = name
+	switch name {
+	case "model-display":
+		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+		state.Autonomy = "yolo"
+	case "autonomy-display":
+		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+		state.Autonomy = "read"
+	}
+	return state
 }
 
 func sizeString(size Size) string {
