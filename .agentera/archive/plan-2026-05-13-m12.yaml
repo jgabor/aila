@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-13
-  status: active
+  status: archived
   reviewed: 2026-05-13
   critic_issues: "8 found, addressed"
   title: M12 Runtime Message Loop
@@ -61,7 +61,7 @@ tasks:
   - number: 6
     name: Validate and synchronize M12 state
     depends_on: ["1", "2", "3", "4", "5"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN targeted runtime/app/TUI/cmd tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass with no deferred behavior added.
       - GIVEN validation passes WHEN closing M12 THEN ROADMAP marks M12 complete/M13 next, plan archives/removes, progress records evidence in the validation/closeout commit, agentera plan empty, and no push occurs.

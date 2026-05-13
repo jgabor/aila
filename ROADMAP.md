@@ -19,13 +19,13 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                                                                                              |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 11: Workflow Transition Table                                                                                                                                                            |
-| Next milestone           | Milestone 12: Runtime Message Loop                                                                                                                                                                 |
-| Active milestone         | none                                                                                                                                                                                               |
-| Last updated             | 2026-05-13                                                                                                                                                                                         |
-| Last validation          | M11 targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, `mage check`, and no push all passed/confirmed. |
+| Field                    | Value                                                                                                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 12: Runtime Message Loop                                                                                                                                                                                  |
+| Next milestone           | Milestone 13: Queue Visibility                                                                                                                                                                                      |
+| Active milestone         | none                                                                                                                                                                                                                |
+| Last updated             | 2026-05-13                                                                                                                                                                                                          |
+| Last validation          | M12 targeted runtime/app/TUI/cmd tests, PTY prompt smoke, source-boundary inspection, `go test ./...`, `git diff --check`, post-closeout Agentera plan-empty check, `mage check`, and no push all passed/confirmed. |
 
 Completion log:
 
@@ -44,6 +44,7 @@ Completion log:
 | 9A        | completed | 2026-05-13 | Provider gateway and credential boundary validated with targeted app/agent/cmd/TUI tests, approved optional DeepSeek smoke against `https://api.deepseek.com/v1/chat/completions`, `go test ./...`, `git diff --check`, `mage check` with live smoke skipped by default, Agentera plan-empty closeout, boundary/secret inspection, and no push.      |
 | 10        | completed | 2026-05-13 | Workflow phase kernel validated with targeted workflow/app/TUI/cmd tests, deterministic fixture/snapshot evidence, bounded no-arg PTY startup smoke, `go test ./...`, Task 5 boundary/source inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                |
 | 11        | completed | 2026-05-13 | Workflow transition table validated with targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 source-boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                                                                                       |
+| 12        | completed | 2026-05-13 | Runtime message loop validated with targeted runtime/app/TUI/cmd tests, deterministic runtime fixtures, bounded PTY prompt smoke through the runtime path, source-boundary inspection, `go test ./...`, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                 |
 
 Status values:
 

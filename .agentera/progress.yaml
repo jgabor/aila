@@ -3424,6 +3424,49 @@ cycles:
       scope: >-
         cmd/aila bounded PTY prompt smoke, app/TUI display-only runtime status
         handoff, tests, and Task 5 Agentera metadata.
+  - number: 75
+    timestamp: "2026-05-13 20:27"
+    type: test
+    phase: closeout
+    what: >-
+      Validated and synchronized M12 by running targeted runtime/app/TUI/cmd tests,
+      full Go and Mage gates, source-boundary inspection, ROADMAP closeout, and
+      Agentera plan archival/removal in the final validation commit.
+    commit: "same commit as validation"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 12"
+    discovered: >-
+      M12 product changes are confined to internal/runtime fake MVU contracts and
+      dispatcher, app-owned runtime input routing, presentation-only TUI runtime
+      status evidence, and bounded PTY prompt smoke. No queueing, interrupts,
+      cancellation behavior, real model/provider/tool execution, permission policy,
+      persistence/project .aila, workflow mutation, capability routing, state store,
+      plugins, MCP, dynamic/generic surfaces, pushes, or remotes were added.
+      .agentera/session.yaml remained untracked local state and was not edited or
+      committed.
+    verified: >-
+      Targeted `go test ./internal/runtime -count=1`, `go test ./internal/app
+      -count=1`, `go test ./internal/tui -count=1`, and `go test ./cmd/aila
+      -count=1` passed. `go test ./...` passed. `git diff --check` passed before
+      and after closeout edits. Source inspection confirmed runtime Update is pure,
+      Dispatch is fake in-memory only, app converts prompt/status input into runtime
+      messages, and production TUI imports no runtime package. Post-closeout
+      Agentera plan check reported empty, and `mage check` passed with no push.
+    next: >-
+      Execute ROADMAP.md Milestone 13: Queue Visibility when selected.
+    context:
+      intent: >-
+        Close M12 after proving fake interactive behavior flows through runtime
+        instead of presentation-only shortcuts.
+      constraints: >-
+        Execute only M12 Task 6 validation and closeout; no product behavior beyond
+        validated M12 runtime fake loop, no queueing, interrupts, cancellation
+        behavior, real model/provider/tool execution, permissions, persistence,
+        workflow mutation, capability routing, state store, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        M12 validation evidence, ROADMAP.md closeout, Agentera plan archive/removal,
+        and progress metadata folded into the validation/closeout commit.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -3434,3 +3477,4 @@ archive:
   - .agentera/archive/plan-2026-05-13-m9a.yaml
   - .agentera/archive/plan-2026-05-13-m10.yaml
   - .agentera/archive/plan-2026-05-13-m11.yaml
+  - .agentera/archive/plan-2026-05-13-m12.yaml
