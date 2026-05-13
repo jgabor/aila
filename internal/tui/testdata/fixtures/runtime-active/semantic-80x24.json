@@ -1,5 +1,5 @@
 {
-  "scenario": "waiting-transition",
+  "scenario": "runtime-active",
   "screen": {
     "width": 80,
     "height": 24,
@@ -12,10 +12,10 @@
   "session": {
     "phase": "PLAN",
     "phase_source": "workflow.fixture",
-    "runtime_status": "waiting",
+    "runtime_status": "active",
     "status_source": "runtime.fixture",
-    "status_detail": "successor blocked by injected blocker",
-    "active": false,
+    "status_detail": "fake in-memory runtime loop",
+    "active": true,
     "queued_messages": 0,
     "primary_model": "placeholder",
     "utility_model": "placeholder",
@@ -44,16 +44,16 @@
     {
       "name": "chat",
       "visible": true,
-      "items": ["No messages yet."]
+      "items": ["user: explain runtime status"]
     },
     {
       "name": "runtime_status",
       "visible": true,
       "items": [
-        "status: waiting",
+        "status: active",
         "status source: runtime.fixture",
-        "detail: successor blocked by injected blocker",
-        "active: false",
+        "detail: fake in-memory runtime loop",
+        "active: true",
         "display-only"
       ]
     },

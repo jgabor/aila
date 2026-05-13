@@ -48,7 +48,7 @@ tasks:
   - number: 4
     name: Surface runtime status evidence
     depends_on: ["3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN runtime-backed fake prompt/result state WHEN fixtures render THEN visible and semantic snapshots show idle/active/result runtime status without confusing it with workflow phase.
       - GIVEN TUI source is inspected THEN it renders injected runtime status only and owns no runtime update/effect decisions.

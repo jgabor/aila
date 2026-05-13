@@ -1,5 +1,5 @@
 {
-  "scenario": "waiting-transition",
+  "scenario": "runtime-result",
   "screen": {
     "width": 80,
     "height": 24,
@@ -12,9 +12,10 @@
   "session": {
     "phase": "PLAN",
     "phase_source": "workflow.fixture",
-    "runtime_status": "waiting",
+    "runtime_status": "idle",
     "status_source": "runtime.fixture",
-    "status_detail": "successor blocked by injected blocker",
+    "status_detail": "fake in-memory runtime loop",
+    "runtime_result": "Fake Aila response: explain runtime status",
     "active": false,
     "queued_messages": 0,
     "primary_model": "placeholder",
@@ -44,16 +45,20 @@
     {
       "name": "chat",
       "visible": true,
-      "items": ["No messages yet."]
+      "items": [
+        "user: explain runtime status",
+        "assistant: Fake Aila response: explain runtime status"
+      ]
     },
     {
       "name": "runtime_status",
       "visible": true,
       "items": [
-        "status: waiting",
+        "status: idle",
         "status source: runtime.fixture",
-        "detail: successor blocked by injected blocker",
+        "detail: fake in-memory runtime loop",
         "active: false",
+        "result: Fake Aila response: explain runtime status",
         "display-only"
       ]
     },

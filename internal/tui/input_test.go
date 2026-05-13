@@ -610,3 +610,38 @@ func TestTUIProductionSourceDoesNotOwnWorkflowPhases(t *testing.T) {
 		})
 	}
 }
+
+func TestTUIProductionSourceRendersInjectedRuntimeStatusOnly(t *testing.T) {
+	t.Parallel()
+
+	for _, file := range []string{"model.go", "render.go"} {
+		file := file
+		t.Run(file, func(t *testing.T) {
+			t.Parallel()
+
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, file, nil, parser.ImportsOnly)
+			if err != nil {
+				t.Fatalf("parse TUI %s: %v", file, err)
+			}
+			for _, spec := range parsed.Imports {
+				if strings.Trim(spec.Path.Value, "\"") == "github.com/jgabor/aila/internal/runtime" {
+					t.Fatalf("TUI %s imports runtime instead of rendering injected status fields", file)
+				}
+			}
+
+			source, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("read TUI %s: %v", file, err)
+			}
+			for _, forbidden := range []string{
+				"runtime.Update", "runtime.Dispatch", "PromptSubmitted", "CommandSelected", "FakeEffectCompleted", "FakeEffectFailed",
+				"FakePromptEffect", "FakeCommandEffect", "OperationMetadata", "[]runtime.Effect", "[]runtime.Message",
+			} {
+				if strings.Contains(string(source), forbidden) {
+					t.Fatalf("TUI %s owns runtime update/effect decision marker %q", file, forbidden)
+				}
+			}
+		})
+	}
+}

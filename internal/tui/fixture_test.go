@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jgabor/aila/internal/policy"
+	"github.com/jgabor/aila/internal/runtime"
 )
 
 const (
@@ -150,6 +151,128 @@ func loadWaitingStatusFixture(t *testing.T) renderFixture {
 	state.StatusDetail = "successor blocked by injected blocker"
 	state.Scenario = "waiting-transition"
 	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func loadRuntimeStatusFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	base := runtime.Model{Status: runtime.StatusIdle}
+	var model runtime.Model
+	switch name {
+	case "runtime-idle":
+		model = base
+	case "runtime-active":
+		var effects []runtime.Effect
+		model, effects = runtime.Update(base, runtime.PromptSubmitted{Text: "explain runtime status"})
+		if len(effects) != 1 {
+			t.Fatalf("active fixture effects = %d, want one pending fake effect", len(effects))
+		}
+	case "runtime-result":
+		var effects []runtime.Effect
+		model, effects = runtime.Update(base, runtime.PromptSubmitted{Text: "explain runtime status"})
+		for _, message := range runtime.Dispatch(effects) {
+			model, _ = runtime.Update(model, message)
+		}
+	default:
+		t.Fatalf("unknown runtime status fixture %q", name)
+	}
+
+	state := viewStateFromRuntimeModel(name, model)
+	return loadRenderFixture(t, name, state)
+}
+
+func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
+	state := IdleEmptyState()
+	state.Phase = "PLAN"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = scenario
+	state.RuntimeStatus = string(model.Status)
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "fake in-memory runtime loop"
+	state.RuntimeActive = model.Status == runtime.StatusActive
+	state.RuntimeResult = model.Result
+	state.Transcript = transcriptTurnsFromRuntime(model.Transcript)
+	return state
+}
+
+func transcriptTurnsFromRuntime(entries []runtime.TranscriptEntry) []TranscriptTurn {
+	var turns []TranscriptTurn
+	for _, entry := range entries {
+		switch entry.Kind {
+		case "prompt":
+			turns = append(turns, TranscriptTurn{UserText: entry.Text})
+		case "result", "failure":
+			if len(turns) == 0 || turns[len(turns)-1].AssistantText != "" {
+				turns = append(turns, TranscriptTurn{})
+			}
+			turns[len(turns)-1].AssistantText = entry.Text
+		}
+	}
+	return turns
+}
+
+func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		status     string
+		active     bool
+		wantRender []string
+	}{
+		{name: "runtime-idle", status: "idle", wantRender: []string{"Stage PLAN | Runtime idle", "status: idle", "active: false"}},
+		{name: "runtime-active", status: "active", active: true, wantRender: []string{"Stage PLAN | Runtime active", "status: active", "active: true", "user: explain runtime status"}},
+		{name: "runtime-result", status: "idle", wantRender: []string{"Stage PLAN | Runtime idle", "status: idle", "active: false", "result: Fake Aila response: explain runtime status", "assistant: Fake Aila response: explain runtime status"}},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadRuntimeStatusFixture(t, tc.name)
+			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(got, tc.wantRender) {
+						t.Fatalf("%s render missing runtime evidence %v:\n%s", tc.name, tc.wantRender, got)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Session.Phase != "PLAN" || snapshot.Session.PhaseSource != "workflow.fixture" {
+						t.Fatalf("phase = %q from %q, want injected workflow phase", snapshot.Session.Phase, snapshot.Session.PhaseSource)
+					}
+					if snapshot.Session.RuntimeStatus != tc.status || snapshot.Session.StatusSource != "runtime.fixture" || snapshot.Session.Active != tc.active {
+						t.Fatalf("runtime session = %+v, want status %q active %v from runtime fixture", snapshot.Session, tc.status, tc.active)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					phase := strings.Join(regions["phase"].Items, "\n")
+					status := strings.Join(regions["runtime_status"].Items, "\n")
+					if !containsAll(phase, []string{"PLAN", "display-only"}) || containsAny(phase, []string{"active", "idle", "result"}) {
+						t.Fatalf("phase region = %v, want workflow phase only", regions["phase"].Items)
+					}
+					if !containsAll(status, []string{"status: " + tc.status, "status source: runtime.fixture", "active: " + boolLabel(tc.active), "display-only"}) || contains(status, "phase") {
+						t.Fatalf("runtime status region = %v, want injected runtime status only", regions["runtime_status"].Items)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestM11WaitingStatusFixtureDistinguishesPhaseFromRuntimeStatus(t *testing.T) {

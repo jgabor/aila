@@ -5,9 +5,9 @@
 | status: waiting                                                              |
 | status source: runtime.fixture                                               |
 | detail: successor blocked by injected blocker                                |
+| active: false                                                                |
 |                                                                              |
 | No messages yet.                                                             |
-|                                                                              |
 |                                                                              |
 |                                                                              |
 |                                                                              |

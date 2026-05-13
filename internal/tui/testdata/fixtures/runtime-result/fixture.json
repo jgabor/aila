@@ -1,0 +1,17 @@
+{
+  "name": "runtime-result",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["plan", "runtime_result"],
+  "render_sizes": [{ "name": "80x24", "width": 80, "height": 24 }],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json"
+  },
+  "notes": [
+    "M12 presentation-only runtime fixture; view state is derived from fake runtime result state in tests.",
+    "Workflow phase remains an injected display label separate from runtime status."
+  ]
+}

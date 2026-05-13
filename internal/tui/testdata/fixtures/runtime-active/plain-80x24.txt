@@ -1,13 +1,13 @@
 Aila                                                                       80x24
-Stage PLAN | Runtime waiting | Model placeholder | Utility placeholder | Auto p~
+Stage PLAN | Runtime active | Model placeholder | Utility placeholder | Auto pl~
 + Conversation ----------------------------------------------------------------+
 | Runtime status:                                                              |
-| status: waiting                                                              |
+| status: active                                                               |
 | status source: runtime.fixture                                               |
-| detail: successor blocked by injected blocker                                |
-| active: false                                                                |
+| detail: fake in-memory runtime loop                                          |
+| active: true                                                                 |
 |                                                                              |
-| No messages yet.                                                             |
+| user: explain runtime status                                                 |
 |                                                                              |
 |                                                                              |
 |                                                                              |

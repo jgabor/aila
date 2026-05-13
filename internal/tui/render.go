@@ -24,6 +24,8 @@ type ViewState struct {
 	RuntimeStatus string
 	StatusSource  string
 	StatusDetail  string
+	RuntimeActive bool
+	RuntimeResult string
 	PrimaryModel  string
 	UtilityModel  string
 	Autonomy      string
@@ -133,6 +135,10 @@ func runtimeStatusLines(state ViewState) []string {
 	}
 	if state.StatusDetail != "" {
 		lines = append(lines, "  detail: "+state.StatusDetail)
+	}
+	lines = append(lines, "  active: "+boolLabel(state.RuntimeActive))
+	if state.RuntimeResult != "" {
+		lines = append(lines, "  result: "+state.RuntimeResult)
 	}
 	lines = append(lines, "")
 	return lines
@@ -284,6 +290,7 @@ type SemanticSession struct {
 	RuntimeStatus  string `json:"runtime_status,omitempty"`
 	StatusSource   string `json:"status_source,omitempty"`
 	StatusDetail   string `json:"status_detail,omitempty"`
+	RuntimeResult  string `json:"runtime_result,omitempty"`
 	Active         bool   `json:"active"`
 	QueuedMessages int    `json:"queued_messages"`
 	PrimaryModel   string `json:"primary_model"`
@@ -366,7 +373,8 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			RuntimeStatus:  state.RuntimeStatus,
 			StatusSource:   state.StatusSource,
 			StatusDetail:   state.StatusDetail,
-			Active:         false,
+			RuntimeResult:  state.RuntimeResult,
+			Active:         state.RuntimeActive,
 			QueuedMessages: 0,
 			PrimaryModel:   state.PrimaryModel,
 			UtilityModel:   state.UtilityModel,
@@ -393,7 +401,12 @@ func chatLines(transcript []TranscriptTurn) []string {
 	}
 	lines := make([]string, 0, len(transcript)*2)
 	for _, turn := range transcript {
-		lines = append(lines, "  user: "+turn.UserText, "  assistant: "+turn.AssistantText)
+		if turn.UserText != "" {
+			lines = append(lines, "  user: "+turn.UserText)
+		}
+		if turn.AssistantText != "" {
+			lines = append(lines, "  assistant: "+turn.AssistantText)
+		}
 	}
 	return lines
 }
@@ -404,7 +417,12 @@ func semanticChatItems(transcript []TranscriptTurn) []string {
 	}
 	items := make([]string, 0, len(transcript)*2)
 	for _, turn := range transcript {
-		items = append(items, "user: "+turn.UserText, "assistant: "+turn.AssistantText)
+		if turn.UserText != "" {
+			items = append(items, "user: "+turn.UserText)
+		}
+		if turn.AssistantText != "" {
+			items = append(items, "assistant: "+turn.AssistantText)
+		}
 	}
 	return items
 }
@@ -426,8 +444,19 @@ func semanticRuntimeStatusItems(state ViewState) []string {
 	if state.StatusDetail != "" {
 		items = append(items, "detail: "+state.StatusDetail)
 	}
+	items = append(items, "active: "+boolLabel(state.RuntimeActive))
+	if state.RuntimeResult != "" {
+		items = append(items, "result: "+state.RuntimeResult)
+	}
 	items = append(items, "display-only")
 	return items
+}
+
+func boolLabel(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 func surfaceLines(route string, source string, title string, items []string) []string {

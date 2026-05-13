@@ -3345,6 +3345,45 @@ cycles:
         internal/app runtime-backed callbacks, internal/tui callback constructor,
         internal/runtime fake response normalization, tests, and Task 3 Agentera
         metadata.
+  - number: 73
+    timestamp: "2026-05-13 19:23"
+    type: test
+    phase: build
+    what: >-
+      Surfaced M12 Task 4 runtime status evidence in presentation-only TUI state,
+      semantic snapshots, and deterministic runtime-idle/runtime-active/runtime-result
+      fixtures derived from fake runtime models.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 12"
+    discovered: >-
+      Existing TUI status rendering exposed injected runtime status strings but did
+      not make active/result evidence machine-readable. The production TUI still
+      imports no runtime package and owns no runtime update/effect decisions.
+      .agentera/session.yaml remained untracked local state and was not edited or
+      committed.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tui -run
+      'TestM12RuntimeStatusFixtures|TestM11WaitingStatusFixture'` passed after
+      explicit snapshot regeneration. Targeted `go test ./internal/tui
+      ./internal/app ./internal/runtime` passed. Full `go test ./...` passed.
+    next: >-
+      Execute M12 Task 5 only when selected; Tasks 5-6 remain pending.
+    context:
+      intent: >-
+        Provide visible and semantic evidence that runtime idle/active/result
+        display state is separate from workflow phase before PTY smoke or M12
+        closeout.
+      constraints: >-
+        Execute only M12 Task 4; no PTY smoke, validation closeout, queueing,
+        interrupts, cancellation behavior, real model/provider/tool execution,
+        permission policy, persistence/project .aila, workflow mutation,
+        capability routing, state store, plugins, MCP, dynamic/generic surfaces,
+        pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/tui presentation state, semantic renderer, deterministic runtime
+        status fixtures/snapshots, source-boundary tests, and Task 4 Agentera
+        metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
