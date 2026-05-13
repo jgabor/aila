@@ -115,6 +115,119 @@ func TestParsePhaseInvalidErrorIsBounded(t *testing.T) {
 	}
 }
 
+func TestRuntimeStatusesAreNotWorkflowPhases(t *testing.T) {
+	t.Parallel()
+
+	phaseSet := make(map[Phase]bool)
+	for _, phase := range Phases() {
+		phaseSet[phase] = true
+	}
+
+	for _, status := range RuntimeStatuses() {
+		if phaseSet[Phase(status.String())] {
+			t.Fatalf("runtime status %q is included in Phases()", status)
+		}
+		if got, err := ParsePhase(status.String()); err == nil {
+			t.Fatalf("ParsePhase(%q) = %q, want error", status, got)
+		}
+	}
+}
+
+func TestRuntimeStatusesHaveStableIdentifiersAndLabels(t *testing.T) {
+	t.Parallel()
+
+	want := []struct {
+		status RuntimeStatus
+		id     string
+		label  string
+	}{
+		{RuntimeStatusWaiting, "waiting", "waiting"},
+		{RuntimeStatusStuck, "stuck", "stuck"},
+		{RuntimeStatusFlagged, "flagged", "flagged"},
+	}
+
+	got := RuntimeStatuses()
+	if len(got) != len(want) {
+		t.Fatalf("len(RuntimeStatuses()) = %d, want %d", len(got), len(want))
+	}
+	for i, expected := range want {
+		if got[i] != expected.status {
+			t.Fatalf("RuntimeStatuses()[%d] = %q, want %q", i, got[i], expected.status)
+		}
+		if expected.status.String() != expected.id {
+			t.Fatalf("status identifier = %q, want %q", expected.status.String(), expected.id)
+		}
+		if fmt.Sprint(expected.status) != expected.id {
+			t.Fatalf("fmt.Sprint(status) = %q, want %q", fmt.Sprint(expected.status), expected.id)
+		}
+		if expected.status.DisplayLabel() != expected.label {
+			t.Fatalf("%s DisplayLabel() = %q, want %q", expected.id, expected.status.DisplayLabel(), expected.label)
+		}
+	}
+}
+
+func TestRuntimeStatusesReturnsCopy(t *testing.T) {
+	t.Parallel()
+
+	got := RuntimeStatuses()
+	got[0] = RuntimeStatusFlagged
+	if RuntimeStatuses()[0] != RuntimeStatusWaiting {
+		t.Fatalf("RuntimeStatuses() returned mutable package storage")
+	}
+}
+
+func TestParseRuntimeStatusAcceptsStableIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range RuntimeStatuses() {
+		got, err := ParseRuntimeStatus("  " + strings.ToUpper(status.String()) + "\n")
+		if err != nil {
+			t.Fatalf("ParseRuntimeStatus(%q) returned error: %v", status, err)
+		}
+		if got != status {
+			t.Fatalf("ParseRuntimeStatus(%q) = %q, want %q", status, got, status)
+		}
+	}
+}
+
+func TestParseRuntimeStatusInvalidErrorIsBounded(t *testing.T) {
+	t.Parallel()
+
+	invalid := strings.Repeat("x", 4096)
+	status, err := ParseRuntimeStatus(invalid)
+	if err == nil {
+		t.Fatal("ParseRuntimeStatus returned nil error for invalid status")
+	}
+	if status != "" {
+		t.Fatalf("ParseRuntimeStatus invalid status = %q, want empty", status)
+	}
+	message := err.Error()
+	if !strings.HasPrefix(message, "invalid workflow runtime status ") {
+		t.Fatalf("error = %q, want invalid workflow runtime status prefix", message)
+	}
+	if len(message) > 140 {
+		t.Fatalf("error length = %d, want bounded <= 140: %q", len(message), message)
+	}
+	if strings.Contains(message, "successor") || strings.Contains(message, "transition") || strings.Contains(message, "capability") {
+		t.Fatalf("invalid status error implies routing semantics: %q", message)
+	}
+}
+
+func TestRuntimeStatusHelpersDoNotAddRoutingOrTransitions(t *testing.T) {
+	t.Parallel()
+
+	for _, forbidden := range []string{"complete", "capability", "exit", "transition", "successor"} {
+		if _, err := ParseRuntimeStatus(forbidden); err == nil {
+			t.Fatalf("ParseRuntimeStatus(%q) accepted routing or transition vocabulary", forbidden)
+		}
+	}
+	for _, status := range RuntimeStatuses() {
+		if err := ValidateProtocolSuccessor(PhaseBuild, Phase(status.String())); err == nil {
+			t.Fatalf("ValidateProtocolSuccessor accepted runtime status %q as phase transition", status)
+		}
+	}
+}
+
 func TestProtocolSuccessorsMatchReferenceTable(t *testing.T) {
 	t.Parallel()
 

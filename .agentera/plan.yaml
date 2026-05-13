@@ -35,7 +35,7 @@ tasks:
   - number: 2
     name: Model runtime statuses outside phases
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN waiting, stuck, and flagged values WHEN tested THEN they are runtime statuses/signals, never Phase values, and invalid status errors are bounded.
       - GIVEN status helpers are inspected THEN they add no complete/capability-exit routing or transition execution.

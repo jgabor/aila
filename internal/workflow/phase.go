@@ -43,6 +43,27 @@ var protocolSuccessors = map[Phase][]Phase{
 	PhaseAudit:      {PhaseBuild, PhasePlan, PhaseDeliberate, PhaseEnvision},
 }
 
+// RuntimeStatus identifies non-phase runtime signals that can decorate workflow display.
+type RuntimeStatus string
+
+const (
+	RuntimeStatusWaiting RuntimeStatus = "waiting"
+	RuntimeStatusStuck   RuntimeStatus = "stuck"
+	RuntimeStatusFlagged RuntimeStatus = "flagged"
+)
+
+var orderedRuntimeStatuses = []RuntimeStatus{
+	RuntimeStatusWaiting,
+	RuntimeStatusStuck,
+	RuntimeStatusFlagged,
+}
+
+var runtimeStatusDisplayLabels = map[RuntimeStatus]string{
+	RuntimeStatusWaiting: "waiting",
+	RuntimeStatusStuck:   "stuck",
+	RuntimeStatusFlagged: "flagged",
+}
+
 // SuccessorValidationReason identifies why a protocol successor check failed.
 type SuccessorValidationReason string
 
@@ -117,12 +138,49 @@ func ParsePhase(text string) (Phase, error) {
 	return "", phaseParseError{text: text}
 }
 
+// RuntimeStatuses returns the complete stable non-phase runtime status vocabulary.
+func RuntimeStatuses() []RuntimeStatus {
+	return append([]RuntimeStatus(nil), orderedRuntimeStatuses...)
+}
+
+// String returns the stable runtime status identifier.
+func (s RuntimeStatus) String() string {
+	return string(s)
+}
+
+// DisplayLabel returns the stable user-facing runtime status label.
+func (s RuntimeStatus) DisplayLabel() string {
+	if label, ok := runtimeStatusDisplayLabels[s]; ok {
+		return label
+	}
+	return string(s)
+}
+
+// ParseRuntimeStatus resolves stable status identifier text into a runtime status.
+func ParseRuntimeStatus(text string) (RuntimeStatus, error) {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	for _, status := range orderedRuntimeStatuses {
+		if normalized == string(status) {
+			return status, nil
+		}
+	}
+	return "", runtimeStatusParseError{text: text}
+}
+
 type phaseParseError struct {
 	text string
 }
 
 func (e phaseParseError) Error() string {
 	return "invalid workflow phase " + quoteBounded(e.text, 64)
+}
+
+type runtimeStatusParseError struct {
+	text string
+}
+
+func (e runtimeStatusParseError) Error() string {
+	return "invalid workflow runtime status " + quoteBounded(e.text, 64)
 }
 
 func quoteBounded(text string, limit int) string {

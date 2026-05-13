@@ -3042,6 +3042,45 @@ cycles:
       scope: >-
         internal/workflow successor validation source/tests plus Task 1
         Agentera plan/progress artifacts only.
+  - number: 65
+    timestamp: "2026-05-13 16:20"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M11 Task 2 by adding workflow-owned runtime status vocabulary
+      for waiting, stuck, and flagged outside the Phase enum, with bounded parsing
+      errors and status-only helper tests.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 2; docs/workflow-architecture.md runtime status separation"
+    discovered: >-
+      The Task 1 workflow package already had successor validation isolated from
+      runtime execution, so Task 2 only needed non-phase status identifiers and
+      tests proving the helpers do not add complete, capability-exit, transition,
+      or successor semantics.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/workflow` passed with
+      coverage proving waiting, stuck, and flagged are absent from Phases(), do not
+      parse as Phase values, do parse and format as RuntimeStatus values, return
+      bounded invalid status errors, expose copy-only status slices, and are
+      rejected by protocol successor validation. `go test ./...` passed. `git diff
+      --check` passed before implementation commit. Only Task 2 was marked
+      complete; Tasks 3-6 remain pending.
+    next: >-
+      Execute M11 Task 3 only when requested; Tasks 3-6 remain pending.
+    context:
+      intent: >-
+        Separate runtime waiting/stuck/flagged signals from workflow phases before
+        any display, runtime, or capability wiring.
+      constraints: >-
+        Execute only M11 Task 2; no complete signal or capability-exit routing,
+        transition execution, FSM state/mutation, runtime loop, model/tool
+        execution, permissions, persistence/project .aila, config/provider
+        behavior, TUI changes, plugins, MCP, dynamic/generic surfaces, pushes, or
+        remotes.
+      unknowns: "none"
+      scope: >-
+        internal/workflow runtime status source/tests plus Task 2 Agentera
+        plan/progress artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
