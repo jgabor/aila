@@ -1,0 +1,100 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: completed
+  reviewed: 2026-05-13
+  critic_issues: "9 found, 9 addressed, 0 dismissed"
+  title: M7 CLI Command Shape
+what: >-
+  Establish the roadmap M7 CLI command and flag shape as deterministic stubs
+  while preserving the existing no-argument interactive TUI startup.
+why: >-
+  Aila needs a stable top-level command surface before later slices add config
+  display, XDG config creation, provider readiness, real model turns, session
+  continuation, and non-interactive run behavior behind those entry points.
+constraints: >-
+  Implement only ROADMAP.md Milestone 7. Accept only the M7 shape for commands
+  run, continue, config, models, and help plus global flags --model/-m,
+  --continue/-c, and --version/-V. Keep command invocations non-interactive,
+  bounded, and deterministic. Preserve no-argument Aila startup as the existing
+  TUI path. Do not implement run prompt execution, stdin review behavior, session
+  continuation, config display, config --all behavior, XDG reads/writes, model
+  filtering, provider metadata, provider errors, credential lookup, go-agent/model
+  turns, tools, permissions, persistence, workflow transitions, plugins, MCP,
+  dynamic tools, workflow DSLs, generic graph engines, provider marketplaces, or
+  public runtime harnesses.
+scope:
+  included:
+    - M7-only CLI parser/runner boundary over args and injected input/output streams.
+    - Deterministic handling for run, continue, config, models, help, version, model flag, and continue flag shapes.
+    - Bounded diagnostics for unknown commands, unknown flags, unsupported command-specific behavior, and ambiguous combinations.
+    - Tests proving command invocations exit without TUI startup, provider/config/state/model IO, or session behavior.
+    - Existing no-argument TUI startup and quit validation if entrypoint wiring changes.
+  excluded:
+    - Config display, config UI, config --all output, XDG config creation, model/provider listing, provider filtering, provider errors, credential readiness, real run execution, stdin review semantics, session continuation, workflow/model/tool/permission/persistence behavior, CLI subcommand implementations beyond stubs, command palettes, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, provider marketplaces, and public runtime harnesses.
+  deferred:
+    - "M8 Config Display Stub: testable config source and TUI header display."
+    - "M9 Config Creation/XDG Paths: default config creation and XDG path handling."
+    - "M9A Provider Gateway/Credential Boundary: model/provider metadata, filters, readiness errors, and credentials."
+design: >-
+  Keep this as a CLI shape slice, not real command behavior. The command runner
+  should be pure over argv, stdin, stdout, stderr, and a version string, with no
+  dependency on config, state, provider, agent, workflow, tools, permissions, or
+  persistence packages. No-argument execution remains the current interactive TUI.
+  Every named command exits with deterministic bounded output that labels real
+  behavior as deferred to later roadmap milestones.
+tasks:
+  - number: 1
+    name: CLI runner boundary and no-argument preservation
+    depends_on: []
+    status: complete
+  - number: 2
+    name: M7 command and global flag shape
+    depends_on:
+      - "1"
+    status: complete
+  - number: 3
+    name: Deterministic command stubs
+    depends_on:
+      - "2"
+    status: complete
+  - number: 4
+    name: CLI tests and no-IO guards
+    depends_on:
+      - "3"
+    status: complete
+  - number: 5
+    name: M7 validation and roadmap closeout
+    depends_on:
+      - "4"
+    status: complete
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on:
+      - "5"
+    status: complete
+overall_acceptance:
+  - >-
+    GIVEN this plan is active WHEN work begins THEN only M7 CLI command shape
+    stubs are eligible for implementation.
+  - >-
+    GIVEN M7 is complete WHEN a user invokes the documented command names or
+    global flags THEN Aila accepts the shape with bounded deterministic output
+    while no-argument execution still opens the TUI.
+  - >-
+    GIVEN source docs are checked WHEN M7 closes THEN config, provider, model,
+    workflow, tool, permission, persistence, and real command behavior remain
+    deferred to later milestones.
+surprises:
+  - >-
+    M7 Task 4 needed a retry after audit found the no-hang exact stream table did
+    not cover every accepted global flag spelling; the fix was test-only and did
+    not change command behavior.
+  - >-
+    M7 Task 5's first mage check found unchecked diagnostic writes in cmd/aila;
+    the lint-only fix stayed inside the CLI runner error-output path.
+  - >-
+    M7 Task 6 freshness review found no M8+ scope or fixed-product violation.
+    Config display, config creation, provider gateway, real model turns, tools,
+    permissions, persistence, workflow behavior, and real session continuation
+    remain deferred.

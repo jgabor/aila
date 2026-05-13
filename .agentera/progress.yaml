@@ -1494,7 +1494,375 @@ cycles:
       scope: >-
         ROADMAP.md closeout, Agentera final progress evidence, plan archival, and
         active plan removal only.
+  - number: 31
+    timestamp: "2026-05-13 06:50"
+    type: feat
+    phase: build
+    what: >-
+      Executed M7 Task 1 only by adding a small injected CLI runner boundary that
+      preserves the existing no-argument app startup path and returns immediately
+      for argument-bearing invocations with deterministic deferred M7 output.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 7"
+    discovered: >-
+      The pre-existing entrypoint always launched internal/app.Run, so argv was
+      not separated from the interactive TUI path. The Task 1 boundary could stay
+      entirely inside cmd/aila and did not require config, state, provider, agent,
+      workflow, tools, permission, persistence, session, or TUI-internal imports.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila` passed TestCLIRunnerNoArgsStartsInteractivePath,
+      proving zero args still delegate to the injected app startup path instead of
+      writing CLI help or a stub. Criterion 2: the same command passed
+      TestCLIRunnerArgsAreNonInteractiveAndInjected and
+      TestCLIRunnerUsesInjectedErrorOutput, proving command-argument handling uses
+      injected input, output, error output, and version values without reading
+      terminal input or starting the app path. Criterion 3: the same command passed
+      TestCLIRunnerBoundaryImports, proving cmd/aila's runner boundary imports no
+      forbidden internal config, state, provider, agent, workflow, tools,
+      permission, persistence, or TUI-internal packages; only internal/app remains
+      for the no-argument startup path. Criterion 4: `go test ./cmd/aila` passed
+      with the command-argument path returning within the bounded test timeout,
+      proving it exits without waiting for terminal input or starting Bubble Tea;
+      `go run . run` from cmd/aila returned immediately with the deferred M7
+      boundary line. `go test ./cmd/aila ./internal/app` passed for targeted
+      cmd/app validation. `mage fmt` completed successfully after Go edits.
+    next: >-
+      Execute M7 Task 2 only when explicitly requested; Tasks 2-6 remain pending.
+    context:
+      intent: >-
+        Establish the CLI runner boundary needed before implementing the M7 command
+        and flag shape while preserving the current interactive no-argument product
+        behavior.
+      constraints: >-
+        Implement only M7 Task 1; do not implement Task 2 command/flag shape, Task
+        3 stub content, Task 4 full test matrix, Task 5 roadmap closeout, Task 6
+        archive, config display/creation, provider/model/go-agent/tool/permission/
+        persistence/workflow/session behavior, real run execution, stdin review,
+        dynamic registries, plugins, MCP, dynamic tools, workflow DSLs, generic
+        graphs, provider marketplaces, or public runtime harnesses.
+      unknowns: "none"
+      scope: >-
+        cmd/aila entrypoint runner and targeted runner tests plus Agentera task and
+        progress artifacts only.
+  - number: 32
+    timestamp: "2026-05-13 06:56"
+    type: feat
+    phase: build
+    what: >-
+      Executed M7 Task 2 only by adding deterministic M7 command and global flag
+      shape parsing to the existing injected cmd/aila runner, with bounded parse
+      diagnostics and explicit continuation-shape handling.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 7"
+    discovered: >-
+      The Task 1 runner accepted any argument with one generic deferred line. Task
+      2 could remain inside cmd/aila and still avoid config, provider, state,
+      session, workflow, tool, permission, persistence, stdin-review, and TUI
+      startup behavior for argument-bearing invocations. `run --continue` is
+      treated as the bounded incompatibility diagnostic while `continue`,
+      `--continue`, and `-c` resolve to the deferred continuation stub.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila -run
+      'TestCLIRunner(RecognizesM7Commands|AcceptsGlobalFlags|RejectsUnknownCommandsAndFlags|ContinuationShapesAreDeterministic|ArgsAreNonInteractiveAndInjected|NoArgsStartsInteractivePath|UsesInjectedErrorOutput|BoundaryImports)'`
+      passed, including TestCLIRunnerRecognizesM7Commands coverage for run,
+      continue, config, models, and help as M7 stub commands. Criterion 2: the
+      same targeted command passed TestCLIRunnerAcceptsGlobalFlags coverage for
+      --model, -m, --model=value, --continue, -c, --version, and -V with
+      deterministic output. Criterion 3: the same targeted command passed
+      TestCLIRunnerRejectsUnknownCommandsAndFlags coverage for unknown command,
+      unknown flag, missing model value, and missing command diagnostics that name
+      the valid M7 commands or flags and never call the injected TUI start path.
+      Criterion 4: the same targeted command passed
+      TestCLIRunnerContinuationShapesAreDeterministic coverage for continue,
+      --continue, -c, and run --continue, proving deterministic deferred
+      continuation stubs or a bounded incompatibility diagnostic. `mage fmt`
+      completed successfully after Go edits. `go test ./cmd/aila` passed for the
+      full command package, including existing no-argument PTY startup/quit smoke.
+    next: >-
+      Execute M7 Task 3 only when explicitly requested; Tasks 3-6 remain pending.
+    context:
+      intent: >-
+        Establish the M7 top-level command and global flag shape as parser-level
+        stubs while preserving the Task 1 no-argument interactive TUI path.
+      constraints: >-
+        Implement only M7 Task 2; do not implement Task 3 command-specific stub
+        content, Task 4 full no-IO guard suite, Task 5 ROADMAP closeout, Task 6
+        archive, config display/creation, provider/model/go-agent/tool/permission/
+        persistence/workflow/session behavior, real run execution, stdin review,
+        model filtering/provider metadata/credentials/errors, dynamic registries,
+        plugins, MCP, dynamic tools, workflow DSLs, generic graphs, provider
+        marketplaces, or public runtime harnesses.
+      unknowns: "none"
+      scope: >-
+        cmd/aila parser and targeted runner tests plus Agentera task and progress
+        artifacts only.
+  - number: 33
+    timestamp: "2026-05-13 07:04"
+    type: feat
+    phase: build
+    what: >-
+      Executed M7 Task 3 only by replacing the generic command placeholder with
+      bounded deterministic deferred stubs for run, continue, config, models,
+      help, and version output while keeping all command behavior pure over
+      injected streams and version.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 7"
+    discovered: >-
+      Task 2 still rejected `run` prompt positionals and `models` filters because
+      it only established command/flag recognition. Task 3 needed those accepted
+      shapes plus `config --all`, but still no prompt execution, stdin review,
+      session discovery, config IO, XDG/env reads, provider metadata, filtering
+      behavior, credentials, provider errors, model turns, tools, workflow
+      transitions, persistence, dynamic registries, plugins, MCP, dynamic tools,
+      workflow DSLs, generic graphs, provider marketplaces, or public runtime
+      harnesses.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila -run
+      'TestCLIRunner(RecognizesM7Commands|AcceptsGlobalFlags|RejectsUnknownCommandsAndFlags|ContinuationShapesAreDeterministic|RunStubDefersPromptStdinAndExecution|ConfigStubDefersConfigIO|ModelsStubDefersProviderBehavior|HelpAndVersionAreStable|ArgsAreNonInteractiveAndInjected|NoArgsStartsInteractivePath|UsesInjectedErrorOutput|BoundaryImports)'`
+      passed, including TestCLIRunnerRunStubDefersPromptStdinAndExecution for
+      `run write code` with a fail-on-read stdin, proving prompt args produce the
+      deferred-run stub without stdin reads, prompt execution, model turns, tool
+      execution, or workflow transitions. Criterion 2: the same targeted command
+      passed TestCLIRunnerContinuationShapesAreDeterministic for `continue`,
+      `--continue`, and `-c`, and the continuation stub explicitly defers session
+      discovery, state lookup, persistence IO, and continuation execution.
+      Criterion 3: the same targeted command passed
+      TestCLIRunnerConfigStubDefersConfigIO for `config` and `config --all`, and
+      the config stub explicitly defers config files, XDG paths, TOML defaults,
+      environment, and config UI. Criterion 4: the same targeted command passed
+      TestCLIRunnerModelsStubDefersProviderBehavior for `models` and `models
+      openai gpt`, and the models stub explicitly defers provider metadata,
+      filtering behavior, credential lookup, degraded status, and provider errors.
+      Criterion 5: the same targeted command passed
+      TestCLIRunnerHelpAndVersionAreStable for exact help, `--version`, and `-V`
+      output, documenting only the M7 accepted shape and deferred boundaries.
+      `mage fmt` completed successfully after Go edits. `go test ./cmd/aila`
+      passed for the full command package, including existing no-argument TUI
+      startup/quit smoke.
+    next: >-
+      Execute M7 Task 4 only when explicitly requested; Tasks 4-6 remain pending.
+    context:
+      intent: >-
+        Make each accepted M7 command shape visible as a stable deferred command
+        stub without implementing real run, continuation, config, model/provider,
+        workflow, tool, permission, persistence, or session behavior.
+      constraints: >-
+        Implement only M7 Task 3; do not implement Task 4 full no-IO guard suite,
+        Task 5 ROADMAP closeout, Task 6 archive, config display/creation,
+        provider/model/go-agent/tool/permission/persistence/workflow/session
+        behavior, real run execution, stdin review semantics, model filtering/
+        provider metadata/credentials/errors, dynamic registries, plugins, MCP,
+        dynamic tools, workflow DSLs, generic graphs, provider marketplaces, or
+        public runtime harnesses.
+      unknowns: "none"
+      scope: >-
+        cmd/aila deterministic stub output and targeted runner tests plus Agentera
+        task and progress artifacts only.
+  - number: 34
+    timestamp: "2026-05-13 07:10"
+    type: test
+    phase: build
+    what: >-
+      Executed M7 Task 4 only by adding table-driven CLI acceptance tests,
+      bounded unknown-input diagnostics tests, and an AST no-IO guard over the M7
+      stub command path while leaving runtime behavior and TUI fixtures unchanged.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 7"
+    discovered: >-
+      The initial no-IO guard had to account for the intentional Task 1 no-arg
+      startup branch in cliRunner.run. The final guard blocks forbidden IO/runtime
+      selectors in the stub path, while exit tests prove command arguments never
+      call the injected TUI startup function.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila -run 'TestM7CLI|TestCLIRunner'` passed,
+      including TestM7CLIAcceptedShapesExitWithExpectedStreams, which covers run,
+      run prompt with --model, continue, --continue, config, config --all, models,
+      models filters, help, and --version with exact exit code, stdout, stderr, and
+      one-second no-hang enforcement. Criterion 2: the same command passed
+      TestM7CLIUnknownInputsReturnBoundedDiagnostics for invalid commands, flags,
+      args, empty/missing model values, ambiguous commands, ambiguous continuation,
+      and unsupported command-specific flags; each returns code 1, bounded stderr,
+      empty stdout, and never launches the TUI. Criterion 3: the same command
+      passed TestM7CLIStubCommandPathHasNoIOReachability plus the existing
+      fail-on-read/fail-on-start runner tests and boundary import guard, proving
+      stub execution stays pure over injected streams/version and does not reach
+      filesystem, shell, git, config, provider, model, tool, permission,
+      persistence, session, or workflow behavior. Criterion 4: `go test
+      ./internal/tui -run 'TestM6|TestM5|TestM4|TestRequired|TestInput|TestResize|TestCommand'`
+      passed, confirming render, semantic, command, input, and resize fixtures
+      remained stable. `mage fmt` completed successfully, and `go test
+      ./internal/app ./cmd/aila -run 'Test|TestM7CLI|TestCLIRunner'` passed for
+      the targeted app/CLI path, including existing no-argument PTY startup/quit
+      coverage.
+    next: >-
+      Execute M7 Task 5 only when explicitly requested; Task 6 remains pending.
+    context:
+      intent: >-
+        Prove the M7 CLI stubs are deterministic, non-interactive, bounded, and
+        isolated from real IO or later-roadmap behavior.
+      constraints: >-
+        Implement only M7 Task 4; do not implement Task 5 ROADMAP closeout, Task 6
+        archive, config display/creation, XDG/env reading, provider/model/go-agent/
+        tool/permission/persistence/workflow/session behavior, real run execution,
+        stdin review semantics, model filtering/provider metadata/credentials/errors,
+        dynamic registries, plugins, MCP, dynamic tools, workflow DSLs, generic
+        graphs, provider marketplaces, or public runtime harnesses.
+      unknowns: "none"
+      scope: >-
+        cmd/aila test-only guard coverage plus Agentera task and progress artifacts
+        only.
+  - number: 35
+    timestamp: "2026-05-13 07:14"
+    type: test
+    phase: build
+    what: >-
+      Retried and fixed only active M7 Task 4 after inspektera audit failure by
+      extending TestM7CLIAcceptedShapesExitWithExpectedStreams so the exact
+      exit-code/stdout/stderr/no-hang table covers every accepted M7 command and
+      every accepted global flag spelling, including -m, --model=value, -c, and
+      -V.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; inspektera audit failure for criterion 1 overstated coverage"
+    discovered: >-
+      The prior Task 4 evidence overstated Criterion 1 because the stricter
+      runCLIExitTest no-hang stream table covered --model, --continue, and
+      --version but relied on other tests for -m, --model=value, -c, and -V.
+      The fix stayed test-only in cmd/aila and did not change command behavior,
+      config/provider/session/workflow/model/tool IO, or TUI fixtures.
+    verified: >-
+      Criterion 1 retry: `go test ./cmd/aila -run 'TestM7CLI|TestCLIRunner'`
+      passed, including TestM7CLIAcceptedShapesExitWithExpectedStreams coverage
+      for run, --model, -m, --model=value, run prompt --model, continue,
+      --continue, -c, config, config --all, models, models filters, help,
+      --version, and -V with exact expected exit code, stdout, stderr, and the
+      one-second no-hang guard from runCLIExitTest. Relevant TUI fixture stability
+      check `go test ./internal/tui -run
+      'TestM6|TestM5|TestM4|TestRequired|TestInput|TestResize|TestCommand'`
+      passed from cache with no fixture changes. `mage fmt` completed
+      successfully after the Go test edit.
+    next: >-
+      Execute M7 Task 5 only when explicitly requested; Task 6 remains pending.
+    context:
+      intent: >-
+        Correct the Task 4 audit gap without implementing Tasks 5-6 or widening
+        M7 beyond deterministic CLI-shape tests.
+      constraints: >-
+        Retry/fix only active M7 Task 4; do not implement Task 5 ROADMAP closeout,
+        Task 6 archive, real command behavior, config/provider/session/workflow/
+        model/tool IO, TUI fixture changes, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila table-driven test coverage and Agentera retry progress evidence
+        only.
+  - number: 36
+    timestamp: "2026-05-13 07:34"
+    type: test
+    phase: build
+    what: >-
+      Executed only active M7 Task 5 validation and roadmap closeout. Verified the
+      existing no-argument TUI startup/quit path, targeted M7 CLI and app tests,
+      existing TUI package tests, CLI/package no-IO guards, full project tests,
+      and the full Mage gate before updating ROADMAP.md. Applied the smallest
+      lint-only fix for unchecked diagnostic writes in cmd/aila/main.go after the
+      first Mage run exposed the errcheck blocker.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 7"
+    discovered: >-
+      The initial `mage check` failed on two unchecked fmt diagnostic writes in
+      cmd/aila/main.go. The fix stayed inside the M7 CLI runner error-output path,
+      did not add config display/creation, XDG/env reading, provider/model/go-agent/
+      tool/permission/persistence/session/workflow behavior, real command behavior,
+      model filtering/provider errors, plugins, MCP, dynamic tools, workflow DSLs,
+      generic graphs, provider marketplaces, public runtime harnesses, or TUI
+      layout/hierarchy changes.
+    verified: >-
+      Criterion 1: `go test ./cmd/aila -run TestStaticTUISmokeStartupAndQuit`
+      passed, proving no-argument startup and q quit still work through PTY.
+      Criterion 2: targeted M7 validation passed with `go test ./cmd/aila -run
+      'TestM7CLI|TestCLIRunner'`, `go test ./internal/app`, `go test
+      ./internal/tui`, `go test ./cmd/aila -run
+      'TestCLIRunnerBoundaryImports|TestM7CLIStubCommandPathHasNoIOReachability'`,
+      and `go test ./internal/agent ./internal/app ./internal/capability
+      ./internal/context ./internal/history ./internal/permission ./internal/policy
+      ./internal/runtime ./internal/state ./internal/tools ./internal/tui
+      ./internal/utility ./internal/workflow -run TestPackageCompiles`. Criterion
+      3: after the lint-only fix and `mage fmt`, `go test ./...` passed and `mage
+      check` passed with 0 lint issues and no vulnerabilities before ROADMAP.md was
+      updated. Criterion 4: ROADMAP.md records M7 complete, M8 next, active none,
+      validation evidence, and skipped human visual review rationale because M7
+      changed no TUI layout or hierarchy.
+    next: >-
+      Task 6 remains pending and the active plan stays open for the plan-level
+      freshness checkpoint when explicitly requested.
+    context:
+      intent: >-
+        Close out M7 validation after proving the CLI command shape is stable and
+        the existing TUI startup path remains intact.
+      constraints: >-
+        Execute only M7 Task 5; do not implement Task 6 freshness/archive, config
+        display/creation, XDG/env reading, provider/model/go-agent/tool/permission/
+        persistence/session/workflow behavior, real command behavior, model
+        filtering/provider errors, plugins, MCP, dynamic tools, workflow DSLs,
+        generic graphs, provider marketplaces, public runtime harnesses, commits,
+        pushes, or TUI visual hierarchy/layout changes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila lint-only diagnostic write handling, ROADMAP.md M7 closeout, and
+        Agentera Task 5/progress artifacts only.
+  - number: 37
+    timestamp: "2026-05-13 07:40"
+    type: chore
+    phase: build
+    what: >-
+      Executed only active M7 Task 6 plan-level freshness checkpoint by reviewing
+      the final M7 diff against source authorities, archiving the completed plan,
+      removing the active plan, and running post-closeout validation.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md Milestone 7; docs/notes/PROMPT.md; ARCHITECTURE.md; README.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      The final M7 diff remains confined to the cmd/aila deterministic CLI runner,
+      table-driven CLI/no-IO tests, ROADMAP.md M7 closeout, and Agentera artifacts.
+      No M8+ config display or creation, XDG/env reading, provider gateway,
+      provider metadata, credential lookup, provider errors, real model turns,
+      tools, permissions, persistence, workflow behavior, real session
+      continuation, plugin, MCP, dynamic-tool, workflow-DSL, generic-graph,
+      provider-marketplace, public runtime harness, or fixed-product violation
+      entered the change.
+    verified: >-
+      Criterion 1: reviewed the final M7 diff against ROADMAP.md,
+      docs/notes/PROMPT.md, ARCHITECTURE.md, README.md, docs/tui-testing.md, and
+      docs/workflow-architecture.md, confirming the implementation preserves the
+      statechart-MVU, fixed-product, TUI presentation-only, and workflow authority
+      boundaries. Criterion 2: closeout keeps config display, config creation,
+      provider gateway, real model turns, tools, permissions, persistence,
+      workflow behavior, and real session continuation deferred to later roadmap
+      milestones. Criterion 3: archived the completed plan to
+      .agentera/archive/plan-2026-05-13-m7.yaml, marked Task 6 complete there,
+      removed active .agentera/plan.yaml, and preserved Agentera progress evidence.
+      Criterion 4: post-closeout `mage check` passed; `agentera plan` reported no
+      active plan; `agentera progress` reported this final M7 evidence as cycle 37.
+    next: >-
+      Active Agentera plan is closed. Plan or execute ROADMAP.md Milestone 8:
+      Config Display Stub only when explicitly requested, and keep config creation,
+      provider gateway, real model turns, tools, permissions, persistence,
+      workflow behavior, and real session continuation deferred.
+    context:
+      intent: >-
+        Close M7 after proving the CLI command-shape milestone stayed limited to
+        deterministic stubs and did not activate future runtime behavior.
+      constraints: >-
+        Execute only M7 Task 6; do not implement M8+ config display/creation,
+        XDG/env reading, provider gateway, provider metadata, credential lookup,
+        provider errors, real model turns, tools, permissions, persistence,
+        workflow behavior, real session continuation, plugins, MCP, dynamic tools,
+        workflow DSLs, generic graph engines, provider marketplaces, public runtime
+        harnesses, commits, or pushes.
+      unknowns: "none"
+      scope: >-
+        Agentera progress evidence, completed plan archival, and active plan
+        removal only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
   - .agentera/archive/plan-2026-05-12-m6.yaml
+  - .agentera/archive/plan-2026-05-13-m7.yaml
