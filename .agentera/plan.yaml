@@ -1,0 +1,72 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: active
+  reviewed: 2026-05-13
+  critic_issues: "7 found, addressed"
+  title: M9 Config Creation And XDG Paths
+
+what: Create and load Aila's user config at the documented XDG path.
+why: Turn M8 labels into user config without runtime behavior.
+constraints: >-
+  Support only llm.model, llm.utility.model, and autonomy.level. Test with temp
+  XDG/HOME. No M9A, runtime, project-state, config-UI, plugin, MCP,
+  dynamic/generic, push, or remote behavior.
+scope:
+  included:
+    - XDG path resolution, parent creation, default creation, value loading, bounded config output, TUI/semantic/PTY/boundary/closeout validation.
+  excluded:
+    - Provider gateway, credentials, models real behavior, permissions, tools, workflow/session state, project .aila, and config UI.
+design: Narrow app/CLI config boundary; TUI receives labels only.
+
+tasks:
+  - number: 1
+    name: Define config path and file contract
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN XDG_CONFIG_HOME is set WHEN resolving config THEN path is $XDG_CONFIG_HOME/aila/config.toml.
+      - GIVEN XDG_CONFIG_HOME is unset and HOME is set WHEN resolving config THEN path is $HOME/.config/aila/config.toml.
+      - GIVEN config is absent, present, malformed, or missing keys WHEN loading THEN Aila creates README defaults, preserves files, or errors boundedly without touching project .aila.
+  - number: 2
+    name: Load config into startup display
+    depends_on: ["1"]
+    status: pending
+    acceptance:
+      - GIVEN non-default values WHEN no-arg Aila starts THEN render and semantics show them.
+      - GIVEN no config WHEN no-arg Aila starts THEN defaults are created and shown.
+      - GIVEN malformed config WHEN startup runs THEN it errors boundedly, preserves the file, and contacts no provider.
+  - number: 3
+    name: Bound config command behavior
+    depends_on: ["1"]
+    status: pending
+    acceptance:
+      - GIVEN no config WHEN aila config --all runs THEN it creates defaults and prints only path plus three supported values.
+      - GIVEN aila config runs THEN it reports path and defers config UI.
+      - GIVEN other stubs or invalid inputs WHEN tested THEN bounded behavior and diagnostics stay unchanged.
+  - number: 4
+    name: Refresh display evidence
+    depends_on: ["2", "3"]
+    status: pending
+    acceptance:
+      - GIVEN loaded defaults WHEN fixtures render THEN labels and semantic fields match.
+      - GIVEN temp XDG WHEN PTY starts Aila THEN labels appear, no real credentials are read, and exit is clean.
+      - GIVEN snapshots change WHEN reviewed THEN diffs are intentional and command content stays visible at 80x24.
+  - number: 5
+    name: Validate M9 boundaries
+    depends_on: ["1", "2", "3", "4"]
+    status: pending
+    acceptance:
+      - GIVEN boundary tests WHEN run THEN config IO stays in app/CLI config code and TUI stays presentation-only.
+      - GIVEN validation WHEN inspected THEN no deferred M9A/runtime/project-state behavior appears.
+      - GIVEN targeted tests, go test ./..., git diff --check, PTY smoke, and mage check WHEN run THEN all pass.
+  - number: 6
+    name: Synchronize final M9 state
+    depends_on: ["5"]
+    status: pending
+    acceptance:
+      - GIVEN validation passes WHEN closing M9 THEN ROADMAP marks M9 complete, M9A next, active none.
+      - GIVEN closeout runs WHEN Agentera state updates THEN plan archives, active plan disappears, progress records evidence, agentera plan is empty, and mage check still passes.
+      - GIVEN no remote publication request WHEN done THEN no push occurs.
+
+surprises: []

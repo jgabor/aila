@@ -2209,6 +2209,46 @@ cycles:
       scope: >-
         ROADMAP.md M8 closeout, Agentera progress evidence, completed plan
         archival, and active plan removal only.
+  - number: 44
+    timestamp: "2026-05-13 09:16"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9 Task 1 by adding the narrow app-owned config path,
+      default creation, and file loading contract for llm.model,
+      llm.utility.model, and autonomy.level without wiring startup, CLI config,
+      TUI, provider, tool, permission, workflow, session, or project-state
+      behavior.
+    commit: "4bcd177"
+    inspiration: ".agentera/plan.yaml task 1; README.md Configuration; ROADMAP.md Milestone 9"
+    discovered: >-
+      The no-workspace-.aila test must be serial because Go tests that mutate
+      process environment or cwd cannot use t.Parallel. No product-scope blocker
+      was found.
+    verified: >-
+      `mage fmt` completed after Go edits. `go test ./internal/app -run
+      'TestResolveConfigPath|TestLoadConfig'` passed, proving XDG_CONFIG_HOME
+      and HOME path resolution, absent config README-default creation, present
+      config preservation, malformed and missing-key bounded errors with file
+      preservation, unsupported M9 key rejection, and no workspace .aila
+      creation. `go test ./...` passed, including cmd/aila PTY coverage and all
+      internal package tests.
+    next: >-
+      Execute M9 Task 2 only when requested: load config into startup display.
+    context:
+      intent: >-
+        Define the durable config file contract needed before startup or CLI
+        config behavior can consume it.
+      constraints: >-
+        Execute only M9 Task 1; support only llm.model, llm.utility.model, and
+        autonomy.level; use temp XDG/HOME tests; do not implement M9A provider,
+        credential, model-readiness, real model turn, tool, permission, workflow,
+        session, project .aila, config UI, plugin, MCP, dynamic, generic, push,
+        or remote behavior.
+      unknowns: "none"
+      scope: >-
+        internal/app config contract and tests plus Agentera task/progress
+        artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
