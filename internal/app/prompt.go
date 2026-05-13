@@ -27,7 +27,13 @@ func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
 func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.PromptSubmitted{Text: text})
-	return transcriptTurn(runner.model.Transcript[before:])
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	turn.RuntimeStatus = string(runner.model.Status)
+	turn.StatusSource = "runtime.dispatch"
+	turn.StatusDetail = "fake in-memory runtime loop"
+	turn.RuntimeActive = runner.model.Status == runtime.StatusActive
+	turn.RuntimeResult = runner.model.Result
+	return turn
 }
 
 func (runner *inputRunner) routeCommand(recommendation policy.CommandRecommendation) {

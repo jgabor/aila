@@ -55,7 +55,7 @@ tasks:
   - number: 5
     name: Add bounded runtime PTY smoke
     depends_on: ["4"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN a bounded PTY session WHEN one prompt is submitted THEN visible output proves the prompt/result flow used the runtime path and no provider/tool/config side effects occur.
   - number: 6

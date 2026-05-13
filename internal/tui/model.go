@@ -19,6 +19,11 @@ type CommandRouteFunc func(policy.CommandRecommendation)
 type TranscriptTurn struct {
 	UserText      string
 	AssistantText string
+	RuntimeStatus string
+	StatusSource  string
+	StatusDetail  string
+	RuntimeActive bool
+	RuntimeResult string
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -185,9 +190,21 @@ func (m *Model) handlePromptKey(msg tea.KeyMsg) tea.Cmd {
 			if turn.UserText != "" || turn.AssistantText != "" {
 				m.state.Transcript = append(m.state.Transcript, turn)
 			}
+			m.applyRuntimeStatus(turn)
 		}
 	}
 	return nil
+}
+
+func (m *Model) applyRuntimeStatus(turn TranscriptTurn) {
+	if turn.RuntimeStatus == "" {
+		return
+	}
+	m.state.RuntimeStatus = turn.RuntimeStatus
+	m.state.StatusSource = turn.StatusSource
+	m.state.StatusDetail = turn.StatusDetail
+	m.state.RuntimeActive = turn.RuntimeActive
+	m.state.RuntimeResult = turn.RuntimeResult
 }
 
 func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {

@@ -3384,6 +3384,46 @@ cycles:
         internal/tui presentation state, semantic renderer, deterministic runtime
         status fixtures/snapshots, source-boundary tests, and Task 4 Agentera
         metadata.
+  - number: 74
+    timestamp: "2026-05-13 20:05"
+    type: test
+    phase: build
+    what: >-
+      Added the M12 Task 5 bounded PTY smoke for one ordinary prompt through the
+      app-owned runtime path, surfacing display-only runtime dispatch/result
+      markers in the live TUI after the fake in-memory response.
+    commit: "same commit as implementation"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 12"
+    discovered: >-
+      Task 4 runtime status markers existed in deterministic fixtures but the live
+      submit callback only returned transcript text, so the TUI turn payload now
+      carries app-owned display-only runtime status fields without importing
+      runtime into production TUI code. .agentera/session.yaml remained local
+      state and was not edited or committed.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      TestPromptSubmitPTYSmoke` passed and observed `Runtime idle`,
+      `status source: runtime.dispatch`, `detail: fake in-memory runtime loop`,
+      and the fake prompt result in a scrubbed temp PTY session. `go test
+      ./internal/app ./internal/tui ./internal/runtime` passed. `go test ./...`
+      passed. `git diff --check` passed.
+    next: >-
+      Execute M12 Task 6 only when selected; Task 6 remains pending.
+    context:
+      intent: >-
+        Prove a bounded live terminal prompt/result flow uses the deterministic
+        runtime path before validation closeout, real providers, tools,
+        permissions, persistence, queueing, or workflow mutation.
+      constraints: >-
+        Execute only M12 Task 5; scrubbed temp PTY environment only. Do not add
+        validation closeout, queueing, interrupts, cancellation behavior, real
+        model/provider/tool execution, permission policy, persistence/project
+        .aila, workflow mutation/transition, capability routing, state store,
+        plugins, MCP, dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila bounded PTY prompt smoke, app/TUI display-only runtime status
+        handoff, tests, and Task 5 Agentera metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

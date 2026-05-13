@@ -63,6 +63,33 @@ func TestModelAcceptsAppOwnedDisplayStateWithoutChangingInputBehavior(t *testing
 	}
 }
 
+func TestPromptSubmitAppliesAppOwnedRuntimeStatus(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		return TranscriptTurn{
+			UserText:      text,
+			AssistantText: "Fake Aila response: " + text,
+			RuntimeStatus: "idle",
+			StatusSource:  "runtime.dispatch",
+			StatusDetail:  "fake in-memory runtime loop",
+			RuntimeResult: "Fake Aila response: " + text,
+		}
+	}, nil)
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hello")})
+	if cmd != nil {
+		t.Fatal("typing prompt emitted a command")
+	}
+	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("ordinary prompt submit with runtime status must not emit a command")
+	}
+	if !containsAll(got.View(), []string{"Runtime idle", "status source: runtime.dispatch", "detail: fake in-memory runtime loop", "result: Fake Aila response: hello"}) {
+		t.Fatalf("view missing app-owned runtime status:\n%s", got.View())
+	}
+}
+
 func TestDefaultModelDoesNotOwnWorkflowPhase(t *testing.T) {
 	t.Parallel()
 

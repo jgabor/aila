@@ -27,6 +27,11 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	want := tui.TranscriptTurn{
 		UserText:      "explain this repo",
 		AssistantText: "Fake Aila response: explain this repo",
+		RuntimeStatus: "idle",
+		StatusSource:  "runtime.dispatch",
+		StatusDetail:  "fake in-memory runtime loop",
+		RuntimeActive: false,
+		RuntimeResult: "Fake Aila response: explain this repo",
 	}
 	if result != want {
 		t.Fatalf("submit result = %+v, want %+v", result, want)

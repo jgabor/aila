@@ -48,7 +48,8 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
-	ctx, cancel, terminal, wait := startAilaPTY(t)
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 80, 24, env.vars)
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 
@@ -57,12 +58,26 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 		t.Fatalf("send prompt submit input: %v", err)
 	}
 
-	output := readUntil(t, terminal, "Fake Aila response: explain this repo", 10*time.Second)
-	if !strings.Contains(output, "user: explain this repo") {
-		t.Fatalf("submit output missing user prompt marker: %q", output)
+	output := readUntilAll(t, terminal, []string{
+		"Stage IDLE | Runtime idle",
+		"Runtime status:",
+		"status source: runtime.dispatch",
+		"detail: fake in-memory runtime loop",
+		"active: false",
+		"result: Fake Aila response: explain this repo",
+		"user: explain this repo",
+		"assistant: Fake Aila response: explain this repo",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"OPENAI", "ANTHROPIC", "GOOGLE_API", "credential", "provider", "tool execution", "config.toml", ".config/aila"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("runtime prompt PTY exposed provider/tool/config marker %q: %q", forbidden, output)
+		}
 	}
-	if !strings.Contains(output, "assistant: Fake Aila response: explain this repo") {
-		t.Fatalf("submit output missing assistant response marker: %q", output)
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for scrubbed PTY startup: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".config", "aila")); !os.IsNotExist(err) {
+		t.Fatalf("scrubbed PTY touched HOME config path, err=%v", err)
 	}
 
 	if _, err := terminal.Write([]byte("q")); err != nil {
@@ -277,6 +292,7 @@ func startAilaPTYWithSizeAndEnv(t *testing.T, cols uint16, rows uint16, env []st
 
 type ailaPTYTestEnv struct {
 	vars          []string
+	home          string
 	xdgConfigHome string
 }
 
@@ -308,7 +324,7 @@ func newAilaPTYEnv(t *testing.T) ailaPTYTestEnv {
 			env = append(env, name+"="+value)
 		}
 	}
-	return ailaPTYTestEnv{vars: env, xdgConfigHome: xdgConfigHome}
+	return ailaPTYTestEnv{vars: env, home: filepath.Join(tmp, "home"), xdgConfigHome: xdgConfigHome}
 }
 
 func goEnv(t *testing.T, name string) string {
