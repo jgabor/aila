@@ -2326,9 +2326,129 @@ cycles:
       scope: >-
         cmd/aila config command behavior and command tests, internal/app config
         command rendering, and Agentera task/progress artifacts only.
+  - number: 47
+    timestamp: "2026-05-13 09:50"
+    type: test
+    phase: build
+    what: >-
+      Executed only M9 Task 4 by refreshing display evidence around config-loaded
+      defaults: fixture snapshots stayed intentionally unchanged, and the PTY
+      display smoke now starts Aila with temp XDG config state and proves default
+      config creation before clean quit.
+    commit: "0490563"
+    inspiration: ".agentera/plan.yaml task 4; commits 822f8e0 and e219f76"
+    discovered: >-
+      Checked-in display fixtures and semantic snapshots already matched the
+      loaded README defaults, so no snapshot regeneration was needed. The PTY
+      harness isolated HOME and caches but did not set XDG_CONFIG_HOME; the smoke
+      now does so explicitly and checks the generated temp config file.
+    verified: >-
+      `mage fmt` completed after PTY test edits. `go test ./internal/tui -run
+      'TestM8Display|TestM5CommandFixtureSet'` passed, proving default labels,
+      semantic display fields, and command content remain visible in checked-in
+      fixture renders including 80x24. `go test ./cmd/aila -run
+      'TestM8DisplayLabelsPTYSmoke'` passed, proving temp XDG startup displays
+      labels, writes the default config under temp XDG, exposes no credential or
+      real config path markers, and exits cleanly. `go test ./cmd/aila -run
+      'TestStaticTUISmokeStartupAndQuit|TestPromptSubmitPTYSmoke|TestM5CommandPTYSmoke|TestM6ResizePTYSmoke|TestM8DisplayLabelsPTYSmoke'`
+      passed. `go test ./internal/tui`, `go test ./...`, and `git diff --check`
+      passed.
+    next: >-
+      Execute M9 Task 5 only when requested: validate M9 boundaries. Do not do
+      final closeout or archive the active plan before Task 5 passes.
+    context:
+      intent: >-
+        Refresh or verify display evidence after config loading without expanding
+        runtime behavior or changing snapshots unnecessarily.
+      constraints: >-
+        Execute only M9 Task 4; support only llm.model, llm.utility.model, and
+        autonomy.level; keep TUI presentation-only; use temp XDG/HOME PTY state;
+        do not implement provider readiness, credentials, real model turns, tools,
+        permissions, workflow/session/project .aila state, config UI, plugin, MCP,
+        dynamic/generic surfaces, final validation closeout, ROADMAP closeout,
+        archive, push, or remote behavior.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY smoke evidence and Agentera task/progress artifacts only;
+        fixture and semantic snapshot files were verified read-only.
+  - number: 48
+    timestamp: "2026-05-13 10:02"
+    type: test
+    phase: validate
+    what: >-
+      Executed only M9 Task 5 boundary validation. No source edits were needed;
+      Task 5 was marked complete after boundary inspection and the required test
+      suite passed.
+    commit: "8cce2cc"
+    inspiration: ".agentera/plan.yaml task 5; M9 commits 4bcd177..383613f"
+    discovered: >-
+      Changed M9 source scope stayed confined to cmd/aila and internal/app, with
+      TUI receiving labels only. Inspection found only explicit deferred strings
+      and test-only guards for provider, credential, workflow, session,
+      permission, tool, plugin, MCP, dynamic/generic, and project .aila behavior.
+    verified: >-
+      `go test ./internal/app ./cmd/aila ./internal/tui` passed. `go test
+      ./internal/app -run 'TestDisplayConfig|TestInitialDisplayState|TestLoadConfig|TestResolveConfigPath'`
+      passed. `go test ./cmd/aila -run
+      'TestCLIRunnerBoundaryImports|TestM7CLIStubCommandPathHasNoIOReachability|TestCLIRunnerConfig|TestM8DisplayLabelsPTYSmoke'`
+      passed, including PTY smoke. `go test ./internal/tui -run
+      'Test.*Boundary|Test.*Presentation|TestRequiredM3Semantic|TestM8Display'`
+      passed. `go test ./...` passed. `git diff --check` passed. `mage check`
+      passed with all tests, zero lint issues, and no vulnerabilities.
+    next: >-
+      Execute M9 Task 6 only when requested: synchronize final M9 state. Do not
+      push or touch remotes without an explicit request.
+    context:
+      intent: >-
+        Validate that M9 config creation/loading remains a narrow app/CLI config
+        slice and does not introduce deferred runtime behavior.
+      constraints: >-
+        Execute only M9 Task 5; support only llm.model, llm.utility.model, and
+        autonomy.level; do not update ROADMAP closeout, archive/remove the active
+        plan, mark M9 complete, implement M9A/runtime/project-state behavior, push,
+        or touch remotes.
+      unknowns: "none"
+      scope: >-
+        Agentera Task 5 completion and progress metadata only; source files were
+        inspected and validated read-only.
+  - number: 49
+    timestamp: "2026-05-13 10:11"
+    type: chore
+    phase: closeout
+    what: >-
+      Executed only M9 Task 6 closeout by marking ROADMAP.md M9 complete with M9A
+      next and no active milestone, archiving the completed Agentera plan, and
+      removing the active plan.
+    commit: "N/A: closeout evidence is committed with this record"
+    inspiration: ".agentera/plan.yaml task 6; M9 Task 5 validation commit 8cce2cc"
+    discovered: >-
+      No product behavior changes were required. The active plan was closed only
+      after Tasks 1-5 had passed and ROADMAP closeout evidence was available.
+    verified: >-
+      Post-closeout `agentera plan --format json` reported no active plan.
+      Post-closeout `git diff --check` passed. Post-closeout `mage check` passed
+      with all tests, zero lint issues, and no vulnerabilities.
+    next: >-
+      Plan or execute ROADMAP.md Milestone 9A: Provider Gateway And Credential
+      Boundary. No active Agentera plan remains.
+    context:
+      intent: >-
+        Synchronize final M9 state after validation without implementing new
+        product behavior.
+      constraints: >-
+        Execute only M9 Task 6; update only ROADMAP and Agentera closeout
+        artifacts unless validation exposes a true issue; do not implement M9A,
+        runtime, project-state, config UI, provider, credential, model-turn, tool,
+        permission, workflow/session, plugin, MCP, dynamic/generic behavior; do
+        not push.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md, .agentera/archive/plan-2026-05-13-m9.yaml,
+        .agentera/progress.yaml, and removal of .agentera/plan.yaml.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
   - .agentera/archive/plan-2026-05-12-m6.yaml
   - .agentera/archive/plan-2026-05-13-m7.yaml
   - .agentera/archive/plan-2026-05-13-m8.yaml
+  - .agentera/archive/plan-2026-05-13-m9.yaml

@@ -19,13 +19,13 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                                                                                         |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 8: Config Display Stub                                                                                                                                                              |
-| Next milestone           | Milestone 9: Config Creation And XDG Paths                                                                                                                                                    |
-| Active milestone         | none                                                                                                                                                                                          |
-| Last updated             | 2026-05-13                                                                                                                                                                                    |
-| Last validation          | M8 app/TUI/cmd targeted tests, display fixture and semantic gates, PTY display-label startup smoke, `go test ./...`, and `mage check` passed; human visual review skipped, label-only change. |
+| Field                    | Value                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 9: Config Creation And XDG Paths                                                                                                                                            |
+| Next milestone           | Milestone 9A: Provider Gateway And Credential Boundary                                                                                                                                |
+| Active milestone         | none                                                                                                                                                                                  |
+| Last updated             | 2026-05-13                                                                                                                                                                            |
+| Last validation          | M9 app/cmd/TUI targeted tests, temp-XDG PTY startup/config-creation smoke, `go test ./...`, `git diff --check`, post-closeout `agentera plan --format json`, and `mage check` passed. |
 
 Completion log:
 
@@ -40,6 +40,7 @@ Completion log:
 | 6         | completed | 2026-05-12 | Resize/layout responsiveness validated with fixture matrix, PTY resize smoke, methodology hardening, approved human visual review, and full `mage check`.                                                                                                                                                                                            |
 | 7         | completed | 2026-05-13 | CLI command shape validated with cmd/app targeted tests, TUI package tests, package no-IO guards, PTY startup/quit smoke, `go test ./...`, and `mage check`; human visual review skipped because no layout or hierarchy changed.                                                                                                                     |
 | 8         | completed | 2026-05-13 | Config display stub validated with app-owned display defaults/injection tests, TUI display fixtures and semantic snapshots, PTY startup label smoke, `go test ./...`, and `mage check`; human visual review skipped because fixed-size snapshots showed only label text/display-field changes and no layout, hierarchy, or narrow-screen regression. |
+| 9         | completed | 2026-05-13 | Config creation and XDG paths validated with app/cmd config path, load, startup, and command tests; TUI display/semantic checks; temp-XDG PTY startup/config-creation smoke; `go test ./...`; `git diff --check`; post-closeout `agentera plan --format json`; and full `mage check`.                                                                |
 
 Status values:
 

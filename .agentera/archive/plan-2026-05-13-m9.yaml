@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-13
-  status: active
+  status: completed
   reviewed: 2026-05-13
   critic_issues: "7 found, addressed"
   title: M9 Config Creation And XDG Paths
@@ -47,7 +47,7 @@ tasks:
   - number: 4
     name: Refresh display evidence
     depends_on: ["2", "3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN loaded defaults WHEN fixtures render THEN labels and semantic fields match.
       - GIVEN temp XDG WHEN PTY starts Aila THEN labels appear, no real credentials are read, and exit is clean.
@@ -55,7 +55,7 @@ tasks:
   - number: 5
     name: Validate M9 boundaries
     depends_on: ["1", "2", "3", "4"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN boundary tests WHEN run THEN config IO stays in app/CLI config code and TUI stays presentation-only.
       - GIVEN validation WHEN inspected THEN no deferred M9A/runtime/project-state behavior appears.
@@ -63,7 +63,7 @@ tasks:
   - number: 6
     name: Synchronize final M9 state
     depends_on: ["5"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN validation passes WHEN closing M9 THEN ROADMAP marks M9 complete, M9A next, active none.
       - GIVEN closeout runs WHEN Agentera state updates THEN plan archives, active plan disappears, progress records evidence, agentera plan is empty, and mage check still passes.

@@ -198,7 +198,8 @@ func TestM8DisplayLabelsPTYSmoke(t *testing.T) {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
-	ctx, cancel, terminal, wait := startAilaPTY(t)
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 80, 24, env.vars)
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 
@@ -211,6 +212,23 @@ func TestM8DisplayLabelsPTYSmoke(t *testing.T) {
 	for _, forbidden := range []string{"OPENAI", "ANTHROPIC", "GOOGLE_API", "config.toml", ".config/aila"} {
 		if strings.Contains(startup, forbidden) {
 			t.Fatalf("scrubbed PTY startup exposed config or credential marker %q: %q", forbidden, startup)
+		}
+	}
+	configPath := filepath.Join(env.xdgConfigHome, "aila", "config.toml")
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read temp XDG config created by PTY startup: %v", err)
+	}
+	configText := string(config)
+	for _, marker := range []string{
+		`model = "opencode-go/deepseek-v4-pro:high"`,
+		`[llm.utility]`,
+		`model = "opencode-go/deepseek-v4-flash:max"`,
+		`[autonomy]`,
+		`level = "yolo"`,
+	} {
+		if !strings.Contains(configText, marker) {
+			t.Fatalf("temp XDG config missing default marker %q: %s", marker, configText)
 		}
 	}
 
@@ -234,10 +252,15 @@ func startAilaPTY(t *testing.T) (context.Context, context.CancelFunc, *os.File, 
 
 func startAilaPTYWithSize(t *testing.T, cols uint16, rows uint16) (context.Context, context.CancelFunc, *os.File, <-chan error) {
 	t.Helper()
+	return startAilaPTYWithSizeAndEnv(t, cols, rows, newAilaPTYEnv(t).vars)
+}
+
+func startAilaPTYWithSizeAndEnv(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error) {
+	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	cmd := exec.CommandContext(ctx, "go", "run", ".")
-	cmd.Env = ailaPTYEnv(t)
+	cmd.Env = env
 
 	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: rows, Cols: cols})
 	if err != nil {
@@ -252,19 +275,26 @@ func startAilaPTYWithSize(t *testing.T, cols uint16, rows uint16) (context.Conte
 	return ctx, cancel, terminal, wait
 }
 
-func ailaPTYEnv(t *testing.T) []string {
+type ailaPTYTestEnv struct {
+	vars          []string
+	xdgConfigHome string
+}
+
+func newAilaPTYEnv(t *testing.T) ailaPTYTestEnv {
 	t.Helper()
 
 	tmp := t.TempDir()
-	for _, dir := range []string{"home", "xdg-cache", "go-build", "tmp"} {
+	for _, dir := range []string{"home", "xdg-cache", "xdg-config", "go-build", "tmp"} {
 		if err := os.MkdirAll(filepath.Join(tmp, dir), 0o755); err != nil {
 			t.Fatalf("create PTY test environment directory: %v", err)
 		}
 	}
+	xdgConfigHome := filepath.Join(tmp, "xdg-config")
 
 	env := []string{
 		"TERM=xterm-256color",
 		"HOME=" + filepath.Join(tmp, "home"),
+		"XDG_CONFIG_HOME=" + xdgConfigHome,
 		"XDG_CACHE_HOME=" + filepath.Join(tmp, "xdg-cache"),
 		"GOCACHE=" + filepath.Join(tmp, "go-build"),
 		"TMPDIR=" + filepath.Join(tmp, "tmp"),
@@ -278,7 +308,7 @@ func ailaPTYEnv(t *testing.T) []string {
 			env = append(env, name+"="+value)
 		}
 	}
-	return env
+	return ailaPTYTestEnv{vars: env, xdgConfigHome: xdgConfigHome}
 }
 
 func goEnv(t *testing.T, name string) string {
