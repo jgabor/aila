@@ -48,7 +48,7 @@ tasks:
   - number: 5
     name: Add fake device-code effects
     depends_on: ["2", "3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN fake clients/clocks WHEN device-code start/poll/retry/timeout/refresh/cancel runs THEN typed effect results are deterministic and default checks use no browser/network.
   - number: 6

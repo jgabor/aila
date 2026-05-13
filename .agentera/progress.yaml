@@ -2600,6 +2600,48 @@ cycles:
         cmd/aila models command output, internal/app command-output adapter,
         internal/agent fake diagnostic catalog/tests, Task 4 plan status, and this
         progress record only.
+  - number: 54
+    timestamp: "2026-05-13 12:44"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9A Task 5 by adding an injected internal/agent device-code
+      effect domain with deterministic fake start, poll, pending retry, timeout,
+      refresh, cancel, success, failure, and redaction behavior.
+    commit: "bbd158a"
+    inspiration: ".agentera/plan.yaml task 5; M9A Task 2 readiness domain commit bb52e80; M9A Task 3 credential boundary commit 7d2433f"
+    discovered: >-
+      Device-code readiness was already modeled as credential-check-free, so the
+      effect layer could stay under internal/agent with injected fake clients and
+      fake clocks. No browser opener, network client, real polling, real sleeps,
+      credential lookup, runtime turn, tool, permission, workflow/session/project
+      .aila state, config UI, plugin, MCP, dynamic, or generic provider surface
+      was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/agent` passed with
+      deterministic start/poll success, pending retry schedule, timeout without
+      polling, cancel without polling, refresh, typed failure, redaction, and
+      default device-code validation coverage. Source inspection via grep found
+      no browser/network opener or time.Sleep usage under internal/agent. `go
+      test ./...` passed. `git diff --check` passed before implementation commit
+      bbd158a.
+    next: >-
+      Execute M9A Task 6 only when requested; Tasks 6-8 remain pending.
+    context:
+      intent: >-
+        Add the fake device-code effect vocabulary required before any optional
+        live smoke or runtime readiness gates, while keeping auth behavior fully
+        deterministic and injected.
+      constraints: >-
+        Execute only M9A Task 5; do not implement live smoke, real browser
+        opening, real provider/network polling, startup readiness gating,
+        runtime/model turns, tools, permissions, workflow/session/project .aila
+        state, config UI, plugins, MCP, dynamic/generic surfaces, pushes, or
+        remotes.
+      unknowns: "none"
+      scope: >-
+        internal/agent device-code effect domain and tests, Task 5 plan status,
+        and this progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
