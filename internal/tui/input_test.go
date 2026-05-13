@@ -63,12 +63,12 @@ func TestModelAcceptsAppOwnedDisplayStateWithoutChangingInputBehavior(t *testing
 	}
 }
 
-func TestDefaultModelKeepsPlaceholderDisplayState(t *testing.T) {
+func TestDefaultModelDoesNotOwnWorkflowPhase(t *testing.T) {
 	t.Parallel()
 
 	view := NewModelWithSize(Size{Width: 80, Height: 24}).View()
-	if !strings.Contains(view, "Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder") {
-		t.Fatalf("default TUI model should preserve fixture placeholder labels:\n%s", view)
+	if !strings.Contains(view, "Stage  | Model placeholder | Utility placeholder | Auto placeholder") {
+		t.Fatalf("default TUI model should leave phase injection to the app:\n%s", view)
 	}
 }
 
@@ -568,6 +568,41 @@ func TestCommandSurfacesStayDeterministicAndIOFree(t *testing.T) {
 			} {
 				if strings.Contains(string(source), forbidden) {
 					t.Fatalf("TUI %s command surface contains IO or deferred source marker %q", file, forbidden)
+				}
+			}
+		})
+	}
+}
+
+func TestTUIProductionSourceDoesNotOwnWorkflowPhases(t *testing.T) {
+	t.Parallel()
+
+	for _, file := range []string{"model.go", "render.go"} {
+		file := file
+		t.Run(file, func(t *testing.T) {
+			t.Parallel()
+
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, file, nil, parser.ImportsOnly)
+			if err != nil {
+				t.Fatalf("parse TUI %s: %v", file, err)
+			}
+			for _, spec := range parsed.Imports {
+				if strings.Trim(spec.Path.Value, "\"") == "github.com/jgabor/aila/internal/workflow" {
+					t.Fatalf("TUI %s imports workflow vocabulary", file)
+				}
+			}
+
+			source, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("read TUI %s: %v", file, err)
+			}
+			for _, forbidden := range []string{
+				"PhaseIdle", "PhaseEnvision", "PhaseDeliberate", "PhasePlan", "PhaseBuild", "PhaseAudit",
+				"phaseDisplayLabels", "ParsePhase", "WorkflowTransition", "workflow_transition", "transition table", "Transition(",
+			} {
+				if strings.Contains(string(source), forbidden) {
+					t.Fatalf("TUI %s owns workflow phase or transition marker %q", file, forbidden)
 				}
 			}
 		})

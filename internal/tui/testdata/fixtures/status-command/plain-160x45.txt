@@ -1,13 +1,13 @@
 Aila                                                                                                                                                      160x45
-Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder                                                                                  
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         
 + Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
-| No messages yet.                                                                                                 |  | phase source: not_started              |
+| No messages yet.                                                                                                 |  | phase source: idle                     |
 |                                                                                                                  |  | primary model: placeholder             |
 | status:                                                                                                          |  | utility model: placeholder             |
 | command route: status                                                                                            |  | autonomy: placeholder                  |
 | route source: policy.command                                                                                     |  | git: placeholder                       |
 | Deterministic placeholder status.                                                                                |  | context: placeholder                   |
-| stage placeholder (display-only)                                                                                 |  |                                        |
+| stage IDLE (display-only)                                                                                        |  |                                        |
 | primary model placeholder                                                                                        |  |                                        |
 | utility model placeholder                                                                                        |  |                                        |
 | autonomy: placeholder                                                                                            |  |                                        |

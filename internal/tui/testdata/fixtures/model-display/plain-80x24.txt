@@ -1,5 +1,5 @@
 Aila                                                                       80x24
-Stage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-g~
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deeps~
 + Conversation ----------------------------------------------------------------+
 | Display labels:                                                              |
 | primary model: opencode-go/deepseek-v4-pro:high                              |

@@ -1,5 +1,5 @@
 Aila                                                                       80x24
-Stage placeholder | Model placeholder | Utility placeholder | Auto placeholder  
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder         
 + Conversation ----------------------------------------------------------------+
 | user: explain this repo                                                      |
 | assistant: Fake Aila response: explain this repo                             |

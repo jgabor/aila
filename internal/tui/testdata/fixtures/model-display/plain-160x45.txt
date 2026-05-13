@@ -1,7 +1,7 @@
 Aila                                                                                                                                                      160x45
-Stage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto yolo                                              
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto yolo                                                     
 + Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
-| Display labels:                                                                                                  |  | phase source: not_started              |
+| Display labels:                                                                                                  |  | phase source: idle                     |
 | primary model: opencode-go/deepseek-v4-pro:high                                                                  |  | primary model: opencode-go/deepseek-v~ |
 | utility model: opencode-go/deepseek-v4-flash:max                                                                 |  | utility model: opencode-go/deepseek-v~ |
 | autonomy: yolo (display-only)                                                                                    |  | autonomy: yolo                         |

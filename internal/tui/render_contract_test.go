@@ -211,6 +211,8 @@ func assertRightRailDisplayOnly(t *testing.T, state ViewState, render string) {
 
 func loadFixtureStateForAssertion(name string) ViewState {
 	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
 	state.Scenario = name
 	switch name {
 	case "model-display":

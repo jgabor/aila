@@ -1,5 +1,5 @@
 [1mAila                                                                       80x24[0m
-[2mStage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-g~[0m
+[2mStage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deeps~[0m
 + [33mConversation[0m ----------------------------------------------------------------+
 | Display labels:                                                              |
 | primary model: opencode-go/deepseek-v4-pro:high                              |

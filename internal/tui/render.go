@@ -39,8 +39,6 @@ func IdleEmptyState() ViewState {
 	return ViewState{
 		Scenario:      "idle-empty",
 		AppName:       "Aila",
-		Phase:         "placeholder",
-		PhaseSource:   "not_started",
 		PrimaryModel:  "placeholder",
 		UtilityModel:  "placeholder",
 		Autonomy:      "placeholder",
@@ -255,24 +253,22 @@ type SemanticLayout struct {
 
 // SemanticSession describes session-level presentation state.
 type SemanticSession struct {
-	Phase              string `json:"phase"`
-	PhaseSource        string `json:"phase_source"`
-	WorkflowTransition bool   `json:"workflow_transition"`
-	Active             bool   `json:"active"`
-	QueuedMessages     int    `json:"queued_messages"`
-	PrimaryModel       string `json:"primary_model"`
-	UtilityModel       string `json:"utility_model"`
-	Autonomy           string `json:"autonomy"`
+	Phase          string `json:"phase"`
+	PhaseSource    string `json:"phase_source"`
+	Active         bool   `json:"active"`
+	QueuedMessages int    `json:"queued_messages"`
+	PrimaryModel   string `json:"primary_model"`
+	UtilityModel   string `json:"utility_model"`
+	Autonomy       string `json:"autonomy"`
 }
 
 // SemanticCommand describes a visible command surface without implying execution.
 type SemanticCommand struct {
-	Route              string `json:"route"`
-	RouteSource        string `json:"route_source"`
-	Surface            string `json:"surface"`
-	Visible            bool   `json:"visible"`
-	Executed           bool   `json:"executed"`
-	WorkflowTransition bool   `json:"workflow_transition"`
+	Route       string `json:"route"`
+	RouteSource string `json:"route_source"`
+	Surface     string `json:"surface"`
+	Visible     bool   `json:"visible"`
+	Executed    bool   `json:"executed"`
 }
 
 // SemanticRegion describes a visible region of the static shell.
@@ -307,12 +303,11 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	var command *SemanticCommand
 	if state.CommandRoute != "" || state.SurfaceTitle != "" {
 		command = &SemanticCommand{
-			Route:              state.CommandRoute,
-			RouteSource:        state.RouteSource,
-			Surface:            state.SurfaceTitle,
-			Visible:            state.SurfaceTitle != "",
-			Executed:           false,
-			WorkflowTransition: false,
+			Route:       state.CommandRoute,
+			RouteSource: state.RouteSource,
+			Surface:     state.SurfaceTitle,
+			Visible:     state.SurfaceTitle != "",
+			Executed:    false,
 		}
 	}
 	regions = append(regions,
@@ -334,14 +329,13 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			RightRailVisible: layout.RightRailVisible,
 		},
 		Session: SemanticSession{
-			Phase:              state.Phase,
-			PhaseSource:        state.PhaseSource,
-			WorkflowTransition: false,
-			Active:             false,
-			QueuedMessages:     0,
-			PrimaryModel:       state.PrimaryModel,
-			UtilityModel:       state.UtilityModel,
-			Autonomy:           state.Autonomy,
+			Phase:          state.Phase,
+			PhaseSource:    state.PhaseSource,
+			Active:         false,
+			QueuedMessages: 0,
+			PrimaryModel:   state.PrimaryModel,
+			UtilityModel:   state.UtilityModel,
+			Autonomy:       state.Autonomy,
 		},
 		Command: command,
 		Regions: regions,

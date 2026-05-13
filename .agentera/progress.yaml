@@ -2843,6 +2843,169 @@ cycles:
       scope: >-
         internal/app startup phase wiring/tests, Task 2 plan status, and this
         progress record only.
+  - number: 60
+    timestamp: "2026-05-13 14:10"
+    type: test
+    phase: build
+    what: >-
+      Executed only M10 Task 3 by removing TUI-owned placeholder phase defaults
+      and workflow transition metadata, injecting workflow-derived phase strings
+      into focused TUI fixtures, and adding a production-source boundary test for
+      phase/transition ownership.
+    commit: "88e7dcc"
+    inspiration: ".agentera/plan.yaml task 3; M10 Task 2 commit 6f34462 startup phase injection"
+    discovered: >-
+      Removing TUI phase ownership necessarily changed checked-in TUI fixture
+      outputs from placeholder/not_started to injected IDLE/idle and removed
+      workflow_transition semantic fields. The existing fixed-width plain text
+      snapshots retain trailing spaces by design, so `git diff --check` reported
+      those snapshot lines before commit even though Go tests and commit hooks
+      passed.
+    verified: >-
+      `mage fmt` completed successfully. `AILA_UPDATE_TUI_SNAPSHOTS=1 go test
+      ./internal/tui` passed after explicit snapshot refresh. `go test
+      ./internal/tui ./internal/app ./internal/workflow` passed. `go test ./...`
+      passed. `git diff --check` was run and reported only fixed-width TUI
+      snapshot trailing spaces introduced by regenerated render fixtures. The
+      implementation commit hook for 88e7dcc passed configs, lint, tidy, and vet.
+      Source/fixture inspection found no production TUI workflow import,
+      workflow_transition semantic field, placeholder/not_started phase fixture,
+      local phase enum, phase label map, parser, transition table, FSM state,
+      runtime loop, capability routing, model/tool execution, permissions,
+      persistence/project .aila, plugins, MCP, dynamic/generic surface, push, or
+      remote work.
+    next: >-
+      Execute M10 Task 4 only when requested; Tasks 4-6 remain pending.
+    context:
+      intent: >-
+        Keep TUI phase rendering presentation-only by requiring phase identity and
+        label to arrive through ViewState instead of TUI vocabulary ownership.
+      constraints: >-
+        Execute only M10 Task 3; do not add transition validation/table, FSM
+        state, runtime loop, app behavior beyond focused test injection,
+        capability routing, model/tool execution, permissions,
+        persistence/project .aila, config/provider behavior, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/tui presentation state, focused TUI/app tests and fixture outputs,
+        Task 3 plan status, and this progress record only.
+  - number: 61
+    timestamp: "2026-05-13 14:16"
+    type: test
+    phase: validation
+    what: >-
+      Executed only M10 Task 4 by reviewing the Task 3 phase-display fixture diff,
+      rerunning deterministic TUI fixture/semantic coverage, and running a bounded
+      no-arg startup PTY smoke because visible startup output now shows IDLE/idle.
+    commit: "4e90ae50672061e0fbfc32ece3baf5ff4f4adad1"
+    inspiration: ".agentera/plan.yaml task 4; Task 3 implementation commit 88e7dcc"
+    discovered: >-
+      Task 3 snapshot diffs were limited to placeholder/not_started changing to
+      IDLE/idle, removal of workflow_transition semantic fields, and consequent
+      fixed-width text reflow/truncation from the shorter phase label. No product
+      source changes were needed for Task 4.
+    verified: >-
+      `git show --unified=0 --format= 88e7dcc -- internal/tui/testdata/fixtures | rg
+      '^[+-][^+-]' | rg -v
+      'placeholder|not_started|workflow_transition|IDLE|idle|stage IDLE|Stage
+      IDLE|stage placeholder|Stage placeholder|display-only|executed'` produced no
+      output, confirming no unexpected snapshot diff lines. `go test
+      ./internal/tui -count=1` passed. `go test ./cmd/aila -run
+      TestStaticTUISmokeStartupAndQuit -count=1` passed as the bounded no-arg
+      startup PTY smoke. `go test ./...` passed. `git diff --check` passed before
+      metadata commit.
+    next: >-
+      Execute M10 Task 5 only when requested; Tasks 5-6 remain pending.
+    context:
+      intent: >-
+        Refresh and record evidence for the intentional phase display snapshot
+        changes without adding product behavior.
+      constraints: >-
+        Execute only M10 Task 4; do not add transition validation/table, FSM state,
+        runtime loop, capability routing, model/tool execution, permissions,
+        persistence/project .aila, config/provider behavior, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        Task 4 plan status and this progress evidence record only.
+  - number: 62
+    timestamp: "2026-05-13 14:26"
+    type: test
+    phase: validation
+    what: >-
+      Executed only M10 Task 5 boundary validation across workflow, app, TUI, and
+      visible startup coverage. No product source changes were needed.
+    commit: "1a0e9e565771efadc6e3f5dfd878347ca31c9b1c"
+    inspiration: ".agentera/plan.yaml task 5; M10 source commits 6e9f3da, 6f34462, 88e7dcc, 5a5a5d3"
+    discovered: >-
+      Existing M7 CLI help/stubs still name deferred workflow behavior, including
+      deferred real status sources. That text predates M10 and is not a Task 5
+      boundary leak.
+    verified: >-
+      `go test ./internal/workflow ./internal/app ./internal/tui ./cmd/aila
+      -count=1` passed, including targeted workflow/app/TUI tests and cmd/aila
+      PTY/startup coverage. `go test ./...` passed. `git diff --check` passed.
+      `mage check` passed with package tests, zero lint issues, and no
+      vulnerabilities. Source inspection verified workflow owns phase vocabulary
+      and display labels, app injects workflow.IDLE into startup view state, and
+      TUI renders injected strings with display-only semantics. The same source
+      inspection found no new M10 deferred behavior and no newly implemented
+      transition validation/table, FSM state/mutation, runtime loop, capability
+      routing, model/tool execution, permissions, persistence/project .aila
+      behavior, config/provider behavior changes, plugins, MCP, dynamic/generic
+      surfaces, push, or remote work. Pre-existing M7 deferred stub text remains
+      unchanged and is outside the M10 Task 5 boundary.
+    next: >-
+      Execute M10 Task 6 only when requested; Task 6 remains pending.
+    context:
+      intent: >-
+        Validate M10 boundaries and record evidence without closing the milestone
+        or changing product behavior.
+      constraints: >-
+        Execute only M10 Task 5; do not close ROADMAP, archive/remove the active
+        plan, mark Task 6 complete, add transition validation/table, FSM state,
+        runtime loop, capability routing, model/tool execution, permissions,
+        persistence/project .aila, config/provider behavior, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        Task 5 plan status and this validation evidence record only.
+  - number: 63
+    timestamp: "2026-05-13 14:37"
+    type: chore
+    phase: validation
+    what: >-
+      Executed only M10 Task 6 closeout by marking M10 complete in ROADMAP.md,
+      setting M11 as next with no active milestone, archiving the completed M10
+      plan, removing the active plan, and recording final validation evidence.
+    commit: "f567ce57e065e0cb903148b46792f62309b01fe7"
+    inspiration: ".agentera/plan.yaml task 6; M10 Task 5 validation commit 5bd9a2d"
+    discovered: >-
+      Closeout required no product source changes. The active plan was removed
+      after archiving it as .agentera/archive/plan-2026-05-13-m10.yaml with Task 6
+      marked complete.
+    verified: >-
+      Task 5 evidence already showed targeted workflow/app/TUI/cmd tests, `go test
+      ./...`, `git diff --check`, and `mage check` passed with source inspection
+      confirming no forbidden M10 behavior. Post-closeout `AGENTERA_HOME=/home/jgabor/git/agentera
+      uv run /home/jgabor/git/agentera/scripts/agentera plan --format json`
+      returned status empty with zero entries, `git diff --check` passed, and
+      `mage check` passed; no push or remote mutation was performed.
+    next: >-
+      Execute ROADMAP.md Milestone 11: Workflow Transition Table when requested.
+    context:
+      intent: >-
+        Synchronize durable closeout state after M10 validation passes.
+      constraints: >-
+        Execute only M10 Task 6; closeout artifacts and final checks only. Do not
+        add product behavior, transition validation/table, FSM state/mutation,
+        runtime loop, capability routing, model/tool execution, permissions,
+        persistence/project .aila, config/provider behavior, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md and Agentera plan/progress/archive artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -2851,3 +3014,4 @@ archive:
   - .agentera/archive/plan-2026-05-13-m8.yaml
   - .agentera/archive/plan-2026-05-13-m9.yaml
   - .agentera/archive/plan-2026-05-13-m9a.yaml
+  - .agentera/archive/plan-2026-05-13-m10.yaml

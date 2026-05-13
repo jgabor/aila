@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-13
-  status: active
+  status: complete
   reviewed: 2026-05-13
   critic_issues: "6 found, addressed"
   title: M10 Workflow Phase Kernel
@@ -40,27 +40,27 @@ tasks:
   - number: 3
     name: Remove TUI phase ownership
     depends_on: ["1", "2"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN TUI fixtures and semantics render phase WHEN tests run THEN phase identity/label originate from injected workflow-derived state.
       - GIVEN TUI source is inspected THEN it has no local phase enum, phase label map, or workflow transition ownership.
   - number: 4
     name: Refresh phase display evidence
     depends_on: ["3"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN affected snapshots are updated WHEN reviewed THEN diffs are limited to intentional phase label/source changes.
       - GIVEN visible no-arg app output changes WHEN validation runs THEN bounded PTY smoke runs; otherwise deterministic fixtures are sufficient.
   - number: 5
     name: Validate M10 boundaries
     depends_on: ["1", "2", "3", "4"]
-    status: pending
+    status: complete
     acceptance:
-      - GIVEN targeted workflow/app/TUI tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass and no deferred behavior appears.
+      - GIVEN targeted workflow/app/TUI tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass, no new M10 deferred or forbidden behavior appears, and pre-existing M7 deferred stub text remains unchanged.
   - number: 6
     name: Synchronize final M10 state
     depends_on: ["5"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN validation passes WHEN closing M10 THEN ROADMAP marks M10 complete/M11 next, plan archives/removes, progress records evidence, agentera plan empty, mage check passes, and no push occurs.
 surprises: []

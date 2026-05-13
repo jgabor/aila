@@ -1,7 +1,7 @@
 [1mAila                                                                                                                                                      160x45[0m
-[2mStage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto read                                              [0m
+[2mStage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto read                                                     [0m
 + [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
-| Display labels:                                                                                                  |  | phase source: not_started              |
+| Display labels:                                                                                                  |  | phase source: idle                     |
 | primary model: opencode-go/deepseek-v4-pro:high                                                                  |  | primary model: opencode-go/deepseek-v~ |
 | utility model: opencode-go/deepseek-v4-flash:max                                                                 |  | utility model: opencode-go/deepseek-v~ |
 | autonomy: read (display-only)                                                                                    |  | autonomy: read                         |

@@ -85,7 +85,7 @@ func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
 	if semantic.Session.Phase != workflow.PhaseIdle.DisplayLabel() || semantic.Session.PhaseSource != workflow.PhaseIdle.String() {
 		t.Fatalf("startup phase = %q from %q, want %q from %q", semantic.Session.Phase, semantic.Session.PhaseSource, workflow.PhaseIdle.DisplayLabel(), workflow.PhaseIdle.String())
 	}
-	if semantic.Session.WorkflowTransition || semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
+	if semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
 		t.Fatalf("startup implied workflow activity: %+v", semantic.Session)
 	}
 }
@@ -127,7 +127,7 @@ level = "read"
 	if semantic.Session.Phase != workflow.PhaseIdle.DisplayLabel() || semantic.Session.PhaseSource != workflow.PhaseIdle.String() {
 		t.Fatalf("startup semantics did not use workflow idle phase: %+v", semantic.Session)
 	}
-	if semantic.Session.WorkflowTransition || semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
+	if semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
 		t.Fatalf("startup semantics implied workflow activity: %+v", semantic.Session)
 	}
 	if semantic.Session.PrimaryModel != "test-provider/primary:low" || semantic.Session.UtilityModel != "test-provider/utility:min" || semantic.Session.Autonomy != "read" {

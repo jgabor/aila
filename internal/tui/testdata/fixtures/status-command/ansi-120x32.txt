@@ -1,5 +1,5 @@
 [1mAila                                                                                                              120x32[0m
-[2mStage placeholder | Model placeholder | Utility placeholder | Auto placeholder                                          [0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                 [0m
 + [33mConversation[0m --------------------------------------------------------------------------------------------------------+
 | No messages yet.                                                                                                     |
 |                                                                                                                      |
@@ -7,7 +7,7 @@
 | command route: status                                                                                                |
 | route source: policy.command                                                                                         |
 | Deterministic placeholder status.                                                                                    |
-| stage placeholder (display-only)                                                                                     |
+| stage IDLE (display-only)                                                                                            |
 | primary model placeholder                                                                                            |
 | utility model placeholder                                                                                            |
 | autonomy: placeholder                                                                                                |

@@ -19,13 +19,13 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 9A: Provider Gateway And Credential Boundary                                                                                                                     |
-| Next milestone           | Milestone 10: Workflow Phase Kernel                                                                                                                                        |
-| Active milestone         | none                                                                                                                                                                       |
-| Last updated             | 2026-05-13                                                                                                                                                                 |
-| Last validation          | M9A targeted tests, optional DeepSeek smoke, `go test ./...`, `git diff --check`, `mage check`, post-closeout Agentera plan-empty check, and no push all passed/confirmed. |
+| Field                    | Value                                                                                                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 10: Workflow Phase Kernel                                                                                                                                                                |
+| Next milestone           | Milestone 11: Workflow Transition Table                                                                                                                                                            |
+| Active milestone         | none                                                                                                                                                                                               |
+| Last updated             | 2026-05-13                                                                                                                                                                                         |
+| Last validation          | M10 targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, `mage check`, and no push all passed/confirmed. |
 
 Completion log:
 
@@ -42,6 +42,7 @@ Completion log:
 | 8         | completed | 2026-05-13 | Config display stub validated with app-owned display defaults/injection tests, TUI display fixtures and semantic snapshots, PTY startup label smoke, `go test ./...`, and `mage check`; human visual review skipped because fixed-size snapshots showed only label text/display-field changes and no layout, hierarchy, or narrow-screen regression. |
 | 9         | completed | 2026-05-13 | Config creation and XDG paths validated with app/cmd config path, load, startup, and command tests; TUI display/semantic checks; temp-XDG PTY startup/config-creation smoke; `go test ./...`; `git diff --check`; post-closeout `agentera plan --format json`; and full `mage check`.                                                                |
 | 9A        | completed | 2026-05-13 | Provider gateway and credential boundary validated with targeted app/agent/cmd/TUI tests, approved optional DeepSeek smoke against `https://api.deepseek.com/v1/chat/completions`, `go test ./...`, `git diff --check`, `mage check` with live smoke skipped by default, Agentera plan-empty closeout, boundary/secret inspection, and no push.      |
+| 10        | completed | 2026-05-13 | Workflow phase kernel validated with targeted workflow/app/TUI/cmd tests, deterministic fixture/snapshot evidence, bounded no-arg PTY startup smoke, `go test ./...`, Task 5 boundary/source inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                |
 
 Status values:
 

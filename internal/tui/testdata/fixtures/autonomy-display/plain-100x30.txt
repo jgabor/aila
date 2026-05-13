@@ -1,5 +1,5 @@
 Aila                                                                                          100x30
-Stage placeholder | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:~
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | A~
 + Conversation ------------------------------------------------------------------------------------+
 | Display labels:                                                                                  |
 | primary model: opencode-go/deepseek-v4-pro:high                                                  |

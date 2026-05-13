@@ -10,6 +10,11 @@ import (
 	"github.com/jgabor/aila/internal/policy"
 )
 
+const (
+	testWorkflowPhaseLabel  = "IDLE"
+	testWorkflowPhaseSource = "idle"
+)
+
 func TestRequiredM3FixtureSet(t *testing.T) {
 	t.Parallel()
 
@@ -72,6 +77,8 @@ func loadStaticShellFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
 	state.Scenario = name
 	return loadRenderFixture(t, name, state)
 }
@@ -80,6 +87,8 @@ func loadSubmittedPromptFixture(t *testing.T) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
 	state.Scenario = "submitted-prompt"
 	state.Transcript = []TranscriptTurn{{
 		UserText:      "explain this repo",
@@ -91,7 +100,10 @@ func loadSubmittedPromptFixture(t *testing.T) renderFixture {
 func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
 	t.Helper()
 
-	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, nil, nil)
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, nil)
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(input)})
 	if cmd != nil {
 		t.Fatalf("typing %s emitted a command", input)
@@ -100,7 +112,7 @@ func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
 	if cmd != nil {
 		t.Fatalf("routing %s emitted a command", input)
 	}
-	state := updated.(Model).state
+	state = updated.(Model).state
 	state.Scenario = name
 	return loadRenderFixture(t, name, state)
 }
@@ -109,6 +121,8 @@ func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
 	state.Scenario = name
 	switch name {
 	case "model-display":
@@ -383,8 +397,8 @@ func assertCommandSemanticContract(t *testing.T, scenario string, size Size, rou
 	if snapshot.Command.Route != route || snapshot.Command.RouteSource != "policy.command" || snapshot.Command.Surface != route || !snapshot.Command.Visible {
 		t.Fatalf("command metadata = %+v, want visible %s from policy.command", *snapshot.Command, route)
 	}
-	if snapshot.Command.Executed || snapshot.Command.WorkflowTransition {
-		t.Fatalf("command metadata implies execution or workflow transition: %+v", *snapshot.Command)
+	if snapshot.Command.Executed {
+		t.Fatalf("command metadata implies execution: %+v", *snapshot.Command)
 	}
 	if snapshot.Screen.Focus != "prompt" {
 		t.Fatalf("focus = %q, want prompt", snapshot.Screen.Focus)
@@ -522,7 +536,7 @@ func TestRequiredM3FixtureScopes(t *testing.T) {
 			if containsAny(plain, tc.forbidden) {
 				t.Fatalf("%s plain render includes deferred behavior:\n%s", tc.name, plain)
 			}
-			if tc.wantRail && !containsAll(plain, []string{"Session", "phase source: not_started", "primary model: placeholder"}) {
+			if tc.wantRail && !containsAll(plain, []string{"Session", "phase source: " + testWorkflowPhaseSource, "primary model: placeholder"}) {
 				t.Fatalf("%s plain render missing M6 placeholder rail:\n%s", tc.name, plain)
 			}
 
@@ -605,11 +619,8 @@ func TestRequiredM3SemanticSnapshots(t *testing.T) {
 					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
 						t.Fatalf("unmarshal semantic snapshot: %v", err)
 					}
-					if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
-						t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
-					}
-					if snapshot.Session.WorkflowTransition {
-						t.Fatal("placeholder phase must not imply workflow transition behavior")
+					if snapshot.Session.Phase != fixture.State.Phase || snapshot.Session.PhaseSource != fixture.State.PhaseSource {
+						t.Fatalf("phase = %q from %q, want injected %q from %q", snapshot.Session.Phase, snapshot.Session.PhaseSource, fixture.State.Phase, fixture.State.PhaseSource)
 					}
 					if len(snapshot.Actions) != 1 || snapshot.Actions[0].Input != "q" {
 						t.Fatalf("actions = %+v, want single q quit action", snapshot.Actions)
@@ -667,11 +678,11 @@ func assertSemanticContract(t *testing.T, scenario string, size Size, snapshot S
 	if snapshot.Layout.Class != wantLayout.Class || snapshot.Layout.RightRailVisible != wantLayout.RightRailVisible {
 		t.Fatalf("layout = %+v, want class %q right rail %v", snapshot.Layout, wantLayout.Class, wantLayout.RightRailVisible)
 	}
-	if snapshot.Session.Phase != "placeholder" || snapshot.Session.PhaseSource != "not_started" {
-		t.Fatalf("phase = %q from %q, want placeholder from not_started", snapshot.Session.Phase, snapshot.Session.PhaseSource)
+	if snapshot.Session.Phase != testWorkflowPhaseLabel || snapshot.Session.PhaseSource != testWorkflowPhaseSource {
+		t.Fatalf("phase = %q from %q, want injected %q from %q", snapshot.Session.Phase, snapshot.Session.PhaseSource, testWorkflowPhaseLabel, testWorkflowPhaseSource)
 	}
-	if snapshot.Session.WorkflowTransition || snapshot.Session.Active || snapshot.Session.QueuedMessages != 0 {
-		t.Fatalf("placeholder session implies runtime workflow behavior: %+v", snapshot.Session)
+	if snapshot.Session.Active || snapshot.Session.QueuedMessages != 0 {
+		t.Fatalf("session implies runtime workflow behavior: %+v", snapshot.Session)
 	}
 	if snapshot.Session.Autonomy == "" {
 		t.Fatal("session autonomy is empty")
@@ -708,8 +719,8 @@ func assertSemanticContract(t *testing.T, scenario string, size Size, snapshot S
 	if _, ok := regions[snapshot.Screen.Focus]; !ok {
 		t.Fatalf("focus %q does not identify a visible semantic region", snapshot.Screen.Focus)
 	}
-	if !containsAll(strings.Join(regions["phase"].Items, "\n"), []string{"placeholder", "display-only"}) {
-		t.Fatalf("phase region items = %v, want placeholder display-only semantics", regions["phase"].Items)
+	if !containsAll(strings.Join(regions["phase"].Items, "\n"), []string{testWorkflowPhaseLabel, "display-only"}) {
+		t.Fatalf("phase region items = %v, want injected display-only semantics", regions["phase"].Items)
 	}
 
 	if len(snapshot.Actions) != 1 || snapshot.Actions[0].Name != "quit" || snapshot.Actions[0].Input != "q" {

@@ -10,9 +10,8 @@
     "right_rail_visible": true
   },
   "session": {
-    "phase": "placeholder",
-    "phase_source": "not_started",
-    "workflow_transition": false,
+    "phase": "IDLE",
+    "phase_source": "idle",
     "active": false,
     "queued_messages": 0,
     "primary_model": "placeholder",
@@ -28,7 +27,7 @@
     {
       "name": "phase",
       "visible": true,
-      "items": ["placeholder", "display-only"]
+      "items": ["IDLE", "display-only"]
     },
     {
       "name": "model",
@@ -61,7 +60,7 @@
       "name": "right_rail",
       "visible": true,
       "items": [
-        "phase source: not_started",
+        "phase source: idle",
         "primary model: placeholder",
         "utility model: placeholder",
         "autonomy: placeholder",
