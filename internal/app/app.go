@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 // Run starts Aila's static terminal shell for the current M2 product slice.
@@ -30,7 +31,10 @@ func initialDisplayState() (tui.ViewState, error) {
 	if err != nil {
 		return tui.ViewState{}, fmt.Errorf("load startup config: %w", err)
 	}
-	return NewDisplayState(tui.IdleEmptyState(), DisplayConfigFromConfig(config)), nil
+	base := tui.IdleEmptyState()
+	base.Phase = workflow.PhaseIdle.DisplayLabel()
+	base.PhaseSource = workflow.PhaseIdle.String()
+	return NewDisplayState(base, DisplayConfigFromConfig(config)), nil
 }
 
 func newPromptSubmitter(handler FakePromptHandler) tui.PromptSubmitFunc {

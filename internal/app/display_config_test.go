@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 func TestDefaultDisplayConfigMatchesReadmeDefaults(t *testing.T) {
@@ -67,6 +68,7 @@ func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
 	}
 	render := tui.RenderPlain(state, tui.Size{Width: 120, Height: 32})
 	for _, token := range []string{
+		"Stage " + workflow.PhaseIdle.DisplayLabel(),
 		"Model opencode-go/deepseek-v4-pro:high",
 		"Utility opencode-go/deepseek-v4-flash:max",
 		"Auto yolo",
@@ -77,6 +79,14 @@ func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(configHome, "aila", "config.toml")); err != nil {
 		t.Fatalf("startup did not create default config: %v", err)
+	}
+
+	semantic := tui.Semantic(state, tui.Size{Width: 120, Height: 32})
+	if semantic.Session.Phase != workflow.PhaseIdle.DisplayLabel() || semantic.Session.PhaseSource != workflow.PhaseIdle.String() {
+		t.Fatalf("startup phase = %q from %q, want %q from %q", semantic.Session.Phase, semantic.Session.PhaseSource, workflow.PhaseIdle.DisplayLabel(), workflow.PhaseIdle.String())
+	}
+	if semantic.Session.WorkflowTransition || semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
+		t.Fatalf("startup implied workflow activity: %+v", semantic.Session)
 	}
 }
 
@@ -100,6 +110,7 @@ level = "read"
 	}
 	render := tui.RenderPlain(state, tui.Size{Width: 120, Height: 32})
 	for _, token := range []string{
+		"Stage " + workflow.PhaseIdle.DisplayLabel(),
 		"Model test-provider/primary:low",
 		"Utility test-provider/utility:min",
 		"Auto read",
@@ -113,6 +124,12 @@ level = "read"
 	}
 
 	semantic := tui.Semantic(state, tui.Size{Width: 120, Height: 32})
+	if semantic.Session.Phase != workflow.PhaseIdle.DisplayLabel() || semantic.Session.PhaseSource != workflow.PhaseIdle.String() {
+		t.Fatalf("startup semantics did not use workflow idle phase: %+v", semantic.Session)
+	}
+	if semantic.Session.WorkflowTransition || semantic.Session.Active || semantic.Session.QueuedMessages != 0 {
+		t.Fatalf("startup semantics implied workflow activity: %+v", semantic.Session)
+	}
 	if semantic.Session.PrimaryModel != "test-provider/primary:low" || semantic.Session.UtilityModel != "test-provider/utility:min" || semantic.Session.Autonomy != "read" {
 		t.Fatalf("startup semantics did not use loaded config: %+v", semantic.Session)
 	}

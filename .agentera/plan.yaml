@@ -33,7 +33,7 @@ tasks:
   - number: 2
     name: Wire startup phase display from workflow
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN no-arg startup WHEN app builds the initial view state THEN phase comes from workflow.IDLE through existing app/TUI state wiring.
       - GIVEN startup wiring is inspected THEN it adds no FSM state, transition validation, runtime loop, persistence, or generic adapter surface.
