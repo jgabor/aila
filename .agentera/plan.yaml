@@ -31,7 +31,7 @@ tasks:
   - number: 2
     name: Load config into startup display
     depends_on: ["1"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN non-default values WHEN no-arg Aila starts THEN render and semantics show them.
       - GIVEN no config WHEN no-arg Aila starts THEN defaults are created and shown.

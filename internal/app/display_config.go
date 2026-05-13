@@ -17,10 +17,15 @@ type DisplayConfig struct {
 
 // DefaultDisplayConfig returns README default labels without reading user config.
 func DefaultDisplayConfig() DisplayConfig {
+	return DisplayConfigFromConfig(DefaultConfig())
+}
+
+// DisplayConfigFromConfig converts loaded user config into TUI display labels.
+func DisplayConfigFromConfig(config Config) DisplayConfig {
 	return DisplayConfig{
-		PrimaryModel: defaultPrimaryModel,
-		UtilityModel: defaultUtilityModel,
-		Autonomy:     defaultAutonomy,
+		PrimaryModel: config.LLM.Model,
+		UtilityModel: config.LLM.Utility.Model,
+		Autonomy:     config.Autonomy.Level,
 	}
 }
 

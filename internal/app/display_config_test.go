@@ -4,6 +4,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -56,9 +57,14 @@ func TestInjectedDisplayConfigRendersWithoutGlobalState(t *testing.T) {
 }
 
 func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
-	t.Parallel()
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
 
-	state := initialDisplayState()
+	state, err := initialDisplayState()
+	if err != nil {
+		t.Fatalf("load initial display state: %v", err)
+	}
 	render := tui.RenderPlain(state, tui.Size{Width: 120, Height: 32})
 	for _, token := range []string{
 		"Model opencode-go/deepseek-v4-pro:high",
@@ -68,6 +74,72 @@ func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
 		if !strings.Contains(render, token) {
 			t.Fatalf("initial app display state render missing %q:\n%s", token, render)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(configHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("startup did not create default config: %v", err)
+	}
+}
+
+func TestInitialDisplayStateUsesLoadedConfigInRenderAndSemantics(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+	writeFile(t, filepath.Join(configHome, "aila", "config.toml"), `[llm]
+model = "test-provider/primary:low"
+
+[llm.utility]
+model = "test-provider/utility:min"
+
+[autonomy]
+level = "read"
+`)
+
+	state, err := initialDisplayState()
+	if err != nil {
+		t.Fatalf("load initial display state: %v", err)
+	}
+	render := tui.RenderPlain(state, tui.Size{Width: 120, Height: 32})
+	for _, token := range []string{
+		"Model test-provider/primary:low",
+		"Utility test-provider/utility:min",
+		"Auto read",
+		"primary model: test-provider/primary:low",
+		"utility model: test-provider/utility:min",
+		"autonomy: read (display-only)",
+	} {
+		if !strings.Contains(render, token) {
+			t.Fatalf("startup render missing loaded token %q:\n%s", token, render)
+		}
+	}
+
+	semantic := tui.Semantic(state, tui.Size{Width: 120, Height: 32})
+	if semantic.Session.PrimaryModel != "test-provider/primary:low" || semantic.Session.UtilityModel != "test-provider/utility:min" || semantic.Session.Autonomy != "read" {
+		t.Fatalf("startup semantics did not use loaded config: %+v", semantic.Session)
+	}
+}
+
+func TestInitialDisplayStateMalformedConfigErrorsBoundedlyAndPreservesFile(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+	path := filepath.Join(configHome, "aila", "config.toml")
+	malformed := `[llm]
+model = test-provider/primary:low
+`
+	writeFile(t, path, malformed)
+
+	_, err := initialDisplayState()
+	if err == nil {
+		t.Fatal("malformed startup config succeeded")
+	}
+	if !strings.Contains(err.Error(), "load startup config: load config") || !strings.Contains(err.Error(), "value must be a quoted string") {
+		t.Fatalf("malformed startup error = %v", err)
+	}
+	if len(err.Error()) > 300 {
+		t.Fatalf("malformed startup error is not bounded: %d bytes: %v", len(err.Error()), err)
+	}
+	if after := readFile(t, path); after != malformed {
+		t.Fatalf("malformed startup config was modified:\n%s", after)
 	}
 }
 

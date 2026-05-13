@@ -2249,6 +2249,46 @@ cycles:
       scope: >-
         internal/app config contract and tests plus Agentera task/progress
         artifacts only.
+  - number: 45
+    timestamp: "2026-05-13 09:24"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M9 Task 2 by wiring no-arg startup display state to load or
+      create the user config through the app config contract, then pass only
+      display labels into the TUI.
+    commit: "822f8e0"
+    inspiration: ".agentera/plan.yaml task 2; commit 4bcd177 config contract"
+    discovered: >-
+      The progress entry cannot self-reference its containing commit, so it
+      records the implementation commit created immediately before this metadata
+      update. No product-scope blocker was found.
+    verified: >-
+      `mage fmt` completed after Go edits. `go test ./internal/app -run
+      'TestInitialDisplayState|TestDefaultDisplayConfig|TestInjectedDisplayConfig'`
+      passed, proving loaded non-default render and semantics, missing-config
+      default creation and display, and malformed-config bounded error/file
+      preservation. `go test ./cmd/aila -run
+      'TestCLIRunnerNoArgs|TestCLIRunnerConfigStub|TestM7CLI'` passed, proving
+      no-arg delegation and config command stubs remain bounded/noninteractive.
+      `go test ./internal/app ./cmd/aila`, `go test ./...`, and `git diff
+      --check` passed.
+    next: >-
+      Execute M9 Task 3 only when requested: bound config command behavior.
+    context:
+      intent: >-
+        Show the three supported user config values at startup without moving
+        config IO into the TUI or contacting providers.
+      constraints: >-
+        Execute only M9 Task 2; do not implement config command behavior,
+        fixture/PTY refresh beyond startup state tests, validation closeout,
+        provider readiness, credentials, real model turns, tools, permissions,
+        workflow/session/project state, config UI, plugin/MCP/dynamic/generic
+        surfaces, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/app startup display wiring and tests plus Agentera task/progress
+        artifacts only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
