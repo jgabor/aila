@@ -19,13 +19,13 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 9: Config Creation And XDG Paths                                                                                                                                            |
-| Next milestone           | Milestone 9A: Provider Gateway And Credential Boundary                                                                                                                                |
-| Active milestone         | none                                                                                                                                                                                  |
-| Last updated             | 2026-05-13                                                                                                                                                                            |
-| Last validation          | M9 app/cmd/TUI targeted tests, temp-XDG PTY startup/config-creation smoke, `go test ./...`, `git diff --check`, post-closeout `agentera plan --format json`, and `mage check` passed. |
+| Field                    | Value                                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 9A: Provider Gateway And Credential Boundary                                                                                                                     |
+| Next milestone           | Milestone 10: Workflow Phase Kernel                                                                                                                                        |
+| Active milestone         | none                                                                                                                                                                       |
+| Last updated             | 2026-05-13                                                                                                                                                                 |
+| Last validation          | M9A targeted tests, optional DeepSeek smoke, `go test ./...`, `git diff --check`, `mage check`, post-closeout Agentera plan-empty check, and no push all passed/confirmed. |
 
 Completion log:
 
@@ -41,6 +41,7 @@ Completion log:
 | 7         | completed | 2026-05-13 | CLI command shape validated with cmd/app targeted tests, TUI package tests, package no-IO guards, PTY startup/quit smoke, `go test ./...`, and `mage check`; human visual review skipped because no layout or hierarchy changed.                                                                                                                     |
 | 8         | completed | 2026-05-13 | Config display stub validated with app-owned display defaults/injection tests, TUI display fixtures and semantic snapshots, PTY startup label smoke, `go test ./...`, and `mage check`; human visual review skipped because fixed-size snapshots showed only label text/display-field changes and no layout, hierarchy, or narrow-screen regression. |
 | 9         | completed | 2026-05-13 | Config creation and XDG paths validated with app/cmd config path, load, startup, and command tests; TUI display/semantic checks; temp-XDG PTY startup/config-creation smoke; `go test ./...`; `git diff --check`; post-closeout `agentera plan --format json`; and full `mage check`.                                                                |
+| 9A        | completed | 2026-05-13 | Provider gateway and credential boundary validated with targeted app/agent/cmd/TUI tests, approved optional DeepSeek smoke against `https://api.deepseek.com/v1/chat/completions`, `go test ./...`, `git diff --check`, `mage check` with live smoke skipped by default, Agentera plan-empty closeout, boundary/secret inspection, and no push.      |
 
 Status values:
 

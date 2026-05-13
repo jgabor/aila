@@ -2642,6 +2642,126 @@ cycles:
       scope: >-
         internal/agent device-code effect domain and tests, Task 5 plan status,
         and this progress record only.
+  - number: 55
+    timestamp: "2026-05-13 13:37"
+    type: test
+    phase: build
+    what: >-
+      Executed only M9A Task 6 by adding an explicit opt-in DeepSeek live smoke
+      path that uses OpenAI-compatible chat completions against
+      https://api.deepseek.com with model deepseek-v4-flash, env-first
+      OPENAI_API_KEY lookup, minimal .env fallback, bounded timeouts, injected
+      HTTP clients, and redacted result/error surfaces.
+    commit: "d5a02a5"
+    inspiration: ".agentera/plan.yaml task 6; user-approved live DeepSeek smoke using OPENAI_API_KEY from env/.env"
+    discovered: >-
+      Go package tests run from package directories, so the live test must point
+      .env fallback at the repository root. Adding new DeepSeek model names to
+      deterministic fake diagnostics broadened default aila models output and
+      was reverted because Task 6 only needs the optional live smoke path.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/agent -run
+      'TestRunDeepSeekSmoke|TestLoadOpenAIAPIKey|TestLiveDeepSeekSmoke|TestClassifyFakeReadiness|TestListFakeModelDiagnostics'`
+      passed with the live test skipped by default and unit coverage for default
+      skip/no-network, missing-key skip, .env parsing/redaction, injected client
+      behavior, timeout typing, and no secret leakage. `AILA_LIVE_DEEPSEEK_SMOKE=1
+      go test -v ./internal/agent -run TestLiveDeepSeekSmoke -count=1
+      -timeout=20s` passed against endpoint
+      https://api.deepseek.com/v1/chat/completions and model deepseek-v4-flash
+      without printing key material. `go test ./...` passed. `git diff --check`
+      passed. `mage check` passed, proving default checks skip live smoke.
+    next: >-
+      Execute M9A Task 7 only when requested; Tasks 7-8 remain pending.
+    context:
+      intent: >-
+        Provide approved, bounded live credential/model reachability evidence for
+        DeepSeek without making live provider calls part of default checks or
+        runtime startup.
+      constraints: >-
+        Execute only M9A Task 6; do not implement real agent turns, tool
+        execution, startup readiness gating, broad provider clients,
+        workflow/session/project .aila state, config UI, plugins, MCP,
+        dynamic/generic surfaces, pushes, or remotes. Do not print, commit, or
+        expose secret values.
+      unknowns: "none"
+      scope: >-
+        internal/agent optional DeepSeek live smoke helpers/tests, Task 6 plan
+        status, and this progress record only.
+  - number: 56
+    timestamp: "2026-05-13 13:50"
+    type: test
+    phase: validation
+    what: >-
+      Executed only M9A Task 7 validation across targeted packages, approved
+      DeepSeek live smoke, full repository gates, whitespace checks, Mage checks,
+      and boundary/source inspection; no product source fixes were required.
+    commit: "N/A: validation metadata is committed with this record"
+    inspiration: ".agentera/plan.yaml task 7; M9A implementation commits 407a1ae, bb52e80, 7d2433f, ac25d81, bbd158a, d5a02a5"
+    discovered: >-
+      The approved live smoke passed against endpoint
+      https://api.deepseek.com/v1/chat/completions with model
+      deepseek-v4-flash and did not print key material. Secret-pattern search
+      only found synthetic test literals and key names, not real secrets.
+    verified: >-
+      `go test ./internal/app ./internal/agent ./cmd/aila ./internal/tui`
+      passed. `AILA_LIVE_DEEPSEEK_SMOKE=1 go test ./internal/agent -run
+      TestLiveDeepSeekSmoke -count=1 -v` passed with status passed,
+      endpoint https://api.deepseek.com/v1/chat/completions, and model
+      deepseek-v4-flash. `go test ./...` passed. `git diff --check` passed.
+      `mage check` passed with all tests, zero lint issues, no vulnerabilities,
+      and default live smoke skipped. Source inspection of changed M9A app, agent,
+      CLI, TUI-boundary, and Agentera artifacts found no real agent turns, tool
+      execution, startup readiness gating, workflow/session/project .aila state,
+      config UI, plugins, MCP, dynamic/generic surfaces, or secret leakage.
+    next: >-
+      Execute M9A Task 8 closeout only when requested; do not close ROADMAP,
+      archive/remove the active plan, or mark Task 8 complete as part of Task 7.
+    context:
+      intent: >-
+        Validate completed M9A implementation boundaries and evidence without
+        introducing product behavior.
+      constraints: >-
+        Execute only M9A Task 7; do not add real agent turns, tools, startup
+        readiness gating, workflow/session/project .aila, config UI, plugins, MCP,
+        dynamic/generic surfaces, pushes, remotes, ROADMAP closeout, plan archival,
+        or Task 8 completion. Do not print, commit, or expose secrets.
+      unknowns: "none"
+      scope: >-
+        Task 7 plan status and this validation progress record only; product
+        source was inspected read-only and unchanged.
+  - number: 57
+    timestamp: "2026-05-13 14:10"
+    type: chore
+    phase: closeout
+    what: >-
+      Executed only M9A Task 8 closeout by marking ROADMAP.md complete for M9A
+      with Milestone 10 next, archiving the completed Agentera plan, removing the
+      active plan, and recording final validation/no-push evidence.
+    commit: "N/A: closeout commit created after verification"
+    inspiration: ".agentera/plan.yaml task 8; Task 7 validation commit c2977c7"
+    discovered: >-
+      Task 7 already recorded the approved DeepSeek live smoke and boundary/secret
+      inspection, so closeout did not rerun live provider smoke. Default Mage
+      validation remained sufficient and skips live smoke by design.
+    verified: >-
+      Task 7 evidence included targeted app/agent/cmd/TUI tests, optional DeepSeek
+      smoke, `go test ./...`, `git diff --check`, `mage check`, and
+      boundary/secret inspection. Task 8 reran `git diff --check`, `mage check`,
+      and post-closeout Agentera plan-empty verification, and confirmed no push was
+      performed.
+    next: >-
+      Active Agentera plan is closed; use ROADMAP.md Next milestone only if the
+      user explicitly starts Milestone 10 work.
+    context:
+      intent: >-
+        Synchronize durable M9A closeout state after validation passed without
+        changing product source behavior.
+      constraints: >-
+        Execute only M9A Task 8; do not add product behavior, rerun live smoke
+        unless needed, read .env, print or commit secrets, push, or touch remotes.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md, Agentera progress, and Agentera plan archival/removal only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -2649,3 +2769,4 @@ archive:
   - .agentera/archive/plan-2026-05-13-m7.yaml
   - .agentera/archive/plan-2026-05-13-m8.yaml
   - .agentera/archive/plan-2026-05-13-m9.yaml
+  - .agentera/archive/plan-2026-05-13-m9a.yaml

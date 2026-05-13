@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-13
-  status: active
+  status: complete
   reviewed: 2026-05-13
   critic_issues: "8 found, addressed"
   title: M9A Provider Gateway And Credential Boundary
@@ -54,19 +54,19 @@ tasks:
   - number: 6
     name: Add approved optional DeepSeek smoke
     depends_on: ["3", "4"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN explicit live-smoke flags and OPENAI_API_KEY from env/.env WHEN using https://api.deepseek.com THEN bounded custom/deepseek readiness runs without printing the key; mage check skips it.
   - number: 7
     name: Validate M9A boundaries
     depends_on: ["1", "2", "3", "4", "5", "6"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN targeted tests, approved smoke if enabled, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass and no deferred behavior/secret leakage appears.
   - number: 8
     name: Synchronize final M9A state
     depends_on: ["7"]
-    status: pending
+    status: complete
     acceptance:
       - GIVEN validation passes WHEN closing M9A THEN ROADMAP marks M9A complete/M10 next, plan archives/removes, progress records, agentera plan empty, mage check passes, no push.
 surprises: []
