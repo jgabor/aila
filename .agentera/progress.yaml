@@ -2762,6 +2762,46 @@ cycles:
       unknowns: "none"
       scope: >-
         ROADMAP.md, Agentera progress, and Agentera plan archival/removal only.
+  - number: 58
+    timestamp: "2026-05-13 14:11"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M10 Task 1 by adding workflow-owned Phase constants for IDLE,
+      ENVISION, DELIBERATE, PLAN, BUILD, and AUDIT with stable identifiers,
+      display labels, bounded parsing, and vocabulary-only tests.
+    commit: "6e9f3da"
+    inspiration: ".agentera/plan.yaml task 1; docs/workflow-architecture.md phase vocabulary"
+    discovered: >-
+      The initial commit attempt was rejected by staticcheck for an unnecessary
+      fmt.Sprintf(%s) assertion in the new test; the test now checks quoted format
+      behavior without suppressions. No transition table, successor validation,
+      FSM mutation, TUI wiring, runtime loop, permission, persistence, plugin,
+      MCP, dynamic, or generic surface was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/workflow` passed with
+      coverage for the complete ordered phase set, lowercase identifiers,
+      uppercase display labels, String/fmt behavior, ParsePhase success and
+      normalization, bounded invalid errors, Phases copy semantics, and absence of
+      transition/successor surfaces in workflow product Go files. `go test ./...`
+      passed. `git diff --check` passed before implementation commit 6e9f3da. The
+      commit hook also passed tidy, vet, and lint for commit 6e9f3da.
+    next: >-
+      Execute M10 Task 2 only when requested; Tasks 2-6 remain pending.
+    context:
+      intent: >-
+        Establish durable workflow vocabulary before any runtime transition or TUI
+        display wiring work.
+      constraints: >-
+        Execute only M10 Task 1; do not add transition validation/table, FSM
+        mutation, runtime loop, app/TUI startup wiring, snapshot refresh,
+        capability routing, model/tool execution, permissions, persistence/project
+        .aila, config/provider behavior, plugins, MCP, dynamic/generic surfaces,
+        pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/workflow phase vocabulary/tests, Task 1 plan status, and this
+        progress record only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

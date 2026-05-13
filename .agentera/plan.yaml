@@ -1,0 +1,66 @@
+header:
+  level: full
+  created: 2026-05-13
+  status: active
+  reviewed: 2026-05-13
+  critic_issues: "6 found, addressed"
+  title: M10 Workflow Phase Kernel
+
+what: Centralize workflow phase vocabulary and show it in the TUI through workflow-owned types.
+why: Before transition tables or runtime work, Aila needs durable workflow labels that do not imply transitions.
+constraints: >-
+  No transition validation, runtime state machine, capability routing, model/tool
+  execution, permissions, persistence/project .aila, config/provider behavior,
+  plugins, MCP, dynamic/generic surfaces, pushes, or remotes.
+scope:
+  included:
+    - Workflow Phase type/constants for IDLE, ENVISION, DELIBERATE, PLAN, BUILD, AUDIT.
+    - Stable display labels and only necessary parse helpers.
+    - Startup/TUI phase label wired from workflow-owned data.
+    - Fixture/snapshot, boundary, validation, and closeout evidence.
+  excluded:
+    - Transition table, FSM mutation, runtime activity, capability routing, provider/tool/project-state behavior.
+design: Workflow owns vocabulary; app passes current display phase; TUI renders strings only.
+
+tasks:
+  - number: 1
+    name: Define workflow phase vocabulary
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN workflow phases WHEN tested THEN IDLE, ENVISION, DELIBERATE, PLAN, BUILD, and AUDIT have stable identifiers and display labels.
+      - GIVEN invalid phase text WHEN parsed only if needed THEN the error is bounded and no transition semantics are introduced.
+  - number: 2
+    name: Wire startup phase display from workflow
+    depends_on: ["1"]
+    status: pending
+    acceptance:
+      - GIVEN no-arg startup WHEN app builds the initial view state THEN phase comes from workflow.IDLE through existing app/TUI state wiring.
+      - GIVEN startup wiring is inspected THEN it adds no FSM state, transition validation, runtime loop, persistence, or generic adapter surface.
+  - number: 3
+    name: Remove TUI phase ownership
+    depends_on: ["1", "2"]
+    status: pending
+    acceptance:
+      - GIVEN TUI fixtures and semantics render phase WHEN tests run THEN phase identity/label originate from injected workflow-derived state.
+      - GIVEN TUI source is inspected THEN it has no local phase enum, phase label map, or workflow transition ownership.
+  - number: 4
+    name: Refresh phase display evidence
+    depends_on: ["3"]
+    status: pending
+    acceptance:
+      - GIVEN affected snapshots are updated WHEN reviewed THEN diffs are limited to intentional phase label/source changes.
+      - GIVEN visible no-arg app output changes WHEN validation runs THEN bounded PTY smoke runs; otherwise deterministic fixtures are sufficient.
+  - number: 5
+    name: Validate M10 boundaries
+    depends_on: ["1", "2", "3", "4"]
+    status: pending
+    acceptance:
+      - GIVEN targeted workflow/app/TUI tests, go test ./..., git diff --check, mage check, and source inspection WHEN run THEN gates pass and no deferred behavior appears.
+  - number: 6
+    name: Synchronize final M10 state
+    depends_on: ["5"]
+    status: pending
+    acceptance:
+      - GIVEN validation passes WHEN closing M10 THEN ROADMAP marks M10 complete/M11 next, plan archives/removes, progress records evidence, agentera plan empty, mage check passes, and no push occurs.
+surprises: []
