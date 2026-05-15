@@ -1,0 +1,95 @@
+{
+  "scenario": "queued-message",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "PLAN",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "active",
+    "status_source": "runtime.fixture",
+    "status_detail": "fake in-memory runtime loop",
+    "active": true,
+    "queued_messages": 2,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["PLAN", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["user: active fake work"]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: active",
+        "status source: runtime.fixture",
+        "detail: fake in-memory runtime loop",
+        "active: true",
+        "display-only"
+      ]
+    },
+    {
+      "name": "queue",
+      "visible": true,
+      "items": [
+        "queued messages: 2",
+        "default action: send after current turn",
+        "presentation-only",
+        "executed: false",
+        "queued: refine the tests",
+        "queued: explain the diff"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "queue_after_current_turn",
+      "input": "enter",
+      "default": true,
+      "presentation_only": true
+    }
+  ]
+}

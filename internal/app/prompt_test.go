@@ -33,7 +33,7 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 		RuntimeActive: false,
 		RuntimeResult: "Fake Aila response: explain this repo",
 	}
-	if result != want {
+	if !reflect.DeepEqual(result, want) {
 		t.Fatalf("submit result = %+v, want %+v", result, want)
 	}
 	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
@@ -55,6 +55,59 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	}
 	if runner.model.Status != runtime.StatusIdle || runner.model.NextOperation != 1 {
 		t.Fatalf("runtime model = %#v, want idle after one operation", runner.model)
+	}
+}
+
+func TestPromptSubmitWhileRuntimeActiveReturnsQueuedIntent(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return nil
+	})
+
+	active := runner.submitPrompt("first prompt")
+	queued := runner.submitPrompt("queued follow-up")
+
+	if active.UserText != "first prompt" || active.AssistantText != "" || active.RuntimeStatus != "active" || !active.RuntimeActive {
+		t.Fatalf("active submit result = %+v, want active prompt without assistant response", active)
+	}
+	if queued.UserText != "" || queued.AssistantText != "" {
+		t.Fatalf("queued submit result = %+v, want no immediate transcript response", queued)
+	}
+	if queued.RuntimeStatus != "active" || !queued.RuntimeActive {
+		t.Fatalf("queued runtime status = %+v, want active", queued)
+	}
+	if queued.QueuedCount != 1 || !reflect.DeepEqual(queued.QueuedText, []string{"queued follow-up"}) {
+		t.Fatalf("queued handoff = count %d text %#v, want queued follow-up", queued.QueuedCount, queued.QueuedText)
+	}
+	if len(dispatched) != 2 || len(dispatched[0]) != 1 || len(dispatched[1]) != 0 {
+		t.Fatalf("dispatched effects = %#v, want first prompt effect and queued no-op", dispatched)
+	}
+	if got := runner.model.Transcript; !reflect.DeepEqual(got, []runtime.TranscriptEntry{{Kind: "prompt", Text: "first prompt"}}) {
+		t.Fatalf("runtime transcript = %#v, want only active prompt", got)
+	}
+	if got := runner.model.Queued; !reflect.DeepEqual(got, []runtime.QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}}) {
+		t.Fatalf("runtime queue = %#v", got)
+	}
+}
+
+func TestPromptSubmitHandoffDistinguishesQueuedAndNonQueuedPaths(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(runtime.Dispatch)
+
+	result := runner.submitPrompt("answer now")
+
+	if result.UserText != "answer now" || result.AssistantText != "Fake Aila response: answer now" {
+		t.Fatalf("non-queued submit transcript = %+v", result)
+	}
+	if result.QueuedCount != 0 || len(result.QueuedText) != 0 {
+		t.Fatalf("non-queued submit carried queue = count %d text %#v", result.QueuedCount, result.QueuedText)
+	}
+	if result.RuntimeStatus != "idle" || result.RuntimeActive {
+		t.Fatalf("non-queued runtime state = %+v, want idle", result)
 	}
 }
 

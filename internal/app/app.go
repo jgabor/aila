@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/jgabor/aila/internal/tui"
 	"github.com/jgabor/aila/internal/workflow"
@@ -20,11 +21,18 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return err
 	}
 
-	runner := newInputRunner()
+	runner := newInputRunnerForEnvironment()
 	if _, err := tui.NewProgramWithStatePromptSubmitAndCommandRoute(input, output, state, runner.submitPrompt, runner.routeCommand).Run(); err != nil {
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	return nil
+}
+
+func newInputRunnerForEnvironment() *inputRunner {
+	if os.Getenv("AILA_FAKE_RUNTIME_HOLD_ACTIVE") == "1" {
+		return newInputRunnerHoldingFakeWork()
+	}
+	return newInputRunner()
 }
 
 func initialDisplayState() (tui.ViewState, error) {

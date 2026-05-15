@@ -181,6 +181,12 @@ func loadRuntimeStatusFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadQueuedMessageFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	return loadRenderFixture(t, "queued-message", activeQueuedState())
+}
+
 func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "PLAN"
@@ -273,6 +279,93 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestM13QueuedMessageFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadQueuedMessageFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	if fixture.TerminalBehavior != "bubbletea_static" {
+		t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+	}
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+	wantRender := []string{
+		"Stage PLAN | Runtime active",
+		"status: active",
+		"active: true",
+		"user: active fake work",
+		"Queued input:",
+		"queued messages: 2",
+		"default action: send after current turn",
+		"action status: presentation-only; not executed by the TUI",
+		"queued: refine the tests",
+		"queued: explain the diff",
+	}
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := renderCase.render(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			if !containsAll(got, wantRender) {
+				t.Fatalf("queued-message render missing active work, queued intent, or default behavior %v:\n%s", wantRender, got)
+			}
+			if containsAny(got, []string{"interrupt", "steer", "cancel"}) {
+				t.Fatalf("queued-message render implies non-default execution choices:\n%s", got)
+			}
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Session.QueuedMessages != 2 || !snapshot.Session.Active {
+				t.Fatalf("session = %+v, want active queued fixture state", snapshot.Session)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			chat := strings.Join(regions["chat"].Items, "\n")
+			queue := strings.Join(regions["queue"].Items, "\n")
+			if !containsAll(chat, []string{"user: active fake work"}) || !containsAll(queue, []string{
+				"queued messages: 2",
+				"default action: send after current turn",
+				"presentation-only",
+				"executed: false",
+				"queued: refine the tests",
+				"queued: explain the diff",
+			}) {
+				t.Fatalf("queued semantic regions missing active work or queued intent: chat=%v queue=%v", regions["chat"].Items, regions["queue"].Items)
+			}
+			assertQueuedDefaultAction(t, snapshot)
+		})
+	}
+}
+
+func assertQueuedDefaultAction(t *testing.T, snapshot SemanticSnapshot) {
+	t.Helper()
+
+	for _, action := range snapshot.Actions {
+		if action.Name != "queue_after_current_turn" {
+			continue
+		}
+		if action.Input != "enter" || !action.Default || !action.PresentationOnly || action.Executed {
+			t.Fatalf("queue action = %+v, want default presentation-only non-executed action", action)
+		}
+		return
+	}
+	t.Fatalf("actions = %+v, want queue_after_current_turn", snapshot.Actions)
 }
 
 func TestM11WaitingStatusFixtureDistinguishesPhaseFromRuntimeStatus(t *testing.T) {

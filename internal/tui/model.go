@@ -24,6 +24,8 @@ type TranscriptTurn struct {
 	StatusDetail  string
 	RuntimeActive bool
 	RuntimeResult string
+	QueuedCount   int
+	QueuedText    []string
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -205,6 +207,8 @@ func (m *Model) applyRuntimeStatus(turn TranscriptTurn) {
 	m.state.StatusDetail = turn.StatusDetail
 	m.state.RuntimeActive = turn.RuntimeActive
 	m.state.RuntimeResult = turn.RuntimeResult
+	m.state.QueuedCount = turn.QueuedCount
+	m.state.QueuedText = append([]string(nil), turn.QueuedText...)
 }
 
 func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {

@@ -1,0 +1,17 @@
+{
+  "name": "queued-message",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["plan", "runtime_active", "queued_input"],
+  "render_sizes": [{ "name": "80x24", "width": 80, "height": 24 }],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json"
+  },
+  "notes": [
+    "M13 presentation-only queued-message fixture; view state is derived from fake active runtime and queued input in tests.",
+    "Queued intent remains visible alongside active work and exposes the default after-current-turn action without TUI execution ownership."
+  ]
+}

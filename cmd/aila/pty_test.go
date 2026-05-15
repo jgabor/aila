@@ -93,6 +93,69 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM13SubmitWhileActivePTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars, "AILA_FAKE_RUNTIME_HOLD_ACTIVE=1")
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 160, 45, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntil(t, terminal, "Aila", 20*time.Second)
+	if _, err := terminal.Write([]byte("slow active prompt\r")); err != nil {
+		t.Fatalf("send active prompt input: %v", err)
+	}
+
+	active := readUntilAll(t, terminal, []string{
+		"Runtime active",
+		"Runtime status:",
+		"status: active",
+		"active: true",
+		"user: slow active prompt",
+	}, 10*time.Second)
+	if strings.Contains(active, "active: false") {
+		t.Fatalf("active window was hidden before queued submit: %q", active)
+	}
+
+	if _, err := terminal.Write([]byte("queued from active window\r")); err != nil {
+		t.Fatalf("send queued prompt input: %v", err)
+	}
+	queued := readUntilAll(t, terminal, []string{
+		"Queued input:",
+		"queued messages: 1",
+		"default action: send after current turn",
+		"queued: queued from active window",
+	}, 10*time.Second)
+	if strings.Contains(queued, "active: false") {
+		t.Fatalf("queued intent appeared only after active work was hidden: %q", queued)
+	}
+	if combined := active + queued; !strings.Contains(combined, "user: slow active prompt") || !strings.Contains(combined, "queued: queued from active window") {
+		t.Fatalf("PTY output missing active context or queued intent: %q", combined)
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after queued smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("submit-while-active TUI quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("submit-while-active TUI did not clean up before timeout: %v", ctx.Err())
+	}
+
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for scrubbed PTY startup: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".config", "aila")); !os.IsNotExist(err) {
+		t.Fatalf("scrubbed PTY touched HOME config path, err=%v", err)
+	}
+}
+
 func TestM5CommandPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

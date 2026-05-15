@@ -90,6 +90,40 @@ func TestPromptSubmitAppliesAppOwnedRuntimeStatus(t *testing.T) {
 	}
 }
 
+func TestPromptSubmitAppliesAppOwnedQueuedStateWithoutInventingTranscript(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, func(string) TranscriptTurn {
+		return TranscriptTurn{
+			RuntimeStatus: "active",
+			StatusSource:  "runtime.dispatch",
+			StatusDetail:  "fake in-memory runtime loop",
+			RuntimeActive: true,
+			QueuedCount:   2,
+			QueuedText:    []string{"first queued", "second queued"},
+		}
+	}, nil)
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("queued follow-up")})
+	if cmd != nil {
+		t.Fatal("typing prompt emitted a command")
+	}
+	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("queued prompt submit must not emit a Bubble Tea command")
+	}
+
+	if got.state.QueuedCount != 2 || strings.Join(got.state.QueuedText, ",") != "first queued,second queued" {
+		t.Fatalf("queued display state = count %d text %#v", got.state.QueuedCount, got.state.QueuedText)
+	}
+	if len(got.state.Transcript) != 0 {
+		t.Fatalf("queued prompt invented transcript entries: %#v", got.state.Transcript)
+	}
+	if semantic := Semantic(got.state, Size{Width: 80, Height: 24}); semantic.Session.QueuedMessages != 2 {
+		t.Fatalf("semantic queued_messages = %d, want app-owned count 2", semantic.Session.QueuedMessages)
+	}
+}
+
 func TestDefaultModelDoesNotOwnWorkflowPhase(t *testing.T) {
 	t.Parallel()
 

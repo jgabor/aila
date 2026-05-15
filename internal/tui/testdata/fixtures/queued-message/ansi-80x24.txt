@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage PLAN | Runtime active | Model placeholder | Utility placeholder | Auto pl~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: active                                                               |
+| status source: runtime.fixture                                               |
+| detail: fake in-memory runtime loop                                          |
+| active: true                                                                 |
+|                                                                              |
+| Queued input:                                                                |
+| queued messages: 2                                                           |
+| default action: send after current turn                                      |
+| action status: presentation-only; not executed by the TUI                    |
+| queued: refine the tests                                                     |
+| queued: explain the diff                                                     |
+|                                                                              |
+| user: active fake work                                                       |
+|                                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

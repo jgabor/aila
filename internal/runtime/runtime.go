@@ -52,9 +52,16 @@ func (FakeEffectFailed) runtimeMessage() {}
 type Model struct {
 	Status        Status
 	Transcript    []TranscriptEntry
+	Queued        []QueuedEntry
 	Result        string
 	LastCommand   string
 	NextOperation int
+}
+
+// QueuedEntry is a user message queued while fake work is active.
+type QueuedEntry struct {
+	Kind string
+	Text string
 }
 
 // TranscriptEntry is a deterministic surface entry for prompt, command, result,
@@ -157,10 +164,16 @@ type CancelMetadata struct {
 func Update(model Model, message Message) (Model, []Effect) {
 	next := model
 	next.Transcript = append([]TranscriptEntry(nil), model.Transcript...)
+	next.Queued = append([]QueuedEntry(nil), model.Queued...)
 
 	switch msg := message.(type) {
 	case PromptSubmitted:
 		text := strings.TrimSpace(msg.Text)
+		if next.Status == StatusActive {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
+			return next, nil
+		}
+
 		operation := nextOperation(&next, OperationPrompt, text)
 		next.Status = StatusActive
 		next.Result = ""

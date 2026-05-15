@@ -24,6 +24,10 @@ func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
 	}
 }
 
+func newInputRunnerHoldingFakeWork() *inputRunner {
+	return newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+}
+
 func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.PromptSubmitted{Text: text})
@@ -33,6 +37,8 @@ func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
 	turn.StatusDetail = "fake in-memory runtime loop"
 	turn.RuntimeActive = runner.model.Status == runtime.StatusActive
 	turn.RuntimeResult = runner.model.Result
+	turn.QueuedCount = len(runner.model.Queued)
+	turn.QueuedText = queuedText(runner.model.Queued)
 	return turn
 }
 
@@ -49,6 +55,18 @@ func (runner *inputRunner) apply(message runtime.Message) {
 	for _, result := range runner.dispatch(effects) {
 		runner.model, _ = runtime.Update(runner.model, result)
 	}
+}
+
+func queuedText(entries []runtime.QueuedEntry) []string {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	text := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		text = append(text, entry.Text)
+	}
+	return text
 }
 
 func transcriptTurn(entries []runtime.TranscriptEntry) tui.TranscriptTurn {

@@ -3467,6 +3467,319 @@ cycles:
       scope: >-
         M12 validation evidence, ROADMAP.md closeout, Agentera plan archive/removal,
         and progress metadata folded into the validation/closeout commit.
+  - number: 76
+    timestamp: "2026-05-15 00:00"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M13 Task 1 runtime-only active-input queue behavior. Prompt
+      submissions received while fake runtime work is active are retained in
+      Model.Queued without starting another fake effect, preserving active-work
+      visibility and queued intent order.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 13"
+    discovered: >-
+      The smallest deterministic after-current-turn behavior is to leave queued
+      prompts visibly pending after fake completion or failure. Promotion into the
+      next fake turn is deferred to later app/TUI work so runtime does not hide
+      intent or invent Milestone 14+ cancellation/steering semantics.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/runtime -count=1`
+      passed. The runtime tests prove the Task 1 acceptance criteria: active fake
+      work plus queued input remains observable through
+      TestUpdateQueuesPromptWhileFakeWorkIsActive, which asserts StatusActive,
+      unchanged active transcript, unchanged operation counter, no emitted effect,
+      and the retained queued prompt; multiple active-window submissions remain in
+      submission order through TestUpdatePreservesQueuedPromptSubmissionOrder,
+      which asserts exact first/second/third queued prompt ordering with no fake
+      effects emitted; queued intent is never silently dropped on active fake work
+      completion or failure through
+      TestUpdateKeepsQueuedPromptsVisibleAfterFakeWorkCompletes, which asserts the
+      queue remains present and ordered after both FakeEffectCompleted and
+      FakeEffectFailed. `git diff --check -- internal/runtime/runtime.go
+      internal/runtime/runtime_test.go` passed, confirming the runtime code/test
+      diff has no whitespace errors.
+    next: >-
+      Execute M13 Task 2 only when selected; app/TUI fixtures, semantic snapshots,
+      PTY smoke, ROADMAP closeout, and plan status resolution remain for later
+      planned tasks and Orkestrera evaluation.
+    context:
+      intent: >-
+        Make runtime-owned queued user intent observable while fake work is active,
+        before presentation, fixture, semantic, or terminal smoke surfaces consume
+        the queue.
+      constraints: >-
+        Execute only M13 Task 1 runtime behavior and evidence. Do not mark the plan
+        complete, and do not modify app code, TUI code, fixtures, PTY tests,
+        ROADMAP.md, real providers, tools, shell execution, cancellation,
+        permissions, persistence, plugins, MCP, Milestone 14+ behavior, pushes, or
+        remotes.
+      unknowns: "none"
+      scope: >-
+        internal/runtime production queue state, focused runtime queue tests, and
+        M13 Task 1 Agentera progress evidence only.
+  - number: 77
+    timestamp: "2026-05-15 20:29"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M13 Task 2 app-owned queued-state handoff. The app input runner
+      now copies runtime-owned queued count and text into TUI handoff data, and the
+      TUI stores those injected fields without owning queue transitions or importing
+      runtime.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 13"
+    discovered: >-
+      Queue rendering remains intentionally minimal for Task 2: the TUI carries the
+      app-owned queued text and exposes the queued count through existing semantic
+      session data, but final visible queue rendering and semantic queue actions are
+      left to Task 3.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app ./internal/tui
+      ./internal/runtime -count=1` passed. The app tests prove the Task 2 prompt
+      handoff acceptance criteria: TestPromptSubmitWhileRuntimeActiveReturnsQueuedIntent
+      keeps active fake work active, emits no assistant response for the active-window
+      follow-up, dispatches no queued effect, and carries queued count/text from
+      runtime-owned Model.Queued; TestPromptSubmitHandoffDistinguishesQueuedAndNonQueuedPaths
+      proves the ordinary non-queued prompt still returns the fake assistant result
+      with an empty queue. Existing status, help, and quit behavior remains covered by
+      the same targeted TUI run, including TestStatusCommandShowsStableDeterministicPlaceholderSurface,
+      TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder, and the existing
+      quit shortcut/slash parity tests. TestPromptSubmitAppliesAppOwnedQueuedStateWithoutInventingTranscript
+      proves the TUI copies app-owned queued count/text into display state, exposes
+      queued_messages from that state, and does not invent transcript entries.
+      `git diff --check` passed after the changed files and Agentera evidence update.
+    next: >-
+      Execute M13 Task 3 only when selected; final queue visibility rendering,
+      semantic queue actions, fixtures, PTY smoke, ROADMAP closeout, and plan status
+      resolution remain for later planned tasks and Orkestrera evaluation.
+    context:
+      intent: >-
+        Carry runtime-owned queued intent through the app-owned input runner to TUI
+        display data without moving queue decisions into presentation code.
+      constraints: >-
+        Execute only M13 Task 2. Do not mark the plan complete, update ROADMAP,
+        fixtures, PTY tests, real providers, tools, shell execution, cancellation,
+        permissions, persistence, plugins, MCP, Milestone 14+ behavior, pushes, or
+        remotes.
+      unknowns: "none"
+      scope: >-
+        internal/app input handoff, minimal internal/tui handoff data structs/tests,
+        and M13 Task 2 Agentera progress evidence only.
+  - number: 78
+    timestamp: "2026-05-15 20:35"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M13 Task 3 queue visibility and semantic queue action rendering.
+      The TUI now presents app-injected queued count/text, states the default
+      after-current-turn behavior, and exposes a machine-readable default queue
+      action without owning queue transitions or execution.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 13"
+    discovered: >-
+      The minimal Task 3 surface is the default after-current-turn behavior only.
+      Interrupt, steer, cancel, or execution controls remain absent, so the TUI does
+      not imply behavior outside presentation-only queue visibility.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tui ./internal/app
+      ./internal/runtime -count=1` passed. Focused tests added for Task 3 acceptance:
+      TestM13QueuedInputRenderShowsDefaultAfterCurrentTurn proves active fake work,
+      queued message text, queued count, and the default after-current-turn behavior
+      are visible; the same test rejects interrupt, steer, and cancel language.
+      TestM13QueuedInputSemanticDefaultAction proves queued_messages is greater than
+      zero, the queue region contains queued text and presentation-only non-execution
+      metadata, and queue_after_current_turn is the default machine-readable action.
+      TestM13NoQueueRenderAndSemanticRemainStable proves existing idle, active, and
+      result runtime states do not gain queue UI, queue regions, or queue actions
+      when no queued input exists. `git diff --check` passed.
+    next: >-
+      Execute M13 Task 4 only when selected; queued-message fixture/snapshot files,
+      PTY smoke, ROADMAP closeout, and plan status resolution remain for later tasks.
+    context:
+      intent: >-
+        Make queued user intent visible and agent-readable after runtime and app
+        handoff work, while keeping all queue decisions outside the TUI.
+      constraints: >-
+        Execute only M13 Task 3. Do not mark the plan complete, update ROADMAP,
+        add queued-message fixture/snapshot files, add PTY smoke, real providers,
+        tools, shell execution, interrupt/steer/cancellation execution, permissions,
+        persistence, plugins, MCP, Milestone 14+ behavior, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        internal/tui queue rendering, semantic queue action metadata, focused TUI
+        tests using injected state, and M13 Task 3 Agentera progress evidence only.
+  - number: 79
+    timestamp: "2026-05-15 20:41"
+    type: test
+    phase: build
+    what: >-
+      Added the M13 Task 4 queued-message deterministic fixture. The new fixture
+      checks in 80x24 plain, ANSI, and semantic snapshots showing active fake work,
+      queued user intent, queued count, and the default after-current-turn queue
+      action.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 13"
+    discovered: >-
+      Task 3 already supplied the queue render and semantic action behavior, so Task
+      4 only needed fixture metadata, regenerated queued-message snapshots, and
+      fixture-level assertions. The fixture uses fake injected state and does not add
+      production TUI runtime imports or queue execution ownership.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tui -run
+      'TestM13QueuedMessageFixtureSnapshots|TestM13QueuedInput' -count=1` passed,
+      proving the queued-message fixture render contains active work, queued content,
+      queued count, and the after-current-turn behavior, and that the semantic
+      snapshot contains queued_messages=2 plus the default presentation-only
+      queue_after_current_turn action. `go test ./internal/tui ./internal/app
+      ./internal/runtime -count=1` passed, preserving Task 4 queue evidence alongside
+      app/runtime behavior. `git diff --check` passed. Snapshot updates are limited
+      to the new internal/tui/testdata/fixtures/queued-message plain, ANSI, and
+      semantic outputs plus its fixture metadata and test assertions.
+    next: >-
+      Execute M13 Task 5 only when selected; PTY smoke, ROADMAP closeout, plan status
+      resolution, real providers, tools, interrupt/steer/cancellation execution,
+      permissions, persistence, plugins, MCP, and Milestone 14+ behavior remain out
+      of scope.
+    context:
+      intent: >-
+        Make queue visibility deterministic and checked in as a fixture/snapshot
+        contract after runtime, app handoff, and TUI render behavior already exist.
+      constraints: >-
+        Execute only M13 Task 4. Do not mark .agentera/plan.yaml task status,
+        update ROADMAP, add PTY smoke, add real providers, tools, shell execution,
+        interrupt/steer/cancellation execution, permissions, persistence, plugins,
+        MCP, Milestone 14+ behavior, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        queued-message TUI fixture metadata, 80x24 plain/ANSI/semantic snapshots,
+        fixture-level assertions, and M13 Task 4 Agentera progress evidence only.
+  - number: 80
+    timestamp: "2026-05-15 20:49"
+    type: test
+    phase: build
+    what: >-
+      Added the M13 Task 5 live submit-while-active PTY smoke. The smoke starts
+      Aila in a scrubbed temp environment, holds fake in-memory work active through
+      an app-owned test seam, synchronizes on the visible active-work marker,
+      submits a second prompt, and proves queued intent becomes visible before the
+      active work is hidden.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 13"
+    discovered: >-
+      The existing fake dispatcher completes synchronously, so a live active window
+      was too short for PTY submission. The smallest bounded seam was the
+      AILA_FAKE_RUNTIME_HOLD_ACTIVE environment switch in app startup, which swaps
+      only the fake dispatcher for that process and leaves production behavior as
+      the existing synchronous fake completion when unset.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      TestM13SubmitWhileActivePTYSmoke -count=1` passed, proving the PTY smoke sees
+      Runtime active, status: active, active: true, and `user: slow active prompt`,
+      then submits `queued from active window` and observes Queued input, queued
+      messages: 1, the default after-current-turn action, and `queued: queued from
+      active window` without seeing active: false first. `go test ./cmd/aila
+      ./internal/tui ./internal/app ./internal/runtime -count=1` passed. `git diff
+      --check` passed. Cleanup evidence is covered by the smoke's successful q
+      quit path plus assertions that only temp XDG config was created and the
+      scrubbed HOME config path was not touched.
+    next: >-
+      Execute M13 Task 6 only when selected; ROADMAP closeout, plan status updates,
+      final mage check, real providers, tools, interrupt/steer/cancellation
+      execution, permissions, persistence, plugins, MCP, and Milestone 14+ behavior
+      remain out of scope.
+    context:
+      intent: >-
+        Prove live terminal queue visibility during fake active work without moving
+        queue decisions into the TUI or adding real model/provider/tool behavior.
+      constraints: >-
+        Execute only M13 Task 5. Do not mark .agentera/plan.yaml task status,
+        update ROADMAP, run final Task 6 mage check, add real providers, tools,
+        shell execution, interrupt/steer/cancellation execution, permissions,
+        persistence, plugins, MCP, Milestone 14+ behavior, pushes, or remotes.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY smoke coverage, minimal app-owned fake dispatch hold seam, and
+        M13 Task 5 Agentera progress evidence only.
+  - number: 81
+    timestamp: "2026-05-15 21:02"
+    type: test
+    phase: validate
+    what: >-
+      Completed the M13 Task 6 plan-level freshness checkpoint after Tasks 1-5 were
+      implemented and evaluated. ROADMAP.md now closes Milestone 13 and points the
+      next slice to Milestone 14 without adding behavior beyond queue visibility.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; docs/notes/PROMPT.md; ROADMAP.md Slice Completion Template"
+    discovered: >-
+      Final validation passed without bypassing configured gates. .agentera/plan.yaml
+      Task 6 intentionally remains pending because the conductor will mark it
+      complete after Inspektera evaluation.
+    verified: >-
+      `go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1`
+      passed for the targeted M13 runtime/app/TUI/cmd validation. `mage check`
+      passed with all package tests, zero lint issues, and no vulnerabilities.
+      ROADMAP.md closeout records the queued-message fixture, semantic and render
+      snapshot evidence, runtime/app/TUI/keybinding tests, submit-while-active PTY
+      smoke, Inspektera-evaluated Task 1-5 evidence, statechart-MVU and
+      TUI-presentation-only architecture checklist evidence, verification commands,
+      and roadmap status update. `git diff --check` passed after ROADMAP.md and
+      .agentera/progress.yaml were updated.
+    next: >-
+      Await conductor/Inspektera evaluation for Task 6. Do not mark the plan task
+      complete, commit, push, or start Milestone 14 unless explicitly instructed.
+    context:
+      intent: >-
+        Synchronize final M13 validation, roadmap closeout, and progress evidence
+        after queue visibility implementation and smoke coverage are complete.
+      constraints: >-
+        Execute only M13 Task 6 closeout. Do not modify production behavior, mark
+        .agentera/plan.yaml Task 6 complete, add real provider/tool/persistence or
+        cancellation work, skip ahead to Milestone 14, commit, push, or bypass
+        validation gates.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md closeout and M13 Task 6 Agentera progress evidence only.
+  - number: 82
+    timestamp: "2026-05-15 21:16"
+    type: docs
+    phase: validate
+    what: >-
+      Retried the M13 Task 6 roadmap closeout narrowly after Inspektera found that
+      ROADMAP.md had M13 status and completion-log evidence but lacked the completed
+      Slice Completion Template block. Added the completed M13 template block without
+      changing implementation behavior.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6 retry; ROADMAP.md Slice Completion Template; Inspektera gap report"
+    discovered: >-
+      The roadmap status already remained M13 complete, M14 next, and active none,
+      and .agentera/plan.yaml Task 6 remained pending for conductor re-evaluation.
+      No production, test, fixture, or plan changes were required for this retry.
+    verified: >-
+      ROADMAP.md now includes a completed Milestone 13 Slice Completion Template
+      block recording the queued-message fixture, semantic queued count/default
+      queue action, 80x24 plain/ANSI render snapshots, runtime/app/TUI/keybinding
+      regression tests, submit-while-active PTY smoke, Inspektera Task 1-5 evidence,
+      architecture checklist result, verification commands, and roadmap status. `git
+      diff --check` passed. Focused validation `go test ./internal/runtime
+      ./internal/app ./internal/tui ./cmd/aila -count=1` passed for this doc-only
+      retry.
+    next: >-
+      Await conductor/Inspektera re-evaluation for Task 6. Do not mark
+      .agentera/plan.yaml Task 6 complete, commit, push, or start Milestone 14 unless
+      explicitly instructed.
+    context:
+      intent: >-
+        Close the specific Task 6 documentation evidence gap while preserving the
+        already closed M13 roadmap status and pending plan-task handoff.
+      constraints: >-
+        Modify only ROADMAP.md and .agentera/progress.yaml; do not change production
+        behavior, tests, fixtures, .agentera/plan.yaml status, Milestone 14 behavior,
+        commits, pushes, or validation gates.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md completed M13 Slice Completion Template block and retry progress
+        evidence only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

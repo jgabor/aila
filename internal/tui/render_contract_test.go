@@ -102,6 +102,115 @@ func TestM6CommandSemanticsSurviveLayoutSizes(t *testing.T) {
 	}
 }
 
+func TestM13QueuedInputRenderShowsDefaultAfterCurrentTurn(t *testing.T) {
+	t.Parallel()
+
+	state := activeQueuedState()
+	render := RenderPlain(state, Size{Width: 80, Height: 24})
+	if !containsAll(render, []string{
+		"Runtime active",
+		"status: active",
+		"active: true",
+		"Queued input:",
+		"queued messages: 2",
+		"default action: send after current turn",
+		"action status: presentation-only; not executed by the TUI",
+		"queued: refine the tests",
+		"queued: explain the diff",
+		"user: active fake work",
+	}) {
+		t.Fatalf("queued render missing active work or queue defaults:\n%s", render)
+	}
+	if containsAny(render, []string{"interrupt", "steer", "cancel"}) {
+		t.Fatalf("queued render implies non-default execution choices:\n%s", render)
+	}
+}
+
+func TestM13QueuedInputSemanticDefaultAction(t *testing.T) {
+	t.Parallel()
+
+	snapshot := Semantic(activeQueuedState(), Size{Width: 80, Height: 24})
+	if snapshot.Session.QueuedMessages != 2 {
+		t.Fatalf("queued_messages = %d, want 2", snapshot.Session.QueuedMessages)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	queue, ok := regions["queue"]
+	if !ok || !queue.Visible {
+		t.Fatalf("queue region = %+v, want visible queue region", queue)
+	}
+	if !containsAll(strings.Join(queue.Items, "\n"), []string{
+		"queued messages: 2",
+		"default action: send after current turn",
+		"presentation-only",
+		"executed: false",
+		"queued: refine the tests",
+		"queued: explain the diff",
+	}) {
+		t.Fatalf("queue semantic items = %+v", queue.Items)
+	}
+
+	var queueAction *SemanticAction
+	for i := range snapshot.Actions {
+		if snapshot.Actions[i].Name == "queue_after_current_turn" {
+			queueAction = &snapshot.Actions[i]
+		}
+	}
+	if queueAction == nil {
+		t.Fatalf("actions = %+v, want queue_after_current_turn", snapshot.Actions)
+	}
+	if queueAction.Input != "enter" || !queueAction.Default || !queueAction.PresentationOnly || queueAction.Executed {
+		t.Fatalf("queue action = %+v, want default presentation-only non-executed action", *queueAction)
+	}
+}
+
+func TestM13NoQueueRenderAndSemanticRemainStable(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []ViewState{
+		loadRuntimeStatusFixture(t, "runtime-idle").State,
+		loadRuntimeStatusFixture(t, "runtime-active").State,
+		loadRuntimeStatusFixture(t, "runtime-result").State,
+	} {
+		state := state
+		t.Run(state.Scenario, func(t *testing.T) {
+			t.Parallel()
+
+			render := RenderPlain(state, Size{Width: 80, Height: 24})
+			if containsAny(render, []string{"Queued input:", "default action: send after current turn", "queue_after_current_turn"}) {
+				t.Fatalf("%s no-queue render gained queue UI:\n%s", state.Scenario, render)
+			}
+
+			snapshot := Semantic(state, Size{Width: 80, Height: 24})
+			if snapshot.Session.QueuedMessages != 0 {
+				t.Fatalf("%s queued_messages = %d, want 0", state.Scenario, snapshot.Session.QueuedMessages)
+			}
+			if _, ok := semanticRegionsByName(t, snapshot)["queue"]; ok {
+				t.Fatalf("%s semantic regions include queue without queued input: %+v", state.Scenario, snapshot.Regions)
+			}
+			for _, action := range snapshot.Actions {
+				if action.Name == "queue_after_current_turn" {
+					t.Fatalf("%s actions include queue action without queued input: %+v", state.Scenario, snapshot.Actions)
+				}
+			}
+		})
+	}
+}
+
+func activeQueuedState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "queued-message"
+	state.Phase = "PLAN"
+	state.PhaseSource = "workflow.fixture"
+	state.RuntimeStatus = "active"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "fake in-memory runtime loop"
+	state.RuntimeActive = true
+	state.QueuedCount = 2
+	state.QueuedText = []string{"refine the tests", "explain the diff"}
+	state.Transcript = []TranscriptTurn{{UserText: "active fake work"}}
+	return state
+}
+
 func currentRenderFixtures(t *testing.T) []renderFixture {
 	t.Helper()
 	return []renderFixture{

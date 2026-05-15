@@ -129,6 +129,103 @@ func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 	}
 }
 
+func TestUpdateQueuesPromptWhileFakeWorkIsActive(t *testing.T) {
+	t.Parallel()
+
+	model := Model{
+		Status:        StatusActive,
+		NextOperation: 1,
+		Transcript:    []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
+	}
+
+	updated, effects := Update(model, PromptSubmitted{Text: "queued follow-up"})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if updated.Status != StatusActive {
+		t.Fatalf("Status = %q, want %q", updated.Status, StatusActive)
+	}
+	if updated.NextOperation != model.NextOperation {
+		t.Fatalf("NextOperation = %d, want %d", updated.NextOperation, model.NextOperation)
+	}
+	if got, want := updated.Transcript, model.Transcript; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Transcript = %#v, want active transcript unchanged %#v", got, want)
+	}
+	if got, want := updated.Queued, []QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Queued = %#v, want %#v", got, want)
+	}
+}
+
+func TestUpdatePreservesQueuedPromptSubmissionOrder(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusActive}
+	model, effects := Update(model, PromptSubmitted{Text: "first queued"})
+	if len(effects) != 0 {
+		t.Fatalf("first len(effects) = %d, want 0", len(effects))
+	}
+	model, effects = Update(model, PromptSubmitted{Text: "second queued"})
+	if len(effects) != 0 {
+		t.Fatalf("second len(effects) = %d, want 0", len(effects))
+	}
+	model, effects = Update(model, PromptSubmitted{Text: "third queued"})
+	if len(effects) != 0 {
+		t.Fatalf("third len(effects) = %d, want 0", len(effects))
+	}
+
+	want := []QueuedEntry{
+		{Kind: "prompt", Text: "first queued"},
+		{Kind: "prompt", Text: "second queued"},
+		{Kind: "prompt", Text: "third queued"},
+	}
+	if !reflect.DeepEqual(model.Queued, want) {
+		t.Fatalf("Queued = %#v, want %#v", model.Queued, want)
+	}
+}
+
+func TestUpdateKeepsQueuedPromptsVisibleAfterFakeWorkCompletes(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "active work", Source: "user"}
+	model := Model{
+		Status: StatusActive,
+		Queued: []QueuedEntry{
+			{Kind: "prompt", Text: "first queued"},
+			{Kind: "prompt", Text: "second queued"},
+		},
+		Transcript: []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
+	}
+
+	completed, effects := Update(model, FakeEffectCompleted{Operation: operation, Result: "done"})
+	if len(effects) != 0 {
+		t.Fatalf("completed len(effects) = %d, want 0", len(effects))
+	}
+	if completed.Status != StatusIdle {
+		t.Fatalf("completed Status = %q, want %q", completed.Status, StatusIdle)
+	}
+	if !reflect.DeepEqual(completed.Queued, model.Queued) {
+		t.Fatalf("completed Queued = %#v, want %#v", completed.Queued, model.Queued)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got != (TranscriptEntry{Kind: "result", Text: "done"}) {
+		t.Fatalf("completed last transcript = %#v", got)
+	}
+
+	failure := FailureMetadata{Code: "fake_failed", Message: "failed", Retryable: true}
+	failed, effects := Update(model, FakeEffectFailed{Operation: operation, Failure: failure})
+	if len(effects) != 0 {
+		t.Fatalf("failed len(effects) = %d, want 0", len(effects))
+	}
+	if failed.Status != StatusIdle {
+		t.Fatalf("failed Status = %q, want %q", failed.Status, StatusIdle)
+	}
+	if !reflect.DeepEqual(failed.Queued, model.Queued) {
+		t.Fatalf("failed Queued = %#v, want %#v", failed.Queued, model.Queued)
+	}
+	if got := failed.Transcript[len(failed.Transcript)-1]; got != (TranscriptEntry{Kind: "failure", Text: "failed"}) {
+		t.Fatalf("failed last transcript = %#v", got)
+	}
+}
+
 func TestDispatchHandlesPromptEffect(t *testing.T) {
 	t.Parallel()
 

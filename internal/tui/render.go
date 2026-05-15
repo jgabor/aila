@@ -26,6 +26,8 @@ type ViewState struct {
 	StatusDetail  string
 	RuntimeActive bool
 	RuntimeResult string
+	QueuedCount   int
+	QueuedText    []string
 	PrimaryModel  string
 	UtilityModel  string
 	Autonomy      string
@@ -117,6 +119,7 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
 	items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	return items
@@ -139,6 +142,23 @@ func runtimeStatusLines(state ViewState) []string {
 	lines = append(lines, "  active: "+boolLabel(state.RuntimeActive))
 	if state.RuntimeResult != "" {
 		lines = append(lines, "  result: "+state.RuntimeResult)
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func queueLines(state ViewState) []string {
+	if state.QueuedCount <= 0 {
+		return nil
+	}
+	lines := []string{
+		"  Queued input:",
+		fmt.Sprintf("  queued messages: %d", state.QueuedCount),
+		"  default action: send after current turn",
+		"  action status: presentation-only; not executed by the TUI",
+	}
+	for _, text := range state.QueuedText {
+		lines = append(lines, "  queued: "+text)
 	}
 	lines = append(lines, "")
 	return lines
@@ -316,8 +336,11 @@ type SemanticRegion struct {
 
 // SemanticAction describes a user-visible action in the static shell.
 type SemanticAction struct {
-	Name  string `json:"name"`
-	Input string `json:"input"`
+	Name             string `json:"name"`
+	Input            string `json:"input"`
+	Default          bool   `json:"default,omitempty"`
+	PresentationOnly bool   `json:"presentation_only,omitempty"`
+	Executed         bool   `json:"executed,omitempty"`
 }
 
 // Semantic returns the semantic snapshot for a static shell render.
@@ -335,6 +358,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	}
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
+	}
+	if state.QueuedCount > 0 {
+		regions = append(regions, SemanticRegion{Name: "queue", Visible: true, Items: semanticQueueItems(state)})
 	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
@@ -356,6 +382,16 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if layout.RightRailVisible {
 		regions = append(regions, SemanticRegion{Name: "right_rail", Visible: true, Items: rightRailSemanticItems(state)})
 	}
+	actions := []SemanticAction{{Name: "quit", Input: "q"}}
+	if state.QueuedCount > 0 {
+		actions = append(actions, SemanticAction{
+			Name:             "queue_after_current_turn",
+			Input:            "enter",
+			Default:          true,
+			PresentationOnly: true,
+			Executed:         false,
+		})
+	}
 	return SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
@@ -375,16 +411,14 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			StatusDetail:   state.StatusDetail,
 			RuntimeResult:  state.RuntimeResult,
 			Active:         state.RuntimeActive,
-			QueuedMessages: 0,
+			QueuedMessages: state.QueuedCount,
 			PrimaryModel:   state.PrimaryModel,
 			UtilityModel:   state.UtilityModel,
 			Autonomy:       state.Autonomy,
 		},
 		Command: command,
 		Regions: regions,
-		Actions: []SemanticAction{
-			{Name: "quit", Input: "q"},
-		},
+		Actions: actions,
 	}
 }
 
@@ -452,6 +486,19 @@ func semanticRuntimeStatusItems(state ViewState) []string {
 	return items
 }
 
+func semanticQueueItems(state ViewState) []string {
+	items := []string{
+		fmt.Sprintf("queued messages: %d", state.QueuedCount),
+		"default action: send after current turn",
+		"presentation-only",
+		"executed: false",
+	}
+	for _, text := range state.QueuedText {
+		items = append(items, "queued: "+text)
+	}
+	return items
+}
+
 func boolLabel(value bool) string {
 	if value {
 		return "true"
@@ -501,6 +548,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.RuntimeStatus != "" {
 		items = append(items, semanticRuntimeStatusItems(state)...)
+	}
+	if state.QueuedCount > 0 {
+		items = append(items, semanticQueueItems(state)...)
 	}
 	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
 	return items
