@@ -140,6 +140,33 @@ func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadProjectStoreFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = name
+	state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+	state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+	state.Autonomy = "read"
+	state.ProjectStoreSource = "state.open"
+	switch name {
+	case "store-initialized":
+		state.ProjectStoreStatus = "initialized"
+		state.ProjectStoreDetail = "project store ready"
+	case "store-uninitialized":
+		state.ProjectStoreStatus = "uninitialized"
+		state.ProjectStoreDetail = "project store not opened"
+	case "store-degraded":
+		state.ProjectStoreStatus = "degraded"
+		state.ProjectStoreDetail = "create store directory"
+	default:
+		t.Fatalf("unknown project store fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
 func loadWaitingStatusFixture(t *testing.T) renderFixture {
 	t.Helper()
 
@@ -470,6 +497,68 @@ func TestM14InterruptFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func TestM15ProjectStoreStatusFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		status string
+		detail string
+	}{
+		{name: "store-initialized", status: "initialized", detail: "project store ready"},
+		{name: "store-uninitialized", status: "uninitialized", detail: "project store not opened"},
+		{name: "store-degraded", status: "degraded", detail: "create store directory"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadProjectStoreFixture(t, tc.name)
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(got, []string{"project store: " + tc.status, tc.detail, "primary model: opencode-go/deepseek-v4-pro:high"}) {
+						t.Fatalf("%s render missing project store evidence:\n%s", fixture.Name, got)
+					}
+					assertNoPathLeak(t, got)
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoPathLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Session.ProjectStoreStatus != tc.status || snapshot.Session.ProjectStoreSource != "state.open" || snapshot.Session.ProjectStoreDetail != tc.detail {
+						t.Fatalf("session store status = %+v, want %s from state.open", snapshot.Session, tc.status)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					store := strings.Join(regions["project_store"].Items, "\n")
+					if !containsAll(store, []string{"status: " + tc.status, "source: state.open", "detail: " + tc.detail, "app-owned"}) {
+						t.Fatalf("project_store region = %v, want path-safe app-owned status", regions["project_store"].Items)
+					}
+				})
+			}
+		})
+	}
+}
+
 func assertQueuedDefaultAction(t *testing.T, snapshot SemanticSnapshot) {
 	t.Helper()
 
@@ -483,6 +572,13 @@ func assertQueuedDefaultAction(t *testing.T, snapshot SemanticSnapshot) {
 		return
 	}
 	t.Fatalf("actions = %+v, want queue_after_current_turn", snapshot.Actions)
+}
+
+func assertNoPathLeak(t *testing.T, text string) {
+	t.Helper()
+	if containsAny(text, []string{"/tmp", "/home/", "\\", ".aila", "project.toml", "artifacts/", "indexes/"}) {
+		t.Fatalf("rendered project store status leaked path-like text:\n%s", text)
+	}
 }
 
 func TestM11WaitingStatusFixtureDistinguishesPhaseFromRuntimeStatus(t *testing.T) {

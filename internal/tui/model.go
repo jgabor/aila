@@ -272,17 +272,23 @@ func (m *Model) showCommandSurface(recommendation policy.CommandRecommendation) 
 	m.state.RouteSource = "policy.command"
 	switch recommendation.Route {
 	case policy.CommandRouteStatus:
-		m.state.SurfaceTitle = "status"
-		m.state.SurfaceLines = []string{
+		lines := []string{
 			"Deterministic placeholder status.",
 			"stage " + m.state.Phase + " (display-only)",
 			"primary model " + m.state.PrimaryModel,
 			"utility model " + m.state.UtilityModel,
 			"autonomy: " + m.state.Autonomy,
-			"git: " + m.state.FooterGit,
-			"context: " + m.state.FooterContext,
-			"real status sources: deferred",
 		}
+		if m.state.ProjectStoreStatus != "" {
+			lines = append(lines, "project store: "+m.state.ProjectStoreStatus+" ("+m.state.ProjectStoreSource+"; "+m.state.ProjectStoreDetail+")")
+		}
+		lines = append(lines,
+			"git: "+m.state.FooterGit,
+			"context: "+m.state.FooterContext,
+			"real status sources: deferred",
+		)
+		m.state.SurfaceTitle = "status"
+		m.state.SurfaceLines = lines
 	case policy.CommandRouteHelp:
 		m.state.SurfaceTitle = "help"
 		m.state.SurfaceLines = []string{

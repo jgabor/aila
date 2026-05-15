@@ -1,0 +1,149 @@
+header:
+  level: full
+  created: 2026-05-15
+  status: complete
+  reviewed: 2026-05-15
+  critic_issues: "4 found, 4 addressed, 0 dismissed"
+  title: Milestone 14 Interrupt Message Path
+what: >-
+  Deliver ROADMAP.md:564-584 Milestone 14 by adding a visible typed interrupt
+  path for fake active work. The product should let the TUI emit interrupt
+  intent for Ctrl-C and ctrl+x c, let runtime-owned message handling expose both
+  interrupting/canceling and canceled fake states, and prove the path through
+  keybinding tests, render and semantic snapshots, PTY smoke, and mage check
+  evidence without introducing real model, shell, or tool cancellation.
+why: >-
+  Aila needs cancellation semantics to become observable and testable before any
+  real IO exists. A typed interrupt path preserves statechart-MVU boundaries by
+  proving user interrupt intent travels as messages rather than as
+  presentation-layer side effects, while keeping the normal active-work input
+  path queued by default.
+constraints: >-
+  Execute only Milestone 14 selected from ROADMAP.md after Milestone 13 closeout.
+  Preserve updates-decide/effects-do and presentation-only TUI boundaries. Keep
+  the path fake and in-memory. Do not add real model/provider/tool/shell
+  cancellation, permissions, persistence, .aila store, workflow DSL, plugins,
+  MCP, Milestone 15 behavior, or commits/pushes without explicit instruction. Do
+  not revert unrelated user-owned work.
+previous_plan_archived: .agentera/archive/plan-2026-05-15-m13.yaml
+source_anchors:
+  - ROADMAP.md:564-584
+  - docs/notes/PROMPT.md
+  - AGENTS.md
+  - ARCHITECTURE.md:210-225
+  - ARCHITECTURE.md:781-801
+  - README.md:277-285
+  - docs/workflow-architecture.md:521-535
+  - docs/tui-testing.md:105-115
+  - docs/tui-testing.md:254-260
+verification_commands:
+  - go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+  - mage check
+scope:
+  included:
+    - Ctrl-C and ctrl+x c emit typed interrupt requests from the TUI instead of direct cancellation.
+    - Runtime marks fake active work as interrupting or canceling and then canceled through typed messages.
+    - Normal user input while fake work is active still queues by default unless an interrupt shortcut is used.
+    - Active work, queued intent, interrupting or canceling state, and canceled outcome remain visible according to tested fake state.
+    - Render snapshots, semantic snapshots, PTY smoke, targeted tests, mage check, and ROADMAP closeout evidence.
+  excluded:
+    - Real model, shell, tool, provider, subagent, or context cancellation.
+    - Permission policy, persistent checkpoints, .aila store, replay/history, or undo behavior.
+    - Workflow phase ownership by the TUI or direct TUI mutation of runtime/workflow state.
+    - Generic plugin, MCP, workflow DSL, model marketplace, or hosted control-plane surfaces.
+  deferred:
+    - Safe cancellation of real IO and checkpoint persistence.
+    - Project store layout bootstrap for Milestone 15.
+design: >-
+  Model interrupt as app/runtime-owned typed state around the existing fake
+  runtime rather than a TUI side effect. The TUI can bind Ctrl-C and ctrl+x c and
+  render injected interrupt state, but it must not call cancellation APIs or
+  mutate workflow/runtime state directly. The plan requires separate evidence for
+  the in-flight interrupting or canceling state and the resolved canceled state,
+  and it keeps active-work text input queued by default. Tasks 1-5 carry product
+  behavior and validation; Task 6 records freshness, roadmap, and Agentera
+  metadata after the functional gates pass.
+tasks:
+  - number: 1
+    name: Define runtime interrupt state path
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN fake work is active WHEN an interrupt request is processed THEN runtime-owned state records visible interrupting or canceling status through typed messages.
+      - GIVEN fake work has accepted an interrupt WHEN the fake interrupt path resolves THEN runtime-owned state records a visible canceled outcome without claiming real IO cancellation.
+      - GIVEN no fake work is active WHEN an interrupt request is processed THEN runtime behavior remains deterministic and does not invent cancellation of nonexistent work.
+      - GIVEN queued input exists with active fake work WHEN interruption is processed THEN queued user intent remains visible and is not silently dropped.
+      - GIVEN ordinary text input arrives while fake work is active WHEN no interrupt shortcut is used THEN the input remains queued by default and is not treated as interrupt intent.
+    evidence:
+      - Progress cycle 83 records runtime-only interrupt messages, canceling and canceled fake states, queue preservation, ordinary prompt queue behavior, `go test ./internal/runtime -count=1`, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 1 acceptance criteria and confirmed runtime purity plus no app, TUI, fixture, PTY, ROADMAP, or plan-status behavior was added by implementation.
+  - number: 2
+    name: Route app-owned interrupt requests
+    depends_on: [1]
+    status: complete
+    acceptance:
+      - GIVEN Ctrl-C or ctrl+x c is emitted while fake work is active WHEN the app handles it THEN the request reaches runtime as a typed message rather than presentation-layer cancellation.
+      - GIVEN interrupt state changes WHEN the app produces display state THEN interrupting or canceling and canceled status come from app/runtime-owned state.
+      - GIVEN normal prompt, queue, help, status, and quit paths are used WHEN interrupt routing exists THEN their existing behavior remains stable.
+      - GIVEN app routing tests run WHEN validation checks the handoff THEN active, idle, queued, interrupting or canceling, and canceled paths each have regression-sensitive coverage.
+    evidence:
+      - Progress cycle 84 records app-owned interrupt routing, runtime-derived canceling and canceled handoff data, normal prompt/queue/help/status/quit stability, targeted app/TUI/runtime tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 2 acceptance criteria and confirmed visible TUI keybinding/rendering, fixtures, PTY smoke, ROADMAP closeout, and real cancellation remain deferred.
+  - number: 3
+    name: Emit interrupt from TUI keybindings and render state
+    depends_on: [2]
+    status: complete
+    acceptance:
+      - GIVEN Ctrl-C is pressed WHEN the TUI updates THEN it emits the application interrupt message and does not directly cancel runtime, workflow, shell, model, or tools.
+      - GIVEN ctrl+x c is pressed WHEN the TUI updates THEN it emits the same application interrupt message and does not directly cancel runtime, workflow, shell, model, or tools.
+      - GIVEN interrupting or canceling state is injected into the TUI WHEN it renders THEN active work context and in-flight interrupt state are both visible.
+      - GIVEN canceled state is injected into the TUI WHEN it renders THEN active work context and canceled outcome are both visible without implying real IO cancellation.
+      - GIVEN semantic output is produced for interrupt state WHEN inspected THEN interrupting or canceling and canceled states are machine-readable and no executed lower-layer cancellation is implied.
+      - GIVEN no interrupt state exists WHEN existing queue and runtime states render THEN M13 queue behavior remains stable.
+    evidence:
+      - Progress cycle 85 records Ctrl-C and ctrl+x c TUI keybinding tests, injected canceling and canceled render/semantic tests, M13 queue stability tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 3 acceptance criteria and confirmed the TUI remains presentation-only with no direct runtime, workflow, shell, model, tool, provider, permission, persistence, fixture, PTY, ROADMAP, commit, or push behavior.
+  - number: 4
+    name: Add interrupt deterministic fixtures and snapshots
+    depends_on: [3]
+    status: complete
+    acceptance:
+      - GIVEN an interrupting or canceling fixture state is rendered WHEN fixture tests run THEN active work context and in-flight interrupt state appear in render snapshots.
+      - GIVEN a canceled fixture state is rendered WHEN fixture tests run THEN active work context and canceled outcome appear in render snapshots.
+      - GIVEN semantic snapshots are inspected WHEN fixture tests run THEN both interrupting or canceling and canceled states are exposed as machine-readable session or region data.
+      - GIVEN snapshot changes are reviewed WHEN outputs are compared THEN they are limited to intended interrupt-message surfaces.
+    evidence:
+      - Progress cycle 86 records interrupt-canceling and interrupt-canceled fixture metadata, render and semantic snapshots, targeted fixture tests, M13 queued-message stability, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 4 acceptance criteria and confirmed snapshot changes are limited to intended interrupt fixture surfaces with no PTY, ROADMAP, final mage check, real cancellation, commit, push, or M15 behavior.
+  - number: 5
+    name: Prove live interrupt PTY smoke
+    depends_on: [4]
+    status: complete
+    acceptance:
+      - GIVEN fake work is active in a bounded terminal smoke scenario WHEN Ctrl-C or ctrl+x c is sent THEN visible state changes through the typed runtime interrupt path.
+      - GIVEN the smoke output is inspected WHEN the scenario completes THEN it shows active work context, in-flight interrupt state, and canceled outcome without claiming real IO cancellation.
+      - GIVEN ordinary active-window text input is submitted in existing smoke coverage WHEN no interrupt shortcut is sent THEN it remains queued by default.
+      - GIVEN the smoke scenario cleans up WHEN it exits THEN it leaves no durable project or user state beyond expected temporary test artifacts.
+    evidence:
+      - Progress cycle 87 records the live ctrl+x c interrupt PTY smoke, in-flight canceling and canceled output, preserved M13 queued text smoke, cleanup checks, targeted tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 5 acceptance criteria and confirmed no ROADMAP closeout, final mage check, real cancellation, permission, persistence, plugin, MCP, M15, commit, push, or plan-status behavior was added by implementation.
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on: [1, 2, 3, 4, 5]
+    status: complete
+    acceptance:
+      - GIVEN Milestone 14 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 14 Slice Completion Template records interrupt keybinding tests, interrupting and canceled snapshots, PTY smoke, validation, and architecture checklist evidence.
+      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and not committed as standalone metadata-only work.
+      - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
+    evidence:
+      - Progress cycle 88 records final targeted validation, `mage check`, ROADMAP closeout, completed Slice Completion Template evidence, the lint-only staticcheck fix, and `git diff --check`.
+      - Inspektera evaluation passed all Task 6 acceptance criteria and confirmed no Milestone 15 behavior, commit, or push occurred.
+overall_acceptance:
+  - GIVEN fake work is active WHEN the user sends Ctrl-C or ctrl+x c THEN Aila exposes a typed interrupt path and visible interrupting or canceling state.
+  - GIVEN the fake interrupt path resolves WHEN Aila reports runtime state THEN canceled outcome is visible and machine-readable without implying real IO cancellation.
+  - GIVEN interrupt shortcuts are used WHEN TUI tests inspect outputs THEN the TUI emits messages and does not directly cancel lower layers.
+  - GIVEN ordinary active-work text input is submitted WHEN no interrupt shortcut is used THEN Aila preserves the default queued-message behavior from Milestone 13.
+  - GIVEN the milestone is validated WHEN documented gates run THEN keybinding tests, interrupting and canceled snapshots, PTY smoke, targeted tests, and mage check support the closeout.
+surprises:
+  - The adversarial review clarified that M14 must name the interrupt shortcuts and prove interrupting or canceling and canceled states separately.

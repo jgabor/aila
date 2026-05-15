@@ -4075,6 +4075,293 @@ cycles:
       scope: >-
         ROADMAP.md M14 closeout, .agentera/progress.yaml cycle evidence,
         internal/runtime lint-only staticcheck fix, and final validation commands.
+  - number: 89
+    timestamp: "2026-05-15 22:10"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M15 Task 1 by defining the pure internal/state store layout and
+      resolver contract. The contract derives `.aila/project.toml`,
+      `.aila/artifacts/`, and `.aila/indexes/` from the provided workspace path,
+      resolves the known `project_summary` logical artifact with provenance, and
+      validates artifact write ownership before exposing a final write path.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 15; ARCHITECTURE.md state boundary"
+    discovered: >-
+      internal/state was still a stub, so Task 1 could stay small and contract-only.
+      The first targeted test run exposed that Go 1.26 forbids `t.Setenv` inside a
+      parallel test; the workspace-derivation test was made non-parallel without
+      changing production behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/state -count=1`
+      passed, including TestDescribeStoreDerivesWorkspaceOwnedLayout for workspace-
+      derived `.aila/` paths independent of HOME, XDG, Agentera, and TUI state;
+      TestResolveKnownArtifactIncludesPathAndProvenance for `.aila/artifacts/`
+      resolution and logical-name/store-root provenance;
+      TestResolveRejectsUnknownAndUnsafeArtifacts for unknown names and unsafe names
+      such as traversal, slash, dash, uppercase, whitespace, and empty input;
+      TestResolveArtifactWriteRejectsUnownedWriteWithoutMutation for owner rejection
+      without modifying the final artifact file; TestResolveArtifactWriteAllowsOwningWriter
+      for the allowed owner path; and
+      TestStatePackageBoundaryAvoidsRuntimeAndPresentationOwnership for no model,
+      command execution, runtime, workflow, tool, app, capability, or TUI boundary
+      imports/tokens in internal/state production files.
+    next: >-
+      Await Inspektera/conductor evaluation for M15 Task 1. Do not mark
+      .agentera/plan.yaml Task 1 complete, initialize directories, add atomic writes,
+      wire startup, update TUI rendering, run final mage check, commit, push, or start
+      M15 Task 2+ behavior.
+    context:
+      intent: >-
+        Establish the minimal store path and artifact resolver contract before any
+        filesystem creation or startup integration exists.
+      constraints: >-
+        Execute only M15 Task 1. Do not implement store directory creation, atomic
+        writes, startup wiring, TUI rendering, fixtures/snapshots, PTY smoke, ROADMAP
+        closeout, final mage check, commits, pushes, session snapshots, event replay,
+        context compaction, diagnostics/recovery, model/tool/provider IO, permissions,
+        history/undo, plugins, MCP, or M16+ behavior. Do not mark .agentera/plan.yaml
+        Task 1 complete.
+      unknowns: "none"
+      scope: >-
+        internal/state store layout and resolver source, internal/state acceptance and
+        boundary tests, and M15 Task 1 Agentera progress evidence only.
+  - number: 90
+    timestamp: "2026-05-15 22:18"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M15 Task 2 by adding `OpenProjectStore` and `Store.WriteArtifact`
+      to internal/state. Store open now creates or reopens the minimal `.aila/`
+      layout with `.aila/project.toml`, `.aila/artifacts/`, and `.aila/indexes/`,
+      preserves existing project metadata on reopen, validates artifact ownership
+      before writes, and finalizes owned artifact writes through a temp-file rename
+      boundary.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 15; ARCHITECTURE.md state boundary"
+    discovered: >-
+      The Task 1 resolver contract was sufficient to keep Task 2 inside internal/state;
+      no app startup wiring, TUI rendering, session/replay/context-compaction paths, or
+      recovery semantics were needed. Project metadata can remain intentionally minimal
+      for M15 as `schema_version = 1` and is not rewritten when already present.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/state -count=1` passed,
+      including TestOpenProjectStoreCreatesMinimalLayoutOnCleanWorkspace for clean
+      `.aila/project.toml`, `.aila/artifacts/`, and `.aila/indexes/` creation;
+      TestOpenProjectStoreReopenPreservesExistingMetadata for idempotent reopen without
+      extra session, replay, or context-compaction entries; TestWriteArtifactStoresOwnedContentWithAtomicBoundary
+      for an owned `project_summary` write that replaces the final resolved file and
+      leaves no temp artifact behind; TestWriteArtifactRejectsUnownedWriteWithoutFinalMutation
+      for no final file creation and no existing content mutation on owner rejection;
+      the Task 1 resolver, ownership, unsafe-name, provenance, and package-boundary
+      tests also remained passing. `git diff --check -- internal/state` passed.
+    next: >-
+      Await Inspektera/conductor evaluation for M15 Task 2. Do not mark .agentera/plan.yaml
+      Task 2 complete, wire app startup, update TUI rendering, run PTY smoke, update
+      ROADMAP closeout, run final mage check, commit, push, or start M15 Task 3+ behavior
+      until this task is evaluated.
+    context:
+      intent: >-
+        Create and reopen the minimal project store safely, then prove owned artifact
+        writes and unowned write rejection at the internal/state boundary.
+      constraints: >-
+        Execute only M15 Task 2. Do not implement app startup wiring, TUI status
+        rendering, fixtures/snapshots, PTY smoke, ROADMAP closeout, final mage check,
+        commits, pushes, session snapshots, event replay, context compaction,
+        diagnostics/recovery, model/tool/provider IO, permission policy, history/undo,
+        plugins, MCP, or M16+ behavior. Do not mark .agentera/plan.yaml Task 2 complete.
+      unknowns: "none"
+      scope: >-
+        internal/state store initialization, idempotent metadata preservation, atomic
+        logical artifact writes, internal/state regression tests, and M15 Task 2
+        Agentera progress evidence only.
+  - number: 91
+    timestamp: "2026-05-15 22:29"
+    type: feat
+    phase: build
+    what: >-
+      Executed only M15 Task 3 by wiring app-owned project store startup status.
+      `app.Run` now resolves the startup workspace, `initialDisplayState` opens the
+      project store through internal/state, and app-owned path-safe store labels are
+      injected into `tui.ViewState` for initialized or degraded startup states. The TUI
+      consumes only strings and still does not import internal/state.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 15; ARCHITECTURE.md app/state/TUI boundaries"
+    discovered: >-
+      Rendering full store details in the conversation panel consumed enough bounded
+      terminal space to regress existing PTY expectations. The implementation was tightened
+      to keep startup visibility compact in display labels and expose detailed app-owned
+      status through the existing `/status` surface and semantic project_store/session
+      fields. A degraded raw `open <path>` error and directory-creation error also needed
+      explicit sanitization to avoid path leakage, and existing PTY tests needed to run the
+      app binary from a temp workspace so startup store creation would not pollute cmd/aila.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/state ./internal/app
+      ./internal/tui ./cmd/aila -count=1` passed after the compact render adjustment,
+      covering app-owned store initialization, `.aila/project.toml`, `.aila/artifacts/`,
+      and `.aila/indexes/` creation from startup display state, metadata preservation on
+      reopen, path-safe degraded status when project metadata cannot be opened, semantic
+      project_store/session fields, existing TUI render/input fixtures, and existing cmd PTY
+      smoke tests for prompt submit, command status/help/quit, resize, active queue, and
+      interrupt behavior. `git status --short -- cmd/aila/.aila` confirmed no generated
+      project store remained under the source package after PTY tests. `git diff --check --
+      internal/app internal/tui internal/state cmd/aila .agentera/plan.yaml
+      .agentera/progress.yaml` passed.
+    next: >-
+      Await Inspektera/conductor evaluation for M15 Task 3. Do not mark .agentera/plan.yaml
+      Task 3 complete, add Task 4 fixture/snapshot coverage, run M15 PTY store smoke,
+      update ROADMAP closeout, run final mage check, commit, push, or start M15 Task 4+
+      behavior until this task is evaluated.
+    context:
+      intent: >-
+        Initialize the project store during app startup and pass path-safe status data to
+        existing display surfaces without making the TUI own filesystem state.
+      constraints: >-
+        Execute only M15 Task 3. Do not add Task 4 fixtures/snapshots, Task 5 PTY store
+        smoke, ROADMAP closeout, final mage check, commits, pushes, session snapshots,
+        event replay, context compaction, diagnostics/recovery, model/tool/provider IO,
+        permission policy, history/undo, plugins, MCP, or M16+ behavior. Do not mark
+        .agentera/plan.yaml Task 3 complete.
+      unknowns: "none"
+      scope: >-
+        internal/app startup store opening and path-safe display conversion, internal/tui
+        string-only store status fields/render/semantic handoff, targeted app/TUI/cmd/state
+        regression tests, and M15 Task 3 Agentera progress evidence only.
+  - number: 92
+    timestamp: "2026-05-15 22:42"
+    type: test
+    phase: validate
+    what: >-
+      Executed only M15 Task 4 by adding deterministic TUI fixture and semantic snapshot
+      coverage for project store rendering. New `store-initialized`, `store-uninitialized`,
+      and `store-degraded` fixtures inject store status through `tui.ViewState`, prove
+      compact visible render output, and record machine-readable `project_store` semantic
+      regions plus session store fields without importing or calling internal/state from
+      the TUI.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; docs/tui-testing.md; ARCHITECTURE.md presentation-only TUI boundary"
+    discovered: >-
+      Task 3 already provided string-only store fields and app-owned status conversion, so
+      Task 4 could stay presentation-focused. Snapshot coverage needed three explicit status
+      cases instead of relying on app startup tests: initialized for the normal path,
+      uninitialized for display-state injection before open, and degraded for path-safe
+      actionable failure text. The first evaluator pass showed the visible render needed the
+      detail text as well as the semantic snapshot, so the compact display line now includes
+      path-safe detail when present.
+    verified: >-
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run
+      TestM15ProjectStoreStatusFixtureSnapshots -count=1` generated and then refreshed the
+      new fixture outputs, failing only with the harness' intentional updated-snapshot review
+      messages. `mage fmt` completed successfully. `go test ./internal/tui -count=1` passed,
+      covering the new project store render/semantic snapshots and existing TUI fixtures. `go test
+      ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1` passed, including
+      existing M13 queued-message and M14 interrupt fixtures and cmd PTY regressions. `git
+      diff --check -- internal/app internal/tui internal/state cmd/aila .agentera/plan.yaml
+      .agentera/progress.yaml` passed.
+    next: >-
+      Await Inspektera/conductor evaluation for M15 Task 4. Do not mark .agentera/plan.yaml
+      Task 4 complete, add Task 5 PTY startup store smoke, update ROADMAP closeout, run final
+      mage check, commit, push, or start M15 Task 5+ behavior until this task is evaluated.
+    context:
+      intent: >-
+        Prove store status is visible and machine-readable in deterministic TUI evidence
+        without path leakage or storage ownership in the TUI.
+      constraints: >-
+        Execute only M15 Task 4. Do not add Task 5 PTY store smoke, app/store behavior beyond
+        existing Task 3 wiring, ROADMAP closeout, final mage check, commits, pushes, session
+        snapshots, event replay, context compaction, diagnostics/recovery, model/tool/provider
+        IO, permission policy, history/undo, plugins, MCP, or M16+ behavior. Do not mark
+        .agentera/plan.yaml Task 4 complete.
+      unknowns: "none"
+      scope: >-
+        internal/tui project store fixture states, text/ANSI/semantic snapshots, path-leak
+        snapshot assertions, existing TUI fixture regression coverage, and M15 Task 4
+        Agentera progress evidence only.
+  - number: 93
+    timestamp: "2026-05-15 22:51"
+    type: test
+    phase: validate
+    what: >-
+      Executed only M15 Task 5 by adding a bounded PTY startup smoke for project store
+      initialization. The smoke builds a temp Aila binary, runs it from a temp workspace,
+      waits for path-safe `project store: initialized - project store ready` startup output,
+      verifies `.aila/project.toml`, `.aila/artifacts/`, and `.aila/indexes/` were created in
+      that workspace, and asserts HOME/source-package project store paths were not touched.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; docs/tui-testing.md PTY smoke guidance; ROADMAP.md M15"
+    discovered: >-
+      The Task 3 PTY isolation helper could be extended to return the temp workspace instead
+      of adding a separate runner. Building a temp binary before launching the PTY keeps the
+      process working directory independent of the Go package source tree, which lets startup
+      store creation be inspected without polluting cmd/aila or HOME.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      TestM15ProjectStoreStartupPTYSmoke -count=1` passed. `go test ./internal/state
+      ./internal/app ./internal/tui ./cmd/aila -count=1` passed, including the new M15 PTY
+      startup smoke plus existing prompt submit, status/help/quit, resize, queue, interrupt,
+      app, TUI, and state regressions. `git status --short -- cmd/aila/.aila .aila` returned
+      no output after the PTY tests. `git diff --check -- internal/app internal/tui
+      internal/state cmd/aila .agentera/plan.yaml .agentera/progress.yaml` passed.
+    next: >-
+      Await Inspektera/conductor evaluation for M15 Task 5. Do not mark .agentera/plan.yaml
+      Task 5 complete, update ROADMAP closeout, run final mage check, commit, push, or start
+      M15 Task 6 behavior until this task is evaluated.
+    context:
+      intent: >-
+        Prove real terminal startup initializes the project store through the app/store
+        boundary while keeping visible output path-safe and durable writes confined to the
+        temp workspace.
+      constraints: >-
+        Execute only M15 Task 5. Do not update ROADMAP closeout, run final mage check,
+        commit, push, add session snapshots, event replay, context compaction,
+        diagnostics/recovery, model/tool/provider IO, permission policy, history/undo,
+        plugins, MCP, or M16+ behavior. Do not mark .agentera/plan.yaml Task 5 complete.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY startup smoke coverage, PTY temp workspace isolation, project store
+        creation assertions, HOME/source-tree pollution checks, targeted regression tests,
+        and M15 Task 5 Agentera progress evidence only.
+  - number: 94
+    timestamp: "2026-05-15 23:01"
+    type: docs
+    phase: validate
+    what: >-
+      Executed M15 Task 6 final freshness checkpoint. The required targeted tests and full
+      Mage gate passed, ROADMAP.md now marks Milestone 15 complete with Milestone 15A next,
+      and the completed Milestone 15 Slice Completion Template records store tests, TUI
+      store status fixtures/snapshots, PTY startup store smoke, validation, and architecture
+      checklist evidence.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md milestone completion protocol; docs/notes/PROMPT.md"
+    discovered: >-
+      The first `mage check` run exposed a test fragility in
+      TestDescribeStoreDerivesWorkspaceOwnedLayout: it treated the substring `home` inside
+      the repository path `/home/...` as evidence that HOME was used. The test assertion was
+      tightened to reject only exact or descendant paths under the configured HOME, XDG,
+      Agentera, and TUI roots.
+    verified: >-
+      Final `go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1`
+      passed. Final `mage check` passed with 0 lint issues and no vulnerabilities. Final
+      `git diff --check -- ROADMAP.md internal/app internal/tui internal/state cmd/aila
+      .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-15-m14.yaml`
+      passed. `git status --short -- cmd/aila/.aila .aila` returned no output. No commit or
+      push was performed.
+    next: >-
+      Present the completed M15 handoff, including the Slice Completion Template. Do not
+      create a commit unless the user explicitly requests one. Milestone 15A is now the next
+      roadmap milestone.
+    context:
+      intent: >-
+        Close M15 only after validation passes and roadmap/Agentera metadata is synchronized
+        with the implementation outcome.
+      constraints: >-
+        Do not push or commit without explicit user instruction. Do not add M15A behavior,
+        sessions, replay, context compaction, diagnostics/recovery, provider/tool IO,
+        permission policy, history/undo, plugins, MCP, or M16+ behavior.
+      unknowns: "none"
+      scope: >-
+        final targeted validation, full mage check, ROADMAP M15 closeout update, Agentera
+        progress/plan synchronization, and final handoff evidence only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

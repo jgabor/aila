@@ -1,2 +1,2 @@
-// Package state will own Aila project store access, snapshots, event logs, and artifact resolution.
+// Package state owns Aila project store layout, initialization, and artifact writes.
 package state

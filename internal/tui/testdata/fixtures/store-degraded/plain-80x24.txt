@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deeps~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: opencode-go/deepseek-v4-pro:high                              |
+| utility model: opencode-go/deepseek-v4-flash:max                             |
+| autonomy: read (display-only)                                                |
+| project store: degraded - create store directory                             |
+|                                                                              |
+| No messages yet.                                                             |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

@@ -43,6 +43,50 @@ func TestStaticTUISmokeStartupAndQuit(t *testing.T) {
 	}
 }
 
+func TestM15ProjectStoreStartupPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithSizeEnvAndWorkspace(t, 80, 24, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+	}, 20*time.Second)
+	for _, forbidden := range []string{workspace, env.home, env.xdgConfigHome, "/tmp", "/home/", ".aila", "project.toml", "artifacts/", "indexes/"} {
+		if strings.Contains(startup, forbidden) {
+			t.Fatalf("startup store smoke leaked path marker %q: %q", forbidden, startup)
+		}
+	}
+
+	assertProjectStoreLayout(t, workspace)
+	if _, err := os.Stat(filepath.Join(env.home, ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("PTY startup touched HOME project store path, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".config", "aila", ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("PTY startup touched HOME config project store path, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(mustSourceDir(t), ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("PTY startup touched source package project store path, err=%v", err)
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("project store startup TUI quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("project store startup TUI did not quit after q: %v", ctx.Err())
+	}
+}
+
 func TestPromptSubmitPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -420,9 +464,32 @@ func startAilaPTYWithSize(t *testing.T, cols uint16, rows uint16) (context.Conte
 
 func startAilaPTYWithSizeAndEnv(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error) {
 	t.Helper()
+	ctx, cancel, terminal, wait, _ := startAilaPTYWithSizeEnvAndWorkspace(t, cols, rows, env)
+	return ctx, cancel, terminal, wait
+}
+
+func startAilaPTYWithSizeEnvAndWorkspace(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error, string) {
+	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	cmd := exec.CommandContext(ctx, "go", "run", ".")
+	sourceDir := mustSourceDir(t)
+	tmp := t.TempDir()
+	workspace := filepath.Join(tmp, "workspace")
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		cancel()
+		t.Fatalf("create PTY workspace: %v", err)
+	}
+	binary := filepath.Join(tmp, "aila")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	build.Dir = sourceDir
+	build.Env = env
+	if output, err := build.CombinedOutput(); err != nil {
+		cancel()
+		t.Fatalf("build aila PTY binary: %v\n%s", err, output)
+	}
+
+	cmd := exec.CommandContext(ctx, binary)
+	cmd.Dir = workspace
 	cmd.Env = env
 
 	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: rows, Cols: cols})
@@ -435,7 +502,52 @@ func startAilaPTYWithSizeAndEnv(t *testing.T, cols uint16, rows uint16, env []st
 	go func() {
 		wait <- cmd.Wait()
 	}()
-	return ctx, cancel, terminal, wait
+	return ctx, cancel, terminal, wait, workspace
+}
+
+func mustSourceDir(t *testing.T) string {
+	t.Helper()
+	sourceDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("resolve aila source dir: %v", err)
+	}
+	return sourceDir
+}
+
+func assertProjectStoreLayout(t *testing.T, workspace string) {
+	t.Helper()
+	storeRoot := filepath.Join(workspace, ".aila")
+	for _, dir := range []string{storeRoot, filepath.Join(storeRoot, "artifacts"), filepath.Join(storeRoot, "indexes")} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat project store directory %q: %v", dir, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("project store path %q is not a directory", dir)
+		}
+	}
+	content, err := os.ReadFile(filepath.Join(storeRoot, "project.toml"))
+	if err != nil {
+		t.Fatalf("read project store metadata: %v", err)
+	}
+	if string(content) != "schema_version = 1\n" {
+		t.Fatalf("project store metadata = %q, want schema_version", content)
+	}
+	entries, err := os.ReadDir(storeRoot)
+	if err != nil {
+		t.Fatalf("read project store root: %v", err)
+	}
+	got := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			name += "/"
+		}
+		got = append(got, name)
+	}
+	if strings.Join(got, ",") != "artifacts/,indexes/,project.toml" {
+		t.Fatalf("project store entries = %v, want artifacts indexes and project.toml only", got)
+	}
 }
 
 type ailaPTYTestEnv struct {

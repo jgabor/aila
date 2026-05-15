@@ -17,28 +17,31 @@ const (
 
 // ViewState is the deterministic data rendered by the M2 static shell.
 type ViewState struct {
-	Scenario      string
-	AppName       string
-	Phase         string
-	PhaseSource   string
-	RuntimeStatus string
-	StatusSource  string
-	StatusDetail  string
-	RuntimeActive bool
-	RuntimeResult string
-	QueuedCount   int
-	QueuedText    []string
-	PrimaryModel  string
-	UtilityModel  string
-	Autonomy      string
-	FooterGit     string
-	FooterContext string
-	Transcript    []TranscriptTurn
-	CommandRoute  string
-	RouteSource   string
-	SurfaceTitle  string
-	SurfaceLines  []string
-	PromptInput   string
+	Scenario           string
+	AppName            string
+	Phase              string
+	PhaseSource        string
+	RuntimeStatus      string
+	StatusSource       string
+	StatusDetail       string
+	RuntimeActive      bool
+	RuntimeResult      string
+	QueuedCount        int
+	QueuedText         []string
+	PrimaryModel       string
+	UtilityModel       string
+	Autonomy           string
+	ProjectStoreStatus string
+	ProjectStoreSource string
+	ProjectStoreDetail string
+	FooterGit          string
+	FooterContext      string
+	Transcript         []TranscriptTurn
+	CommandRoute       string
+	RouteSource        string
+	SurfaceTitle       string
+	SurfaceLines       []string
+	PromptInput        string
 }
 
 // IdleEmptyState returns the static first-launch view state.
@@ -191,17 +194,28 @@ func displayLabelLines(state ViewState) []string {
 	if !hasDisplayLabelDetails(state) {
 		return nil
 	}
-	return []string{
+	lines := []string{
 		"  Display labels:",
 		"  primary model: " + state.PrimaryModel,
 		"  utility model: " + state.UtilityModel,
 		"  autonomy: " + state.Autonomy + " (display-only)",
-		"",
 	}
+	if hasProjectStoreStatus(state) {
+		line := "  project store: " + state.ProjectStoreStatus
+		if state.ProjectStoreDetail != "" {
+			line += " - " + state.ProjectStoreDetail
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "")
 }
 
 func hasDisplayLabelDetails(state ViewState) bool {
 	return state.PrimaryModel != "placeholder" || state.UtilityModel != "placeholder" || state.Autonomy != "placeholder"
+}
+
+func hasProjectStoreStatus(state ViewState) bool {
+	return state.ProjectStoreStatus != ""
 }
 
 func panelLines(title string, items []string, width int, height int, ansi bool) []string {
@@ -329,17 +343,20 @@ type SemanticLayout struct {
 
 // SemanticSession describes session-level presentation state.
 type SemanticSession struct {
-	Phase          string `json:"phase"`
-	PhaseSource    string `json:"phase_source"`
-	RuntimeStatus  string `json:"runtime_status,omitempty"`
-	StatusSource   string `json:"status_source,omitempty"`
-	StatusDetail   string `json:"status_detail,omitempty"`
-	RuntimeResult  string `json:"runtime_result,omitempty"`
-	Active         bool   `json:"active"`
-	QueuedMessages int    `json:"queued_messages"`
-	PrimaryModel   string `json:"primary_model"`
-	UtilityModel   string `json:"utility_model"`
-	Autonomy       string `json:"autonomy"`
+	Phase              string `json:"phase"`
+	PhaseSource        string `json:"phase_source"`
+	RuntimeStatus      string `json:"runtime_status,omitempty"`
+	StatusSource       string `json:"status_source,omitempty"`
+	StatusDetail       string `json:"status_detail,omitempty"`
+	RuntimeResult      string `json:"runtime_result,omitempty"`
+	Active             bool   `json:"active"`
+	QueuedMessages     int    `json:"queued_messages"`
+	PrimaryModel       string `json:"primary_model"`
+	UtilityModel       string `json:"utility_model"`
+	Autonomy           string `json:"autonomy"`
+	ProjectStoreStatus string `json:"project_store_status,omitempty"`
+	ProjectStoreSource string `json:"project_store_source,omitempty"`
+	ProjectStoreDetail string `json:"project_store_detail,omitempty"`
 }
 
 // SemanticInterrupt describes injected interrupt display state without implying
@@ -387,6 +404,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	}
 	if hasDisplayLabelDetails(state) {
 		regions = append(regions, SemanticRegion{Name: "display_labels", Visible: true, Items: semanticDisplayLabelItems(state)})
+	}
+	if hasProjectStoreStatus(state) {
+		regions = append(regions, SemanticRegion{Name: "project_store", Visible: true, Items: semanticProjectStoreItems(state)})
 	}
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
@@ -439,17 +459,20 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			RightRailVisible: layout.RightRailVisible,
 		},
 		Session: SemanticSession{
-			Phase:          state.Phase,
-			PhaseSource:    state.PhaseSource,
-			RuntimeStatus:  state.RuntimeStatus,
-			StatusSource:   state.StatusSource,
-			StatusDetail:   state.StatusDetail,
-			RuntimeResult:  state.RuntimeResult,
-			Active:         state.RuntimeActive,
-			QueuedMessages: state.QueuedCount,
-			PrimaryModel:   state.PrimaryModel,
-			UtilityModel:   state.UtilityModel,
-			Autonomy:       state.Autonomy,
+			Phase:              state.Phase,
+			PhaseSource:        state.PhaseSource,
+			RuntimeStatus:      state.RuntimeStatus,
+			StatusSource:       state.StatusSource,
+			StatusDetail:       state.StatusDetail,
+			RuntimeResult:      state.RuntimeResult,
+			Active:             state.RuntimeActive,
+			QueuedMessages:     state.QueuedCount,
+			PrimaryModel:       state.PrimaryModel,
+			UtilityModel:       state.UtilityModel,
+			Autonomy:           state.Autonomy,
+			ProjectStoreStatus: state.ProjectStoreStatus,
+			ProjectStoreSource: state.ProjectStoreSource,
+			ProjectStoreDetail: state.ProjectStoreDetail,
 		},
 		Command: command,
 		Regions: regions,
@@ -507,6 +530,18 @@ func semanticDisplayLabelItems(state ViewState) []string {
 		"autonomy: " + state.Autonomy,
 		"display-only",
 	}
+}
+
+func semanticProjectStoreItems(state ViewState) []string {
+	items := []string{"status: " + state.ProjectStoreStatus}
+	if state.ProjectStoreSource != "" {
+		items = append(items, "source: "+state.ProjectStoreSource)
+	}
+	if state.ProjectStoreDetail != "" {
+		items = append(items, "detail: "+state.ProjectStoreDetail)
+	}
+	items = append(items, "app-owned")
+	return items
 }
 
 func semanticRuntimeStatusItems(state ViewState) []string {
@@ -612,6 +647,9 @@ func rightRailSemanticItems(state ViewState) []string {
 		"primary model: " + state.PrimaryModel,
 		"utility model: " + state.UtilityModel,
 		"autonomy: " + state.Autonomy,
+	}
+	if hasProjectStoreStatus(state) {
+		items = append(items, semanticProjectStoreItems(state)...)
 	}
 	if state.RuntimeStatus != "" {
 		items = append(items, semanticRuntimeStatusItems(state)...)

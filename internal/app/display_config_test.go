@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"go/parser"
 	"go/token"
 	"os"
@@ -62,7 +63,7 @@ func TestInitialDisplayStateUsesAppOwnedDefaults(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
 
-	state, err := initialDisplayState()
+	state, err := initialDisplayState(context.Background(), filepath.Join(t.TempDir(), "workspace"))
 	if err != nil {
 		t.Fatalf("load initial display state: %v", err)
 	}
@@ -104,7 +105,7 @@ model = "test-provider/utility:min"
 level = "read"
 `)
 
-	state, err := initialDisplayState()
+	state, err := initialDisplayState(context.Background(), filepath.Join(t.TempDir(), "workspace"))
 	if err != nil {
 		t.Fatalf("load initial display state: %v", err)
 	}
@@ -145,7 +146,7 @@ model = test-provider/primary:low
 `
 	writeFile(t, path, malformed)
 
-	_, err := initialDisplayState()
+	_, err := initialDisplayState(context.Background(), filepath.Join(t.TempDir(), "workspace"))
 	if err == nil {
 		t.Fatal("malformed startup config succeeded")
 	}
