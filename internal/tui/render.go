@@ -143,8 +143,31 @@ func runtimeStatusLines(state ViewState) []string {
 	if state.RuntimeResult != "" {
 		lines = append(lines, "  result: "+state.RuntimeResult)
 	}
+	lines = append(lines, interruptStatusLines(state)...)
 	lines = append(lines, "")
 	return lines
+}
+
+func interruptStatusLines(state ViewState) []string {
+	if !hasInterruptState(state) {
+		return nil
+	}
+	lines := []string{
+		"  interrupt state:",
+		"  interrupt status: " + state.RuntimeStatus,
+		"  lower-layer cancellation executed: false",
+	}
+	if state.RuntimeStatus == "canceling" {
+		lines = append(lines, "  interrupt outcome: pending")
+	}
+	if state.RuntimeStatus == "canceled" {
+		lines = append(lines, "  interrupt outcome: fake work canceled")
+	}
+	return lines
+}
+
+func hasInterruptState(state ViewState) bool {
+	return state.RuntimeStatus == "canceling" || state.RuntimeStatus == "canceled"
 }
 
 func queueLines(state ViewState) []string {
@@ -281,13 +304,14 @@ func stripANSI(text string) string {
 
 // SemanticSnapshot is the agent-readable meaning of the rendered static shell.
 type SemanticSnapshot struct {
-	Scenario string           `json:"scenario"`
-	Screen   SemanticScreen   `json:"screen"`
-	Layout   SemanticLayout   `json:"layout"`
-	Session  SemanticSession  `json:"session"`
-	Command  *SemanticCommand `json:"command,omitempty"`
-	Regions  []SemanticRegion `json:"regions"`
-	Actions  []SemanticAction `json:"actions"`
+	Scenario  string             `json:"scenario"`
+	Screen    SemanticScreen     `json:"screen"`
+	Layout    SemanticLayout     `json:"layout"`
+	Session   SemanticSession    `json:"session"`
+	Interrupt *SemanticInterrupt `json:"interrupt,omitempty"`
+	Command   *SemanticCommand   `json:"command,omitempty"`
+	Regions   []SemanticRegion   `json:"regions"`
+	Actions   []SemanticAction   `json:"actions"`
 }
 
 // SemanticScreen describes the terminal surface for a snapshot.
@@ -316,6 +340,14 @@ type SemanticSession struct {
 	PrimaryModel   string `json:"primary_model"`
 	UtilityModel   string `json:"utility_model"`
 	Autonomy       string `json:"autonomy"`
+}
+
+// SemanticInterrupt describes injected interrupt display state without implying
+// lower-layer IO cancellation.
+type SemanticInterrupt struct {
+	State                          string `json:"state"`
+	Outcome                        string `json:"outcome,omitempty"`
+	LowerLayerCancellationExecuted bool   `json:"lower_layer_cancellation_executed"`
 }
 
 // SemanticCommand describes a visible command surface without implying execution.
@@ -359,6 +391,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
+	if hasInterruptState(state) {
+		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
+	}
 	if state.QueuedCount > 0 {
 		regions = append(regions, SemanticRegion{Name: "queue", Visible: true, Items: semanticQueueItems(state)})
 	}
@@ -392,7 +427,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			Executed:         false,
 		})
 	}
-	return SemanticSnapshot{
+	snapshot := SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
 			Width:  size.Width,
@@ -420,6 +455,10 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Regions: regions,
 		Actions: actions,
 	}
+	if hasInterruptState(state) {
+		snapshot.Interrupt = semanticInterrupt(state)
+	}
+	return snapshot
 }
 
 func promptLine(input string) string {
@@ -482,8 +521,36 @@ func semanticRuntimeStatusItems(state ViewState) []string {
 	if state.RuntimeResult != "" {
 		items = append(items, "result: "+state.RuntimeResult)
 	}
+	items = append(items, interruptStatusLines(state)...)
 	items = append(items, "display-only")
 	return items
+}
+
+func semanticInterruptItems(state ViewState) []string {
+	interrupt := semanticInterrupt(state)
+	items := []string{
+		"state: " + interrupt.State,
+		"lower_layer_cancellation_executed: false",
+		"display-only",
+	}
+	if interrupt.Outcome != "" {
+		items = append(items, "outcome: "+interrupt.Outcome)
+	}
+	return items
+}
+
+func semanticInterrupt(state ViewState) *SemanticInterrupt {
+	interrupt := &SemanticInterrupt{
+		State:                          state.RuntimeStatus,
+		LowerLayerCancellationExecuted: false,
+	}
+	if state.RuntimeStatus == "canceling" {
+		interrupt.Outcome = "pending"
+	}
+	if state.RuntimeStatus == "canceled" {
+		interrupt.Outcome = "fake work canceled"
+	}
+	return interrupt
 }
 
 func semanticQueueItems(state ViewState) []string {

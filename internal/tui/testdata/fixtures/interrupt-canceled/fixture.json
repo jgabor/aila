@@ -1,0 +1,17 @@
+{
+  "name": "interrupt-canceled",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["build", "runtime_canceled", "interrupt_resolved"],
+  "render_sizes": [{ "name": "80x24", "width": 80, "height": 24 }],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json"
+  },
+  "notes": [
+    "M14 presentation-only interrupt fixture for resolved fake canceled outcome.",
+    "Active work context and fake canceled outcome remain visible without claiming real IO cancellation."
+  ]
+}

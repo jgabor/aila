@@ -156,6 +156,91 @@ func TestM13SubmitWhileActivePTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM14InterruptActiveWorkPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars,
+		"AILA_FAKE_RUNTIME_HOLD_ACTIVE=1",
+		"AILA_FAKE_RUNTIME_RESOLVE_SECOND_INTERRUPT=1",
+	)
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 160, 45, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntil(t, terminal, "Aila", 20*time.Second)
+	if _, err := terminal.Write([]byte("interruptible fake work\r")); err != nil {
+		t.Fatalf("send active prompt input: %v", err)
+	}
+	active := readUntilAll(t, terminal, []string{
+		"Runtime active",
+		"Runtime status:",
+		"status: active",
+		"active: true",
+		"user: interruptible fake work",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte{0x18, 'c'}); err != nil {
+		t.Fatalf("send ctrl+x c interrupt input: %v", err)
+	}
+	canceling := readUntilAll(t, terminal, []string{
+		"Runtime canceling",
+		"status: canceling",
+		"active: true",
+		"interrupt state:",
+		"interrupt status: canceling",
+		"interrupt outcome: pending",
+		"lower-layer cancellation executed: false",
+		"user: interruptible fake work",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte{0x18, 'c'}); err != nil {
+		t.Fatalf("send second ctrl+x c fake interrupt resolution input: %v", err)
+	}
+	canceled := readUntilAll(t, terminal, []string{
+		"Runtime canceled",
+		"status: canceled",
+		"active: false",
+		"result: fake work canceled",
+		"interrupt state:",
+		"interrupt status: canceled",
+		"interrupt outcome: fake work canceled",
+		"lower-layer cancellation executed: false",
+		"user: interruptible fake work",
+	}, 10*time.Second)
+
+	combined := active + canceling + canceled
+	for _, forbidden := range []string{"real IO cancellation", "tool cancellation", "provider cancellation", "shell cancellation", "lower-layer cancellation executed: true"} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("interrupt PTY output claimed lower-layer cancellation marker %q: %q", forbidden, combined)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after interrupt smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("interrupt TUI quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("interrupt TUI did not clean up before timeout: %v", ctx.Err())
+	}
+
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for scrubbed PTY startup: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".config", "aila")); !os.IsNotExist(err) {
+		t.Fatalf("scrubbed PTY touched HOME config path, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("interrupt PTY touched HOME .aila state, err=%v", err)
+	}
+}
+
 func TestM5CommandPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

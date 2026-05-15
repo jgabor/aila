@@ -90,6 +90,93 @@ func TestPromptSubmitAppliesAppOwnedRuntimeStatus(t *testing.T) {
 	}
 }
 
+func TestCtrlCEmitsAppInterruptMessageOnly(t *testing.T) {
+	t.Parallel()
+
+	var interrupts []string
+	var commands []policy.CommandRecommendation
+	model := NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		return TranscriptTurn{UserText: text, AssistantText: "unexpected"}
+	}, func(recommendation policy.CommandRecommendation) {
+		commands = append(commands, recommendation)
+	}, func(reason string) TranscriptTurn {
+		interrupts = append(interrupts, reason)
+		return TranscriptTurn{
+			RuntimeStatus: "canceling",
+			StatusSource:  "runtime.dispatch",
+			StatusDetail:  "fake in-memory runtime loop",
+			RuntimeActive: true,
+		}
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	got := updated.(Model)
+
+	if cmd != nil {
+		t.Fatal("ctrl-c interrupt must not emit a Bubble Tea command")
+	}
+	if got.Quitting() {
+		t.Fatal("ctrl-c interrupt must not quit or cancel from the TUI")
+	}
+	if len(interrupts) != 1 || interrupts[0] != "ctrl-c" {
+		t.Fatalf("interrupt requests = %#v, want ctrl-c", interrupts)
+	}
+	if len(commands) != 0 {
+		t.Fatalf("ctrl-c routed command recommendations: %+v", commands)
+	}
+	if got.state.RuntimeStatus != "canceling" || !got.state.RuntimeActive {
+		t.Fatalf("runtime display state = %+v, want injected canceling active state", got.state)
+	}
+}
+
+func TestCtrlXCEmitsSameAppInterruptMessageOnly(t *testing.T) {
+	t.Parallel()
+
+	var interrupts []string
+	var prompts []string
+	var commands []policy.CommandRecommendation
+	model := NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		prompts = append(prompts, text)
+		return TranscriptTurn{UserText: text, AssistantText: "unexpected"}
+	}, func(recommendation policy.CommandRecommendation) {
+		commands = append(commands, recommendation)
+	}, func(reason string) TranscriptTurn {
+		interrupts = append(interrupts, reason)
+		return TranscriptTurn{
+			RuntimeStatus: "canceling",
+			StatusSource:  "runtime.dispatch",
+			StatusDetail:  "fake in-memory runtime loop",
+			RuntimeActive: true,
+		}
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	if cmd != nil {
+		t.Fatal("ctrl+x prefix must not emit a Bubble Tea command")
+	}
+	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	got := updated.(Model)
+
+	if cmd != nil {
+		t.Fatal("ctrl+x c interrupt must not emit a Bubble Tea command")
+	}
+	if got.Quitting() {
+		t.Fatal("ctrl+x c interrupt must not quit or cancel from the TUI")
+	}
+	if len(interrupts) != 1 || interrupts[0] != "ctrl+x c" {
+		t.Fatalf("interrupt requests = %#v, want ctrl+x c", interrupts)
+	}
+	if len(prompts) != 0 {
+		t.Fatalf("ctrl+x c routed prompts: %#v", prompts)
+	}
+	if len(commands) != 0 {
+		t.Fatalf("ctrl+x c routed command recommendations: %+v", commands)
+	}
+	if got.state.RuntimeStatus != "canceling" || !got.state.RuntimeActive {
+		t.Fatalf("runtime display state = %+v, want injected canceling active state", got.state)
+	}
+}
+
 func TestPromptSubmitAppliesAppOwnedQueuedStateWithoutInventingTranscript(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,96 @@
+{
+  "scenario": "interrupt-canceling",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "canceling",
+    "status_source": "runtime.fixture",
+    "status_detail": "fake in-memory runtime loop",
+    "active": true,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "interrupt": {
+    "state": "canceling",
+    "outcome": "pending",
+    "lower_layer_cancellation_executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["user: active fake work"]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: canceling",
+        "status source: runtime.fixture",
+        "detail: fake in-memory runtime loop",
+        "active: true",
+        "  interrupt state:",
+        "  interrupt status: canceling",
+        "  lower-layer cancellation executed: false",
+        "  interrupt outcome: pending",
+        "display-only"
+      ]
+    },
+    {
+      "name": "interrupt",
+      "visible": true,
+      "items": [
+        "state: canceling",
+        "lower_layer_cancellation_executed: false",
+        "display-only",
+        "outcome: pending"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

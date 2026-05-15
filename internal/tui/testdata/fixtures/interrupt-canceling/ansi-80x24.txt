@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime canceling | Model placeholder | Utility placeholder | Aut~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: canceling                                                            |
+| status source: runtime.fixture                                               |
+| detail: fake in-memory runtime loop                                          |
+| active: true                                                                 |
+| interrupt state:                                                             |
+| interrupt status: canceling                                                  |
+| lower-layer cancellation executed: false                                     |
+| interrupt outcome: pending                                                   |
+|                                                                              |
+| user: active fake work                                                       |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

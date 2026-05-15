@@ -187,6 +187,12 @@ func loadQueuedMessageFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, "queued-message", activeQueuedState())
 }
 
+func loadInterruptFixture(t *testing.T, status string) renderFixture {
+	t.Helper()
+
+	return loadRenderFixture(t, "interrupt-"+status, interruptState(status))
+}
+
 func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "PLAN"
@@ -349,6 +355,117 @@ func TestM13QueuedMessageFixtureSnapshots(t *testing.T) {
 				t.Fatalf("queued semantic regions missing active work or queued intent: chat=%v queue=%v", regions["chat"].Items, regions["queue"].Items)
 			}
 			assertQueuedDefaultAction(t, snapshot)
+		})
+	}
+}
+
+func TestM14InterruptFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		status     string
+		active     bool
+		wantRender []string
+		wantRegion []string
+	}{
+		{
+			status: "canceling",
+			active: true,
+			wantRender: []string{
+				"Stage BUILD | Runtime canceling",
+				"Runtime status:",
+				"status: canceling",
+				"active: true",
+				"interrupt state:",
+				"interrupt status: canceling",
+				"outcome: pending",
+				"lower-layer cancellation executed: false",
+				"user: active fake work",
+			},
+			wantRegion: []string{
+				"state: canceling",
+				"outcome: pending",
+				"lower_layer_cancellation_executed: false",
+				"display-only",
+			},
+		},
+		{
+			status: "canceled",
+			active: false,
+			wantRender: []string{
+				"Stage BUILD | Runtime canceled",
+				"Runtime status:",
+				"status: canceled",
+				"active: false",
+				"result: fake work canceled",
+				"interrupt state:",
+				"interrupt status: canceled",
+				"outcome: fake work canceled",
+				"lower-layer cancellation executed: false",
+				"user: active fake work",
+			},
+			wantRegion: []string{
+				"state: canceled",
+				"outcome: fake work canceled",
+				"lower_layer_cancellation_executed: false",
+				"display-only",
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.status, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadInterruptFixture(t, tc.status)
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			if fixture.TerminalBehavior != "bubbletea_static" {
+				t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+			}
+			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(got, tc.wantRender) {
+						t.Fatalf("%s render missing interrupt fixture evidence %v:\n%s", fixture.Name, tc.wantRender, got)
+					}
+					if containsAny(got, []string{"shell canceled", "model canceled", "tool canceled", "runtime canceled by TUI"}) {
+						t.Fatalf("%s render implies real lower-layer cancellation:\n%s", fixture.Name, got)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Session.RuntimeStatus != tc.status || snapshot.Session.Active != tc.active {
+						t.Fatalf("session = %+v, want status %s active %v", snapshot.Session, tc.status, tc.active)
+					}
+					if snapshot.Interrupt == nil || snapshot.Interrupt.State != tc.status || snapshot.Interrupt.LowerLayerCancellationExecuted {
+						t.Fatalf("interrupt = %+v, want status %s without lower-layer cancellation", snapshot.Interrupt, tc.status)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					chat := strings.Join(regions["chat"].Items, "\n")
+					interrupt := strings.Join(regions["interrupt"].Items, "\n")
+					if !contains(chat, "user: active fake work") || !containsAll(interrupt, tc.wantRegion) {
+						t.Fatalf("semantic regions missing interrupt evidence: chat=%v interrupt=%v", regions["chat"].Items, regions["interrupt"].Items)
+					}
+				})
+			}
 		})
 	}
 }

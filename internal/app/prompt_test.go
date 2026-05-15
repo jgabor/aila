@@ -111,6 +111,128 @@ func TestPromptSubmitHandoffDistinguishesQueuedAndNonQueuedPaths(t *testing.T) {
 	}
 }
 
+func TestInterruptRequestRoutesTypedRuntimeMessageWhileFakeWorkActive(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		reason string
+	}{
+		{name: "ctrl-c", reason: "ctrl-c"},
+		{name: "ctrl+x c", reason: "ctrl+x c"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var dispatched [][]runtime.Effect
+			runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+				dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+				return nil
+			})
+
+			active := runner.submitPrompt("active fake work")
+			interrupted := runner.requestInterrupt(tc.reason)
+
+			if active.RuntimeStatus != "active" || !active.RuntimeActive {
+				t.Fatalf("active handoff = %+v, want active fake work", active)
+			}
+			if interrupted.RuntimeStatus != "canceling" || !interrupted.RuntimeActive {
+				t.Fatalf("interrupt handoff = %+v, want canceling active state", interrupted)
+			}
+			if interrupted.RuntimeResult != "" || interrupted.QueuedCount != 0 || len(interrupted.QueuedText) != 0 {
+				t.Fatalf("interrupt handoff carried unexpected result or queue: %+v", interrupted)
+			}
+			if len(dispatched) != 2 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 {
+				t.Fatalf("dispatched effects = %#v, want prompt then interrupt effect", dispatched)
+			}
+			interrupt, ok := dispatched[1][0].(runtime.FakeInterruptEffect)
+			if !ok {
+				t.Fatalf("second effect = %T, want runtime.FakeInterruptEffect", dispatched[1][0])
+			}
+			if interrupt.Cancel != (runtime.CancelMetadata{Requested: true, Reason: tc.reason}) {
+				t.Fatalf("interrupt cancel metadata = %#v", interrupt.Cancel)
+			}
+			if runner.model.Status != runtime.StatusCanceling {
+				t.Fatalf("runtime status = %q, want canceling", runner.model.Status)
+			}
+			if got := runner.model.Transcript[len(runner.model.Transcript)-1]; got != (runtime.TranscriptEntry{Kind: "interrupting", Text: tc.reason}) {
+				t.Fatalf("last transcript = %#v", got)
+			}
+		})
+	}
+}
+
+func TestInterruptRequestHandoffReportsCanceledFromRuntimeState(t *testing.T) {
+	t.Parallel()
+
+	var calls int
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		calls++
+		if calls == 1 {
+			return nil
+		}
+		return runtime.Dispatch(effects)
+	})
+
+	runner.submitPrompt("active fake work")
+	canceled := runner.requestInterrupt("ctrl-c")
+
+	if canceled.RuntimeStatus != "canceled" || canceled.RuntimeActive {
+		t.Fatalf("canceled handoff = %+v, want canceled inactive state", canceled)
+	}
+	if canceled.RuntimeResult != "fake work canceled" {
+		t.Fatalf("canceled result = %q", canceled.RuntimeResult)
+	}
+	if runner.model.Status != runtime.StatusCanceled || runner.model.Result != "fake work canceled" {
+		t.Fatalf("runtime model = %#v, want runtime-owned canceled result", runner.model)
+	}
+	if got := runner.model.Transcript[len(runner.model.Transcript)-1]; got != (runtime.TranscriptEntry{Kind: "canceled", Text: "fake work canceled"}) {
+		t.Fatalf("last transcript = %#v", got)
+	}
+}
+
+func TestInterruptRequestHandoffPreservesQueuedIntent(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+	runner.submitPrompt("active fake work")
+	runner.submitPrompt("queued follow-up")
+
+	interrupted := runner.requestInterrupt("ctrl+x c")
+
+	if interrupted.RuntimeStatus != "canceling" || !interrupted.RuntimeActive {
+		t.Fatalf("interrupt handoff = %+v, want canceling active state", interrupted)
+	}
+	if interrupted.QueuedCount != 1 || !reflect.DeepEqual(interrupted.QueuedText, []string{"queued follow-up"}) {
+		t.Fatalf("queued interrupt handoff = count %d text %#v", interrupted.QueuedCount, interrupted.QueuedText)
+	}
+	if got := runner.model.Queued; !reflect.DeepEqual(got, []runtime.QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}}) {
+		t.Fatalf("runtime queue = %#v", got)
+	}
+}
+
+func TestInterruptRequestWhileIdleStaysRuntimeNoop(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+
+	result := runner.requestInterrupt("ctrl-c")
+
+	if len(dispatched) != 1 || len(dispatched[0]) != 0 {
+		t.Fatalf("dispatched effects = %#v, want one empty runtime dispatch", dispatched)
+	}
+	if result.RuntimeStatus != "idle" || result.RuntimeActive || result.RuntimeResult != "" || result.QueuedCount != 0 {
+		t.Fatalf("idle interrupt handoff = %+v, want unchanged idle runtime state", result)
+	}
+	if runner.model.Status != runtime.StatusIdle || len(runner.model.Transcript) != 0 || runner.model.NextOperation != 0 {
+		t.Fatalf("runtime model = %#v, want unchanged idle model", runner.model)
+	}
+}
+
 func TestAppInputRunnerBoundaryStaysRuntimeAdapterOnly(t *testing.T) {
 	t.Parallel()
 

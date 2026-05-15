@@ -7,8 +7,10 @@ import "strings"
 type Status string
 
 const (
-	StatusIdle   Status = "idle"
-	StatusActive Status = "active"
+	StatusIdle      Status = "idle"
+	StatusActive    Status = "active"
+	StatusCanceling Status = "canceling"
+	StatusCanceled  Status = "canceled"
 )
 
 // Message is an input to the deterministic runtime update function.
@@ -32,6 +34,13 @@ type CommandSelected struct {
 
 func (CommandSelected) runtimeMessage() {}
 
+// InterruptRequested records user intent to stop the current fake operation.
+type InterruptRequested struct {
+	Reason string
+}
+
+func (InterruptRequested) runtimeMessage() {}
+
 // FakeEffectCompleted reports a deterministic in-memory fake effect result.
 type FakeEffectCompleted struct {
 	Operation OperationMetadata
@@ -48,14 +57,23 @@ type FakeEffectFailed struct {
 
 func (FakeEffectFailed) runtimeMessage() {}
 
+// FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
+type FakeInterruptResolved struct {
+	Operation OperationMetadata
+	Cancel    CancelMetadata
+}
+
+func (FakeInterruptResolved) runtimeMessage() {}
+
 // Model is runtime-owned state for the current fake interaction surface.
 type Model struct {
-	Status        Status
-	Transcript    []TranscriptEntry
-	Queued        []QueuedEntry
-	Result        string
-	LastCommand   string
-	NextOperation int
+	Status          Status
+	Transcript      []TranscriptEntry
+	Queued          []QueuedEntry
+	Result          string
+	LastCommand     string
+	NextOperation   int
+	ActiveOperation OperationMetadata
 }
 
 // QueuedEntry is a user message queued while fake work is active.
@@ -101,6 +119,18 @@ func (effect FakeCommandEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
+// FakeInterruptEffect requests fake in-memory interruption of active work.
+type FakeInterruptEffect struct {
+	Operation OperationMetadata
+	Cancel    CancelMetadata
+}
+
+func (FakeInterruptEffect) runtimeEffect() {}
+
+func (effect FakeInterruptEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
 // Dispatch interprets fake in-memory effects synchronously and returns result
 // messages in the same order as the input effects.
 func Dispatch(effects []Effect) []Message {
@@ -121,6 +151,8 @@ func Dispatch(effects []Effect) []Message {
 				Operation: typed.Operation,
 				Result:    "fake command result: " + typed.Command,
 			})
+		case FakeInterruptEffect:
+			messages = append(messages, FakeInterruptResolved(typed))
 		}
 	}
 
@@ -169,7 +201,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 	switch msg := message.(type) {
 	case PromptSubmitted:
 		text := strings.TrimSpace(msg.Text)
-		if next.Status == StatusActive {
+		if hasActiveFakeWork(next.Status) {
 			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
 			return next, nil
 		}
@@ -177,6 +209,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationPrompt, text)
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
 	case CommandSelected:
@@ -184,21 +217,48 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Status = StatusActive
 		next.Result = ""
 		next.LastCommand = msg.Name
+		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
+	case InterruptRequested:
+		if !hasActiveFakeWork(next.Status) {
+			return next, nil
+		}
+
+		cancel := CancelMetadata{Requested: true, Reason: strings.TrimSpace(msg.Reason)}
+		operation := next.ActiveOperation
+		operation.Cancel = cancel
+		next.Status = StatusCanceling
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "interrupting", Text: cancel.Reason})
+		return next, []Effect{FakeInterruptEffect{Operation: operation, Cancel: cancel}}
 	case FakeEffectCompleted:
 		next.Status = StatusIdle
 		next.Result = msg.Result
+		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
 	case FakeEffectFailed:
 		next.Status = StatusIdle
 		next.Result = msg.Failure.Message
+		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
+		return next, nil
+	case FakeInterruptResolved:
+		next.Status = StatusCanceled
+		next.Result = "fake work canceled"
+		operation := msg.Operation
+		operation.Cancel = msg.Cancel
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "canceled", Text: next.Result})
 		return next, nil
 	default:
 		return next, nil
 	}
+}
+
+func hasActiveFakeWork(status Status) bool {
+	return status == StatusActive || status == StatusCanceling
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {

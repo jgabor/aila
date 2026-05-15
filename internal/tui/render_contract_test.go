@@ -196,6 +196,95 @@ func TestM13NoQueueRenderAndSemanticRemainStable(t *testing.T) {
 	}
 }
 
+func TestM14InterruptingRenderShowsActiveWorkAndInFlightState(t *testing.T) {
+	t.Parallel()
+
+	state := interruptState("canceling")
+	render := RenderPlain(state, Size{Width: 80, Height: 24})
+
+	if !containsAll(render, []string{
+		"Runtime canceling",
+		"status: canceling",
+		"active: true",
+		"interrupt state:",
+		"interrupt status: canceling",
+		"interrupt outcome: pending",
+		"lower-layer cancellation executed: false",
+		"user: active fake work",
+	}) {
+		t.Fatalf("interrupting render missing active work or in-flight state:\n%s", render)
+	}
+	if containsAny(render, []string{"shell canceled", "model canceled", "tool canceled", "runtime canceled by TUI"}) {
+		t.Fatalf("interrupting render implies real lower-layer cancellation:\n%s", render)
+	}
+}
+
+func TestM14CanceledRenderShowsActiveWorkAndFakeOutcome(t *testing.T) {
+	t.Parallel()
+
+	state := interruptState("canceled")
+	render := RenderPlain(state, Size{Width: 80, Height: 24})
+
+	if !containsAll(render, []string{
+		"Runtime canceled",
+		"status: canceled",
+		"active: false",
+		"result: fake work canceled",
+		"interrupt state:",
+		"interrupt status: canceled",
+		"interrupt outcome: fake work canceled",
+		"lower-layer cancellation executed: false",
+		"user: active fake work",
+	}) {
+		t.Fatalf("canceled render missing active work or fake outcome:\n%s", render)
+	}
+	if containsAny(render, []string{"shell canceled", "model canceled", "tool canceled", "runtime canceled by TUI"}) {
+		t.Fatalf("canceled render implies real lower-layer cancellation:\n%s", render)
+	}
+}
+
+func TestM14InterruptSemanticIsMachineReadableAndNonExecuting(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		status  string
+		active  bool
+		outcome string
+	}{
+		{status: "canceling", active: true, outcome: "pending"},
+		{status: "canceled", active: false, outcome: "fake work canceled"},
+	} {
+		tc := tc
+		t.Run(tc.status, func(t *testing.T) {
+			t.Parallel()
+
+			snapshot := Semantic(interruptState(tc.status), Size{Width: 80, Height: 24})
+			if snapshot.Interrupt == nil {
+				t.Fatalf("%s semantic interrupt = nil", tc.status)
+			}
+			if snapshot.Interrupt.State != tc.status || snapshot.Interrupt.Outcome != tc.outcome || snapshot.Interrupt.LowerLayerCancellationExecuted {
+				t.Fatalf("%s semantic interrupt = %+v", tc.status, *snapshot.Interrupt)
+			}
+			if snapshot.Session.RuntimeStatus != tc.status || snapshot.Session.Active != tc.active {
+				t.Fatalf("%s semantic session = %+v", tc.status, snapshot.Session)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			interrupt, ok := regions["interrupt"]
+			if !ok || !interrupt.Visible {
+				t.Fatalf("%s interrupt region = %+v", tc.status, interrupt)
+			}
+			if !containsAll(strings.Join(interrupt.Items, "\n"), []string{
+				"state: " + tc.status,
+				"outcome: " + tc.outcome,
+				"lower_layer_cancellation_executed: false",
+				"display-only",
+			}) {
+				t.Fatalf("%s interrupt semantic items = %+v", tc.status, interrupt.Items)
+			}
+		})
+	}
+}
+
 func activeQueuedState() ViewState {
 	state := IdleEmptyState()
 	state.Scenario = "queued-message"
@@ -207,6 +296,22 @@ func activeQueuedState() ViewState {
 	state.RuntimeActive = true
 	state.QueuedCount = 2
 	state.QueuedText = []string{"refine the tests", "explain the diff"}
+	state.Transcript = []TranscriptTurn{{UserText: "active fake work"}}
+	return state
+}
+
+func interruptState(status string) ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "interrupt-" + status
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.RuntimeStatus = status
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "fake in-memory runtime loop"
+	state.RuntimeActive = status == "canceling"
+	if status == "canceled" {
+		state.RuntimeResult = "fake work canceled"
+	}
 	state.Transcript = []TranscriptTurn{{UserText: "active fake work"}}
 	return state
 }

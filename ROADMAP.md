@@ -19,13 +19,13 @@ This section is the handoff point for the next developer or agent. Update it in
 the same change that completes a milestone so nobody has to scan the full file to
 find the next slice.
 
-| Field                    | Value                                                                                                                                                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last completed milestone | Milestone 13: Queue Visibility                                                                                                                                                                                    |
-| Next milestone           | Milestone 14: Interrupt Message Path                                                                                                                                                                              |
-| Active milestone         | none                                                                                                                                                                                                              |
-| Last updated             | 2026-05-15                                                                                                                                                                                                        |
-| Last validation          | M13 targeted runtime/app/TUI/cmd tests, queued-message fixture snapshots, submit-while-active PTY smoke, architecture/source-boundary evidence, `mage check`, and `git diff --check` all passed without bypasses. |
+| Field                    | Value                                                                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Last completed milestone | Milestone 14: Interrupt Message Path                                                                                                                                                                           |
+| Next milestone           | Milestone 15: Project Store Layout Bootstrap                                                                                                                                                                   |
+| Active milestone         | none                                                                                                                                                                                                           |
+| Last updated             | 2026-05-15                                                                                                                                                                                                     |
+| Last validation          | M14 targeted runtime/app/TUI/cmd tests, interrupt-canceling and interrupt-canceled snapshots, interrupt and queue PTY smoke, architecture checklist evidence, `mage check`, and `git diff --check` all passed. |
 
 Completion log:
 
@@ -46,6 +46,7 @@ Completion log:
 | 11        | completed | 2026-05-13 | Workflow transition table validated with targeted workflow/app/TUI/cmd tests, `go test ./...`, Task 5 source-boundary inspection, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                                                                                                            |
 | 12        | completed | 2026-05-13 | Runtime message loop validated with targeted runtime/app/TUI/cmd tests, deterministic runtime fixtures, bounded PTY prompt smoke through the runtime path, source-boundary inspection, `go test ./...`, `git diff --check`, post-closeout Agentera plan-empty check, full `mage check`, and no push.                                                                      |
 | 13        | completed | 2026-05-15 | Queue visibility validated with queued-message fixture metadata and 80x24 plain/ANSI/semantic snapshots, runtime/app/TUI/keybinding regression tests, submit-while-active PTY smoke, Inspektera-evaluated task evidence, statechart-MVU/TUI-presentation-only checklist evidence, targeted runtime/app/TUI/cmd tests, full `mage check`, `git diff --check`, and no push. |
+| 14        | completed | 2026-05-15 | Interrupt message path validated with Ctrl-C and ctrl+x c keybinding tests, interrupt-canceling and interrupt-canceled fixtures and 80x24 plain/ANSI/semantic snapshots, live interrupt PTY smoke, M13 queue PTY smoke rerun, Inspektera Tasks 1-5 evidence, targeted runtime/app/TUI/cmd tests, full `mage check`, `git diff --check`, and no push.                      |
 
 Status values:
 
@@ -109,6 +110,25 @@ Human visual review performed or skipped with reason: Skipped; evidence is deter
 Architecture checklist result: Statechart-MVU and TUI presentation-only boundary evidence recorded; no provider/tool/persistence/plugin/MCP/M14 behavior added by Task 6.
 Verification command: go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1; mage check; git diff --check.
 Roadmap status updated: M13 complete, M14 next, active milestone none.
+```
+
+Completed Milestone 14 Slice Completion Template:
+
+```text
+Milestone: Milestone 14: Interrupt Message Path
+Scope: Add a visible typed interrupt path for fake active work; no real model/shell/tool/provider cancellation or Milestone 15 persistence behavior.
+Primary moving part: App/runtime-owned interrupt request and fake canceling/canceled state surfaced through presentation-only TUI keybindings, rendering, semantic snapshots, fixtures, and PTY smoke.
+Source docs checked: AGENTS.md, ROADMAP.md, docs/notes/PROMPT.md, ARCHITECTURE.md, docs/workflow-architecture.md, docs/tui-testing.md, README.md, .agentera/plan.yaml, .agentera/progress.yaml.
+TUI fixtures added or updated: interrupt-canceling and interrupt-canceled fixtures.
+Semantic snapshots added or updated: interrupt-canceling and interrupt-canceled semantic snapshots with machine-readable interrupt state and lower_layer_cancellation_executed=false.
+Render snapshots added or updated: interrupt-canceling and interrupt-canceled 80x24 plain/ANSI render snapshots.
+Update/keybinding tests added or updated: runtime interrupt tests, app interrupt handoff tests, TUI Ctrl-C and ctrl+x c keybinding tests, interrupt render/semantic tests, and M13 queue stability tests.
+PTY smoke scenarios run or skipped with reason: live interrupt PTY smoke run through TestM14InterruptActiveWorkPTYSmoke; M13 submit-while-active queue smoke rerun to prove ordinary active-window text still queues by default.
+Agentic validation performed: Inspektera Tasks 1-5 passed; Task 6 final freshness will be evaluated after this update.
+Human visual review performed or skipped with reason: skipped; deterministic render/semantic snapshots and PTY smoke cover the visible interrupt states.
+Architecture checklist result: passed; interrupt decisions remain app/runtime-owned, TUI emits messages/renders injected state only, and no real IO cancellation, provider/tool/shell cancellation, permission, persistence, plugin, MCP, or M15 behavior was added.
+Verification command: go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1; mage check; git diff --check.
+Roadmap status updated: M14 complete, M15 next, active milestone none.
 ```
 
 If a slice cannot satisfy the TUI validation gate, either the slice is too large,

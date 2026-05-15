@@ -30,6 +30,12 @@ func TestUpdateHandlesPromptDeterministically(t *testing.T) {
 	if firstModel.NextOperation != 1 {
 		t.Fatalf("NextOperation = %d, want 1", firstModel.NextOperation)
 	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{
+		ID:      "op-1",
+		Kind:    OperationPrompt,
+		Subject: "explain status",
+		Source:  "user",
+	})
 	if got := firstModel.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "prompt", Text: "explain status"}}) {
 		t.Fatalf("Transcript = %#v", got)
 	}
@@ -71,6 +77,12 @@ func TestUpdateHandlesCommandDeterministically(t *testing.T) {
 	if firstModel.LastCommand != "status" {
 		t.Fatalf("LastCommand = %q, want status", firstModel.LastCommand)
 	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{
+		ID:      "op-8",
+		Kind:    OperationCommand,
+		Subject: "status",
+		Source:  "user",
+	})
 	if len(firstEffects) != 1 {
 		t.Fatalf("len(effects) = %d, want 1", len(firstEffects))
 	}
@@ -132,10 +144,12 @@ func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 func TestUpdateQueuesPromptWhileFakeWorkIsActive(t *testing.T) {
 	t.Parallel()
 
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "active work", Source: "user"}
 	model := Model{
-		Status:        StatusActive,
-		NextOperation: 1,
-		Transcript:    []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
+		Status:          StatusActive,
+		NextOperation:   1,
+		ActiveOperation: operation,
+		Transcript:      []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
 	}
 
 	updated, effects := Update(model, PromptSubmitted{Text: "queued follow-up"})
@@ -151,9 +165,130 @@ func TestUpdateQueuesPromptWhileFakeWorkIsActive(t *testing.T) {
 	if got, want := updated.Transcript, model.Transcript; !reflect.DeepEqual(got, want) {
 		t.Fatalf("Transcript = %#v, want active transcript unchanged %#v", got, want)
 	}
+	if got, want := updated.ActiveOperation, operation; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ActiveOperation = %#v, want %#v", got, want)
+	}
 	if got, want := updated.Queued, []QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("Queued = %#v, want %#v", got, want)
 	}
+}
+
+func TestUpdateRecordsInterruptingForActiveFakeWork(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "active work", Source: "user"}
+	model := Model{
+		Status:          StatusActive,
+		NextOperation:   1,
+		ActiveOperation: operation,
+		Queued:          []QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}},
+		Transcript:      []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
+	}
+
+	updated, effects := Update(model, InterruptRequested{Reason: "user pressed interrupt"})
+	if updated.Status != StatusCanceling {
+		t.Fatalf("Status = %q, want %q", updated.Status, StatusCanceling)
+	}
+	if !reflect.DeepEqual(updated.Queued, model.Queued) {
+		t.Fatalf("Queued = %#v, want %#v", updated.Queued, model.Queued)
+	}
+	if got := updated.Transcript[len(updated.Transcript)-1]; got != (TranscriptEntry{Kind: "interrupting", Text: "user pressed interrupt"}) {
+		t.Fatalf("last transcript = %#v", got)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(FakeInterruptEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want FakeInterruptEffect", effects[0])
+	}
+	wantCancel := CancelMetadata{Requested: true, Reason: "user pressed interrupt"}
+	wantOperation := operation
+	wantOperation.Cancel = wantCancel
+	assertOperationMetadata(t, updated.ActiveOperation, wantOperation)
+	assertOperationMetadata(t, effect.Metadata(), wantOperation)
+	if effect.Cancel != wantCancel {
+		t.Fatalf("Cancel = %#v, want %#v", effect.Cancel, wantCancel)
+	}
+}
+
+func TestUpdateRecordsCanceledOutcomeFromFakeInterruptResolution(t *testing.T) {
+	t.Parallel()
+
+	cancel := CancelMetadata{Requested: true, Reason: "user pressed interrupt"}
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "active work", Source: "user", Cancel: cancel}
+	model := Model{
+		Status:          StatusCanceling,
+		ActiveOperation: operation,
+		Queued:          []QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}},
+		Transcript: []TranscriptEntry{
+			{Kind: "prompt", Text: "active work"},
+			{Kind: "interrupting", Text: "user pressed interrupt"},
+		},
+	}
+
+	updated, effects := Update(model, FakeInterruptResolved{Operation: operation, Cancel: cancel})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if updated.Status != StatusCanceled {
+		t.Fatalf("Status = %q, want %q", updated.Status, StatusCanceled)
+	}
+	if updated.Result != "fake work canceled" {
+		t.Fatalf("Result = %q, want fake work canceled", updated.Result)
+	}
+	if !reflect.DeepEqual(updated.Queued, model.Queued) {
+		t.Fatalf("Queued = %#v, want %#v", updated.Queued, model.Queued)
+	}
+	if got := updated.Transcript[len(updated.Transcript)-1]; got != (TranscriptEntry{Kind: "canceled", Text: "fake work canceled"}) {
+		t.Fatalf("last transcript = %#v", got)
+	}
+	assertOperationMetadata(t, updated.ActiveOperation, operation)
+}
+
+func TestUpdateIgnoresInterruptWhenNoFakeWorkIsActive(t *testing.T) {
+	t.Parallel()
+
+	model := Model{
+		Status:     StatusIdle,
+		Result:     "previous result",
+		Queued:     []QueuedEntry{{Kind: "prompt", Text: "queued follow-up"}},
+		Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}},
+	}
+
+	updated, effects := Update(model, InterruptRequested{Reason: "user pressed interrupt"})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if !reflect.DeepEqual(updated, model) {
+		t.Fatalf("updated model = %#v, want unchanged %#v", updated, model)
+	}
+}
+
+func TestUpdateQueuesOrdinaryPromptInsteadOfTreatingItAsInterrupt(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationPrompt, Subject: "active work", Source: "user"}
+	model := Model{
+		Status:          StatusActive,
+		ActiveOperation: operation,
+		Transcript:      []TranscriptEntry{{Kind: "prompt", Text: "active work"}},
+	}
+
+	updated, effects := Update(model, PromptSubmitted{Text: "please stop after this"})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if updated.Status != StatusActive {
+		t.Fatalf("Status = %q, want %q", updated.Status, StatusActive)
+	}
+	if got, want := updated.Queued, []QueuedEntry{{Kind: "prompt", Text: "please stop after this"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Queued = %#v, want %#v", got, want)
+	}
+	if !reflect.DeepEqual(updated.Transcript, model.Transcript) {
+		t.Fatalf("Transcript = %#v, want unchanged %#v", updated.Transcript, model.Transcript)
+	}
+	assertOperationMetadata(t, updated.ActiveOperation, operation)
 }
 
 func TestUpdatePreservesQueuedPromptSubmissionOrder(t *testing.T) {
@@ -244,6 +379,18 @@ func TestDispatchHandlesCommandEffect(t *testing.T) {
 	messages := Dispatch([]Effect{FakeCommandEffect{Operation: operation, Command: "status"}})
 
 	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "fake command result: status"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDispatchHandlesInterruptEffect(t *testing.T) {
+	t.Parallel()
+
+	cancel := CancelMetadata{Requested: true, Reason: "user pressed interrupt"}
+	operation := OperationMetadata{ID: "op-3", Kind: OperationPrompt, Subject: "active work", Source: "user", Cancel: cancel}
+	messages := Dispatch([]Effect{FakeInterruptEffect{Operation: operation, Cancel: cancel}})
+
+	if got, want := messages, []Message{FakeInterruptResolved{Operation: operation, Cancel: cancel}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
 	}
 }

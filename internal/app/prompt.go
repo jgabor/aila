@@ -28,18 +28,45 @@ func newInputRunnerHoldingFakeWork() *inputRunner {
 	return newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
 }
 
+func newInputRunnerHoldingFakeWorkWithSecondInterruptResolution() *inputRunner {
+	interrupts := 0
+	return newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		for _, effect := range effects {
+			if _, ok := effect.(runtime.FakeInterruptEffect); ok {
+				interrupts++
+				if interrupts >= 2 {
+					return runtime.Dispatch(effects)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.PromptSubmitted{Text: text})
 	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
+func (runner *inputRunner) requestInterrupt(reason string) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.InterruptRequested{Reason: reason})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
+func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.RuntimeStatus = string(runner.model.Status)
 	turn.StatusSource = "runtime.dispatch"
 	turn.StatusDetail = "fake in-memory runtime loop"
-	turn.RuntimeActive = runner.model.Status == runtime.StatusActive
+	turn.RuntimeActive = runner.model.Status == runtime.StatusActive || runner.model.Status == runtime.StatusCanceling
 	turn.RuntimeResult = runner.model.Result
 	turn.QueuedCount = len(runner.model.Queued)
 	turn.QueuedText = queuedText(runner.model.Queued)
-	return turn
 }
 
 func (runner *inputRunner) routeCommand(recommendation policy.CommandRecommendation) {

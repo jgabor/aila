@@ -22,7 +22,7 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 	}
 
 	runner := newInputRunnerForEnvironment()
-	if _, err := tui.NewProgramWithStatePromptSubmitAndCommandRoute(input, output, state, runner.submitPrompt, runner.routeCommand).Run(); err != nil {
+	if _, err := tui.NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input, output, state, runner.submitPrompt, runner.routeCommand, runner.requestInterrupt).Run(); err != nil {
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	return nil
@@ -30,6 +30,9 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 
 func newInputRunnerForEnvironment() *inputRunner {
 	if os.Getenv("AILA_FAKE_RUNTIME_HOLD_ACTIVE") == "1" {
+		if os.Getenv("AILA_FAKE_RUNTIME_RESOLVE_SECOND_INTERRUPT") == "1" {
+			return newInputRunnerHoldingFakeWorkWithSecondInterruptResolution()
+		}
 		return newInputRunnerHoldingFakeWork()
 	}
 	return newInputRunner()

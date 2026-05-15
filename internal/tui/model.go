@@ -15,6 +15,9 @@ type PromptSubmitFunc func(text string) TranscriptTurn
 // CommandRouteFunc receives policy-owned command recommendations selected by the TUI.
 type CommandRouteFunc func(policy.CommandRecommendation)
 
+// InterruptRequestFunc routes user interrupt intent to the application layer.
+type InterruptRequestFunc func(reason string) TranscriptTurn
+
 // TranscriptTurn is the presentation data for one submitted prompt and response.
 type TranscriptTurn struct {
 	UserText      string
@@ -58,6 +61,7 @@ type Model struct {
 	layout       LayoutState
 	submitPrompt PromptSubmitFunc
 	routeCommand CommandRouteFunc
+	interrupt    InterruptRequestFunc
 	commandChord bool
 	quitting     bool
 }
@@ -84,6 +88,11 @@ func NewModelWithSizePromptSubmitAndCommandRoute(size Size, submitPrompt PromptS
 
 // NewModelWithStateSizePromptSubmitAndCommandRoute creates a shell model from app-owned view state.
 func NewModelWithStateSizePromptSubmitAndCommandRoute(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) Model {
+	return NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state, size, submitPrompt, routeCommand, nil)
+}
+
+// NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt creates a shell model with app-owned callbacks.
+func NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) Model {
 	size = normalizeSize(size)
 	return Model{
 		state:        state,
@@ -91,6 +100,7 @@ func NewModelWithStateSizePromptSubmitAndCommandRoute(state ViewState, size Size
 		layout:       layoutForSize(size),
 		submitPrompt: submitPrompt,
 		routeCommand: routeCommand,
+		interrupt:    interrupt,
 	}
 }
 
@@ -111,6 +121,11 @@ func NewProgramWithStateAndPromptSubmit(input io.Reader, output io.Writer, state
 
 // NewProgramWithStatePromptSubmitAndCommandRoute constructs the Bubble Tea program with app-owned callbacks.
 func NewProgramWithStatePromptSubmitAndCommandRoute(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc) *tea.Program {
+	return NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input, output, state, submitPrompt, routeCommand, nil)
+}
+
+// NewProgramWithStatePromptSubmitCommandRouteAndInterrupt constructs the Bubble Tea program with app-owned callbacks.
+func NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) *tea.Program {
 	options := []tea.ProgramOption{tea.WithAltScreen()}
 	if input != nil {
 		options = append(options, tea.WithInput(input))
@@ -118,7 +133,7 @@ func NewProgramWithStatePromptSubmitAndCommandRoute(input io.Reader, output io.W
 	if output != nil {
 		options = append(options, tea.WithOutput(output))
 	}
-	return tea.NewProgram(NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand), options...)
+	return tea.NewProgram(NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand, interrupt), options...)
 }
 
 // Init has no startup effect for the static shell.
@@ -133,6 +148,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.size = normalizeSize(Size{Width: msg.Width, Height: msg.Height})
 		m.layout = layoutForSize(m.size)
 	case tea.KeyMsg:
+		if msg.Type == tea.KeyCtrlC {
+			return m, m.requestInterrupt("ctrl-c")
+		}
 		if m.commandChord {
 			m.commandChord = false
 			return m, m.routeShortcut(msg)
@@ -216,6 +234,9 @@ func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {
 	if msg.Type == tea.KeyRunes {
 		key = string(msg.Runes)
 	}
+	if key == "c" {
+		return m.requestInterrupt("ctrl+x c")
+	}
 	recommendation, ok := policy.RecommendShortcut("ctrl+x", key)
 	if !ok {
 		return nil
@@ -231,6 +252,17 @@ func (m *Model) routeRecommendation(recommendation policy.CommandRecommendation)
 	if recommendation.Route == policy.CommandRouteQuit {
 		m.quitting = true
 		return tea.Quit
+	}
+	return nil
+}
+
+func (m *Model) requestInterrupt(reason string) tea.Cmd {
+	if m.interrupt != nil {
+		turn := m.interrupt(reason)
+		if turn.UserText != "" || turn.AssistantText != "" {
+			m.state.Transcript = append(m.state.Transcript, turn)
+		}
+		m.applyRuntimeStatus(turn)
 	}
 	return nil
 }

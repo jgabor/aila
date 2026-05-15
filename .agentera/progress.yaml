@@ -3780,6 +3780,301 @@ cycles:
       scope: >-
         ROADMAP.md completed M13 Slice Completion Template block and retry progress
         evidence only.
+  - number: 83
+    timestamp: "2026-05-15 21:19"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M14 Task 1 runtime-only fake interrupt state path. Runtime Update
+      now accepts typed interrupt requests for active fake work, records visible
+      canceling state, preserves queued user intent, and records a visible canceled
+      outcome when the fake interrupt path resolves.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 14; ARCHITECTURE.md statechart-MVU boundary"
+    discovered: >-
+      The runtime already had inert cancel metadata and synchronous fake dispatch;
+      the smallest path was to add typed InterruptRequested, FakeInterruptEffect,
+      and FakeInterruptResolved messages/effects plus ActiveOperation metadata, with
+      no app, TUI, fixture, PTY, roadmap, or plan-status changes.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/runtime -count=1`
+      passed, including TestUpdateRecordsInterruptingForActiveFakeWork,
+      TestUpdateRecordsCanceledOutcomeFromFakeInterruptResolution,
+      TestUpdateIgnoresInterruptWhenNoFakeWorkIsActive,
+      TestUpdateQueuesOrdinaryPromptInsteadOfTreatingItAsInterrupt,
+      TestUpdateQueuesPromptWhileFakeWorkIsActive, TestDispatchHandlesInterruptEffect,
+      TestDispatchIsDeterministic, and
+      TestRuntimeProductionFilesHaveNoForbiddenImportsOrTokens. `git diff --check --
+      internal/runtime/runtime.go internal/runtime/runtime_test.go
+      .agentera/progress.yaml .agentera/plan.yaml
+      .agentera/archive/plan-2026-05-15-m13.yaml` passed.
+    next: >-
+      Await evaluation or execute M14 Task 2 only when selected. Do not mark plan
+      status, update ROADMAP, touch app/TUI/fixtures/PTY paths, add real IO
+      cancellation, commit, push, or start Milestone 15 behavior.
+    context:
+      intent: >-
+        Make fake active-work interruption observable through runtime-owned typed
+        messages before any real model, shell, tool, or provider cancellation exists.
+      constraints: >-
+        Execute only M14 Task 1. Do not modify app, TUI, fixtures, PTY, ROADMAP,
+        .agentera/plan.yaml status, permissions, persistence, .aila store, plugins,
+        MCP, real IO cancellation, commits, pushes, or Milestone 15 behavior.
+      unknowns: "none"
+      scope: >-
+        internal/runtime fake in-memory update/dispatch state, runtime tests, and
+        M14 Task 1 Agentera progress evidence only.
+  - number: 84
+    timestamp: "2026-05-15 21:25"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M14 Task 2 app-owned interrupt routing. The app input runner now
+      accepts interrupt requests as handoff data, routes them to runtime as typed
+      InterruptRequested messages, derives canceling and canceled display state from
+      runtime-owned state, and wires an inert TUI callback slot without adding
+      keybindings or visible interrupt rendering.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; M14 Task 1 runtime interrupt support; ARCHITECTURE.md statechart-MVU boundary"
+    discovered: >-
+      Prompt submission already duplicated runtime-to-display handoff fields, so the
+      smallest stable implementation was a shared app helper for runtime status,
+      queue, result, and active-state projection plus a private interrupt request
+      handler. Canceling remains active for display handoff; canceled reports the
+      fake runtime result without claiming real IO cancellation.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app ./internal/tui
+      ./internal/runtime -count=1` passed, including
+      TestInterruptRequestRoutesTypedRuntimeMessageWhileFakeWorkActive,
+      TestInterruptRequestHandoffReportsCanceledFromRuntimeState,
+      TestInterruptRequestHandoffPreservesQueuedIntent,
+      TestInterruptRequestWhileIdleStaysRuntimeNoop,
+      TestPromptSubmitWhileRuntimeActiveReturnsQueuedIntent,
+      TestPromptSubmitHandoffDistinguishesQueuedAndNonQueuedPaths,
+      TestStatusCommandRoutesThroughRuntimeOnly, TestOtherCommandRoutesStayBoundedOutsideRuntime,
+      and existing TUI/runtime regression coverage. `git diff --check --
+      internal/app/app.go internal/app/prompt.go internal/app/prompt_test.go
+      internal/tui/model.go .agentera/progress.yaml` passed after recording this
+      evidence.
+    next: >-
+      Await evaluation or execute M14 Task 3 only when selected. Do not mark
+      .agentera/plan.yaml Task 2 complete, update ROADMAP, add fixtures or PTY
+      smoke, implement visible interrupt UI, add real cancellation, commit, push,
+      or start Milestone 15 behavior.
+    context:
+      intent: >-
+        Route app-owned fake interrupt intent through runtime typed messages and
+        expose runtime-owned canceling and canceled handoff data for later TUI
+        rendering.
+      constraints: >-
+        Execute only M14 Task 2. Do not add TUI keybindings, visible rendering,
+        fixtures, PTY smoke, ROADMAP closeout, .agentera/plan.yaml status changes,
+        real model/provider/tool/shell cancellation, permissions, persistence,
+        .aila store, plugins, MCP, commits, pushes, or Milestone 15 behavior.
+      unknowns: "none"
+      scope: >-
+        internal/app interrupt routing and tests, narrow internal/tui callback
+        handoff plumbing, and M14 Task 2 Agentera progress evidence only.
+  - number: 85
+    timestamp: "2026-05-15 21:36"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M14 Task 3 TUI interrupt keybindings and injected-state rendering.
+      Ctrl-C and ctrl+x c now call the app-owned interrupt callback seam, and the
+      TUI renders injected canceling and canceled fake interrupt states with active
+      work context plus machine-readable semantic metadata that says no lower-layer
+      cancellation was executed.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; M14 Task 2 app-owned interrupt callback seam; ARCHITECTURE.md presentation-only TUI boundary"
+    discovered: >-
+      The existing callback seam allowed the smallest TUI change: handle Ctrl-C before
+      the default quit path, handle ctrl+x c inside the existing ctrl+x chord path,
+      and project only injected runtime status strings into render/semantic output.
+      No runtime, workflow, shell, model, tool, provider, permission, persistence,
+      fixture, PTY, ROADMAP, or plan-status behavior was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tui ./internal/app
+      ./internal/runtime -count=1` passed, including
+      TestCtrlCEmitsAppInterruptMessageOnly,
+      TestCtrlXCEmitsSameAppInterruptMessageOnly,
+      TestM14InterruptingRenderShowsActiveWorkAndInFlightState,
+      TestM14CanceledRenderShowsActiveWorkAndFakeOutcome,
+      TestM14InterruptSemanticIsMachineReadableAndNonExecuting,
+      TestM13QueuedInputRenderShowsDefaultAfterCurrentTurn,
+      TestM13QueuedInputSemanticDefaultAction, and
+      TestM13NoQueueRenderAndSemanticRemainStable. `git diff --check --
+      internal/tui/model.go internal/tui/render.go internal/tui/input_test.go
+      internal/tui/render_contract_test.go .agentera/progress.yaml` passed after
+      recording this evidence.
+    next: >-
+      Await Inspektera evaluation or execute M14 Task 4 only when selected. Do not
+      mark .agentera/plan.yaml Task 3 complete, create fixtures or snapshots, run
+      PTY smoke, update ROADMAP, run final mage check, add real cancellation, commit,
+      push, or start Milestone 15 behavior.
+    context:
+      intent: >-
+        Make user interrupt intent observable from TUI keybindings and make injected
+        fake interrupt states visible without letting the TUI own runtime or workflow
+        cancellation.
+      constraints: >-
+        Execute only M14 Task 3. Do not create fixtures/snapshots, PTY smoke,
+        ROADMAP closeout, final mage check, commits, pushes, real cancellation,
+        providers/tools/shell cancellation, permissions, persistence, plugins, MCP,
+        or M15 behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui keybinding, render, semantic output, TUI tests, and M14 Task 3
+        Agentera progress evidence only.
+  - number: 86
+    timestamp: "2026-05-15 21:38"
+    type: test
+    phase: build
+    what: >-
+      Added M14 Task 4 deterministic interrupt fixtures and checked-in snapshots for
+      in-flight canceling and resolved canceled fake states. The snapshots expose
+      active work context, runtime interrupt status, fake canceled outcome, and
+      machine-readable semantic interrupt data without changing production behavior.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; M14 Task 3 injected interrupt render/semantic support; docs/tui-testing.md deterministic fixture harness"
+    discovered: >-
+      Existing M14 render and semantic code already exposed the needed interrupt
+      surface; Task 4 only needed package-private fixture loaders, fixture metadata,
+      and plain/ANSI/semantic snapshots for interrupt-canceling and
+      interrupt-canceled. The M13 queued-message fixture stayed unchanged.
+    verified: >-
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run
+      TestM14InterruptFixtureSnapshots -count=1` regenerated only the new interrupt
+      fixture outputs under internal/tui/testdata/fixtures/interrupt-canceling and
+      internal/tui/testdata/fixtures/interrupt-canceled, then failed with the expected
+      review-gated snapshot update messages. `go test ./internal/tui -run
+      TestM14InterruptFixtureSnapshots -count=1` passed, proving both render and
+      semantic snapshots match checked-in outputs and expose active work context,
+      canceling or canceled interrupt state, fake outcome, and
+      lower_layer_cancellation_executed=false. `mage fmt` completed successfully.
+      `go test ./internal/tui ./internal/app ./internal/runtime -count=1` passed,
+      including existing M13 queued-message fixture coverage. `git diff --check`
+      passed after recording this evidence.
+    next: >-
+      Await Inspektera evaluation or execute M14 Task 5 only when selected. Do not
+      mark .agentera/plan.yaml Task 4 complete, run PTY smoke, update ROADMAP, run
+      final mage check, add real cancellation, commit, push, or start Milestone 15
+      behavior.
+    context:
+      intent: >-
+        Convert the already tested interrupt rendering into deterministic fixture
+        and snapshot artifacts that agents can inspect without terminal smoke.
+      constraints: >-
+        Execute only M14 Task 4. Do not add PTY smoke, ROADMAP closeout, final mage
+        check, production behavior beyond fixture/test support, commits, pushes,
+        real cancellation, providers/tools/shell cancellation, permissions,
+        persistence, plugins, MCP, or M15 behavior. Do not mark .agentera/plan.yaml
+        Task 4 complete.
+      unknowns: "none"
+      scope: >-
+        internal/tui package-private fixture tests, new interrupt fixture metadata,
+        new interrupt plain/ANSI/semantic snapshots, and M14 Task 4 Agentera progress
+        evidence only.
+  - number: 87
+    timestamp: "2026-05-15 21:44"
+    type: test
+    phase: build
+    what: >-
+      Added M14 Task 5 live interrupt PTY smoke coverage. The smoke starts Aila in a
+      scrubbed temp environment, holds fake work active through the existing
+      app-owned fake runtime seam, sends ctrl+x c through the live terminal, observes
+      canceling state, sends ctrl+x c again to resolve the fake interrupt path, and
+      observes the canceled outcome without claiming real IO cancellation.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; M14 Task 4 interrupt fixtures; M13 hold-active PTY seam"
+    discovered: >-
+      The M13 hold-active seam intentionally never dispatches fake effects, so it can
+      prove active-window queue behavior but cannot produce a resolved canceled state.
+      The smallest bounded Task 5 addition was a second test-only environment switch
+      that keeps prompt work held, leaves the first FakeInterruptEffect in-flight for
+      visible canceling output, and resolves the second FakeInterruptEffect through
+      runtime.Dispatch. The live PTY desktop layout omits the generic `Runtime
+      status:` label in captured diff output, so the smoke asserts the visible status,
+      active flag, interrupt state, pending outcome, canceled result, and explicit
+      lower-layer-cancellation=false markers instead.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      TestM14InterruptActiveWorkPTYSmoke -count=1` passed, proving active fake work
+      displays `Runtime active`, `status: active`, `active: true`, and `user:
+      interruptible fake work`; the first live ctrl+x c displays `Runtime canceling`,
+      `status: canceling`, `active: true`, `interrupt state:`, `interrupt status:
+      canceling`, `interrupt outcome: pending`, `lower-layer cancellation executed:
+      false`, and active work context; the second live ctrl+x c displays `Runtime
+      canceled`, `status: canceled`, `active: false`, `result: fake work canceled`,
+      `interrupt status: canceled`, `interrupt outcome: fake work canceled`, and the
+      same lower-layer-cancellation=false marker. `go test ./cmd/aila -run
+      TestM13SubmitWhileActivePTYSmoke -count=1` passed, preserving ordinary
+      active-window text queue behavior when no interrupt shortcut is sent. `go test
+      ./cmd/aila ./internal/tui ./internal/app ./internal/runtime -count=1` passed.
+      `git diff --check` passed. Cleanup proof is covered by successful q quit, PTY
+      process exit before timeout, terminal close defers, temp XDG config creation
+      under the test TempDir, and assertions that the scrubbed HOME `.config/aila`
+      and `.aila` paths were not created.
+    next: >-
+      Await Inspektera evaluation or execute M14 Task 6 only when selected. Do not
+      update ROADMAP, run final mage check, mark .agentera/plan.yaml Task 5 complete,
+      add real IO cancellation, permissions, persistence, plugins, MCP, commits,
+      pushes, or Milestone 15 behavior.
+    context:
+      intent: >-
+        Prove the visible fake interrupt path through a bounded live terminal smoke
+        after deterministic runtime, app, TUI, and fixture evidence already exists.
+      constraints: >-
+        Execute only M14 Task 5. Do not update ROADMAP, run final mage check, commit,
+        push, mark .agentera/plan.yaml Task 5 complete, add real model/provider/tool/
+        shell cancellation, permissions, persistence, plugins, MCP, or M15 behavior.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY interrupt smoke, a minimal app-owned fake interrupt-resolution
+        test seam, preservation of M13 active-window queue PTY behavior, and M14 Task
+        5 Agentera progress evidence only.
+  - number: 88
+    timestamp: "2026-05-15 21:53"
+    type: chore
+    phase: validate
+    what: >-
+      Performed M14 Task 6 final freshness checkpoint and roadmap closeout after
+      Tasks 1-5 were implemented and evaluated. ROADMAP.md now marks Milestone 14
+      complete, Milestone 15 next, active milestone none, and records the completed
+      M14 Slice Completion Template with interrupt keybinding, canceling and canceled
+      snapshot, PTY smoke, validation, and architecture checklist evidence.
+    commit: "N/A: user explicitly requested no commit or push"
+    inspiration: ".agentera/plan.yaml task 6; docs/notes/PROMPT.md roadmap update rules; ROADMAP.md Slice Completion Template"
+    discovered: >-
+      The first `mage check` attempt failed at the configured staticcheck gate on
+      internal/runtime/runtime.go S1016 for constructing FakeInterruptResolved from
+      an identical FakeInterruptEffect shape. The checkpoint applied the minimal
+      lint-only conversion fix, reran the required targeted validation, and reran the
+      full Mage gate without bypassing configured checks. .agentera/plan.yaml Task 6
+      remains pending for conductor completion after Inspektera evaluation.
+    verified: >-
+      Initial `go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila
+      -count=1` passed. Initial `mage check` failed only at staticcheck S1016.
+      After the minimal lint fix, `mage fmt` completed successfully, `go test
+      ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1` passed,
+      and `mage check` passed with 0 lint issues and no vulnerabilities. Final
+      `git diff --check` passed. No commit or push was performed.
+    next: >-
+      Await Inspektera/conductor evaluation for M14 Task 6. The conductor should mark
+      .agentera/plan.yaml Task 6 complete only after evaluating this checkpoint; no
+      Milestone 15 behavior has been started.
+    context:
+      intent: >-
+        Close out M14 only after required validation passes and preserve exact
+        evidence for future handoff without standalone metadata-only commits.
+      constraints: >-
+        Execute only M14 Task 6. Do not mark .agentera/plan.yaml Task 6 complete, do
+        not commit, do not push, do not add behavior beyond M14, and do not start
+        Milestone 15 persistence or store behavior.
+      unknowns: "none"
+      scope: >-
+        ROADMAP.md M14 closeout, .agentera/progress.yaml cycle evidence,
+        internal/runtime lint-only staticcheck fix, and final validation commands.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

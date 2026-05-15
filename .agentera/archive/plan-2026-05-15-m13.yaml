@@ -1,0 +1,140 @@
+header:
+  level: full
+  created: 2026-05-15
+  status: complete
+  reviewed: 2026-05-15
+  critic_issues: "4 found, 4 addressed, 0 dismissed"
+  title: Milestone 13 Queue Visibility
+what: >-
+  Deliver ROADMAP.md:523-542 Milestone 13 by making queued user input visible
+  while fake work is active. The product should preserve active-work visibility,
+  retain queued user intent in order, and expose the default after-current-turn
+  behavior through the queued-message fixture, semantic snapshots, PTY smoke, and
+  mage check evidence required by docs/notes/PROMPT.md.
+why: >-
+  Aila's ROADMAP.md sequence and Agentera progress entry 75 build observable
+  runtime behavior before real model, tool, cancellation, and persistence paths.
+  Queue visibility prevents user intent from disappearing while work is active
+  and keeps the TUI honest about what will happen next.
+constraints: >-
+  Execute only Milestone 13 selected through docs/notes/PROMPT.md. Preserve
+  statechart-MVU boundaries: updates decide, effects do, and the TUI remains
+  presentation-only. Keep work fake/in-memory; do not add real
+  model/provider/tool execution, actual interrupt or steer behavior,
+  cancellation semantics, permissions, .aila persistence, plugins, MCP, dynamic
+  extension surfaces, Milestone 14+ behavior, or commits without explicit user
+  instruction. Do not revert unrelated or user-owned worktree changes.
+source_anchors:
+  - ROADMAP.md:523-542
+  - docs/notes/PROMPT.md
+  - AGENTS.md
+  - ARCHITECTURE.md
+  - README.md
+  - docs/workflow-architecture.md
+  - docs/tui-testing.md
+verification_commands:
+  - go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+  - mage check
+scope:
+  included:
+    - Active fake work and queued user input remain visible together.
+    - Queued messages are retained and exposed in submission order while waiting.
+    - The default after-current-turn queue action is visible to users and semantic snapshots.
+    - Interrupt or steer choices may be displayed only as non-executed choices if tests cover that presentation.
+    - Deterministic fixture, semantic snapshot, PTY smoke, targeted tests, mage check, and ROADMAP closeout evidence.
+  excluded:
+    - Actual interrupt, steer, or cancellation execution.
+    - Real model/provider/tool/shell execution beyond the existing fake runtime loop.
+    - Project .aila store, permission policy, persistence, replay, context compaction, or Milestone 14+ behavior.
+    - Generic plugin, MCP, workflow DSL, model marketplace, or hosted-control-plane surfaces.
+  deferred:
+    - Typed interrupt path and cancellation semantics for Milestone 14.
+    - Project store layout bootstrap for Milestone 15.
+design: >-
+  Treat queued input as runtime/app-owned state in the existing internal/runtime,
+  internal/app, and internal/tui boundaries and expose it to the TUI as display
+  data. The TUI renders active work, queued intent, and available presentation
+  actions without owning queue transitions or executing interrupts. The
+  after-current-turn path must be explicit: queued intent is either promoted to
+  the next fake turn or remains visibly pending according to tested behavior, but
+  it must not disappear silently. Validation follows the documented order:
+  deterministic runtime and TUI fixtures first, semantic snapshots second,
+  bounded PTY smoke last, then full Mage gate and roadmap synchronization.
+tasks:
+  - number: 1
+    name: Queue active-input behavior
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN fake work is active WHEN a new user message is submitted THEN the message is retained as queued intent and the active work remains observable.
+      - GIVEN multiple user messages are submitted while fake work is active WHEN queued intent is inspected THEN their order matches submission order.
+      - GIVEN queued intent exists WHEN active fake work completes THEN queued intent is either visibly promoted to the next fake turn or remains visibly pending, and it is never silently dropped.
+      - GIVEN queue behavior is tested WHEN validation runs THEN each queue rule has at least one preserving case and one regression-sensitive case.
+    evidence:
+      - Progress cycle 76 records `go test ./internal/runtime -count=1`, queue-order runtime tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 1 acceptance criteria and the verification evidence audit.
+  - number: 2
+    name: Carry queued state through app-owned input
+    depends_on: [1]
+    status: complete
+    acceptance:
+      - GIVEN prompt input arrives during active fake work WHEN the application reports the result to the UI THEN the input is represented as queued intent rather than as an immediate assistant response.
+      - GIVEN queued state changes WHEN display state is produced THEN queued count and queued text come from app-owned state rather than presentation-layer decisions.
+      - GIVEN existing status, help, and quit interactions are used WHEN queue support is present THEN their visible behavior remains unchanged.
+      - GIVEN app handoff behavior is tested WHEN validation runs THEN queued and non-queued prompt paths each have regression-sensitive coverage.
+    evidence:
+      - Progress cycle 77 records app/TUI/runtime tests proving queued and non-queued handoff paths.
+      - Inspektera evaluation passed all Task 2 acceptance criteria and confirmed production TUI does not own queue transitions.
+  - number: 3
+    name: Render queue visibility and semantic actions
+    depends_on: [2]
+    status: complete
+    acceptance:
+      - GIVEN active fake work and queued input exist WHEN the UI renders THEN active work, queued message text, and the default after-current-turn behavior are all visible.
+      - GIVEN interrupt or steer choices are displayed WHEN a user inspects the UI THEN they are presentation-only choices and no execution is implied.
+      - GIVEN a semantic snapshot is produced while queued input exists WHEN it is inspected THEN queued_messages is greater than zero and the default queue action is machine-readable.
+      - GIVEN no queued input exists WHEN existing idle, active, and result states render THEN previously documented behavior remains stable except for intentional queue-related metadata.
+    evidence:
+      - Progress cycle 78 records TUI queue rendering, semantic default queue action tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 3 acceptance criteria; the conductor verified progress through the installed Agentera CLI.
+  - number: 4
+    name: Add queued-message deterministic fixture
+    depends_on: [3]
+    status: complete
+    acceptance:
+      - GIVEN the queued-message fixture is rendered WHEN fixture tests run THEN queued content and after-current-turn behavior appear in the rendered output.
+      - GIVEN the queued-message semantic snapshot is inspected WHEN fixture tests run THEN queued count and default queue action are present.
+      - GIVEN queued-message evidence is asserted WHEN validation runs THEN active work remains visible alongside queued user intent.
+      - GIVEN snapshots are regenerated WHEN outputs are compared THEN changes are limited to intended Milestone 13 queue surfaces.
+    evidence:
+      - Progress cycle 79 records the queued-message fixture snapshots, fixture assertions, targeted tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 4 acceptance criteria and confirmed snapshot changes are limited to intended queue fixture surfaces.
+  - number: 5
+    name: Prove live submit-while-active smoke
+    depends_on: [4]
+    status: complete
+    acceptance:
+      - GIVEN fake work is active in a bounded terminal smoke scenario WHEN the smoke synchronizes on the visible active-work marker and then submits another prompt THEN queued intent becomes visible before active work is hidden.
+      - GIVEN the smoke scenario completes WHEN the terminal output is inspected THEN it shows both active work context and queued user intent from the active window.
+      - GIVEN the smoke scenario runs WHEN cleanup completes THEN it leaves no durable project or user state beyond expected temporary test artifacts.
+    evidence:
+      - Progress cycle 80 records the submit-while-active PTY smoke, active-window proof, cleanup checks, targeted tests, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 5 acceptance criteria and confirmed the app-owned hold-active seam did not add real provider, tool, interrupt, cancellation, permission, persistence, plugin, MCP, or Milestone 14 behavior.
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on: [1, 2, 3, 4, 5]
+    status: complete
+    acceptance:
+      - GIVEN Milestone 13 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 13 Slice Completion Template records fixtures, semantic snapshots, PTY smoke, validation, and architecture checklist evidence.
+      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and not committed as standalone metadata-only work.
+      - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
+    evidence:
+      - Progress cycles 81 and 82 record final targeted validation, `mage check`, ROADMAP closeout, completed Slice Completion Template evidence, and `git diff --check`.
+      - Inspektera re-evaluation passed all Task 6 acceptance criteria and confirmed no Milestone 14 behavior, commit, or push occurred.
+overall_acceptance:
+  - GIVEN fake work is active WHEN the user submits additional input THEN Aila keeps active work visible and makes queued user intent visible.
+  - GIVEN multiple queued messages exist WHEN Aila reports queued state THEN the messages remain ordered by submission.
+  - GIVEN queued state is rendered WHEN semantic evidence is generated THEN queued count and default after-current-turn behavior are machine-readable.
+  - GIVEN the milestone is validated WHEN the documented gates run THEN deterministic fixtures, semantic snapshots, PTY smoke, targeted tests, and mage check support the closeout.
+surprises: []
