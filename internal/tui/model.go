@@ -33,6 +33,7 @@ type TranscriptTurn struct {
 	Diagnostics   []DiagnosticView
 	Read          *ReadView
 	Search        *SearchView
+	Command       *CommandView
 }
 
 // ReadView is app-injected read presentation data. It is display-only;
@@ -84,6 +85,26 @@ type SearchMatchView struct {
 	Path        string
 	LineNumber  int
 	PreviewText string
+}
+
+// CommandView is app-injected safe bash presentation data. It is display-only;
+// TUI code must never classify or execute commands itself.
+type CommandView struct {
+	Name            string
+	Status          string
+	ReadOnly        bool
+	Argv            []string
+	WorkingDir      string
+	CommandFamily   string
+	ExpectedEffect  string
+	ExitCode        int
+	StdoutLines     []string
+	StderrLines     []string
+	StdoutTruncated bool
+	StderrTruncated bool
+	DurationMillis  int64
+	ErrorKind       string
+	ErrorMessage    string
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -302,6 +323,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Diagnostics = mergeDiagnosticViews(state.Diagnostics, turn.Diagnostics)
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
+	state.Command = cloneCommandView(turn.Command)
 	return state
 }
 
@@ -320,6 +342,17 @@ func cloneSearchView(search *SearchView) *SearchView {
 	}
 	clone := *search
 	clone.Matches = append([]SearchMatchView(nil), search.Matches...)
+	return &clone
+}
+
+func cloneCommandView(command *CommandView) *CommandView {
+	if command == nil {
+		return nil
+	}
+	clone := *command
+	clone.Argv = append([]string(nil), command.Argv...)
+	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
+	clone.StderrLines = append([]string(nil), command.StderrLines...)
 	return &clone
 }
 

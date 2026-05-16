@@ -90,6 +90,8 @@ func readDispatchContext(ctx context.Context, workspacePath string, autonomyLeve
 				messages = append(messages, dispatchReadEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			case runtime.SearchToolEffect:
 				messages = append(messages, dispatchSearchEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			case runtime.BashToolEffect:
+				messages = append(messages, dispatchBashEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			default:
 				messages = append(messages, runtime.DispatchContext(ctx, []runtime.Effect{effect})...)
 			}
@@ -269,6 +271,88 @@ func runtimeSearchResult(result tools.SearchResult) runtime.SearchToolResult {
 			Message: result.Error.Message,
 		},
 		Source: runtime.SearchSourceMetadata(result.Source),
+	}
+}
+
+func dispatchBashEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.BashToolEffect) runtime.Message {
+	validated, bashErr := tools.ValidateBashRequest(workspacePath, tools.BashRequest{
+		Argv:           effect.Request.Argv,
+		WorkingDir:     effect.Request.WorkingDir,
+		MaxOutputBytes: effect.Request.MaxOutputBytes,
+		TimeoutMillis:  effect.Request.TimeoutMillis,
+		Source: tools.BashSourceMetadata{
+			Caller:      effect.Request.Source.Caller,
+			RequestID:   effect.Request.Source.RequestID,
+			Description: effect.Request.Source.Description,
+		},
+	})
+	if bashErr.Kind != "" {
+		return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtimeBashFailure(effect.Request, bashErr)}
+	}
+
+	operation := permission.NewBashInspectionOperation(validated.EffectiveArgv, validated.WorkspaceRelativeWorkDir, validated.ExpectedEffect)
+	decision := permission.Decide(autonomyLevel, operation)
+	if !decision.Allowed {
+		return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtime.BashToolResult{
+			ToolName:                 tools.BashToolName,
+			RequestedArgv:            append([]string(nil), effect.Request.Argv...),
+			EffectiveArgv:            append([]string(nil), validated.EffectiveArgv...),
+			WorkspaceRelativeWorkDir: validated.WorkspaceRelativeWorkDir,
+			CommandFamily:            validated.CommandFamily,
+			ExpectedEffect:           validated.ExpectedEffect,
+			ExitCode:                 -1,
+			Status:                   "denied",
+			Error: runtime.BashToolError{
+				Kind:    runtime.BashToolErrorPermission,
+				Message: decision.Reason,
+			},
+			Source: effect.Request.Source,
+		}}
+	}
+
+	return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtimeBashResult(tools.ExecuteBash(ctx, validated))}
+}
+
+func runtimeBashFailure(request runtime.BashToolRequest, err tools.BashError) runtime.BashToolResult {
+	return runtime.BashToolResult{
+		ToolName:      tools.BashToolName,
+		RequestedArgv: append([]string(nil), request.Argv...),
+		ExitCode:      -1,
+		Status:        "failed",
+		Error: runtime.BashToolError{
+			Kind:    runtime.BashToolErrorKind(err.Kind),
+			Message: err.Message,
+		},
+		Source: request.Source,
+	}
+}
+
+func runtimeBashResult(result tools.BashResult) runtime.BashToolResult {
+	return runtime.BashToolResult{
+		ToolName:                 result.ToolName,
+		RequestedArgv:            append([]string(nil), result.RequestedArgv...),
+		EffectiveArgv:            append([]string(nil), result.EffectiveArgv...),
+		WorkspaceRelativeWorkDir: result.WorkspaceRelativeWorkDir,
+		CommandFamily:            result.CommandFamily,
+		ExpectedEffect:           result.ExpectedEffect,
+		ExitCode:                 result.ExitCode,
+		Status:                   result.Status,
+		Stdout: runtime.BashToolOutput{
+			Text:      result.Stdout.Text,
+			Bytes:     result.Stdout.Bytes,
+			Truncated: result.Stdout.Truncated,
+		},
+		Stderr: runtime.BashToolOutput{
+			Text:      result.Stderr.Text,
+			Bytes:     result.Stderr.Bytes,
+			Truncated: result.Stderr.Truncated,
+		},
+		DurationMillis: result.DurationMillis,
+		Error: runtime.BashToolError{
+			Kind:    runtime.BashToolErrorKind(result.Error.Kind),
+			Message: result.Error.Message,
+		},
+		Source: runtime.BashSourceMetadata(result.Source),
 	}
 }
 

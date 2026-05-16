@@ -56,6 +56,14 @@ type SearchToolProposed struct {
 
 func (SearchToolProposed) runtimeMessage() {}
 
+// BashToolProposed records caller intent to run a safe inspection command.
+// Update turns it into an effect; app-owned dispatch performs validation and IO.
+type BashToolProposed struct {
+	Request BashToolRequest
+}
+
+func (BashToolProposed) runtimeMessage() {}
+
 // InterruptRequested records user intent to stop the current fake operation.
 type InterruptRequested struct {
 	Reason string
@@ -95,6 +103,14 @@ type SearchToolCompleted struct {
 
 func (SearchToolCompleted) runtimeMessage() {}
 
+// BashToolCompleted reports a safe inspection command effect result.
+type BashToolCompleted struct {
+	Operation OperationMetadata
+	Result    BashToolResult
+}
+
+func (BashToolCompleted) runtimeMessage() {}
+
 // FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
 type FakeInterruptResolved struct {
 	Operation OperationMetadata
@@ -122,6 +138,8 @@ type Model struct {
 	LastRead        ReadToolResult
 	ActiveSearch    SearchToolRequest
 	LastSearch      SearchToolResult
+	ActiveBash      BashToolRequest
+	LastBash        BashToolResult
 	NextOperation   int
 	ActiveOperation OperationMetadata
 	Diagnostics     []diagnostic.Diagnostic
@@ -191,6 +209,18 @@ type SearchToolEffect struct {
 func (SearchToolEffect) runtimeEffect() {}
 
 func (effect SearchToolEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// BashToolEffect requests safe inspection command execution outside Update.
+type BashToolEffect struct {
+	Operation OperationMetadata
+	Request   BashToolRequest
+}
+
+func (BashToolEffect) runtimeEffect() {}
+
+func (effect BashToolEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -300,6 +330,7 @@ const (
 	OperationRead    OperationKind = "read"
 	OperationFind    OperationKind = "find"
 	OperationGrep    OperationKind = "grep"
+	OperationBash    OperationKind = "bash"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -482,6 +513,70 @@ type SearchToolResult struct {
 	Source         SearchSourceMetadata
 }
 
+// BashToolRequest is the runtime-owned safe bash proposal data.
+// It intentionally mirrors only primitive request fields so runtime stays IO-free.
+type BashToolRequest struct {
+	Argv           []string
+	WorkingDir     string
+	MaxOutputBytes int
+	TimeoutMillis  int
+	Source         BashSourceMetadata
+}
+
+// BashSourceMetadata records caller-visible provenance for safe bash requests.
+type BashSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// BashToolErrorKind is a bounded machine-readable safe bash failure category.
+type BashToolErrorKind string
+
+const (
+	BashToolErrorNone             BashToolErrorKind = "none"
+	BashToolErrorInvalidCommand   BashToolErrorKind = "invalid_command"
+	BashToolErrorUnsafeCommand    BashToolErrorKind = "unsafe_command"
+	BashToolErrorInvalidPath      BashToolErrorKind = "invalid_path"
+	BashToolErrorOutsideWorkspace BashToolErrorKind = "outside_workspace"
+	BashToolErrorReservedPath     BashToolErrorKind = "reserved_path"
+	BashToolErrorInvalidRange     BashToolErrorKind = "invalid_range"
+	BashToolErrorPermission       BashToolErrorKind = "permission_denied"
+	BashToolErrorCanceled         BashToolErrorKind = "canceled"
+	BashToolErrorTimeout          BashToolErrorKind = "timeout"
+	BashToolErrorExecution        BashToolErrorKind = "execution_error"
+)
+
+// BashToolError is safe to surface without leaking host-local paths.
+type BashToolError struct {
+	Kind    BashToolErrorKind
+	Message string
+}
+
+// BashToolOutput records one bounded command output stream.
+type BashToolOutput struct {
+	Text      string
+	Bytes     int
+	Truncated bool
+}
+
+// BashToolResult is the typed runtime message payload returned by bash effects.
+type BashToolResult struct {
+	ToolName                 string
+	RequestedArgv            []string
+	EffectiveArgv            []string
+	WorkspaceRelativeWorkDir string
+	CommandFamily            string
+	ExpectedEffect           string
+	ExitCode                 int
+	Status                   string
+	Stdout                   BashToolOutput
+	Stderr                   BashToolOutput
+	DurationMillis           int64
+	Error                    BashToolError
+	Source                   BashSourceMetadata
+}
+
 // Update applies one runtime message and returns the next model plus typed
 // effects for an external interpreter.
 func Update(model Model, message Message) (Model, []Effect) {
@@ -546,9 +641,30 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = request
 		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: string(request.ToolName) + " " + searchSubjectLabel(request)})
 		return next, []Effect{SearchToolEffect{Operation: operation, Request: request}}
+	case BashToolProposed:
+		request := trimBashRequest(msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "bash", Text: bashSubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationBash, bashSubjectLabel(request))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = request
+		next.LastBash = BashToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "bash " + bashSubjectLabel(request)})
+		return next, []Effect{BashToolEffect{Operation: operation, Request: request}}
 	case InterruptRequested:
 		if !hasActiveFakeWork(next) {
 			return next, nil
@@ -568,6 +684,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
 		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
@@ -578,6 +696,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
 		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
 		return next, nil
@@ -589,6 +709,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = msg.Result
 		next.ActiveSearch = SearchToolRequest{}
 		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != ReadToolErrorNone {
@@ -604,9 +726,28 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
 		next.LastSearch = msg.Result
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != SearchToolErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
+	case BashToolCompleted:
+		summary := bashResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = msg.Result
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != BashToolErrorNone {
 			kind = "failure"
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
@@ -637,7 +778,7 @@ func hasActiveFakeWork(model Model) bool {
 }
 
 func isToolOperation(kind OperationKind) bool {
-	return kind == OperationRead || kind == OperationFind || kind == OperationGrep
+	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -752,6 +893,47 @@ func searchResultSummary(result SearchToolResult) string {
 		parts = append(parts, fmt.Sprintf("omitted results: %d", result.Truncation.OmittedResults))
 	}
 	return strings.Join(parts, "\n")
+}
+
+func trimBashRequest(request BashToolRequest) BashToolRequest {
+	request.WorkingDir = strings.TrimSpace(request.WorkingDir)
+	trimmed := make([]string, 0, len(request.Argv))
+	for _, arg := range request.Argv {
+		trimmed = append(trimmed, strings.TrimSpace(arg))
+	}
+	request.Argv = trimmed
+	return request
+}
+
+func bashSubjectLabel(request BashToolRequest) string {
+	if len(request.Argv) == 0 {
+		return "requested command"
+	}
+	parts := make([]string, 0, len(request.Argv))
+	for _, arg := range request.Argv {
+		if arg != "" {
+			parts = append(parts, arg)
+		}
+	}
+	if len(parts) == 0 {
+		return "requested command"
+	}
+	return strings.Join(parts, " ")
+}
+
+func bashResultSummary(result BashToolResult) string {
+	command := strings.Join(result.RequestedArgv, " ")
+	if command == "" {
+		command = "requested command"
+	}
+	if result.Error.Kind != "" && result.Error.Kind != BashToolErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("bash %s failed: %s", command, result.Error.Kind)
+		}
+		return fmt.Sprintf("bash %s failed: %s: %s", command, result.Error.Kind, message)
+	}
+	return fmt.Sprintf("bash %s: %s exit %d", command, result.Status, result.ExitCode)
 }
 
 func readPathLabel(path string) string {

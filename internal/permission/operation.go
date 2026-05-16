@@ -78,6 +78,18 @@ func NewGrepOperation(query string, includePattern string) ProposedOperation {
 	}
 }
 
+// NewBashInspectionOperation classifies an allowed safe bash inspection command as read-only.
+func NewBashInspectionOperation(command []string, workingDir string, expectedEffect string) ProposedOperation {
+	return ProposedOperation{
+		Kind:           OperationRead,
+		Tool:           "bash",
+		Command:        append([]string(nil), command...),
+		WorkingDir:     workingDir,
+		ExpectedEffect: expectedEffect,
+		Reversible:     true,
+	}
+}
+
 // Decide applies the current autonomy level without executing or approving work.
 func Decide(level AutonomyLevel, operation ProposedOperation) Decision {
 	switch level {

@@ -885,3 +885,64 @@ func (effect panicEffect) Metadata() OperationMetadata {
 func (panicEffect) dispatchPanic() {
 	panic("fake effect worker panic")
 }
+
+func TestUpdateHandlesBashToolProposalDeterministically(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusIdle}
+	request := BashToolRequest{Argv: []string{"git", "status", "--short"}, WorkingDir: ".", MaxOutputBytes: 256, TimeoutMillis: 1000, Source: BashSourceMetadata{Caller: "test", RequestID: "bash-1"}}
+
+	firstModel, firstEffects := Update(model, BashToolProposed{Request: request})
+	secondModel, secondEffects := Update(model, BashToolProposed{Request: request})
+
+	if firstModel.Status != StatusActive || firstModel.ActiveOperation.Kind != OperationBash || firstModel.ActiveBash.Argv[0] != "git" || len(firstEffects) != 1 {
+		t.Fatalf("first bash proposal model=%+v effects=%v", firstModel, firstEffects)
+	}
+	if firstModel.NextOperation != secondModel.NextOperation || firstModel.ActiveOperation.ID != secondModel.ActiveOperation.ID || len(secondEffects) != 1 {
+		t.Fatalf("bash proposal not deterministic: first=%+v second=%+v", firstModel, secondModel)
+	}
+	effect, ok := firstEffects[0].(BashToolEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want BashToolEffect", firstEffects[0])
+	}
+	if effect.Request.Argv[0] != "git" || effect.Operation.Subject != "git status --short" {
+		t.Fatalf("bash effect = %+v", effect)
+	}
+}
+
+func TestUpdateHandlesBashToolResultMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-bash", Kind: OperationBash, Subject: "pwd", Source: "test"}
+	model := Model{Status: StatusActive, ActiveOperation: operation, ActiveBash: BashToolRequest{Argv: []string{"pwd"}}}
+	result := BashToolResult{ToolName: "bash", RequestedArgv: []string{"pwd"}, WorkspaceRelativeWorkDir: ".", CommandFamily: "pwd", ExpectedEffect: "print workspace working directory", ExitCode: 0, Status: "completed", Stdout: BashToolOutput{Text: "/workspace\n", Bytes: 11}, Error: BashToolError{Kind: BashToolErrorNone}}
+
+	completed, effects := Update(model, BashToolCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 || completed.Status != StatusIdle || completed.LastBash.CommandFamily != "pwd" || completed.ActiveBash.Argv != nil || completed.ActiveOperation.ID != "" {
+		t.Fatalf("completed bash model=%+v effects=%v", completed, effects)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got.Kind != "result" || !strings.Contains(got.Text, "completed exit 0") {
+		t.Fatalf("completed bash transcript = %+v", got)
+	}
+
+	failure := result
+	failure.Error = BashToolError{Kind: BashToolErrorUnsafeCommand, Message: "command is not allowed"}
+	failure.Status = "failed"
+	failed, effects := Update(model, BashToolCompleted{Operation: operation, Result: failure})
+	if len(effects) != 0 || failed.Status != StatusIdle || failed.LastBash.Error.Kind != BashToolErrorUnsafeCommand {
+		t.Fatalf("failed bash model=%+v effects=%v", failed, effects)
+	}
+	if got := failed.Transcript[len(failed.Transcript)-1]; got.Kind != "failure" || !strings.Contains(got.Text, "unsafe_command") {
+		t.Fatalf("failed bash transcript = %+v", got)
+	}
+}
+
+func TestUpdateQueuesBashToolProposalWhileActive(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusActive, ActiveOperation: OperationMetadata{Kind: OperationPrompt}}
+	updated, effects := Update(model, BashToolProposed{Request: BashToolRequest{Argv: []string{"pwd"}}})
+	if len(effects) != 0 || len(updated.Queued) != 1 || updated.Queued[0].Kind != "bash" || updated.Queued[0].Text != "pwd" {
+		t.Fatalf("queued bash model=%+v effects=%v", updated, effects)
+	}
+}

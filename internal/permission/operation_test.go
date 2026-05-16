@@ -65,3 +65,18 @@ func TestDecideDoesNotClassifyMutationOrExecAsRead(t *testing.T) {
 		}
 	}
 }
+
+func TestBashInspectionOperationIsReadOnly(t *testing.T) {
+	t.Parallel()
+
+	operation := NewBashInspectionOperation([]string{"git", "status", "--short"}, ".", "inspect git working tree status")
+	if operation.Kind != OperationRead || operation.Tool != "bash" || operation.WorkingDir != "." || operation.ExpectedEffect == "" || !operation.Reversible {
+		t.Fatalf("bash inspection operation = %+v", operation)
+	}
+	if got := Decide(AutonomyRead, operation); !got.Allowed || !got.Automatic {
+		t.Fatalf("read autonomy decision = %+v, want allowed", got)
+	}
+	if got := Decide(AutonomyOff, operation); got.Allowed || got.Automatic {
+		t.Fatalf("off autonomy decision = %+v, want denied", got)
+	}
+}

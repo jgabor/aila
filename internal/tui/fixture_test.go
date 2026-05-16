@@ -956,6 +956,231 @@ func TestM19SearchPTYSmokeDecision(t *testing.T) {
 	}
 }
 
+func loadCommandToolFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	var state ViewState
+	switch name {
+	case "command-tool-running":
+		state = commandToolState(&CommandView{
+			Name:       "bash",
+			Status:     "running",
+			ReadOnly:   true,
+			Argv:       []string{"git", "status", "--short"},
+			WorkingDir: ".",
+		})
+	case "command-result":
+		state = commandToolState(&CommandView{
+			Name:           "bash",
+			Status:         "completed",
+			ReadOnly:       true,
+			Argv:           []string{"git", "status", "--short", "--branch"},
+			WorkingDir:     ".",
+			CommandFamily:  "git status",
+			ExpectedEffect: "inspect git working tree status",
+			ExitCode:       0,
+			StdoutLines:    []string{"## main...origin/main", " M internal/tui/render.go"},
+			DurationMillis: 12,
+		})
+	case "command-failure", "tool-failed":
+		state = commandToolState(&CommandView{
+			Name:            "bash",
+			Status:          "failed",
+			ReadOnly:        true,
+			Argv:            []string{"git", "diff", "--check"},
+			WorkingDir:      ".",
+			CommandFamily:   "git diff",
+			ExpectedEffect:  "inspect git diff output",
+			ExitCode:        2,
+			StderrLines:     []string{"internal/tui/render.go:12: trailing whitespace token=secret-value", "/home/jgabor/git/aila/.aila/project.toml leaked path"},
+			StderrTruncated: true,
+			DurationMillis:  9,
+			ErrorKind:       "execution_error",
+			ErrorMessage:    "command exited with non-zero status for /home/jgabor/.config/aila/config.toml token=secret-value",
+		})
+	default:
+		t.Fatalf("unknown command fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM20CommandRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name           string
+		wantRender     []string
+		forbiddenPlain []string
+		completed      bool
+	}{
+		{
+			name: "command-tool-running",
+			wantRender: []string{
+				"Bash command:",
+				"tool: bash",
+				"status: running",
+				"read-only: true",
+				"command: git status --short",
+				"working dir: .",
+				"completed: false",
+			},
+			forbiddenPlain: []string{"exit code:", "stdout:", "stderr:", "error kind:", "completed: true"},
+		},
+		{
+			name: "command-result",
+			wantRender: []string{
+				"Bash command:",
+				"status: completed",
+				"read-only: true",
+				"command: git status --short --branch",
+				"command family: git status",
+				"expected effect: inspect git working tree status",
+				"exit code: 0",
+				"## main...origin/main",
+				"M internal/tui/render.go",
+				"stdout truncated: false",
+			},
+			completed: true,
+		},
+		{
+			name: "command-failure",
+			wantRender: []string{
+				"Bash command:",
+				"status: failed",
+				"read-only: true",
+				"command: git diff --check",
+				"command family: git diff",
+				"exit code: 2",
+				"internal/tui/render.go:12: trailing whitespace [redacted]",
+				"[path-redacted] leaked path",
+				"stderr truncated: true",
+				"error kind: execution_error",
+				"error message: command exited with non-zero status for [path-redacted] [redacted]",
+			},
+			completed: true,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			state := loadCommandToolFixture(t, tc.name).State
+			render := RenderPlain(state, Size{Width: 120, Height: 34})
+			if !containsAll(render, tc.wantRender) {
+				t.Fatalf("%s render missing command evidence %v:\n%s", tc.name, tc.wantRender, render)
+			}
+			if containsAny(render, tc.forbiddenPlain) {
+				t.Fatalf("%s render implies wrong command state:\n%s", tc.name, render)
+			}
+			assertNoReadLeak(t, render)
+
+			snapshot := Semantic(state, Size{Width: 120, Height: 34})
+			if snapshot.Bash == nil || !snapshot.Bash.ReadOnly || snapshot.Bash.Completed != tc.completed {
+				t.Fatalf("bash semantic = %+v, want read-only completed=%v", snapshot.Bash, tc.completed)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			commandRegion := strings.Join(regions["bash_tool"].Items, "\n")
+			if !containsAll(commandRegion, []string{"read_only: true", "app-owned", "display-only"}) {
+				t.Fatalf("bash semantic region = %v", regions["bash_tool"].Items)
+			}
+			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 34}))
+		})
+	}
+}
+
+func TestM20CommandFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadCommandToolFixture(t, name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("command fixture metadata = %+v", fixture)
+			}
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, []string{"Bash command:", "read-only: true"}) {
+						t.Fatalf("%s fixture render missing command evidence:\n%s", name, plain)
+					}
+					assertNoReadLeak(t, plain)
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoReadLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Bash == nil || !snapshot.Bash.ReadOnly {
+						t.Fatalf("semantic bash = %+v", snapshot.Bash)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestM20BashPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"/bash pwd", "! git status", "bash git status", "git status --short"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Command != nil || state.Search != nil || state.Read != nil || state.CommandRoute != "" || state.SurfaceTitle != "" || state.RuntimeStatus != "" {
+				t.Fatalf("%q unexpectedly invoked visible bash state: %+v", input, state)
+			}
+		})
+	}
+}
+
+func commandToolState(command *CommandView) ViewState {
+	state := IdleEmptyState()
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = "bash-command"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "bash tool dispatch"
+	state.RuntimeActive = command != nil && command.Status == "running"
+	if state.RuntimeActive {
+		state.RuntimeStatus = "active"
+	}
+	state.Command = command
+	return state
+}
+
 func searchToolState(searchTool *SearchView) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "BUILD"

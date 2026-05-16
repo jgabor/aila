@@ -1,0 +1,120 @@
+{
+  "scenario": "tool-failed",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "bash tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "failed",
+    "read_only": true,
+    "argv": ["git", "diff", "--check"],
+    "working_dir": ".",
+    "command_family": "git diff",
+    "expected_effect": "inspect git diff output",
+    "exit_code": 2,
+    "stderr_lines": [
+      "internal/tui/render.go:12: trailing whitespace [redacted]",
+      "[path-redacted] leaked path"
+    ],
+    "stdout_truncated": false,
+    "stderr_truncated": true,
+    "duration_millis": 9,
+    "error_kind": "execution_error",
+    "error_message": "command exited with non-zero status for [path-redacted] [redacted]",
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: bash tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: failed",
+        "read_only: true",
+        "command: git diff --check",
+        "working_dir: .",
+        "completed: true",
+        "command_family: git diff",
+        "expected_effect: inspect git diff output",
+        "exit_code: 2",
+        "stderr_line: internal/tui/render.go:12: trailing whitespace [redacted]",
+        "stderr_line: [path-redacted] leaked path",
+        "stdout_truncated: false",
+        "stderr_truncated: true",
+        "error_kind: execution_error",
+        "error_message: command exited with non-zero status for [path-redacted] [redacted]",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

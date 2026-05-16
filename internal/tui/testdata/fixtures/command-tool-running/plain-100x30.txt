@@ -1,0 +1,29 @@
+Aila                                                                                          100x30
+Stage BUILD | Runtime active | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation ------------------------------------------------------------------------------------+
+| Runtime status:                                                                                  |
+| status: active                                                                                   |
+| status source: runtime.fixture                                                                   |
+| detail: bash tool dispatch                                                                       |
+| active: true                                                                                     |
+|                                                                                                  |
+| Bash command:                                                                                    |
+| tool: bash                                                                                       |
+| status: running                                                                                  |
+| read-only: true                                                                                  |
+| command: git status --short                                                                      |
+| working dir: .                                                                                   |
+| completed: false                                                                                 |
+|                                                                                                  |
+| No messages yet.                                                                                 |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit

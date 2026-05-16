@@ -1,0 +1,113 @@
+{
+  "scenario": "command-result",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "bash tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "completed",
+    "read_only": true,
+    "argv": ["git", "status", "--short", "--branch"],
+    "working_dir": ".",
+    "command_family": "git status",
+    "expected_effect": "inspect git working tree status",
+    "exit_code": 0,
+    "stdout_lines": ["## main...origin/main", "M internal/tui/render.go"],
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "duration_millis": 12,
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: bash tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: completed",
+        "read_only: true",
+        "command: git status --short --branch",
+        "working_dir: .",
+        "completed: true",
+        "command_family: git status",
+        "expected_effect: inspect git working tree status",
+        "exit_code: 0",
+        "stdout_line: ## main...origin/main",
+        "stdout_line: M internal/tui/render.go",
+        "stdout_truncated: false",
+        "stderr_truncated: false",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

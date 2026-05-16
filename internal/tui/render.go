@@ -38,6 +38,7 @@ type ViewState struct {
 	QueuedText         []string
 	Read               *ReadView
 	Search             *SearchView
+	Command            *CommandView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -164,6 +165,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
+	items = append(items, commandLines(state.Command)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
@@ -302,6 +304,57 @@ func searchLines(search *SearchView) []string {
 	)
 	if semantic.TruncationMarkers != "" {
 		lines = append(lines, "  truncation marker: "+semantic.TruncationMarkers)
+	}
+	if semantic.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.ErrorMessage)
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func commandLines(command *CommandView) []string {
+	if command == nil {
+		return nil
+	}
+	semantic := semanticBash(command)
+	lines := []string{
+		"  Bash command:",
+		"  tool: " + semantic.Name,
+		"  status: " + semantic.Status,
+		"  read-only: " + boolLabel(semantic.ReadOnly),
+		"  command: " + strings.Join(semantic.Argv, " "),
+		"  working dir: " + semantic.WorkingDir,
+		"  completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.CommandFamily != "" {
+		lines = append(lines, "  command family: "+semantic.CommandFamily)
+	}
+	if semantic.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.Completed {
+		lines = append(lines, fmt.Sprintf("  exit code: %d", semantic.ExitCode))
+	}
+	if len(semantic.StdoutLines) > 0 {
+		lines = append(lines, "  stdout:")
+		for _, line := range semantic.StdoutLines {
+			lines = append(lines, "  | "+line)
+		}
+	}
+	if len(semantic.StderrLines) > 0 {
+		lines = append(lines, "  stderr:")
+		for _, line := range semantic.StderrLines {
+			lines = append(lines, "  ! "+line)
+		}
+	}
+	if semantic.Completed {
+		lines = append(lines,
+			"  stdout truncated: "+boolLabel(semantic.StdoutTruncated),
+			"  stderr truncated: "+boolLabel(semantic.StderrTruncated),
+		)
 	}
 	if semantic.ErrorKind != "" {
 		lines = append(lines, "  error kind: "+semantic.ErrorKind)
@@ -527,6 +580,7 @@ type SemanticSnapshot struct {
 	History     *SemanticHistory     `json:"history,omitempty"`
 	Read        *SemanticRead        `json:"read_tool,omitempty"`
 	Search      *SemanticSearch      `json:"search_tool,omitempty"`
+	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
 }
@@ -580,6 +634,26 @@ type SemanticSearchMatch struct {
 	Path        string `json:"path"`
 	LineNumber  int    `json:"line_number,omitempty"`
 	PreviewText string `json:"preview_text,omitempty"`
+}
+
+// SemanticBash describes injected read-only safe bash state for snapshots.
+type SemanticBash struct {
+	Name            string   `json:"tool_name"`
+	Status          string   `json:"status"`
+	ReadOnly        bool     `json:"read_only"`
+	Argv            []string `json:"argv"`
+	WorkingDir      string   `json:"working_dir"`
+	CommandFamily   string   `json:"command_family,omitempty"`
+	ExpectedEffect  string   `json:"expected_effect,omitempty"`
+	ExitCode        int      `json:"exit_code"`
+	StdoutLines     []string `json:"stdout_lines,omitempty"`
+	StderrLines     []string `json:"stderr_lines,omitempty"`
+	StdoutTruncated bool     `json:"stdout_truncated"`
+	StderrTruncated bool     `json:"stderr_truncated"`
+	DurationMillis  int64    `json:"duration_millis,omitempty"`
+	ErrorKind       string   `json:"error_kind,omitempty"`
+	ErrorMessage    string   `json:"error_message,omitempty"`
+	Completed       bool     `json:"completed"`
 }
 
 // SemanticMemory describes app-injected resumed current-session memory.
@@ -723,6 +797,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Search != nil {
 		regions = append(regions, SemanticRegion{Name: "search_tool", Visible: true, Items: semanticSearchItems(state.Search)})
 	}
+	if state.Command != nil {
+		regions = append(regions, SemanticRegion{Name: "bash_tool", Visible: true, Items: semanticBashItems(state.Command)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -795,6 +872,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		History:     semanticHistory(state),
 		Read:        semanticRead(state.Read),
 		Search:      semanticSearch(state.Search),
+		Bash:        semanticBash(state.Command),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -1145,6 +1223,155 @@ func semanticSearchMatches(matches []SearchMatchView) []SemanticSearchMatch {
 	return items
 }
 
+func semanticBashItems(command *CommandView) []string {
+	semantic := semanticBash(command)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"tool_name: " + semantic.Name,
+		"status: " + semantic.Status,
+		"read_only: " + boolLabel(semantic.ReadOnly),
+		"command: " + strings.Join(semantic.Argv, " "),
+		"working_dir: " + semantic.WorkingDir,
+		"completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.CommandFamily != "" {
+		items = append(items, "command_family: "+semantic.CommandFamily)
+	}
+	if semantic.ExpectedEffect != "" {
+		items = append(items, "expected_effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.Completed {
+		items = append(items, fmt.Sprintf("exit_code: %d", semantic.ExitCode))
+	}
+	for _, line := range semantic.StdoutLines {
+		items = append(items, "stdout_line: "+line)
+	}
+	for _, line := range semantic.StderrLines {
+		items = append(items, "stderr_line: "+line)
+	}
+	if semantic.Completed {
+		items = append(items,
+			"stdout_truncated: "+boolLabel(semantic.StdoutTruncated),
+			"stderr_truncated: "+boolLabel(semantic.StderrTruncated),
+		)
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticBash(command *CommandView) *SemanticBash {
+	if command == nil {
+		return nil
+	}
+	status := safeText(command.Status)
+	if status == "" {
+		status = "running"
+	}
+	completed := status != "running"
+	if command.ErrorKind != "" {
+		completed = true
+	}
+	name := safeText(command.Name)
+	if name == "" {
+		name = "bash"
+	}
+	semantic := &SemanticBash{
+		Name:            name,
+		Status:          status,
+		ReadOnly:        command.ReadOnly,
+		Argv:            safeCommandArgv(command.Argv),
+		WorkingDir:      safeCommandPath(command.WorkingDir),
+		CommandFamily:   safeText(command.CommandFamily),
+		ExpectedEffect:  safeText(command.ExpectedEffect),
+		ExitCode:        command.ExitCode,
+		StdoutLines:     safeCommandOutputLines(command.StdoutLines),
+		StderrLines:     safeCommandOutputLines(command.StderrLines),
+		StdoutTruncated: command.StdoutTruncated,
+		StderrTruncated: command.StderrTruncated,
+		DurationMillis:  command.DurationMillis,
+		ErrorKind:       safeText(command.ErrorKind),
+		ErrorMessage:    safeText(command.ErrorMessage),
+		Completed:       completed,
+	}
+	if !semantic.Completed {
+		semantic.CommandFamily = ""
+		semantic.ExpectedEffect = ""
+		semantic.ExitCode = 0
+		semantic.StdoutLines = nil
+		semantic.StderrLines = nil
+		semantic.StdoutTruncated = false
+		semantic.StderrTruncated = false
+		semantic.DurationMillis = 0
+		semantic.ErrorKind = ""
+		semantic.ErrorMessage = ""
+	}
+	return semantic
+}
+
+func safeCommandOutputLines(lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	const maxPreviewLines = 12
+	limit := len(lines)
+	if limit > maxPreviewLines {
+		limit = maxPreviewLines
+	}
+	items := make([]string, 0, limit)
+	for _, line := range lines[:limit] {
+		items = append(items, safeCommandOutputLine(line))
+	}
+	return items
+}
+
+func safeCommandOutputLine(value string) string {
+	value = stripTerminalControls(value)
+	value = secretLikeText.ReplaceAllString(value, "[redacted]")
+	value = strings.Join(strings.Fields(value), " ")
+	if value == "" {
+		return ""
+	}
+	fields := strings.Fields(value)
+	for i, field := range fields {
+		fields[i] = safeCommandOutputField(field)
+	}
+	return limitTextBytes(strings.Join(fields, " "), maxDisplayTextBytes)
+}
+
+func safeCommandOutputField(field string) string {
+	slashPath := strings.ReplaceAll(field, "\\", "/")
+	if strings.HasPrefix(slashPath, "/") || strings.HasPrefix(slashPath, "~") || strings.HasPrefix(slashPath, "$HOME") || strings.HasPrefix(slashPath, "${HOME}") || strings.HasPrefix(slashPath, "$XDG_") || strings.HasPrefix(slashPath, "${XDG_") || (strings.Contains(slashPath, "../") || strings.Contains(slashPath, "/..")) || strings.Contains(slashPath, "/\x2eaila") || strings.Contains(slashPath, "/\x2eagentera") || strings.Contains(slashPath, "/\x2econfig") || strings.HasPrefix(slashPath, "\x2eaila") || strings.HasPrefix(slashPath, "\x2eagentera") || strings.HasPrefix(slashPath, "\x2econfig") {
+		return "[path-redacted]"
+	}
+	return field
+}
+
+func safeCommandArgv(argv []string) []string {
+	if len(argv) == 0 {
+		return nil
+	}
+	items := make([]string, 0, len(argv))
+	for _, arg := range argv {
+		items = append(items, safeText(arg))
+	}
+	return items
+}
+
+func safeCommandPath(value string) string {
+	if value == "" {
+		return "."
+	}
+	return safeReadTargetPath(value)
+}
+
 func semanticReadLineRange(lineRange ReadLineRangeView) SemanticReadLineRange {
 	return SemanticReadLineRange(lineRange)
 }
@@ -1237,7 +1464,7 @@ func safeReadTargetPath(value string) string {
 		return "[redacted]"
 	}
 	slashPath := strings.ReplaceAll(value, "\\", "/")
-	if strings.HasPrefix(slashPath, "/") || strings.HasPrefix(slashPath, "~") || strings.HasPrefix(slashPath, "$HOME") || strings.HasPrefix(slashPath, "${HOME}") || strings.HasPrefix(slashPath, "$XDG_") || strings.HasPrefix(slashPath, "${XDG_") || strings.Contains(slashPath, "..") || strings.Contains(slashPath, "\x2eaila") || strings.Contains(slashPath, "\x2eagentera") || strings.Contains(slashPath, "\x2econfig") {
+	if strings.HasPrefix(slashPath, "/") || strings.HasPrefix(slashPath, "~") || strings.HasPrefix(slashPath, "$HOME") || strings.HasPrefix(slashPath, "${HOME}") || strings.HasPrefix(slashPath, "$XDG_") || strings.HasPrefix(slashPath, "${XDG_") || (strings.Contains(slashPath, "../") || strings.Contains(slashPath, "/..")) || strings.Contains(slashPath, "\x2eaila") || strings.Contains(slashPath, "\x2eagentera") || strings.Contains(slashPath, "\x2econfig") {
 		return "[path-redacted]"
 	}
 	return limitTextBytes(value, maxDisplayTextBytes)
@@ -1554,6 +1781,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Search != nil {
 		items = append(items, semanticSearchItems(state.Search)...)
+	}
+	if state.Command != nil {
+		items = append(items, semanticBashItems(state.Command)...)
 	}
 	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
 	return items

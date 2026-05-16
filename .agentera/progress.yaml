@@ -1,4 +1,101 @@
 cycles:
+  - number: 157
+    timestamp: "2026-05-16 18:22"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M20 by implementing bounded safe bash inspection contracts/executor,
+      runtime/app/permission bash effect wiring, injected TUI command success/failure
+      presentation, deterministic fixtures/snapshots, and ROADMAP.md closeout.
+    commit: "pending local commit for M20 safe bash inspection"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 20; docs/notes/PROMPT.md;
+      ARCHITECTURE.md explicit-effect and TUI boundary rules; docs/tui-testing.md
+      fixture/snapshot gate
+    discovered: >-
+      M20 could extend the M18/M19 read-only effect seam without adding a generic
+      shell. The implementation uses argv execution only and allowlists pwd, ls,
+      git status, and git diff inspection forms. A full mage check found that git
+      commands in temp workspaces could discover the parent repository, so the
+      executor now sets GIT_CEILING_DIRECTORIES to the declared workspace parent.
+      No visible interactive shell command path exists in M20, so PTY smoke is
+      explicitly skipped and covered by TestM20BashPTYSmokeDecision. No arbitrary
+      shell, fetch, edit/write, mutation history, approval persistence, undo/replay,
+      context compaction, stale checks, source indexing, provider fallback, plugin,
+      MCP, workflow DSL, marketplace, or M21+ behavior was added.
+    verified: >-
+      `go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.
+      `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint
+      issues and no vulnerabilities. `git diff --check -- ROADMAP.md .agentera/plan.yaml
+      .agentera/progress.yaml internal/tools internal/runtime internal/app internal/permission internal/tui`
+      passed. Explicit `git diff --check --no-index /dev/null <file>` checks passed
+      for `.agentera/archive/plan-2026-05-16-m19.yaml`, `internal/tools/bash.go`,
+      `internal/tools/bash_test.go`, and all new M20 command fixture files. Installed
+      Agentera CLI plan/progress validation passed after this metadata write.
+    next: >-
+      Commit the M20 safe bash inspection slice, then continue with M21: Fetch Tool
+      in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M20 plan through Orkestrera and close the roadmap slice
+        only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product
+        posture, read-only safe bash classification, and no arbitrary shell or
+        M21+ scope.
+      unknowns: "none"
+      scope: >-
+        M20 implementation, fixtures/snapshots, validation, ROADMAP.md closeout,
+        and Agentera plan/progress synchronization.
+  - number: 156
+    timestamp: "2026-05-16 18:03"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 20: Safe Bash Inspection as the next roadmap milestone,
+      archived the completed M19 plan, and created a new active full plan with
+      five bounded tasks for safe bash contracts, execution, app/runtime/permission
+      wiring, TUI command presentation, and validation closeout.
+    commit: "N/A: planning artifact before M20 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 20; AGENTS.md; README.md;
+      ARCHITECTURE.md; docs/tui-testing.md; docs/workflow-architecture.md;
+      agentera hej --format json --capability-context planera
+    discovered: >-
+      Active milestone was none and ROADMAP.md Next milestone was M20. M18/M19
+      already provide the read-only effect seam that M20 should extend. The plan
+      must avoid generic shell execution, pipelines, redirection, mutation-shaped
+      git commands, fetch, edit/write, approval persistence, mutation history,
+      undo/replay, context compaction, source indexing, plugin, MCP, workflow DSL,
+      marketplace, provider fallback, and M21+ behavior. The apply_patch artifact
+      hook failed because /hooks/validate_artifact.py is missing, so the plan file
+      was written with a controlled script and will be diff/CLI validated.
+    verified: >-
+      Planera startup state loaded through the installed Agentera CLI; docs/notes/PROMPT.md,
+      the top of ROADMAP.md, the M20 roadmap section, AGENTS.md, README.md,
+      ARCHITECTURE.md, docs/tui-testing.md, docs/workflow-architecture.md, current
+      read/search tool source seams, runtime/app effect dispatch, permission
+      classification, and TUI tool presentation seams were reviewed before writing
+      the plan.
+    next: >-
+      Execute M20 Task 1: define safe bash inspection contracts. Do not implement
+      arbitrary shell, fetch, edit/write, mutation history, approval persistence,
+      undo/replay, compaction, plugins, MCP, or M21+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md
+        before starting implementation.
+      constraints: >-
+        Plan only M20; preserve statechart-MVU, fixed-product posture,
+        TUI presentation-only boundary, CLI-first Agentera artifact access, and
+        commit only after implementation and validation complete.
+      unknowns: >-
+        Exact internal result type names and whether M20 exposes an interactive
+        shell command are implementation-owned; PTY smoke must run only if that
+        visible command path exists.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m19.yaml
+        archival, and progress evidence for the planning handoff.
   - number: 1
     timestamp: "2026-05-12 13:50"
     type: chore

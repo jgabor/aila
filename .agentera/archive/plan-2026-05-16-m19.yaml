@@ -1,0 +1,174 @@
+header:
+  level: full
+  created: 2026-05-16
+  status: completed
+  reviewed: 2026-05-16
+  critic_issues: "completed as M19-only; bash/fetch/edit/write and context indexing deferred"
+  title: Milestone 19 Find And Grep Tools
+what: >-
+  Deliver ROADMAP.md:837-857 Milestone 19 by adding `find` and `grep` as
+  read-only project discovery effects. Aila must be able to discover matching
+  workspace paths and content matches with exact file paths, line numbers,
+  deterministic ordering, bounds, and omitted-result metadata while keeping all
+  filesystem IO outside deterministic updates and TUI rendering.
+why: >-
+  M18 proved the first read-only file inspection seam. M19 extends that same seam
+  from one known file to project discovery and content search, which future model
+  turns need before safe bash, fetch, edits, context compaction, and source
+  provenance can be useful without drifting into shell-driven or hidden search.
+constraints: >-
+  Execute only Milestone 19. Preserve the statechart-MVU rule that updates decide
+  and effects do. `find` and `grep` must run through explicit app/runtime/tool
+  effects, not deterministic updates or TUI rendering. Treat both tools as
+  read-only operations under permission/autonomy policy without opening mutation
+  approval, shell, network, or indexing paths. Keep result shapes bounded,
+  deterministic, path-safe, and precise about matching paths, line numbers, and
+  omitted results. Do not add bash, fetch, edit, write, mutation history,
+  undo/redo, replay, context compaction, stale checks, source index building,
+  real provider fallback, plugins, MCP, workflow DSLs, marketplace behavior, or
+  Milestone 20+ behavior. Do not push. Do not commit M19 work unless the user
+  explicitly requests it.
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m18.yaml
+source_anchors:
+  - ROADMAP.md:837-857
+  - ROADMAP.md:275-312
+  - README.md:181-188
+  - README.md:226-243
+  - ARCHITECTURE.md:17-20
+  - ARCHITECTURE.md:451-483
+  - ARCHITECTURE.md:871-880
+  - ARCHITECTURE.md:931-949
+  - docs/tui-testing.md:52-83
+  - docs/tui-testing.md:126-228
+  - docs/tui-testing.md:230-263
+  - docs/workflow-architecture.md:457-475
+  - docs/workflow-architecture.md:558-576
+  - docs/notes/PROMPT.md:1-39
+verification_commands:
+  - go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1
+  - go test ./internal/... -count=1
+  - mage check
+  - git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/tools internal/runtime internal/app internal/permission internal/tui
+  - git diff --check --no-index /dev/null <each new search fixture and tools file>
+scope:
+  included:
+    - Narrow `find` and `grep` request/result contracts with source metadata, validation defaults, bounds, errors, and omitted-result metadata.
+    - Path-safe read-only `find` execution for workspace path patterns with deterministic sorted results and no mutation.
+    - Path-safe read-only `grep` execution for content search with matching file paths, line numbers, bounded line previews, deterministic ordering, and no mutation.
+    - App/runtime integration that proposes, classifies, executes, records, and returns `find` and `grep` results as typed messages or effects.
+    - Permission/autonomy classification proving `find` and `grep` are safe read-only tools and do not reuse mutation, bash, fetch, edit, or write paths.
+    - TUI running/completed search result display state that preserves exact paths, line numbers, match previews, and omitted-result markers from injected state only.
+    - File-search and content-search fixtures with plain, ANSI, and semantic snapshots; update/keybinding tests only if an interactive command or shortcut is exposed.
+    - PTY smoke only if M19 exposes a visible shell, slash command, or prompt surface for search.
+  excluded:
+    - Bash, fetch, edit, write, shell command history, mutation history, approval persistence, undo/redo, or replay.
+    - Context compaction, stale checks, source index building, search ranking, ripgrep/shell delegation, real provider/model fallback, or multi-tool orchestration.
+    - Dynamic plugins, MCP servers, workflow DSLs, generic graph engines, model marketplaces, hosted control planes, or Milestone 20+ behavior.
+  deferred:
+    - Safe bash inspection for Milestone 20.
+    - Network fetch for Milestone 21.
+    - Approval persistence, mutation tools, undo/replay, context compaction, stale checks, and source indexing until their roadmap slices.
+design: >-
+  Extend the M18 read-only primitive seam instead of creating a generic tool
+  framework. `internal/tools` owns `find` and `grep` contracts, path/pattern/query
+  validation, filesystem walking/searching, result bounding, deterministic
+  ordering, and typed failures. Runtime owns typed proposals, effects, active
+  state, completed results, and summaries without importing `internal/tools` or
+  touching the filesystem. App-owned dispatch classifies the operation through
+  `internal/permission`, executes the tool in the guarded IO path, maps tool
+  results back into runtime messages, and injects presentation state. The TUI
+  renders only injected running and completed search data; it must not validate
+  paths, walk directories, read files, run regex search, or decide workflow phase.
+tasks:
+  - number: 1
+    name: Define bounded find and grep contracts
+    depends_on: []
+    status: completed
+    acceptance:
+      - GIVEN find and grep requests are validated WHEN tests inspect the contracts THEN tool name, workspace-relative pattern or query, optional include path filter, max results, max preview bytes, caller-visible source metadata, and deterministic defaults have explicit typed fields.
+      - GIVEN unsafe empty, traversal, absolute-outside-workspace, HOME, XDG, `.agentera`, `.aila`, malformed pattern, invalid regex, negative bounds, or directory-reserved inputs are requested WHEN validation runs THEN typed bounded path-safe or query-safe errors are returned.
+      - GIVEN success and failure results are shaped WHEN tests inspect values THEN matched paths, line numbers for grep, preview text, omitted-result counts, truncation markers, error kind, and source metadata are explicit and bounded.
+      - GIVEN package boundary tests inspect the new contracts WHEN validation runs THEN M19 does not introduce bash, fetch, edit, write, mutation history, undo/redo, replay, context compaction, source indexing, plugin, MCP, workflow DSL, or Milestone 20+ behavior.
+    evidence:
+      - internal/tools/search.go defines typed FindRequest, GrepRequest, ValidatedFindRequest, ValidatedGrepRequest, SearchResult, SearchMatch, truncation metadata, and bounded typed errors.
+      - internal/tools/search_test.go validates defaults, unsafe path/query/pattern rejection, bounded success/failure shaping, and boundary exclusion of M20+ behavior.
+  - number: 2
+    name: Execute safe workspace file discovery
+    depends_on: [1]
+    status: completed
+    acceptance:
+      - GIVEN a valid path pattern WHEN the find executor runs THEN it returns deterministic sorted workspace-relative paths with omitted-result metadata and no workspace mutation.
+      - GIVEN hidden, reserved, symlink-escaping, permission-denied, oversized traversal, canceled, or invalid pattern cases occur WHEN find executes THEN typed bounded errors or skip metadata are returned without panics or partial mutations.
+      - GIVEN repeated find runs execute WHEN validation inspects state THEN no `.aila`, HOME, config, Agentera, git, or unrelated durable state is created or modified.
+      - GIVEN deterministic update packages are inspected WHEN the executor exists THEN filesystem walking remains in the tools/effect handler path and not in runtime update or TUI rendering code.
+    evidence:
+      - internal/tools/search.go ExecuteFind walks only workspace files, skips reserved paths and symlinks, returns sorted workspace-relative matches, and records omitted/skipped metadata.
+      - internal/tools/search_test.go covers deterministic bounded find results, no durable state creation, cancellation, and IO boundary checks.
+  - number: 3
+    name: Execute safe workspace content search
+    depends_on: [1]
+    status: completed
+    acceptance:
+      - GIVEN a valid content query or regex and bounded include filter WHEN the grep executor runs THEN it returns deterministic matches with workspace-relative path, 1-based line number, bounded line preview, and match/omitted metadata.
+      - GIVEN binary files, invalid UTF-8, oversized files, oversized lines, permission errors, symlink escapes, invalid regex, canceled context, or result limits occur WHEN grep executes THEN typed bounded errors, skip counts, or truncation metadata are returned without panics or mutation.
+      - GIVEN grep scans a workspace WHEN validation inspects output THEN results avoid reserved `.aila` and `.agentera` paths, avoid leaking host-local paths, and preserve exact matching workspace paths and line references.
+      - GIVEN no files match WHEN grep completes THEN the result is a successful bounded empty match set, not a failure or hidden retry.
+    evidence:
+      - internal/tools/search.go ExecuteGrep scans bounded text files, supports literal and regex search, include filters, exact path/line previews, empty success, skipped files, omitted results, and cancellation.
+      - internal/tools/search_test.go covers grep line matches, empty success, regex matching, binary/oversized skip metadata, preview truncation, and no mutation.
+  - number: 4
+    name: Wire search effects through app and policy
+    depends_on: [2, 3]
+    status: completed
+    acceptance:
+      - GIVEN find or grep proposals are produced WHEN runtime handling runs THEN Aila emits explicit find/grep effects and receives typed result messages instead of searching inside deterministic updates.
+      - GIVEN autonomy policy classifies find and grep WHEN validation runs THEN both are treated as safe read-only operations at read/write/yolo and denied at off without adding mutation approval plumbing.
+      - GIVEN validation or execution fails WHEN app dispatch maps the result THEN bounded diagnostics/results are surfaced without workflow phase mutation, destructive recovery, shell fallback, or hidden retries.
+      - GIVEN existing read, prompt, queue, interrupt, history, snapshot, command, help, quit, diagnostic, and store paths run WHEN search wiring exists THEN their behavior remains stable except for intentional search metadata.
+    evidence:
+      - internal/runtime/runtime.go adds SearchToolProposed, SearchToolEffect, SearchToolCompleted, active/last search state, summaries, queue behavior, and non-fake-cancel tool handling without importing internal/tools.
+      - internal/app/shutdown.go dispatches find/grep effects through permission.Decide and maps validation/execution failures without hidden retries; internal/permission/operation.go classifies find/grep as read-only.
+      - internal/runtime/runtime_test.go, internal/app/prompt_test.go, and internal/permission/operation_test.go cover proposals, effects, result messages, denial at autonomy off, and stability of existing runtime paths.
+  - number: 5
+    name: Render running and completed search results
+    depends_on: [4]
+    status: completed
+    acceptance:
+      - GIVEN an injected running find or grep operation exists WHEN the TUI renders THEN tool-running evidence clearly shows the tool, target pattern/query, optional include filter, read-only status, and does not look completed.
+      - GIVEN an injected completed find result exists WHEN the TUI renders THEN matching paths, omitted-result marker, truncation/error metadata, and read-only status are visible without filesystem reads from the TUI.
+      - GIVEN an injected completed grep result exists WHEN the TUI renders THEN matching paths, 1-based line numbers, bounded line previews, omitted-result marker, truncation/error metadata, and read-only status are visible without filesystem reads from the TUI.
+      - GIVEN semantic snapshots are inspected WHEN search state is present THEN machine-readable fields preserve tool name, status, query or pattern, include filter, paths, line references, omitted counts, truncation, error kind, and read_only=true.
+      - GIVEN search data contains terminal controls, credential-like text, HOME/config paths, `.aila`, `.agentera`, or outside-workspace paths WHEN render and semantic evidence is produced THEN output is bounded and redacted without losing intentional safe workspace match references.
+    evidence:
+      - internal/tui/model.go and internal/tui/render.go add injected SearchView and semantic search state; TUI rendering consumes app-provided state only.
+      - internal/tui/fixture_test.go covers running, completed find, completed grep, redaction, semantic fields, and no visible command path invoking search.
+      - internal/tui/testdata/fixtures/file-search-result, content-search-result, and search-tool-running contain checked-in plain, ANSI, and semantic snapshots.
+  - number: 6
+    name: Prove search fixtures and closeout gates
+    depends_on: [1, 2, 3, 4, 5]
+    status: completed
+    acceptance:
+      - GIVEN file-search and content-search fixtures render WHEN snapshots are updated THEN plain, ANSI, and semantic outputs are checked in with exact paths, line references for grep, and omitted-result markers.
+      - GIVEN a tool-running fixture exists WHEN M19 changes running tool presentation THEN it is updated or extended with deterministic plain, ANSI, and semantic evidence for running find or grep without regressing the M18 running read evidence.
+      - GIVEN a visible interactive command path invokes search WHEN terminal smoke runs THEN bounded PTY output shows running/completed search state and exact path/line references without leaking HOME, `.aila`, config, credential, or temp workspace internals.
+      - GIVEN no visible interactive command path invokes search in M19 WHEN closeout evidence is prepared THEN PTY smoke is explicitly documented as skipped by the roadmap gate rather than silently omitted.
+      - GIVEN Milestone 19 implementation and validation are complete WHEN targeted tests, full `go test ./internal/...`, `mage check`, and `git diff --check` run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 19 Slice Completion Template records tool tests, app/effect wiring tests, TUI fixtures/snapshots, PTY smoke decision, validation, architecture checklist evidence, roadmap status, and no commit/push unless separately requested.
+    evidence:
+      - `go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.
+      - `go test ./internal/... -count=1` passed.
+      - `mage check` passed with 0 lint issues and no vulnerabilities after rerun with a longer timeout.
+      - `git diff --check` passed for tracked M19 files and explicit `git diff --check --no-index /dev/null <file>` checks passed for new search/tool fixture files.
+      - PTY smoke skipped by roadmap gate because M19 exposes no visible interactive search command path; TestM19SearchPTYSmokeDecision proves `/find`, `/grep TODO`, and prompt-shaped search text do not invoke visible search state.
+complete: 6
+total: 6
+active: false
+complete_plan: true
+overall_acceptance:
+  - GIVEN a valid workspace path pattern is searched WHEN the find tool executes THEN Aila returns bounded deterministic matching paths with omitted-result metadata and no workspace mutation.
+  - GIVEN valid workspace content is searched WHEN the grep tool executes THEN Aila returns bounded deterministic matches with exact paths, 1-based line numbers, previews, and omitted-result metadata without mutating the workspace.
+  - GIVEN invalid, unsafe, binary, oversized, missing, permission-denied, symlink-escaping, or canceled search cases occur WHEN results are surfaced THEN errors or skip metadata are typed, bounded, path-safe, and non-destructive.
+  - GIVEN find and grep operations are proposed and completed WHEN app/runtime/TUI paths handle them THEN IO remains outside deterministic updates and the TUI consumes injected display/semantic state only.
+  - GIVEN milestone validation runs WHEN documented gates complete THEN tool bounds tests, app/effect tests, render and semantic snapshots, tool-running evidence, optional PTY smoke decision, targeted tests, full `go test ./internal/...`, and `mage check` support closeout.
+surprises:
+  - M19 should not shell out to `rg`, add source indexing, or create a generic tool framework. Implement small Go-native read-only executors behind the same effect boundary established by M18.

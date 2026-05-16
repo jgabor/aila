@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/aila/internal/diagnostic"
+	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
@@ -600,5 +601,80 @@ func TestOtherCommandRoutesStayBoundedOutsideRuntime(t *testing.T) {
 	}
 	if runner.model.NextOperation != 0 || runner.model.LastCommand != "" || len(runner.model.Transcript) != 0 {
 		t.Fatalf("non-status commands changed runtime model: %#v", runner.model)
+	}
+}
+
+func TestBashToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "alpha\n")
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyRead))
+
+	turn := runner.proposeBashTool(runtime.BashToolRequest{Argv: []string{"ls", "-1"}, WorkingDir: ".", Source: runtime.BashSourceMetadata{Caller: "test", RequestID: "bash-1"}})
+	if turn.Command == nil || turn.Command.Status != "completed" || !turn.Command.ReadOnly || turn.Command.Name != "bash" || turn.Command.CommandFamily != "ls" {
+		t.Fatalf("command view = %+v, want completed bash presentation state", turn.Command)
+	}
+	if !containsAnyString(turn.Command.StdoutLines, "notes.txt") {
+		t.Fatalf("stdout lines = %v, want notes.txt", turn.Command.StdoutLines)
+	}
+	if got := runner.model.LastBash; got.ToolName != "bash" || got.CommandFamily != "ls" || got.Error.Kind != runtime.BashToolErrorNone {
+		t.Fatalf("last bash = %+v", got)
+	}
+}
+
+func TestBashToolProposalCanSurfaceRunningPresentation(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+	turn := runner.proposeBashTool(runtime.BashToolRequest{Argv: []string{"git", "status", "--short"}, WorkingDir: "."})
+	if turn.Command == nil || turn.Command.Status != "running" || !turn.Command.ReadOnly || turn.Command.Name != "bash" || turn.Command.Argv[0] != "git" {
+		t.Fatalf("running command view = %+v, want active injected command presentation state", turn.Command)
+	}
+	if turn.Command.CommandFamily != "" || turn.Command.ExitCode != 0 || len(turn.Command.StdoutLines) != 0 {
+		t.Fatalf("running command view looks completed: %+v", turn.Command)
+	}
+}
+
+func TestBashToolProposalSurfacesValidationFailureWithoutHiddenRetry(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithReadContext(t.Context(), t.TempDir(), string(permission.AutonomyRead))
+	turn := runner.proposeBashTool(runtime.BashToolRequest{Argv: []string{"git", "checkout", "main"}})
+	if turn.Command == nil || turn.Command.Status != "failed" || turn.Command.ErrorKind != string(runtime.BashToolErrorUnsafeCommand) {
+		t.Fatalf("validation failure command view = %+v", turn.Command)
+	}
+	if got := runner.model.LastBash.Error; got.Kind != runtime.BashToolErrorUnsafeCommand || !strings.Contains(got.Message, "git subcommand") {
+		t.Fatalf("last bash error = %+v", got)
+	}
+}
+
+func TestBashToolProposalDeniedWhenAutonomyOff(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithReadContext(t.Context(), t.TempDir(), string(permission.AutonomyOff))
+	turn := runner.proposeBashTool(runtime.BashToolRequest{Argv: []string{"pwd"}})
+	if turn.Command == nil || turn.Command.ErrorKind != string(runtime.BashToolErrorPermission) || !strings.Contains(turn.AssistantText, "autonomy off") {
+		t.Fatalf("denied command view = %+v assistant=%q", turn.Command, turn.AssistantText)
+	}
+}
+
+func containsAnyString(values []string, needle string) bool {
+	for _, value := range values {
+		if strings.Contains(value, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func writeAppTestFile(t *testing.T, root string, rel string, content string) {
+	t.Helper()
+	path := filepath.Join(root, rel)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir for %s: %v", rel, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", rel, err)
 	}
 }

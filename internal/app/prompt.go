@@ -55,6 +55,14 @@ func (runner *inputRunner) proposeSearchTool(request runtime.SearchToolRequest) 
 	return turn
 }
 
+func (runner *inputRunner) proposeBashTool(request runtime.BashToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.BashToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.RuntimeDiagnostic{Diagnostic: signalShutdownDiagnostic(err)})
@@ -77,11 +85,15 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
+	turn.Command = commandView(runner.model)
 	if turn.Read != nil {
 		turn.StatusDetail = "read tool dispatch"
 	}
 	if turn.Search != nil {
 		turn.StatusDetail = "search tool dispatch"
+	}
+	if turn.Command != nil {
+		turn.StatusDetail = "bash tool dispatch"
 	}
 }
 
@@ -245,6 +257,51 @@ func searchMatchViews(matches []runtime.SearchToolMatch) []tui.SearchMatchView {
 		views = append(views, tui.SearchMatchView{Path: match.Path, LineNumber: match.LineNumber, PreviewText: match.PreviewText})
 	}
 	return views
+}
+
+func commandView(model runtime.Model) *tui.CommandView {
+	if model.ActiveOperation.Kind == runtime.OperationBash && model.Status == runtime.StatusActive {
+		request := model.ActiveBash
+		return &tui.CommandView{
+			Name:       "bash",
+			Status:     "running",
+			ReadOnly:   true,
+			Argv:       append([]string(nil), request.Argv...),
+			WorkingDir: defaultString(request.WorkingDir, "."),
+		}
+	}
+	if model.LastBash.ToolName == "" && len(model.LastBash.RequestedArgv) == 0 && len(model.LastBash.EffectiveArgv) == 0 {
+		return nil
+	}
+	status := defaultString(model.LastBash.Status, "completed")
+	if model.LastBash.Error.Kind != "" && model.LastBash.Error.Kind != runtime.BashToolErrorNone {
+		status = "failed"
+	}
+	return &tui.CommandView{
+		Name:            defaultString(model.LastBash.ToolName, "bash"),
+		Status:          status,
+		ReadOnly:        true,
+		Argv:            append([]string(nil), model.LastBash.RequestedArgv...),
+		WorkingDir:      defaultString(model.LastBash.WorkspaceRelativeWorkDir, "."),
+		CommandFamily:   model.LastBash.CommandFamily,
+		ExpectedEffect:  model.LastBash.ExpectedEffect,
+		ExitCode:        model.LastBash.ExitCode,
+		StdoutLines:     commandOutputLines(model.LastBash.Stdout.Text),
+		StderrLines:     commandOutputLines(model.LastBash.Stderr.Text),
+		StdoutTruncated: model.LastBash.Stdout.Truncated,
+		StderrTruncated: model.LastBash.Stderr.Truncated,
+		DurationMillis:  model.LastBash.DurationMillis,
+		ErrorKind:       string(model.LastBash.Error.Kind),
+		ErrorMessage:    model.LastBash.Error.Message,
+	}
+}
+
+func commandOutputLines(output string) []string {
+	output = strings.TrimRight(output, "\n")
+	if output == "" {
+		return nil
+	}
+	return strings.Split(output, "\n")
 }
 
 func defaultString(value string, fallback string) string {
