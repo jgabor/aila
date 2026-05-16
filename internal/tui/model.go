@@ -218,27 +218,33 @@ func (m *Model) handlePromptKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		if m.submitPrompt != nil {
 			turn := m.submitPrompt(text)
-			if turn.UserText != "" || turn.AssistantText != "" {
-				m.state.Transcript = append(m.state.Transcript, turn)
-			}
-			m.applyRuntimeStatus(turn)
+			m.state = ApplyTranscriptTurn(m.state, turn)
 		}
 	}
 	return nil
 }
 
-func (m *Model) applyRuntimeStatus(turn TranscriptTurn) {
-	if turn.RuntimeStatus == "" {
-		return
+// ApplyTranscriptTurn applies app-owned runtime presentation data to a view state.
+func ApplyTranscriptTurn(state ViewState, turn TranscriptTurn) ViewState {
+	if turn.UserText != "" || turn.AssistantText != "" {
+		state.Transcript = append(state.Transcript, turn)
 	}
-	m.state.RuntimeStatus = turn.RuntimeStatus
-	m.state.StatusSource = turn.StatusSource
-	m.state.StatusDetail = turn.StatusDetail
-	m.state.RuntimeActive = turn.RuntimeActive
-	m.state.RuntimeResult = turn.RuntimeResult
-	m.state.QueuedCount = turn.QueuedCount
-	m.state.QueuedText = append([]string(nil), turn.QueuedText...)
-	m.state.Diagnostics = mergeDiagnosticViews(m.state.Diagnostics, turn.Diagnostics)
+	return applyRuntimeStatus(state, turn)
+}
+
+func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
+	if turn.RuntimeStatus == "" {
+		return state
+	}
+	state.RuntimeStatus = turn.RuntimeStatus
+	state.StatusSource = turn.StatusSource
+	state.StatusDetail = turn.StatusDetail
+	state.RuntimeActive = turn.RuntimeActive
+	state.RuntimeResult = turn.RuntimeResult
+	state.QueuedCount = turn.QueuedCount
+	state.QueuedText = append([]string(nil), turn.QueuedText...)
+	state.Diagnostics = mergeDiagnosticViews(state.Diagnostics, turn.Diagnostics)
+	return state
 }
 
 func mergeDiagnosticViews(existing []DiagnosticView, added []DiagnosticView) []DiagnosticView {
@@ -279,7 +285,7 @@ func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) routeRecommendation(recommendation policy.CommandRecommendation) tea.Cmd {
-	m.showCommandSurface(recommendation)
+	m.state = ApplyCommandRecommendation(m.state, recommendation)
 	if m.routeCommand != nil {
 		m.routeCommand(recommendation)
 	}
@@ -293,42 +299,40 @@ func (m *Model) routeRecommendation(recommendation policy.CommandRecommendation)
 func (m *Model) requestInterrupt(reason string) tea.Cmd {
 	if m.interrupt != nil {
 		turn := m.interrupt(reason)
-		if turn.UserText != "" || turn.AssistantText != "" {
-			m.state.Transcript = append(m.state.Transcript, turn)
-		}
-		m.applyRuntimeStatus(turn)
+		m.state = ApplyTranscriptTurn(m.state, turn)
 	}
 	return nil
 }
 
-func (m *Model) showCommandSurface(recommendation policy.CommandRecommendation) {
-	m.state.CommandRoute = string(recommendation.Route)
-	m.state.RouteSource = "policy.command"
+// ApplyCommandRecommendation applies the visible command surface for a policy route.
+func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRecommendation) ViewState {
+	state.CommandRoute = string(recommendation.Route)
+	state.RouteSource = "policy.command"
 	switch recommendation.Route {
 	case policy.CommandRouteStatus:
 		lines := []string{
 			"Deterministic placeholder status.",
-			"stage " + m.state.Phase + " (display-only)",
-			"primary model " + m.state.PrimaryModel,
-			"utility model " + m.state.UtilityModel,
-			"autonomy: " + m.state.Autonomy,
+			"stage " + state.Phase + " (display-only)",
+			"primary model " + state.PrimaryModel,
+			"utility model " + state.UtilityModel,
+			"autonomy: " + state.Autonomy,
 		}
-		if m.state.ProjectStoreStatus != "" {
-			lines = append(lines, "project store: "+m.state.ProjectStoreStatus+" ("+m.state.ProjectStoreSource+"; "+m.state.ProjectStoreDetail+")")
+		if state.ProjectStoreStatus != "" {
+			lines = append(lines, "project store: "+state.ProjectStoreStatus+" ("+state.ProjectStoreSource+"; "+state.ProjectStoreDetail+")")
 		}
-		for _, line := range diagnosticLines(m.state.Diagnostics) {
+		for _, line := range diagnosticLines(state.Diagnostics) {
 			lines = append(lines, strings.TrimSpace(line))
 		}
 		lines = append(lines,
-			"git: "+m.state.FooterGit,
-			"context: "+m.state.FooterContext,
+			"git: "+state.FooterGit,
+			"context: "+state.FooterContext,
 			"real status sources: deferred",
 		)
-		m.state.SurfaceTitle = "status"
-		m.state.SurfaceLines = lines
+		state.SurfaceTitle = "status"
+		state.SurfaceLines = lines
 	case policy.CommandRouteHelp:
-		m.state.SurfaceTitle = "help"
-		m.state.SurfaceLines = []string{
+		state.SurfaceTitle = "help"
+		state.SurfaceLines = []string{
 			"Deterministic placeholder help.",
 			"commands:",
 			"/status - Show deterministic placeholder status.",
@@ -339,6 +343,7 @@ func (m *Model) showCommandSurface(recommendation policy.CommandRecommendation) 
 			"ctrl+x q - Quit Aila.",
 		}
 	}
+	return state
 }
 
 func dropLastRune(value string) string {

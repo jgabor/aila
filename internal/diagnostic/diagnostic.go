@@ -26,13 +26,14 @@ const (
 type Source string
 
 const (
-	SourceStartup    Source = "startup"
-	SourceStateOpen  Source = "state.open"
-	SourceRuntime    Source = "runtime"
-	SourceEffect     Source = "effect"
-	SourceProvider   Source = "provider"
-	SourcePermission Source = "permission"
-	SourceSignal     Source = "signal"
+	SourceStartup       Source = "startup"
+	SourceStateOpen     Source = "state.open"
+	SourceStateSnapshot Source = "state.session_snapshot"
+	SourceRuntime       Source = "runtime"
+	SourceEffect        Source = "effect"
+	SourceProvider      Source = "provider"
+	SourcePermission    Source = "permission"
+	SourceSignal        Source = "signal"
 )
 
 // Severity is display and routing metadata only.
@@ -55,6 +56,7 @@ const (
 	ArtifactProviderRequest   AffectedArtifact = "provider_request"
 	ArtifactPermissionRequest AffectedArtifact = "permission_request"
 	ArtifactRuntimeEffect     AffectedArtifact = "runtime_effect"
+	ArtifactSessionSnapshot   AffectedArtifact = "session_snapshot"
 )
 
 // RecoveryAction is a visible recommendation. It does not execute recovery.

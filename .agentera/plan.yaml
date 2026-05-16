@@ -1,7 +1,7 @@
 header:
   level: full
   created: 2026-05-16
-  status: active
+  status: completed
   reviewed: 2026-05-16
   critic_issues: "7 found, 6 addressed, 1 reframed"
   title: Milestone 16 Session Snapshot Resume
@@ -147,49 +147,155 @@ tasks:
   - number: 3
     name: Persist fake session snapshots through explicit effects
     depends_on: [2]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN fake runtime/app state changes WHEN snapshot persistence is needed THEN app emits an explicit persistence command or effect and receives a typed result message rather than writing from deterministic update or TUI code.
       - GIVEN fake prompt/response, queued input, interrupting/canceled state, diagnostics, blockers, concerns, and visible status context exist WHEN persistence runs THEN the current snapshot captures the visible data that exists at this point.
       - GIVEN snapshot persistence fails WHEN app handles the result THEN a bounded diagnostic is surfaced without direct workflow phase mutation or destructive recovery execution.
       - GIVEN existing prompt, queue, interrupt, diagnostics, status, help, and quit paths run WHEN persistence support exists THEN their behavior remains stable except for intentional snapshot metadata.
+    evidence:
+      - >-
+        Added an app-owned `SnapshotPersistenceCommand` and `SnapshotPersistenceResult` seam so
+        snapshot writes are requested and handled through explicit app/state execution rather than
+        deterministic runtime update or TUI code.
+      - >-
+        The app controller now mirrors visible fake session state for prompt/response transcript,
+        queued input, interrupt/canceling state, diagnostics, blockers, concerns, help/status/quit
+        context, and shutdown state before converting it into the current snapshot schema.
+      - >-
+        Persistence failures are translated into bounded passive `session_snapshot` diagnostics without
+        workflow phase mutation or destructive recovery execution.
+      - >-
+        Regression tests cover the explicit persistence command/result path, captured visible state,
+        failure diagnostics, TUI/state boundary, and stability for prompt, queue, interrupt, status,
+        help, quit, and shutdown routes.
+      - >-
+        Verified with `mage fmt`, `go test ./internal/app ./internal/tui ./internal/diagnostic -run
+        'Session|Prompt|Interrupt|Command|Quit|Diagnostic' -count=1`, `go test ./internal/runtime
+        ./internal/state ./internal/app ./internal/tui ./internal/diagnostic -count=1`, `git diff
+        --check -- internal/app internal/tui internal/diagnostic .agentera/progress.yaml`, and
+        Inspektera PASS with no findings.
   - number: 4
     name: Resume current snapshot through continue startup
     depends_on: [2]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN a valid current snapshot exists WHEN `aila continue`, `aila --continue`, or `aila -c` runs THEN Aila starts the interactive TUI with resumed fake memory loaded through app-owned startup wiring.
       - GIVEN no current snapshot exists WHEN continue startup runs THEN Aila falls back to normal idle startup without a raw failure or hardcoded memory.
       - GIVEN the current snapshot is invalid WHEN continue startup runs THEN Aila surfaces a path-safe recovery diagnostic without overwriting the snapshot.
       - GIVEN resume state reaches the TUI WHEN tests inspect package boundaries THEN the TUI consumes injected display and semantic fields only and does not import or call internal/state.
       - GIVEN continue support exists WHEN validation checks scope THEN no session index, history browser, event replay, context compaction, or Milestone 17 behavior is introduced.
+    evidence:
+      - >-
+        Added continue startup routing for `aila continue`, `aila --continue`, and `aila -c` through
+        app-owned `RunContinue` wiring that reads the current snapshot and injects resumed fake memory
+        into TUI display state without TUI filesystem ownership.
+      - >-
+        Missing current snapshots fall back to normal idle startup with no hardcoded memory or raw
+        failure, while invalid snapshots surface bounded `session_snapshot` recovery diagnostics and
+        preserve the existing snapshot file.
+      - >-
+        Tests cover command aliases, valid snapshot resume, no-memory fallback, invalid snapshot
+        diagnostic/no-overwrite behavior, TUI injected-field boundaries, and scope guards against
+        session indexes, history browsing, event replay, context compaction, and M17+ behavior.
+      - >-
+        Verified with `mage fmt`, `go test ./cmd/aila ./internal/app ./internal/tui ./internal/state
+        -count=1`, `git diff --check -- cmd/aila internal/app internal/tui internal/state
+        .agentera/plan.yaml .agentera/progress.yaml`, and Inspektera PASS with no findings.
   - number: 5
     name: Render idle-with-memory evidence
     depends_on: [3, 4]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN resumed memory is injected into the TUI WHEN the `idle-with-memory` fixture renders THEN resumed chat, queued messages, diagnostics, blockers, concerns, and status context that exist are visible without hardcoded TUI state.
       - GIVEN semantic snapshots are inspected WHEN resumed memory is present THEN memory source, session id, resumed transcript turns, queued count, blockers, concerns, and diagnostics are machine-readable and path-safe.
       - GIVEN snapshot data contains terminal escape or secret-like text WHEN render and semantic evidence is produced THEN output is bounded and redacted without leaking control sequences or credentials.
       - GIVEN queue, interrupt, store-status, and diagnostic fixtures render WHEN memory support exists THEN their existing evidence remains stable except for intentional memory metadata.
+    evidence:
+      - >-
+        Added deterministic `idle-with-memory` fixture inputs and plain/ANSI/semantic outputs fed by
+        injected TUI `ViewState` memory fields, showing resumed transcript turns, queued messages,
+        diagnostics, blockers, concerns, and runtime/status context without hardcoded TUI filesystem state.
+      - >-
+        Semantic snapshots expose machine-readable current memory source, session id, transcript turn data,
+        queued counts, blockers, concerns, diagnostics, and runtime/status fields while keeping TUI
+        production code independent of internal/state.
+      - >-
+        Fixture and direct sanitizer regressions cover terminal escapes and secret-like values across
+        transcript, queue, diagnostics, blockers, concerns, and runtime/status fields, including controls
+        embedded inside token, api_key, password, secret, and Bearer credential syntax.
+      - >-
+        Inspektera first found unsanitized runtime/status render paths, then a sanitizer-order bypass; the
+        fixes route runtime/status render and semantic fields through `safeText` and strip terminal controls
+        before secret redaction, whitespace normalization, and byte bounding.
+      - >-
+        Verified with `mage fmt`, `go test ./internal/tui -run
+        'TestM16IdleWithMemoryFixtureSnapshots|TestM16MemorySupportLeavesExistingFixtureEvidenceStable'
+        -count=1`, `go test ./internal/app -run
+        'TestContinueStartupLoadsCurrentSnapshotIntoInjectedViewState' -count=1`, `go test
+        ./internal/tui -count=1`, `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+        internal/app/session_snapshot.go internal/app/session_snapshot_test.go internal/tui/render.go
+        internal/tui/fixture_test.go internal/tui/testdata/fixtures/idle-with-memory/fixture.json
+        internal/tui/testdata/fixtures/idle-with-memory/plain-120x50.txt
+        internal/tui/testdata/fixtures/idle-with-memory/ansi-120x50.txt
+        internal/tui/testdata/fixtures/idle-with-memory/semantic-120x50.json`, and Inspektera PASS with
+        no findings.
   - number: 6
     name: Prove terminal resume smoke
     depends_on: [4, 5]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN a temp workspace records a fake session snapshot WHEN a bounded terminal/process smoke restarts with `continue` or `--continue` THEN resumed memory is visible and comes from `.aila/sessions/current.json`.
       - GIVEN terminal output is inspected WHEN resume completes THEN session id, resumed transcript, queued input, blockers or concerns where present, and diagnostics are visible without leaking temp workspace, HOME, `.aila`, config, or credential paths.
       - GIVEN cleanup completes WHEN the smoke exits THEN only expected temp workspace project state and config files exist, with no HOME `.aila`, source-tree `.aila`, or unrelated durable state created or modified.
       - GIVEN no current snapshot exists WHEN non-interactive or interactive continue smoke runs THEN Aila remains bounded and exits or idles through the documented no-memory path.
+    evidence:
+      - >-
+        Added bounded PTY smoke coverage in `cmd/aila/pty_test.go` for `aila continue` and `aila
+        --continue`, seeding a temp workspace `.aila/sessions/current.json` before startup and verifying
+        resumed memory is visible from the current snapshot source.
+      - >-
+        Smoke assertions cover visible resumed runtime status, session id, transcript, queued input, blocker,
+        concern, and diagnostic text while forbidding temp workspace, HOME, repository, `.aila`, config, and
+        credential path markers in terminal output.
+      - >-
+        Cleanup assertions prove only expected temp workspace project state remains, including
+        `sessions/current.json`, and no HOME `.aila`, source-tree `.aila`, or unrelated durable state is created
+        or modified.
+      - >-
+        Added no-memory PTY smoke for both `continue` and `--continue`, showing bounded idle/no-memory startup
+        without resumed-memory markers. The `-c` alias remains covered by CLI runner tests rather than PTY.
+      - >-
+        Verified with `mage fmt`, `go test ./cmd/aila -run 'TestM16Continue(Resume|NoMemory)PTYSmoke'
+        -count=1`, `go test ./cmd/aila -run
+        'TestCLIRunnerContinueShapesStartResumePath|TestCLIRunnerRecognizesM7Commands|TestCLIRunnerAcceptsGlobalFlags'
+        -count=1`, `git diff --check -- cmd/aila/pty_test.go .agentera/plan.yaml
+        .agentera/progress.yaml`, and Inspektera PASS with no findings.
   - number: 7
     name: Plan-level freshness checkpoint
     depends_on: [1, 2, 3, 4, 5, 6]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN Milestone 16 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
       - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 16 Slice Completion Template records session snapshot state tests, continue/resume tests, idle-with-memory fixtures and snapshots, PTY resume smoke, validation, and architecture checklist evidence.
       - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no M16 commit is created unless separately requested.
       - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
+    evidence:
+      - >-
+        Final targeted validation passed with `go test ./internal/state ./internal/app ./internal/tui
+        ./cmd/aila -count=1`, and the configured full gate passed with `mage check` without bypassing
+        lint, vet, tests, or vulnerability checks.
+      - >-
+        `ROADMAP.md` now records Milestone 16 complete status and a completed Slice Completion Template with
+        session snapshot state tests, continue/resume tests, idle-with-memory render/semantic fixtures, PTY
+        resume/no-memory smoke, validation, and architecture checklist evidence.
+      - >-
+        Inspektera confirmed `git diff --check` passed, Task 7 did not start M17 or create a next milestone
+        plan, and no M16 commit was created after the earlier user-requested `00b1b5e add current session
+        snapshot state` commit for Tasks 1-2.
+      - >-
+        The final response can use the completed Slice Completion Template recorded at `ROADMAP.md:175-191`,
+        satisfying `docs/notes/PROMPT.md` final-response requirements.
 overall_acceptance:
   - GIVEN fake session activity exists WHEN persistence runs THEN `.aila/sessions/current.json` becomes the durable source of current fake memory through an explicit app/state boundary.
   - GIVEN Aila is started with continue WHEN a current snapshot exists THEN visible chat, queued input, diagnostics, blockers, and concerns that exist are resumed from store data rather than hardcoded TUI state.

@@ -1,0 +1,17 @@
+{
+  "name": "idle-with-memory",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle", "resumed_memory"],
+  "render_sizes": [{ "name": "120x50", "width": 120, "height": 50 }],
+  "render_outputs": {
+    "plain_120x50": "plain-120x50.txt",
+    "ansi_120x50": "ansi-120x50.txt",
+    "semantic_120x50": "semantic-120x50.json"
+  },
+  "notes": [
+    "M16 presentation-only idle-with-memory fixture; current-session memory is injected as ViewState fields by the app layer.",
+    "Fixture evidence includes terminal escape and secret-like text in source state; rendered and semantic outputs must be bounded and redacted."
+  ]
+}

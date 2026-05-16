@@ -4685,7 +4685,7 @@ cycles:
         runtime/effect callback adapter propagation, internal/tui injected diagnostic metadata merge,
         focused regression tests, targeted validation, and this Agentera progress evidence only.
   - number: 102
-    timestamp: "2026-05-16 00:00"
+    timestamp: "2026-05-16 03:57"
     type: feat
     phase: build
     what: >-
@@ -5160,6 +5160,493 @@ cycles:
       scope: >-
         internal/state snapshot IO hardening, nested partial-field validation, symlink escape regression
         coverage, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 2 only.
+  - number: 113
+    timestamp: "2026-05-16 03:46"
+    type: feat
+    phase: build
+    what: >-
+      Executed M16 Task 3 by adding an app-owned explicit current-session snapshot persistence command
+      and typed result path. The app controller mirrors the same visible TUI state updates for prompt,
+      queued input, interrupt, shutdown, status, help, and quit routes, converts that visible state into
+      the current snapshot schema, and interprets persistence through guarded state-store IO rather than
+      deterministic runtime update or TUI code.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md:708-728; ARCHITECTURE.md statechart-MVU and TUI boundary rules"
+    discovered: >-
+      The existing TUI owned the mutable ViewState, so persistence needed a small app-owned mirror of the
+      same pure presentation updates instead of importing internal/state into the TUI. Pure TUI helpers now
+      expose transcript and command-surface application without filesystem IO. Task 4 continue startup,
+      idle-with-memory fixtures, PTY smoke, plan completion, ROADMAP closeout, event replay, context
+      compaction, real provider/tool history, approval persistence, mutation history, undo, plugins, MCP,
+      and workflow DSL behavior remain intentionally unimplemented.
+    verified: >-
+      `go test ./internal/app ./internal/tui ./internal/diagnostic -run 'Session|Prompt|Interrupt|Command|Quit|Diagnostic' -count=1`
+      passed after one test expectation correction for the existing uppercase phase display label.
+      `go test ./internal/app -count=1` passed. `go test ./internal/tui -count=1` passed. `mage fmt`
+      passed. `go test ./internal/app ./internal/tui ./internal/diagnostic -run
+      'Session|Prompt|Interrupt|Command|Quit|Diagnostic' -count=1` passed. `go test
+      ./internal/runtime ./internal/state ./internal/app ./internal/tui ./internal/diagnostic -count=1`
+      passed. `git diff --check -- internal/app internal/tui internal/diagnostic .agentera/progress.yaml`
+      passed. No commit or push was performed.
+    next: >-
+      Have Inspektera evaluate M16 Task 3, then let Orkestrera decide whether to mark Task 3 complete
+      and select the next dependency-ready M16 task.
+    context:
+      intent: >-
+        Persist visible fake session snapshots after current fake app/runtime state changes through an
+        explicit app-owned command/result seam.
+      constraints: >-
+        Execute only M16 Task 3. Do not implement Task 4 continue startup, idle-with-memory fixtures, PTY
+        smoke, ROADMAP closeout, commits, pushes, event replay, session selection/history browsing, context
+        compaction, stale checks, real provider/tool history, approval persistence, mutation history, undo,
+        provider fallback, permission policy changes, plugins, MCP, workflow DSL behavior, or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/app explicit snapshot persistence command/result path and tests, pure internal/tui state
+        application helpers, diagnostic artifact vocabulary, targeted validation evidence, and Agentera
+        progress evidence only.
+  - number: 114
+    timestamp: "2026-05-16 03:51"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 3. The audit found no findings: snapshot persistence
+      is routed through an app-owned explicit command/result seam, captures current fake visible state,
+      surfaces bounded passive diagnostics on write failure, and preserves existing prompt, queue,
+      interrupt, status, help, quit, and shutdown behavior except for intentional snapshot metadata.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 3 PASS; .agentera/plan.yaml task 3"
+    discovered: >-
+      The main residual maintenance risk is that the app-owned visible-state mirror must stay aligned
+      with future TUI presentation helpers. The bare `q` TUI quit path remains pure TUI behavior and is
+      not app-routed for snapshot persistence, consistent with existing behavior and Task 3 scope. No
+      Task 4 continue startup, idle-with-memory fixtures, PTY smoke, ROADMAP closeout, event replay,
+      context compaction, history browsing, provider/tool history, undo, plugins, MCP, workflow DSL
+      behavior, or M17+ behavior was introduced.
+    verified: >-
+      Inspektera ran `go test ./internal/app ./internal/tui ./internal/diagnostic -run
+      'Session|Prompt|Interrupt|Command|Quit|Diagnostic' -count=1`, `go test ./internal/runtime
+      ./internal/state ./internal/app ./internal/tui ./internal/diagnostic -count=1`, `git diff
+      --check -- internal/app internal/tui internal/diagnostic .agentera/progress.yaml`, and `mage fmt`;
+      all passed. Boundary checks confirmed internal/tui does not import or call internal/state, runtime
+      update remains deterministic and filesystem-free, and snapshot writes are isolated to app-owned
+      persistence execution.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M16 task: Task 4, Resume current snapshot
+      through continue startup. Keep M16 work uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record the Task 3 audit outcome and synchronize the active plan after independent evaluation
+        passed.
+      constraints: >-
+        Mark only Task 3 complete. Do not implement Task 4 continue startup, Task 5 TUI evidence, Task 6
+        PTY smoke, final mage check, ROADMAP closeout, commits, pushes, or any M17+ behavior during this
+        validation step.
+      unknowns: "none"
+      scope: >-
+        internal/app explicit snapshot persistence command/result seam, TUI presentation boundary checks,
+        diagnostic failure handling, Inspektera PASS evidence, and Agentera plan/progress synchronization
+        for Task 3 only.
+  - number: 115
+    timestamp: "2026-05-16 00:00"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M16 Task 4 continue startup resume wiring: `aila continue`, `aila --continue`, and
+      `aila -c` now route to app-owned startup that reads the current snapshot when present and injects
+      resumed fake memory into TUI display state.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 16"
+    discovered: >-
+      The previous CLI continue path was still the M7 deferred stub. The startup boundary guard also
+      rejected the word Session, which conflicted with this task's explicit current-session resume
+      requirement, so the guard was narrowed to future-scope terms while preserving checks against
+      replay, compaction, history, indexes, adapters, goroutines, and generic interfaces in startup
+      wiring.
+    verified: >-
+      `mage fmt` passed. `go test ./cmd/aila ./internal/app ./internal/tui ./internal/state` passed after
+      the boundary guard was narrowed for the M16 current-session exception. `go test ./cmd/aila
+      ./internal/app ./internal/tui ./internal/state -count=1` passed. `git diff --check -- cmd/aila
+      internal/app internal/tui internal/state .agentera/progress.yaml` passed.
+    next: >-
+      Have Inspektera evaluate M16 Task 4. Do not mark Task 4 complete, implement Task 5 idle-with-memory
+      fixtures, run Task 6 PTY smoke, perform ROADMAP closeout, or commit/push unless separately
+      requested.
+    context:
+      intent: >-
+        Resume current fake session memory through continue startup while keeping the TUI presentation-only
+        and state IO app/state owned.
+      constraints: >-
+        Execute only M16 Task 4. Do not implement idle-with-memory fixtures, PTY smoke, session index,
+        history browser, event replay, context compaction, stale checks, provider/tool history, approval
+        persistence, mutation history, undo, provider fallback, permission policy changes, plugins, MCP,
+        workflow DSL behavior, ROADMAP closeout, commits, pushes, or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        cmd/aila continue routing, internal/app resume startup mapping and diagnostics, internal/tui
+        boundary tests for injected display data, internal/state snapshot recovery diagnostic metadata, and
+        Agentera progress evidence only.
+  - number: 116
+    timestamp: "2026-05-16 04:02"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 4. The audit found no findings: continue startup aliases
+      route through app-owned startup wiring, valid current snapshots resume fake memory into the TUI,
+      missing snapshots fall back to normal idle startup, invalid snapshots surface bounded diagnostics
+      without overwrite, and TUI/state boundaries remain intact.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 4 PASS; .agentera/plan.yaml task 4"
+    discovered: >-
+      Task 4 remains intentionally short of terminal fixture and PTY evidence, which belong to M16 Tasks 5
+      and 6. The app-owned visible-state mirror remains a maintenance coupling inherited from Task 3 and
+      should stay aligned with future TUI presentation helpers. No Task 5 idle-with-memory fixture evidence,
+      Task 6 PTY smoke, Task 7 closeout, ROADMAP closeout, session index, history browser, event replay,
+      context compaction, provider/tool history, undo, plugins, MCP, workflow DSL behavior, or M17+ behavior
+      was introduced.
+    verified: >-
+      Inspektera inspected Task 4 source/tests and Agentera evidence, ran `go test ./cmd/aila ./internal/app
+      ./internal/tui ./internal/state -count=1`, and ran `git diff --check -- cmd/aila internal/app
+      internal/tui internal/state .agentera/plan.yaml .agentera/progress.yaml`; all passed. Boundary grep
+      confirmed internal/tui production files do not import or call internal/state, and scope grep found no
+      introduced session index, history browser, event replay, context compaction, M17 behavior, Task 5
+      fixture evidence, Task 6 PTY smoke, Task 7 closeout, or ROADMAP closeout.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M16 task: Task 5, Render idle-with-memory evidence.
+      Keep M16 work uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record the Task 4 audit outcome and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 4 complete. Do not implement Task 5 TUI evidence, Task 6 PTY smoke, final mage check,
+        ROADMAP closeout, commits, pushes, or any M17+ behavior during this validation step.
+      unknowns: "none"
+      scope: >-
+        cmd/aila continue routing, app-owned resume startup mapping, invalid snapshot diagnostic handling,
+        TUI presentation boundary checks, Inspektera PASS evidence, and Agentera plan/progress
+        synchronization for Task 4 only.
+  - number: 117
+    timestamp: "2026-05-16 04:30"
+    type: test
+    phase: build
+    what: >-
+      Implemented M16 Task 5 idle-with-memory TUI evidence by adding app-injected memory metadata to
+      ViewState, rendering resumed current-session memory in deterministic fixtures, and exposing memory
+      source, session id, transcript/queue counts, blockers, concerns, and diagnostics in semantic JSON.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 16; docs/tui-testing.md"
+    discovered: >-
+      The TUI fixture needed a taller deterministic viewport to show resumed memory, diagnostics, queued
+      input, and resumed chat together without implying terminal/process smoke. Terminal escape stripping
+      had to handle CSI sequences generically so malicious fixture text could not leak control bytes into
+      render or semantic evidence.
+    verified: >-
+      `go test ./internal/tui -run 'TestM16IdleWithMemoryFixtureSnapshots|TestM16MemorySupportLeavesExistingFixtureEvidenceStable'`
+      passed. `go test ./internal/app -run 'TestContinueStartupLoadsCurrentSnapshotIntoInjectedViewState'`
+      passed. `mage fmt` passed. `go test ./internal/tui` passed. `git diff --check -- .agentera/progress.yaml
+      internal/app/session_snapshot.go internal/app/session_snapshot_test.go internal/tui/render.go
+      internal/tui/fixture_test.go internal/tui/testdata/fixtures/idle-with-memory/fixture.json
+      internal/tui/testdata/fixtures/idle-with-memory/plain-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/ansi-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/semantic-120x50.json` passed.
+    next: >-
+      Run Task 5 formatting and targeted verification, then hand off to Inspektera. Do not mark Task 5
+      complete, run Task 6 PTY/process smoke, perform Task 7/ROADMAP closeout, commit, or push.
+    context:
+      intent: >-
+        Produce deterministic render and semantic evidence that resumed current-session memory is visible,
+        machine-readable, path-safe, bounded, and redacted while preserving TUI presentation-only ownership.
+      constraints: >-
+        Execute only M16 Task 5. Do not add PTY/process smoke, session index/history browsing, event replay,
+        context compaction, stale checks, provider/tool history, approval persistence, mutation history, undo,
+        provider fallback, permission policy changes, plugins, MCP, workflow DSL behavior, ROADMAP closeout,
+        commits, pushes, or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui render and fixture evidence, internal/app resume-memory display metadata mapping, new
+        idle-with-memory fixture snapshots, targeted regression tests for existing queue/interrupt/store-status
+        and diagnostic fixtures, and Agentera progress evidence only.
+  - number: 118
+    timestamp: "2026-05-16 04:31"
+    type: fix
+    phase: build
+    what: >-
+      Fixed the M16 Task 5 Inspektera failure by applying TUI safeText sanitization to runtime/status context
+      in rendered status lines, runtime status panels, semantic session fields, and semantic runtime-status
+      region items.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 5 FAIL retry 1/2; .agentera/plan.yaml task 5"
+    discovered: >-
+      Runtime status context was still trusted after current-session snapshot load: state read bounds the fields
+      but does not redact terminal controls or secret-like text, and the TUI rendered several runtime/status
+      paths directly from ViewState. The idle-with-memory fixture covered transcript, queue, blocker, concern,
+      and diagnostic sanitization but not runtime status, source, detail, or result.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/tui -run
+      'TestM16IdleWithMemoryFixtureSnapshots|TestM16MemorySupportLeavesExistingFixtureEvidenceStable' -count=1`
+      passed. `go test ./internal/tui -count=1` passed. `git diff --check -- .agentera/progress.yaml
+      internal/tui/render.go internal/tui/fixture_test.go
+      internal/tui/testdata/fixtures/idle-with-memory/fixture.json
+      internal/tui/testdata/fixtures/idle-with-memory/plain-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/ansi-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/semantic-120x50.json` passed.
+    next: >-
+      Run the final Task 5 retry verification and hand back to Inspektera. Do not mark Task 5 complete, run
+      Task 6 PTY/process smoke, perform Task 7/ROADMAP closeout, commit, or push.
+    context:
+      intent: >-
+        Ensure resumed current-session runtime/status evidence is bounded, control-free, and redacted in both
+        human render output and machine-readable semantic evidence while preserving TUI presentation-only
+        boundaries.
+      constraints: >-
+        Fix only the M16 Task 5 sanitization gap. Do not import internal/state into internal/tui, modify
+        objective state, mark Task 5 complete, add PTY/process smoke, perform closeout, commit, push, or add
+        M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui runtime/status sanitization, idle-with-memory fixture regression data and snapshots, and
+        Agentera progress evidence only.
+  - number: 119
+    timestamp: "2026-05-16 04:45"
+    type: fix
+    phase: build
+    what: >-
+      Retried M16 Task 5 after the second Inspektera failure by changing TUI safeText ordering so terminal
+      controls are stripped before secret-like redaction, then whitespace normalization and byte bounding are
+      applied.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 5 FAIL retry 2/2; sanitizer-order bypass in internal/tui/render.go"
+    discovered: >-
+      The finding was valid: redacting before control stripping let split markers such as
+      `tok\x1b[31men=secret-value` bypass secretLikeText and then reconstruct as `token=secret-value` after
+      control removal. The idle-with-memory adversarial fixture covered escapes adjacent to secrets but not
+      embedded inside key/value or bearer syntax, so the regression data now embeds controls inside token,
+      api_key, password, secret, and Bearer markers.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/tui -run
+      'TestM16IdleWithMemoryFixtureSnapshots|TestM16MemorySupportLeavesExistingFixtureEvidenceStable' -count=1`
+      passed, proving the idle-with-memory render and semantic fixture does not leak reconstructed secrets or
+      terminal control bytes. `go test ./internal/tui -count=1` passed. `git diff --check --
+      .agentera/progress.yaml internal/tui/render.go internal/tui/fixture_test.go
+      internal/tui/testdata/fixtures/idle-with-memory/fixture.json
+      internal/tui/testdata/fixtures/idle-with-memory/plain-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/ansi-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/semantic-120x50.json` passed with no whitespace errors.
+    next: >-
+      Await Inspektera evaluation for the M16 Task 5 retry. Do not mark Task 5 complete, run Task 6
+      PTY/process smoke, perform Task 7/ROADMAP closeout, commit, push, or start M17 behavior.
+    context:
+      intent: >-
+        Close the sanitizer-order bypass so reconstructed terminal-control-stripped credentials are redacted
+        in both human render output and machine-readable semantic evidence.
+      constraints: >-
+        Fix only M16 Task 5 retry scope. Preserve TUI presentation-only boundaries, do not import or call
+        internal/state from TUI, do not modify objective state, do not mark `.agentera/plan.yaml` Task 5
+        complete, do not commit or push, and do not implement Task 6/7 or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/tui sanitizer ordering, direct safeText regression coverage, embedded-control
+        idle-with-memory fixture inputs, and Agentera retry progress evidence only.
+  - number: 120
+    timestamp: "2026-05-16 04:21"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 5 after two focused retries. The final audit found no
+      findings: idle-with-memory render and semantic evidence now shows resumed chat, queue, diagnostics,
+      blockers, concerns, memory source/session id, and runtime/status context while redacting secret-like
+      values and stripping terminal controls.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 5 PASS; .agentera/plan.yaml task 5"
+    discovered: >-
+      The audit sequence exposed two real sanitizer gaps before passing. Runtime/status fields first bypassed
+      safeText entirely, then safeText redacted before stripping controls, allowing split credential markers
+      such as `tok\x1b[31men=secret-value` to reconstruct after control removal. The final implementation
+      strips controls first, redacts secret-like values second, normalizes whitespace, and bounds output.
+      Residual risk is limited to future credential syntaxes outside the covered bearer, api_key, token,
+      password, and secret patterns.
+    verified: >-
+      Inspektera ran `go test ./internal/tui -run
+      'TestM16IdleWithMemoryFixtureSnapshots|TestM16MemorySupportLeavesExistingFixtureEvidenceStable'
+      -count=1`, `go test ./internal/app -run
+      'TestContinueStartupLoadsCurrentSnapshotIntoInjectedViewState' -count=1`, `go test ./internal/tui
+      -count=1`, and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      internal/app/session_snapshot.go internal/app/session_snapshot_test.go internal/tui/render.go
+      internal/tui/fixture_test.go internal/tui/testdata/fixtures/idle-with-memory/fixture.json
+      internal/tui/testdata/fixtures/idle-with-memory/plain-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/ansi-120x50.txt
+      internal/tui/testdata/fixtures/idle-with-memory/semantic-120x50.json`; all passed. Boundary checks
+      found no production internal/tui import or call of internal/state, leak checks found no reconstructed
+      credentials or fixture control bytes in plain/semantic evidence, and scope checks found no Task 6/7,
+      ROADMAP closeout, session index/history, event replay, context compaction, or M17+ behavior.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M16 task: Task 6, Prove terminal resume smoke. Keep
+      M16 work uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record the Task 5 audit outcome and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 5 complete. Do not run Task 6 PTY/process smoke, perform Task 7/ROADMAP closeout,
+        run final mage check, commit, push, or add M17+ behavior during this validation step.
+      unknowns: >-
+        Future credential syntaxes beyond bearer, api_key, token, password, and secret may need explicit
+        sanitizer coverage.
+      scope: >-
+        internal/tui idle-with-memory fixture evidence, render/semantic sanitizer verification, Inspektera
+        PASS evidence, and Agentera plan/progress synchronization for Task 5 only.
+  - number: 121
+    timestamp: "2026-05-16 04:28"
+    type: test
+    phase: build
+    what: >-
+      Added bounded M16 Task 6 PTY smoke coverage for `aila continue` and `aila --continue`, proving current
+      session memory is loaded from a seeded temp workspace snapshot and that missing memory idles through the
+      no-memory path.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 6; docs/tui-testing.md PTY smoke layer; cmd/aila/pty_test.go smoke harness"
+    discovered: >-
+      The existing PTY harness already isolated HOME, XDG config/cache, GOCACHE, TMPDIR, workspace, and source-tree
+      durable state. The resume smoke needed a setup hook so the temp workspace could be seeded before process
+      startup, and a taller 160x60 PTY so the resumed assistant transcript turn remains visible alongside
+      diagnostics, memory, queue, blockers, and concerns.
+    verified: >-
+      `mage fmt` passed. `go test ./cmd/aila -run 'TestM16Continue(Resume|NoMemory)PTYSmoke' -count=1` passed,
+      covering both `continue` and `--continue` with seeded `.aila/sessions/current.json` memory and missing-snapshot
+      no-memory startup. `go test ./cmd/aila -run
+      'TestCLIRunnerContinueShapesStartResumePath|TestCLIRunnerRecognizesM7Commands|TestCLIRunnerAcceptsGlobalFlags'
+      -count=1` passed. `git diff --check -- cmd/aila/pty_test.go .agentera/progress.yaml` passed.
+    next: >-
+      Hand Task 6 to Inspektera. Do not mark Task 6 complete, run Task 7 final mage check or ROADMAP closeout,
+      commit, push, or add M17+ behavior.
+    context:
+      intent: >-
+        Prove the terminal/process resume behavior end-to-end through the established bounded PTY smoke layer while
+        keeping snapshot reads in app/state and TUI rendering presentation-only.
+      constraints: >-
+        Execute only M16 Task 6. Do not modify objective state, mark `.agentera/plan.yaml` Task 6 complete, run
+        Task 7 closeout or final `mage check`, commit, push, add session history/index browsing, event replay,
+        context compaction, stale checks, approval persistence, undo, provider fallback, plugins, MCP, or workflow
+        DSL behavior.
+      unknowns: >-
+        PTY smoke remains Unix-only like the existing harness and is skipped on Windows.
+      scope: >-
+        cmd/aila PTY test harness and Agentera progress evidence only.
+  - number: 122
+    timestamp: "2026-05-16 04:32"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 6 with no findings. Bounded PTY smoke now proves current
+      snapshot resume through `continue` and `--continue`, visible terminal memory evidence, output leak
+      guards, cleanup isolation, and no-memory continue behavior.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M16 Task 6 PASS; .agentera/plan.yaml task 6"
+    discovered: >-
+      The audit confirmed the PTY tests seed temp workspace `.aila/sessions/current.json`, assert resumed
+      runtime status, session id, transcript, queued input, blocker, concern, and diagnostic output, and forbid
+      workspace, HOME, repository, `.aila`, config, and credential markers from terminal output. The smoke
+      remains Unix-only via the existing harness, and `-c` is covered by CLI runner tests rather than PTY.
+    verified: >-
+      Inspektera ran `go test ./cmd/aila -run 'TestM16Continue(Resume|NoMemory)PTYSmoke' -count=1`, `go
+      test ./cmd/aila -run
+      'TestCLIRunnerContinueShapesStartResumePath|TestCLIRunnerRecognizesM7Commands|TestCLIRunnerAcceptsGlobalFlags'
+      -count=1`, and `git diff --check -- cmd/aila/pty_test.go .agentera/plan.yaml
+      .agentera/progress.yaml`; all passed. Audit notes verified cleanup expectations and that Task 7
+      closeout, ROADMAP closeout, final `mage check`, session index/history, event replay, context compaction,
+      and M17+ behavior were not implemented.
+    next: >-
+      Orkestrera may proceed to the final dependency-ready M16 task: Task 7, Plan-level freshness checkpoint.
+      Task 7 owns final `mage check`, ROADMAP Slice Completion Template updates, and milestone closeout
+      metadata. Keep M16 work uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record Task 6 PTY smoke audit success and synchronize the active plan after independent evaluation
+        passed.
+      constraints: >-
+        Mark only Task 6 complete. Do not run Task 7 closeout, final `mage check`, ROADMAP updates, commit,
+        push, or add M17+ behavior during this validation step.
+      unknowns: >-
+        PTY smoke remains Unix-only like the existing harness; `-c` resume remains CLI-runner covered, not PTY
+        covered.
+      scope: >-
+        cmd/aila PTY resume/no-memory smoke evidence, Inspektera PASS evidence, and Agentera plan/progress
+        synchronization for Task 6 only.
+  - number: 123
+    timestamp: "2026-05-16 04:38"
+    type: test
+    phase: validate
+    what: >-
+      Executed M16 Task 7 plan-level freshness checkpoint. Targeted M16 state/app/TUI/cmd tests and the full
+      Mage gate passed, then ROADMAP.md was updated with the Milestone 16 completion log entry and completed
+      Slice Completion Template covering session snapshot state tests, continue/resume tests, idle-with-memory
+      fixtures and snapshots, PTY resume smoke, validation, and architecture checklist evidence.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 7; docs/notes/PROMPT.md final-response requirement; ROADMAP.md Slice Completion Template"
+    discovered: >-
+      The active plan remains intentionally open for Orkestrera/Inspektera closeout: Task 7 is still pending in
+      .agentera/plan.yaml per user instruction, while progress records the implementation/validation evidence.
+      Local .agentera/session.yaml and .aila/ remain untracked local state and were not added. No M17 planning,
+      event replay, session index/history browsing, context compaction, stale checks, real provider/tool history,
+      approval persistence, mutation history, undo, provider fallback, permission policy changes, plugins, MCP,
+      workflow DSL behavior, or M17+ behavior was introduced.
+    verified: >-
+      `go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1` passed. `mage check` passed
+      with all package tests passing, 0 lint issues, and no vulnerabilities. `git diff --check` passed after
+      ROADMAP.md and progress metadata updates.
+    next: >-
+      Hand this Task 7 freshness checkpoint to Inspektera/Orkestrera. Do not mark .agentera/plan.yaml Task 7
+      complete, commit, push, modify .agentera/vision.yaml or objective state, add .agentera/session.yaml or
+      .aila/, or start M17 unless separately requested.
+    context:
+      intent: >-
+        Close the M16 implementation evidence loop at the plan/roadmap level after targeted validation and full
+        configured gates passed.
+      constraints: >-
+        Execute only M16 Task 7 closeout/freshness. Preserve existing uncommitted Tasks 3-6 work, do not commit
+        or push, do not mark .agentera/plan.yaml Task 7 complete, do not modify vision/objective state, and do
+        not introduce M17+ behavior.
+      unknowns: >-
+        Retry attempt state remains unrecorded in Agentera artifacts as noted by the task handoff; the closeout
+        records final passing validation but does not reconstruct missing retry metadata.
+      scope: >-
+        ROADMAP.md M16 completion evidence, Agentera progress cycle 123, targeted validation, full mage check,
+        and final diff whitespace validation only.
+  - number: 124
+    timestamp: "2026-05-16 04:50"
+    type: test
+    phase: complete
+    what: >-
+      Completed M16 Task 7 and closed the active Milestone 16 plan after Inspektera PASS. The plan now marks
+      all seven tasks completed and the header status completed, with ROADMAP.md carrying the completed Slice
+      Completion Template required for final response review.
+    commit: "N/A: no commit or push performed after the earlier user-requested 00b1b5e commit"
+    inspiration: "Inspektera M16 Task 7 PASS; .agentera/plan.yaml task 7; ROADMAP.md M16 completion template"
+    discovered: >-
+      The first Task 7 audit lacked conversation evidence for the earlier user-requested M16 commit and failed
+      on that basis. Re-audit passed after confirming the user explicitly requested `commit, then planera next
+      milestone, then orkestrera`, that `00b1b5e add current session snapshot state` was the requested Tasks
+      1-2 commit, and that Tasks 3-7 remain uncommitted. Local `.agentera/session.yaml` and `.aila/` remain
+      untracked and were not added.
+    verified: >-
+      Inspektera ran `go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1`, `mage
+      check`, and `git diff --check`; all passed. It verified ROADMAP.md includes the completed M16 Slice
+      Completion Template, `.agentera/plan.yaml` Task 7 remained pending before Orkestrera resolution, HEAD
+      remains the user-requested `00b1b5e` with no later M16 commit, and no M17 plan, feature scope, push, or
+      gate bypass occurred. Final metadata validation will confirm the plan is now completed.
+    next: >-
+      Report M16 closeout status to the user. Do not commit, push, create an M17 plan, or modify
+      `.agentera/session.yaml` / `.aila/` unless explicitly requested.
+    context:
+      intent: >-
+        Synchronize final Agentera plan/progress metadata after Task 7 passed independent evaluation.
+      constraints: >-
+        Mark only the completed M16 plan. Do not create a next milestone plan, start M17 behavior, commit,
+        push, modify vision/objective state, or add local runtime state artifacts.
+      unknowns: >-
+        Retry attempt state remains unavailable from Agentera artifacts; final progress records the passing
+        outcome and the audit-context clarification instead.
+      scope: >-
+        Final M16 Agentera plan completion and progress closeout metadata only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

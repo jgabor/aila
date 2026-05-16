@@ -25,6 +25,7 @@ type cliRunner struct {
 	errors  io.Writer
 	version string
 	start   func(context.Context, io.Reader, io.Writer) error
+	resume  func(context.Context, io.Reader, io.Writer) error
 	config  func(bool) (string, error)
 	models  func(string, []string) (string, error)
 	debug   func(context.Context) (string, error)
@@ -39,6 +40,7 @@ func main() {
 		errors:  os.Stderr,
 		version: version,
 		start:   app.Run,
+		resume:  app.RunContinue,
 		config:  app.ConfigCommandOutput,
 		models:  app.ModelsCommandOutput,
 		debug:   app.DebugDiagnosticsCommandOutput,
@@ -84,6 +86,13 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 			return err
 		}
 		return nil
+	}
+	if parsed.command == "continue" {
+		resume := r.resume
+		if resume == nil {
+			resume = app.RunContinue
+		}
+		return resume(ctx, r.input, r.output)
 	}
 
 	line := m7StubOutput(r.version, parsed)

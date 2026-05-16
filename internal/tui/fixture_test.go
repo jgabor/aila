@@ -262,10 +262,146 @@ func loadQueuedMessageFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, "queued-message", activeQueuedState())
 }
 
+func loadIdleWithMemoryFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = "idle-with-memory"
+	state.RuntimeStatus = "idle tok\x1b[31men=secret-value"
+	state.StatusSource = "runtime.dispatch api_\x1b[31mkey=secret-value"
+	state.StatusDetail = "resumed current session pass\x1b[0mword=secret-value"
+	state.RuntimeResult = "remembered result Bear\x1b[31mer secret-token"
+	state.MemorySource = "state.current-session-snapshot"
+	state.MemorySessionID = "current"
+	state.Transcript = []TranscriptTurn{
+		{UserText: "remembered prompt tok\x1b[31men=secret-value"},
+		{AssistantText: "remembered answer with Bear\x1b[31mer secret-token"},
+	}
+	state.QueuedCount = 2
+	state.QueuedText = []string{"queued follow-up", "queued api_\x1b[31mkey=secret-value"}
+	state.MemoryBlockers = []string{"interrupt pending", "blocked by pass\x1b[31mword=secret-value"}
+	state.MemoryConcerns = []string{"phase=IDLE runtime=idle", "concern with se\x1b[2mcret=hidden"}
+	state.Diagnostics = []DiagnosticView{{
+		Severity:         "warning",
+		Source:           "state.snapshot",
+		RecoveryAction:   "inspect",
+		AffectedArtifact: "session-snapshot",
+		UserInputNeeded:  false,
+		BoundedMessage:   "remembered diagnostic tok\x1b[31men=secret-value",
+	}}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{
+		"tok\x1b[31men=secret-value",
+		"api_\x1b[31mkey=secret-value",
+		"pass\x1b[31mword=secret-value",
+		"se\x1b[31mcret=secret-value",
+		"Bear\x1b[31mer secret-token",
+	} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			got := safeText(input)
+			if got != "[redacted]" {
+				t.Fatalf("safeText(%q) = %q, want [redacted]", input, got)
+			}
+			assertNoMemoryLeak(t, got)
+		})
+	}
+}
+
 func loadInterruptFixture(t *testing.T, status string) renderFixture {
 	t.Helper()
 
 	return loadRenderFixture(t, "interrupt-"+status, interruptState(status))
+}
+
+func TestM16IdleWithMemoryFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadIdleWithMemoryFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "120x50", Width: 120, Height: 50}})
+	wantRender := []string{
+		"Stage IDLE | Runtime idle [redacted]",
+		"status: idle [redacted]",
+		"status source: runtime.dispatch [redacted]",
+		"detail: resumed current session [redacted]",
+		"result: remembered result [redacted]",
+		"Resumed memory:",
+		"source: state.current-session-snapshot",
+		"session id: current",
+		"resumed transcript turns: 2",
+		"queued count: 2",
+		"diagnostics: 1",
+		"blocker: interrupt pending",
+		"concern: phase=IDLE runtime=idle",
+		"Queued input:",
+		"queued messages: 2",
+		"queued: queued follow-up",
+		"user: remembered prompt [redacted]",
+		"assistant: remembered answer with [redacted]",
+		"Diagnostics:",
+		"message: remembered diagnostic [redacted]",
+	}
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := renderCase.render(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			if !containsAll(got, wantRender) {
+				t.Fatalf("idle-with-memory render missing resumed memory evidence %v:\n%s", wantRender, got)
+			}
+			assertNoMemoryLeak(t, stripANSI(got))
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			assertNoMemoryLeak(t, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Memory == nil {
+				t.Fatalf("memory snapshot missing: %+v", snapshot)
+			}
+			if snapshot.Session.RuntimeStatus != "idle [redacted]" || snapshot.Session.StatusSource != "runtime.dispatch [redacted]" || snapshot.Session.StatusDetail != "resumed current session [redacted]" || snapshot.Session.RuntimeResult != "remembered result [redacted]" {
+				t.Fatalf("runtime session = %+v, want redacted status evidence", snapshot.Session)
+			}
+			if snapshot.Memory.Source != "state.current-session-snapshot" || snapshot.Memory.SessionID != "current" || snapshot.Memory.TranscriptTurns != 2 || snapshot.Memory.QueuedCount != 2 || snapshot.Memory.Diagnostics != 1 {
+				t.Fatalf("memory snapshot = %+v, want source/session/count evidence", snapshot.Memory)
+			}
+			if !sameStringSet(snapshot.Memory.Blockers, []string{"interrupt pending", "blocked by [redacted]"}) || !sameStringSet(snapshot.Memory.Concerns, []string{"phase=IDLE runtime=idle", "concern with [redacted]"}) {
+				t.Fatalf("memory blockers/concerns = %+v/%+v, want redacted path-safe evidence", snapshot.Memory.Blockers, snapshot.Memory.Concerns)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			memory := strings.Join(regions["memory"].Items, "\n")
+			if !containsAll(memory, []string{"source: state.current-session-snapshot", "session_id: current", "transcript_turns: 2", "queued_count: 2", "diagnostics: 1", "blocker: interrupt pending", "concern: phase=IDLE runtime=idle", "app-owned", "display-only"}) {
+				t.Fatalf("memory semantic region = %v, want machine-readable resumed memory", regions["memory"].Items)
+			}
+			runtimeStatus := strings.Join(regions["runtime_status"].Items, "\n")
+			if !containsAll(runtimeStatus, []string{"status: idle [redacted]", "status source: runtime.dispatch [redacted]", "detail: resumed current session [redacted]", "result: remembered result [redacted]", "display-only"}) {
+				t.Fatalf("runtime semantic region = %v, want redacted status context", regions["runtime_status"].Items)
+			}
+		})
+	}
 }
 
 func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
@@ -757,6 +893,33 @@ func TestM15ADiagnosticSupportLeavesExistingFixtureEvidenceStable(t *testing.T) 
 	}
 }
 
+func TestM16MemorySupportLeavesExistingFixtureEvidenceStable(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range []renderFixture{
+		loadQueuedMessageFixture(t),
+		loadInterruptFixture(t, "canceling"),
+		loadInterruptFixture(t, "canceled"),
+		loadProjectStoreFixture(t, "store-initialized"),
+		loadProjectStoreFixture(t, "store-uninitialized"),
+		loadProjectStoreFixture(t, "store-degraded"),
+		loadDiagnosticFixture(t, "diagnostic-ready"),
+	} {
+		fixture := fixture
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+
+			render := RenderPlain(fixture.State, Size{Width: 80, Height: 24})
+			assertTextSnapshot(t, fixture, "plain-80x24.txt", render)
+			semantic := RenderSemanticJSON(fixture.State, Size{Width: 80, Height: 24})
+			assertSemanticSnapshot(t, fixture, "semantic-80x24.json", semantic)
+			if containsAny(render+semantic, []string{"Resumed memory:", "session id:", "\"memory\"", "state.current-session-snapshot"}) {
+				t.Fatalf("%s existing fixture gained memory metadata unexpectedly", fixture.Name)
+			}
+		})
+	}
+}
+
 func assertSemanticDiagnostic(t *testing.T, snapshot SemanticSnapshot, want SemanticDiagnostic) {
 	t.Helper()
 
@@ -791,6 +954,14 @@ func assertNoDiagnosticLeak(t *testing.T, text string) {
 	assertNoPathLeak(t, text)
 	if containsAny(text, []string{"secret", "token=", "api_key", "authorization", "Bearer "}) {
 		t.Fatalf("diagnostic fixture leaked secret-like text:\n%s", text)
+	}
+}
+
+func assertNoMemoryLeak(t *testing.T, text string) {
+	t.Helper()
+	assertNoPathLeak(t, text)
+	if containsAny(text, []string{"\x1b", "secret", "token=", "api_key", "password=", "authorization", "Bearer "}) {
+		t.Fatalf("memory fixture leaked control or secret-like text:\n%s", text)
 	}
 }
 

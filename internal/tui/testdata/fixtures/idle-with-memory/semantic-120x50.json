@@ -1,0 +1,160 @@
+{
+  "scenario": "idle-with-memory",
+  "screen": {
+    "width": 120,
+    "height": 50,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle [redacted]",
+    "status_source": "runtime.dispatch [redacted]",
+    "status_detail": "resumed current session [redacted]",
+    "runtime_result": "remembered result [redacted]",
+    "active": false,
+    "queued_messages": 2,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "memory": {
+    "source": "state.current-session-snapshot",
+    "session_id": "current",
+    "transcript_turns": 2,
+    "queued_count": 2,
+    "blockers": ["interrupt pending", "blocked by [redacted]"],
+    "concerns": ["phase=IDLE runtime=idle", "concern with [redacted]"],
+    "diagnostics": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "source": "state.snapshot",
+      "recovery_action": "inspect",
+      "affected_artifact": "session-snapshot",
+      "user_input_needed": false,
+      "bounded_message": "remembered diagnostic [redacted]"
+    }
+  ],
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": [
+        "user: remembered prompt [redacted]",
+        "assistant: remembered answer with [redacted]"
+      ]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "visible": true,
+      "items": [
+        "severity: warning",
+        "source: state.snapshot",
+        "affected_artifact: session-snapshot",
+        "recovery_action: inspect",
+        "user_input_needed: false",
+        "bounded_message: remembered diagnostic [redacted]",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "memory",
+      "visible": true,
+      "items": [
+        "source: state.current-session-snapshot",
+        "session_id: current",
+        "transcript_turns: 2",
+        "queued_count: 2",
+        "diagnostics: 1",
+        "app-owned",
+        "display-only",
+        "blocker: interrupt pending",
+        "blocker: blocked by [redacted]",
+        "concern: phase=IDLE runtime=idle",
+        "concern: concern with [redacted]"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle [redacted]",
+        "status source: runtime.dispatch [redacted]",
+        "detail: resumed current session [redacted]",
+        "active: false",
+        "result: remembered result [redacted]",
+        "display-only"
+      ]
+    },
+    {
+      "name": "queue",
+      "visible": true,
+      "items": [
+        "queued messages: 2",
+        "default action: send after current turn",
+        "presentation-only",
+        "executed: false",
+        "queued: queued follow-up",
+        "queued: queued [redacted]"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "queue_after_current_turn",
+      "input": "enter",
+      "default": true,
+      "presentation_only": true
+    }
+  ]
+}

@@ -25,11 +25,7 @@ const wantRunStub = "aila test-version\n" +
 	"accepted: run [prompt...] [--model MODEL]\n" +
 	"deferred: prompt execution, stdin review, model turns, tool execution, workflow transitions\n"
 
-const wantContinueStub = "aila test-version\n" +
-	"command: continue\n" +
-	"status: deferred-continuation stub\n" +
-	"accepted: continue | --continue | -c\n" +
-	"deferred: session discovery, state lookup, persistence IO, continuation execution\n"
+const wantContinueStub = ""
 
 const wantConfigOutput = "path: /tmp/aila-test/config.toml\n" +
 	"deferred: interactive config UI\n"
@@ -175,7 +171,7 @@ func TestCLIRunnerRecognizesM7Commands(t *testing.T) {
 
 	tests := map[string]string{
 		"run":      "status: deferred-run stub",
-		"continue": "status: deferred-continuation stub",
+		"continue": "",
 		"config":   "deferred: interactive config UI",
 		"models":   "status: fake diagnostics",
 		"help":     "M7 accepted shape:",
@@ -194,6 +190,52 @@ func TestCLIRunnerRecognizesM7Commands(t *testing.T) {
 			}
 			if stderr != "" {
 				t.Fatalf("stderr for accepted command: %q", stderr)
+			}
+		})
+	}
+}
+
+func TestCLIRunnerContinueShapesStartResumePath(t *testing.T) {
+	t.Parallel()
+
+	for _, args := range [][]string{{"continue"}, {"--continue"}, {"-c"}} {
+		args := args
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			t.Parallel()
+
+			input := strings.NewReader("resume input")
+			var output bytes.Buffer
+			var errors bytes.Buffer
+			called := false
+			runner := cliRunner{
+				input:   input,
+				output:  &output,
+				errors:  &errors,
+				version: "test-version",
+				start: func(context.Context, io.Reader, io.Writer) error {
+					t.Fatal("continue must not use normal startup")
+					return nil
+				},
+				resume: func(ctx context.Context, gotInput io.Reader, gotOutput io.Writer) error {
+					called = true
+					if err := ctx.Err(); err != nil {
+						t.Fatalf("unexpected canceled context: %v", err)
+					}
+					if gotInput != input || gotOutput != &output {
+						t.Fatal("resume path did not receive injected streams")
+					}
+					return nil
+				},
+			}
+
+			if err := runner.run(context.Background(), args); err != nil {
+				t.Fatalf("run continue args %v: %v", args, err)
+			}
+			if !called {
+				t.Fatalf("continue args %v did not start resume path", args)
+			}
+			if output.Len() != 0 || errors.Len() != 0 {
+				t.Fatalf("continue wrote CLI stub output: stdout=%q stderr=%q", output.String(), errors.String())
 			}
 		})
 	}
@@ -663,6 +705,7 @@ func runCLITest(t *testing.T, args []string) (string, string, error) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
 		config: testConfigOutput,
 	}
 
@@ -684,6 +727,7 @@ func runCLIWithConfigCommand(t *testing.T, args []string) (string, string, error
 			t.Fatal("config command must not start the interactive TUI path")
 			return nil
 		},
+		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
 		config: app.ConfigCommandOutput,
 	}
 
@@ -705,6 +749,7 @@ func runCLITestWithDebug(t *testing.T, args []string, debugOutput string) (strin
 			t.Fatal("debug command must not start the interactive TUI path")
 			return nil
 		},
+		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
 		debug: func(context.Context) (string, error) {
 			return debugOutput, nil
 		},
@@ -728,6 +773,7 @@ func runCLIExitTest(t *testing.T, args []string) (string, string, int) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
 		config: testConfigOutput,
 	}
 

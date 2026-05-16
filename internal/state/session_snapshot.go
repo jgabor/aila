@@ -472,10 +472,10 @@ func snapshotRecoveryResult(cause error) SessionSnapshotReadResult {
 		State: SessionSnapshotRecoveryNeeded,
 		Diagnostics: []diagnostic.Diagnostic{diagnostic.New(diagnostic.Spec{
 			Category:         diagnostic.CategoryState,
-			Source:           diagnostic.SourceStateOpen,
+			Source:           diagnostic.SourceStateSnapshot,
 			Severity:         diagnostic.SeverityError,
 			Message:          "current session snapshot requires recovery: " + cause.Error(),
-			AffectedArtifact: diagnostic.ArtifactProjectStore,
+			AffectedArtifact: diagnostic.ArtifactSessionSnapshot,
 			RecoveryAction:   diagnostic.RecoveryManualRepair,
 			UserInputNeeded:  true,
 		})},

@@ -4,16 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
-	ansiBold   = "\x1b[1m"
-	ansiDim    = "\x1b[2m"
-	ansiCyan   = "\x1b[36m"
-	ansiYellow = "\x1b[33m"
-	ansiReset  = "\x1b[0m"
+	ansiBold            = "\x1b[1m"
+	ansiDim             = "\x1b[2m"
+	ansiCyan            = "\x1b[36m"
+	ansiYellow          = "\x1b[33m"
+	ansiReset           = "\x1b[0m"
+	maxDisplayTextBytes = 240
 )
+
+var secretLikeText = regexp.MustCompile(`(?i)(bearer\s+)[^\s,;]+|((?:api[_-]?key|token|password|secret)\s*[:=]\s*)[^\s,;]+`)
 
 // ViewState is the deterministic data rendered by the M2 static shell.
 type ViewState struct {
@@ -34,6 +39,10 @@ type ViewState struct {
 	ProjectStoreStatus string
 	ProjectStoreSource string
 	ProjectStoreDetail string
+	MemorySource       string
+	MemorySessionID    string
+	MemoryBlockers     []string
+	MemoryConcerns     []string
 	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
@@ -122,7 +131,7 @@ func sizeLabel(size Size) string {
 func statusLine(state ViewState) string {
 	status := "Stage " + state.Phase
 	if state.RuntimeStatus != "" {
-		status += " | Runtime " + state.RuntimeStatus
+		status += " | Runtime " + safeText(state.RuntimeStatus)
 	}
 	return status + " | Model " + state.PrimaryModel + " | Utility " + state.UtilityModel + " | Auto " + state.Autonomy
 }
@@ -133,10 +142,36 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
 	items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 	return items
+}
+
+func memoryLines(state ViewState) []string {
+	if !hasMemory(state) {
+		return nil
+	}
+	lines := []string{
+		"  Resumed memory:",
+		"  source: " + safeText(state.MemorySource),
+		"  session id: " + safeText(state.MemorySessionID),
+		fmt.Sprintf("  resumed transcript turns: %d", len(state.Transcript)),
+		fmt.Sprintf("  queued count: %d", state.QueuedCount),
+		fmt.Sprintf("  diagnostics: %d", len(state.Diagnostics)),
+	}
+	for _, blocker := range state.MemoryBlockers {
+		lines = append(lines, "  blocker: "+safeText(blocker))
+	}
+	for _, concern := range state.MemoryConcerns {
+		lines = append(lines, "  concern: "+safeText(concern))
+	}
+	return append(lines, "")
+}
+
+func hasMemory(state ViewState) bool {
+	return state.MemorySource != "" || state.MemorySessionID != "" || len(state.MemoryBlockers) > 0 || len(state.MemoryConcerns) > 0
 }
 
 func runtimeStatusLines(state ViewState) []string {
@@ -145,17 +180,17 @@ func runtimeStatusLines(state ViewState) []string {
 	}
 	lines := []string{
 		"  Runtime status:",
-		"  status: " + state.RuntimeStatus,
+		"  status: " + safeText(state.RuntimeStatus),
 	}
 	if state.StatusSource != "" {
-		lines = append(lines, "  status source: "+state.StatusSource)
+		lines = append(lines, "  status source: "+safeText(state.StatusSource))
 	}
 	if state.StatusDetail != "" {
-		lines = append(lines, "  detail: "+state.StatusDetail)
+		lines = append(lines, "  detail: "+safeText(state.StatusDetail))
 	}
 	lines = append(lines, "  active: "+boolLabel(state.RuntimeActive))
 	if state.RuntimeResult != "" {
-		lines = append(lines, "  result: "+state.RuntimeResult)
+		lines = append(lines, "  result: "+safeText(state.RuntimeResult))
 	}
 	lines = append(lines, interruptStatusLines(state)...)
 	lines = append(lines, "")
@@ -195,7 +230,7 @@ func queueLines(state ViewState) []string {
 		"  action status: presentation-only; not executed by the TUI",
 	}
 	for _, text := range state.QueuedText {
-		lines = append(lines, "  queued: "+text)
+		lines = append(lines, "  queued: "+safeText(text))
 	}
 	lines = append(lines, "")
 	return lines
@@ -230,11 +265,11 @@ func diagnosticLines(diagnostics []DiagnosticView) []string {
 	for _, diagnostic := range diagnostics {
 		lines = append(lines,
 			"  severity: "+diagnostic.Severity,
-			"  source: "+diagnostic.Source,
+			"  source: "+safeText(diagnostic.Source),
 			"  affected artifact: "+diagnostic.AffectedArtifact,
 			"  recovery action: "+diagnostic.RecoveryAction,
 			"  user input needed: "+boolLabel(diagnostic.UserInputNeeded),
-			"  message: "+diagnostic.BoundedMessage,
+			"  message: "+safeText(diagnostic.BoundedMessage),
 		)
 	}
 	return lines
@@ -352,11 +387,23 @@ type SemanticSnapshot struct {
 	Screen      SemanticScreen       `json:"screen"`
 	Layout      SemanticLayout       `json:"layout"`
 	Session     SemanticSession      `json:"session"`
+	Memory      *SemanticMemory      `json:"memory,omitempty"`
 	Diagnostics []SemanticDiagnostic `json:"diagnostics,omitempty"`
 	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
 	Command     *SemanticCommand     `json:"command,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
+}
+
+// SemanticMemory describes app-injected resumed current-session memory.
+type SemanticMemory struct {
+	Source          string   `json:"source"`
+	SessionID       string   `json:"session_id"`
+	TranscriptTurns int      `json:"transcript_turns"`
+	QueuedCount     int      `json:"queued_count"`
+	Blockers        []string `json:"blockers,omitempty"`
+	Concerns        []string `json:"concerns,omitempty"`
+	Diagnostics     int      `json:"diagnostics"`
 }
 
 // SemanticDiagnostic is the stable diagnostic status contract for fixtures.
@@ -452,6 +499,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if len(state.Diagnostics) > 0 {
 		regions = append(regions, SemanticRegion{Name: "diagnostics", Visible: true, Items: semanticDiagnosticItems(state.Diagnostics)})
 	}
+	if hasMemory(state) {
+		regions = append(regions, SemanticRegion{Name: "memory", Visible: true, Items: semanticMemoryItems(state)})
+	}
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
@@ -505,10 +555,10 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Session: SemanticSession{
 			Phase:              state.Phase,
 			PhaseSource:        state.PhaseSource,
-			RuntimeStatus:      state.RuntimeStatus,
-			StatusSource:       state.StatusSource,
-			StatusDetail:       state.StatusDetail,
-			RuntimeResult:      state.RuntimeResult,
+			RuntimeStatus:      safeText(state.RuntimeStatus),
+			StatusSource:       safeText(state.StatusSource),
+			StatusDetail:       safeText(state.StatusDetail),
+			RuntimeResult:      safeText(state.RuntimeResult),
 			Active:             state.RuntimeActive,
 			QueuedMessages:     state.QueuedCount,
 			PrimaryModel:       state.PrimaryModel,
@@ -518,6 +568,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			ProjectStoreSource: state.ProjectStoreSource,
 			ProjectStoreDetail: state.ProjectStoreDetail,
 		},
+		Memory:      semanticMemory(state),
 		Diagnostics: semanticDiagnostics(state.Diagnostics),
 		Command:     command,
 		Regions:     regions,
@@ -543,10 +594,10 @@ func chatLines(transcript []TranscriptTurn) []string {
 	lines := make([]string, 0, len(transcript)*2)
 	for _, turn := range transcript {
 		if turn.UserText != "" {
-			lines = append(lines, "  user: "+turn.UserText)
+			lines = append(lines, "  user: "+safeText(turn.UserText))
 		}
 		if turn.AssistantText != "" {
-			lines = append(lines, "  assistant: "+turn.AssistantText)
+			lines = append(lines, "  assistant: "+safeText(turn.AssistantText))
 		}
 	}
 	return lines
@@ -559,10 +610,10 @@ func semanticChatItems(transcript []TranscriptTurn) []string {
 	items := make([]string, 0, len(transcript)*2)
 	for _, turn := range transcript {
 		if turn.UserText != "" {
-			items = append(items, "user: "+turn.UserText)
+			items = append(items, "user: "+safeText(turn.UserText))
 		}
 		if turn.AssistantText != "" {
-			items = append(items, "assistant: "+turn.AssistantText)
+			items = append(items, "assistant: "+safeText(turn.AssistantText))
 		}
 	}
 	return items
@@ -595,7 +646,14 @@ func semanticDiagnostics(diagnostics []DiagnosticView) []SemanticDiagnostic {
 	}
 	items := make([]SemanticDiagnostic, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
-		items = append(items, SemanticDiagnostic(diagnostic))
+		items = append(items, SemanticDiagnostic{
+			Severity:         safeText(diagnostic.Severity),
+			Source:           safeText(diagnostic.Source),
+			RecoveryAction:   safeText(diagnostic.RecoveryAction),
+			AffectedArtifact: safeText(diagnostic.AffectedArtifact),
+			UserInputNeeded:  diagnostic.UserInputNeeded,
+			BoundedMessage:   safeText(diagnostic.BoundedMessage),
+		})
 	}
 	return items
 }
@@ -605,28 +663,63 @@ func semanticDiagnosticItems(diagnostics []DiagnosticView) []string {
 	for _, diagnostic := range diagnostics {
 		items = append(items,
 			"severity: "+diagnostic.Severity,
-			"source: "+diagnostic.Source,
+			"source: "+safeText(diagnostic.Source),
 			"affected_artifact: "+diagnostic.AffectedArtifact,
 			"recovery_action: "+diagnostic.RecoveryAction,
 			"user_input_needed: "+boolLabel(diagnostic.UserInputNeeded),
-			"bounded_message: "+diagnostic.BoundedMessage,
+			"bounded_message: "+safeText(diagnostic.BoundedMessage),
 		)
 	}
 	items = append(items, "app-owned", "display-only")
 	return items
 }
 
+func semanticMemory(state ViewState) *SemanticMemory {
+	if !hasMemory(state) {
+		return nil
+	}
+	return &SemanticMemory{
+		Source:          safeText(state.MemorySource),
+		SessionID:       safeText(state.MemorySessionID),
+		TranscriptTurns: len(state.Transcript),
+		QueuedCount:     state.QueuedCount,
+		Blockers:        safeTextSlice(state.MemoryBlockers),
+		Concerns:        safeTextSlice(state.MemoryConcerns),
+		Diagnostics:     len(state.Diagnostics),
+	}
+}
+
+func semanticMemoryItems(state ViewState) []string {
+	memory := semanticMemory(state)
+	items := []string{
+		"source: " + memory.Source,
+		"session_id: " + memory.SessionID,
+		fmt.Sprintf("transcript_turns: %d", memory.TranscriptTurns),
+		fmt.Sprintf("queued_count: %d", memory.QueuedCount),
+		fmt.Sprintf("diagnostics: %d", memory.Diagnostics),
+		"app-owned",
+		"display-only",
+	}
+	for _, blocker := range memory.Blockers {
+		items = append(items, "blocker: "+blocker)
+	}
+	for _, concern := range memory.Concerns {
+		items = append(items, "concern: "+concern)
+	}
+	return items
+}
+
 func semanticRuntimeStatusItems(state ViewState) []string {
-	items := []string{"status: " + state.RuntimeStatus}
+	items := []string{"status: " + safeText(state.RuntimeStatus)}
 	if state.StatusSource != "" {
-		items = append(items, "status source: "+state.StatusSource)
+		items = append(items, "status source: "+safeText(state.StatusSource))
 	}
 	if state.StatusDetail != "" {
-		items = append(items, "detail: "+state.StatusDetail)
+		items = append(items, "detail: "+safeText(state.StatusDetail))
 	}
 	items = append(items, "active: "+boolLabel(state.RuntimeActive))
 	if state.RuntimeResult != "" {
-		items = append(items, "result: "+state.RuntimeResult)
+		items = append(items, "result: "+safeText(state.RuntimeResult))
 	}
 	items = append(items, interruptStatusLines(state)...)
 	items = append(items, "display-only")
@@ -668,9 +761,74 @@ func semanticQueueItems(state ViewState) []string {
 		"executed: false",
 	}
 	for _, text := range state.QueuedText {
-		items = append(items, "queued: "+text)
+		items = append(items, "queued: "+safeText(text))
 	}
 	return items
+}
+
+func safeTextSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, safeText(value))
+	}
+	return items
+}
+
+func safeText(value string) string {
+	value = stripTerminalControls(value)
+	value = secretLikeText.ReplaceAllString(value, "[redacted]")
+	value = strings.Join(strings.Fields(value), " ")
+	return limitTextBytes(value, maxDisplayTextBytes)
+}
+
+func stripTerminalControls(value string) string {
+	var out strings.Builder
+	for i := 0; i < len(value); {
+		r, size := utf8.DecodeRuneInString(value[i:])
+		if r == utf8.RuneError && size == 1 {
+			i++
+			continue
+		}
+		if r == '\x1b' {
+			i += size
+			if i < len(value) && value[i] == '[' {
+				i++
+			}
+			for i < len(value) {
+				r, size = utf8.DecodeRuneInString(value[i:])
+				i += size
+				if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+					break
+				}
+			}
+			continue
+		}
+		if r < ' ' || r == '\x7f' {
+			out.WriteByte(' ')
+			i += size
+			continue
+		}
+		out.WriteRune(r)
+		i += size
+	}
+	return out.String()
+}
+
+func limitTextBytes(value string, maxBytes int) string {
+	if len(value) <= maxBytes {
+		return value
+	}
+	if maxBytes <= 1 {
+		return ""
+	}
+	limit := maxBytes - 1
+	for !utf8.ValidString(value[:limit]) {
+		limit--
+	}
+	return value[:limit] + "~"
 }
 
 func boolLabel(value bool) string {

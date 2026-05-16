@@ -1,0 +1,50 @@
+[1mAila                                                                                                              120x50[0m
+[2mStage IDLE | Runtime idle [redacted] | Model placeholder | Utility placeholder | Auto placeholder                       [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: placeholder (display-only)                                                                                 |
+| Diagnostics:                                                                                                         |
+| severity: warning                                                                                                    |
+| source: state.snapshot                                                                                               |
+| affected artifact: session-snapshot                                                                                  |
+| recovery action: inspect                                                                                             |
+| user input needed: false                                                                                             |
+| message: remembered diagnostic [redacted]                                                                            |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle [redacted]                                                                                              |
+| status source: runtime.dispatch [redacted]                                                                           |
+| detail: resumed current session [redacted]                                                                           |
+| active: false                                                                                                        |
+| result: remembered result [redacted]                                                                                 |
+|                                                                                                                      |
+| Resumed memory:                                                                                                      |
+| source: state.current-session-snapshot                                                                               |
+| session id: current                                                                                                  |
+| resumed transcript turns: 2                                                                                          |
+| queued count: 2                                                                                                      |
+| diagnostics: 1                                                                                                       |
+| blocker: interrupt pending                                                                                           |
+| blocker: blocked by [redacted]                                                                                       |
+| concern: phase=IDLE runtime=idle                                                                                     |
+| concern: concern with [redacted]                                                                                     |
+|                                                                                                                      |
+| Queued input:                                                                                                        |
+| queued messages: 2                                                                                                   |
+| default action: send after current turn                                                                              |
+| action status: presentation-only; not executed by the TUI                                                            |
+| queued: queued follow-up                                                                                             |
+| queued: queued [redacted]                                                                                            |
+|                                                                                                                      |
+| user: remembered prompt [redacted]                                                                                   |
+| assistant: remembered answer with [redacted]                                                                         |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m
+                                                                                                                        

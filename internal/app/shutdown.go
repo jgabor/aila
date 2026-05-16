@@ -39,25 +39,25 @@ func NewShutdownError(diagnostics []diagnostic.Diagnostic) ShutdownError {
 	return ShutdownError{Diagnostics: append([]diagnostic.Diagnostic(nil), output...)}
 }
 
-func runProgramWithShutdown(ctx context.Context, input io.Reader, output io.Writer, state tui.ViewState, runner *inputRunner) error {
-	program := tui.NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx, input, output, state, runner.submitPrompt, runner.routeCommand, runner.requestInterrupt)
+func runProgramWithShutdown(ctx context.Context, input io.Reader, output io.Writer, state tui.ViewState, controller *sessionController) error {
+	program := tui.NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx, input, output, state, controller.submitPrompt, controller.routeCommand, controller.requestInterrupt)
 	shutdown := make(chan tui.TranscriptTurn, 1)
 	go func() {
 		<-ctx.Done()
-		shutdown <- runner.requestShutdown(ctx.Err())
+		shutdown <- controller.requestShutdown(ctx.Err())
 		program.Quit()
 	}()
 
 	if _, err := program.Run(); err != nil {
 		if ctx.Err() != nil && errors.Is(err, tea.ErrProgramKilled) {
 			<-shutdown
-			return NewShutdownError(mergeShutdownDiagnostics(state.Diagnostics, runner.model.Diagnostics))
+			return NewShutdownError(mergeShutdownDiagnostics(state.Diagnostics, controller.runner.model.Diagnostics))
 		}
 		return fmt.Errorf("run static tui: %w", err)
 	}
 	if ctx.Err() != nil {
 		<-shutdown
-		return NewShutdownError(mergeShutdownDiagnostics(state.Diagnostics, runner.model.Diagnostics))
+		return NewShutdownError(mergeShutdownDiagnostics(state.Diagnostics, controller.runner.model.Diagnostics))
 	}
 	return nil
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/creack/pty"
 
 	"github.com/jgabor/aila/internal/app"
+	"github.com/jgabor/aila/internal/diagnostic"
+	"github.com/jgabor/aila/internal/state"
 )
 
 func TestStaticTUISmokeStartupAndQuit(t *testing.T) {
@@ -205,6 +207,112 @@ func TestM15ADebugDiagnosticsNonInteractiveSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); !os.IsNotExist(err) {
 		t.Fatalf("debug smoke unexpectedly created temp config file, err=%v", err)
+	}
+}
+
+func TestM16ContinueResumePTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	for _, args := range [][]string{{"continue"}, {"--continue"}} {
+		args := args
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			env := newAilaPTYEnv(t)
+			baseline := captureDurableStateBaseline(t)
+			ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, args, 160, 60, env.vars, func(workspace string) {
+				seedCurrentSessionSnapshot(t, workspace)
+			})
+			defer cancel()
+			defer func() { _ = terminal.Close() }()
+
+			output := readUntilAll(t, terminal, []string{
+				"Aila",
+				"Runtime idle",
+				"Runtime status:",
+				"status source: runtime.dispatch",
+				"detail: resumed current session",
+				"result: remembered smoke result",
+				"Resumed memory:",
+				"source: state.current-session-snapshot",
+				"session id: current",
+				"resumed transcript turns: 2",
+				"queued count: 1",
+				"diagnostics: 1",
+				"blocker: remembered smoke blocker",
+				"concern: remembered smoke concern",
+				"Queued input:",
+				"queued: remembered queued smoke input",
+				"user: remembered smoke prompt",
+				"assistant: remembered smoke answer",
+				"Diagnostics:",
+				"message: remembered smoke diagnostic",
+			}, 20*time.Second)
+			assertNoResumeSmokeLeaks(t, output, env, workspace)
+			assertCurrentSessionSnapshotState(t, workspace)
+
+			if _, err := terminal.Write([]byte("q")); err != nil {
+				t.Fatalf("send q quit input after resume smoke: %v", err)
+			}
+			select {
+			case err := <-wait:
+				if err != nil {
+					t.Fatalf("resume PTY returned error: %v", err)
+				}
+			case <-ctx.Done():
+				t.Fatalf("resume PTY did not clean up before timeout: %v", ctx.Err())
+			}
+
+			assertCurrentSessionSnapshotState(t, workspace)
+			assertNoDurableStatePollution(t, env, baseline)
+		})
+	}
+}
+
+func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	for _, args := range [][]string{{"continue"}, {"--continue"}} {
+		args := args
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			env := newAilaPTYEnv(t)
+			baseline := captureDurableStateBaseline(t)
+			ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, args, 80, 24, env.vars, nil)
+			defer cancel()
+			defer func() { _ = terminal.Close() }()
+
+			output := readUntilAll(t, terminal, []string{
+				"Aila",
+				"Stage IDLE",
+				"project store: initialized - project store ready",
+				"Prompt",
+				">",
+			}, 20*time.Second)
+			for _, forbidden := range []string{"Resumed memory:", "state.current-session-snapshot", "remembered smoke", "Queued input:"} {
+				if strings.Contains(output, forbidden) {
+					t.Fatalf("no-memory continue output exposed memory marker %q: %q", forbidden, output)
+				}
+			}
+			assertNoResumeSmokeLeaks(t, output, env, workspace)
+			assertProjectStoreLayout(t, workspace)
+
+			if _, err := terminal.Write([]byte("q")); err != nil {
+				t.Fatalf("send q quit input after no-memory continue smoke: %v", err)
+			}
+			select {
+			case err := <-wait:
+				if err != nil {
+					t.Fatalf("no-memory continue PTY returned error: %v", err)
+				}
+			case <-ctx.Done():
+				t.Fatalf("no-memory continue PTY did not clean up before timeout: %v", ctx.Err())
+			}
+
+			assertProjectStoreLayout(t, workspace)
+			assertNoDurableStatePollution(t, env, baseline)
+		})
 	}
 }
 
@@ -597,6 +705,17 @@ func startAilaPTYWithSizeEnvAndWorkspace(t *testing.T, cols uint16, rows uint16,
 
 func startAilaPTYWithProcess(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error, string, *exec.Cmd) {
 	t.Helper()
+	return startAilaPTYWithArgsAndSetup(t, nil, cols, rows, env, nil)
+}
+
+func startAilaPTYWithArgsSizeEnvAndWorkspace(t *testing.T, args []string, cols uint16, rows uint16, env []string, setup func(string)) (context.Context, context.CancelFunc, *os.File, <-chan error, string) {
+	t.Helper()
+	ctx, cancel, terminal, wait, workspace, _ := startAilaPTYWithArgsAndSetup(t, args, cols, rows, env, setup)
+	return ctx, cancel, terminal, wait, workspace
+}
+
+func startAilaPTYWithArgsAndSetup(t *testing.T, args []string, cols uint16, rows uint16, env []string, setup func(string)) (context.Context, context.CancelFunc, *os.File, <-chan error, string, *exec.Cmd) {
+	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	tmp := t.TempDir()
@@ -605,9 +724,12 @@ func startAilaPTYWithProcess(t *testing.T, cols uint16, rows uint16, env []strin
 		cancel()
 		t.Fatalf("create PTY workspace: %v", err)
 	}
+	if setup != nil {
+		setup(workspace)
+	}
 	binary := buildAilaTestBinary(t, env, tmp)
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = workspace
 	cmd.Env = env
 
@@ -635,6 +757,44 @@ func buildAilaTestBinary(t *testing.T, env []string, dir string) string {
 		t.Fatalf("build aila test binary: %v\n%s", err, output)
 	}
 	return binary
+}
+
+func seedCurrentSessionSnapshot(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open resume smoke project store: %v", err)
+	}
+	snapshot := state.SessionSnapshot{
+		SchemaVersion: state.CurrentSessionSnapshotSchemaVersion,
+		SessionID:     "current",
+		Runtime: state.SessionSnapshotRuntime{
+			Status: "idle",
+			Source: "runtime.dispatch",
+			Detail: "resumed current session",
+			Result: "remembered smoke result",
+		},
+		Transcript: []state.SessionSnapshotTurn{
+			{Role: "user", Source: "prompt", Text: "remembered smoke prompt"},
+			{Role: "assistant", Source: "fake-runtime", Text: "remembered smoke answer"},
+		},
+		Queued: []state.SessionSnapshotQueuedEntry{
+			{ID: "queue-1", Source: "prompt", Text: "remembered queued smoke input"},
+		},
+		Diagnostics: []state.SessionSnapshotDiagnostic{
+			{Severity: string(diagnostic.SeverityWarning), Source: string(diagnostic.SourceStateSnapshot), Message: "remembered smoke diagnostic"},
+		},
+		Blockers: []state.SessionSnapshotBlocker{{Source: "runtime.dispatch", Text: "remembered smoke blocker"}},
+		Concerns: []state.SessionSnapshotConcern{{Source: "display.status", Text: "remembered smoke concern"}},
+	}
+	location, err := store.WriteCurrentSessionSnapshot(context.Background(), snapshot)
+	if err != nil {
+		t.Fatalf("write resume smoke snapshot: %v", err)
+	}
+	if filepath.ToSlash(location.Provenance.RelativePath) != "sessions/current.json" {
+		t.Fatalf("resume smoke snapshot path = %q, want sessions/current.json", location.Provenance.RelativePath)
+	}
 }
 
 func mustSourceDir(t *testing.T) string {
@@ -689,6 +849,48 @@ func assertProjectStoreEntries(t *testing.T, workspace string) {
 	}
 }
 
+func assertCurrentSessionSnapshotState(t *testing.T, workspace string) {
+	t.Helper()
+
+	storeRoot := filepath.Join(workspace, ".aila")
+	for _, dir := range []string{storeRoot, filepath.Join(storeRoot, "artifacts"), filepath.Join(storeRoot, "indexes"), filepath.Join(storeRoot, "sessions")} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat resume smoke project store directory %q: %v", dir, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("resume smoke project store path %q is not a directory", dir)
+		}
+	}
+	assertFileContent(t, filepath.Join(storeRoot, "project.toml"), "schema_version = 1\n")
+	if _, err := os.Stat(filepath.Join(storeRoot, "sessions", "current.json")); err != nil {
+		t.Fatalf("stat current session snapshot: %v", err)
+	}
+
+	entries, err := os.ReadDir(storeRoot)
+	if err != nil {
+		t.Fatalf("read resume smoke project store root: %v", err)
+	}
+	got := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			name += "/"
+		}
+		got = append(got, name)
+	}
+	if strings.Join(got, ",") != "artifacts/,indexes/,project.toml,sessions/" {
+		t.Fatalf("resume smoke project store entries = %v, want artifacts indexes sessions current snapshot only", got)
+	}
+	sessions, err := os.ReadDir(filepath.Join(storeRoot, "sessions"))
+	if err != nil {
+		t.Fatalf("read resume smoke sessions dir: %v", err)
+	}
+	if len(sessions) != 1 || sessions[0].Name() != "current.json" || sessions[0].IsDir() {
+		t.Fatalf("resume smoke sessions entries = %v, want current.json only", sessions)
+	}
+}
+
 func assertFileContent(t *testing.T, path string, want string) {
 	t.Helper()
 
@@ -721,6 +923,34 @@ func assertNoDiagnosticSmokeLeaks(t *testing.T, output string, env ailaPTYTestEn
 	} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("diagnostic smoke output leaked marker %q: %q", forbidden, output)
+		}
+	}
+}
+
+func assertNoResumeSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		workspace,
+		env.home,
+		env.xdgConfigHome,
+		mustRepositoryRoot(t),
+		"/tmp",
+		"/home/",
+		".aila",
+		"sessions/current.json",
+		"current.json",
+		"project.toml",
+		"artifacts/",
+		"indexes/",
+		"config.toml",
+		".config/aila",
+		"credential",
+		"OPENAI_API_KEY",
+		"token=",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("resume smoke output leaked marker %q: %q", forbidden, output)
 		}
 	}
 }

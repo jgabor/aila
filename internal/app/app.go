@@ -14,6 +14,15 @@ import (
 
 // Run starts Aila's static terminal shell for the current M2 product slice.
 func Run(ctx context.Context, input io.Reader, output io.Writer) error {
+	return run(ctx, input, output, false)
+}
+
+// RunContinue starts Aila's terminal shell with current-session memory when available.
+func RunContinue(ctx context.Context, input io.Reader, output io.Writer) error {
+	return run(ctx, input, output, true)
+}
+
+func run(ctx context.Context, input io.Reader, output io.Writer, resumeCurrent bool) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("start aila: %w", err)
 	}
@@ -25,13 +34,18 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return fmt.Errorf("resolve startup workspace: %w", err)
 	}
 
-	state, err := initialDisplayState(ctx, workspace)
+	state, err := initialDisplayStateWithResume(ctx, workspace, resumeCurrent)
 	if err != nil {
 		return err
 	}
 
 	runner := newInputRunnerForEnvironment(ctx)
-	return runProgramWithShutdown(ctx, input, output, state, runner)
+	controller := newController(ctx, workspace, state, runner)
+	return runProgramWithShutdown(ctx, input, output, state, controller)
+}
+
+func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewState, error) {
+	return initialDisplayStateWithResume(ctx, workspacePath, false)
 }
 
 func newInputRunnerForEnvironment(ctx context.Context) *inputRunner {
@@ -44,7 +58,7 @@ func newInputRunnerForEnvironment(ctx context.Context) *inputRunner {
 	return newInputRunnerWithContext(ctx)
 }
 
-func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewState, error) {
+func initialDisplayStateWithResume(ctx context.Context, workspacePath string, resumeCurrent bool) (tui.ViewState, error) {
 	config, _, err := LoadConfig()
 	if err != nil {
 		return tui.ViewState{}, fmt.Errorf("load startup config: %w", err)
@@ -54,7 +68,11 @@ func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewSta
 	base.Phase = workflow.PhaseIdle.DisplayLabel()
 	base.PhaseSource = workflow.PhaseIdle.String()
 	base = NewDisplayState(base, DisplayConfigFromConfig(config))
-	return NewStoreDisplayState(base, storeStatus), nil
+	base = NewStoreDisplayState(base, storeStatus)
+	if resumeCurrent {
+		base = resumeCurrentSessionSnapshot(ctx, workspacePath, base)
+	}
+	return base, nil
 }
 
 func openStoreDisplayStatus(ctx context.Context, workspacePath string) StoreDisplayStatus {
