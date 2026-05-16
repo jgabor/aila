@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jgabor/aila/internal/diagnostic"
 )
 
 func TestDescribeStoreDerivesWorkspaceOwnedLayout(t *testing.T) {
@@ -146,12 +148,14 @@ func TestOpenProjectStoreCreatesMinimalLayoutOnCleanWorkspace(t *testing.T) {
 	t.Parallel()
 
 	workspace := filepath.Join(t.TempDir(), "workspace")
-	store, err := OpenProjectStore(context.Background(), workspace)
+	result, err := OpenProjectStoreWithStatus(context.Background(), workspace)
 	if err != nil {
-		t.Fatalf("OpenProjectStore returned error: %v", err)
+		t.Fatalf("OpenProjectStoreWithStatus returned error: %v", err)
 	}
+	store := result.Store
 	layout := store.Layout()
 
+	assertInitializedStatus(t, result.Status)
 	assertDir(t, layout.StoreRoot)
 	assertDir(t, layout.ArtifactsRoot)
 	assertDir(t, layout.IndexesRoot)
@@ -175,13 +179,88 @@ func TestOpenProjectStoreReopenPreservesExistingMetadata(t *testing.T) {
 	if _, err := OpenProjectStore(context.Background(), workspace); err != nil {
 		t.Fatalf("first OpenProjectStore returned error: %v", err)
 	}
-	store, err := OpenProjectStore(context.Background(), workspace)
+	result, err := OpenProjectStoreWithStatus(context.Background(), workspace)
 	if err != nil {
-		t.Fatalf("second OpenProjectStore returned error: %v", err)
+		t.Fatalf("OpenProjectStoreWithStatus returned error: %v", err)
 	}
+	store := result.Store
 
+	assertInitializedStatus(t, result.Status)
+	assertInitializedStatus(t, store.OpenStatus())
 	assertFileContent(t, store.Layout().ProjectFile, metadata)
 	assertStoreEntries(t, store.Layout().StoreRoot, []string{"artifacts/", "indexes/", "project.toml"})
+}
+
+func TestOpenProjectStoreReportsRecoveryForUnsafeMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"corrupt version":          "schema_version = nope\n",
+		"corrupt line":             "schema_version = 1\nnot toml\n",
+		"malformed extra metadata": "schema_version = 1\nproject_id = [unterminated\n",
+		"partial":                  "project_id = \"missing schema\"\n",
+		"version mismatch":         "schema_version = 2\n",
+	}
+	for name, metadata := range tests {
+		name, metadata := name, metadata
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			workspace := filepath.Join(t.TempDir(), "workspace")
+			layout := mustDescribeStore(t, workspace)
+			if err := os.MkdirAll(layout.StoreRoot, 0o755); err != nil {
+				t.Fatalf("create store root: %v", err)
+			}
+			if err := os.WriteFile(layout.ProjectFile, []byte(metadata), 0o644); err != nil {
+				t.Fatalf("seed project metadata: %v", err)
+			}
+
+			result, err := OpenProjectStoreWithStatus(context.Background(), workspace)
+			if err != nil {
+				t.Fatalf("OpenProjectStoreWithStatus returned error: %v", err)
+			}
+
+			assertRecoveryStatus(t, result.Status)
+			assertRecoveryStatus(t, result.Store.OpenStatus())
+			assertDir(t, layout.ArtifactsRoot)
+			assertDir(t, layout.IndexesRoot)
+			assertFileContent(t, layout.ProjectFile, metadata)
+		})
+	}
+}
+
+func TestOpenProjectStoreRecoveryDoesNotOverwriteExistingState(t *testing.T) {
+	t.Parallel()
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	layout := mustDescribeStore(t, workspace)
+	seeded := map[string]string{
+		layout.ProjectFile: "schema_version = 999\n",
+		filepath.Join(layout.ArtifactsRoot, "keep.txt"):    "artifact\n",
+		filepath.Join(layout.IndexesRoot, "keep.idx"):      "index\n",
+		filepath.Join(layout.StoreRoot, "diagnostics.log"): "diagnostic\n",
+		filepath.Join(layout.StoreRoot, "checkpoint.json"): "checkpoint\n",
+		filepath.Join(layout.StoreRoot, "backup.tar"):      "backup\n",
+	}
+	for path, content := range seeded {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("create parent for %q: %v", path, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("seed %q: %v", path, err)
+		}
+	}
+
+	result, err := OpenProjectStoreWithStatus(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("OpenProjectStoreWithStatus returned error: %v", err)
+	}
+
+	assertRecoveryStatus(t, result.Status)
+	for path, want := range seeded {
+		assertFileContent(t, path, want)
+	}
+	assertStoreEntries(t, layout.StoreRoot, []string{"artifacts/", "backup.tar", "checkpoint.json", "diagnostics.log", "indexes/", "project.toml"})
 }
 
 func TestWriteArtifactStoresOwnedContentWithAtomicBoundary(t *testing.T) {
@@ -285,6 +364,33 @@ func assertFileContent(t *testing.T, path string, want string) {
 	}
 	if string(content) != want {
 		t.Fatalf("content of %q = %q, want %q", path, content, want)
+	}
+}
+
+func assertInitializedStatus(t *testing.T, status OpenStatus) {
+	t.Helper()
+	if status.State != OpenStateInitialized {
+		t.Fatalf("open state = %q, want %q", status.State, OpenStateInitialized)
+	}
+	if len(status.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", status.Diagnostics)
+	}
+}
+
+func assertRecoveryStatus(t *testing.T, status OpenStatus) {
+	t.Helper()
+	if status.State != OpenStateRecoveryNeeded {
+		t.Fatalf("open state = %q, want %q", status.State, OpenStateRecoveryNeeded)
+	}
+	if len(status.Diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1: %#v", len(status.Diagnostics), status.Diagnostics)
+	}
+	got := status.Diagnostics[0]
+	if got.Category != diagnostic.CategoryState || got.Source != diagnostic.SourceStateOpen || got.Severity != diagnostic.SeverityError {
+		t.Fatalf("diagnostic identity = %#v", got)
+	}
+	if got.AffectedArtifact != diagnostic.ArtifactProjectMetadata || got.RecoveryAction != diagnostic.RecoveryManualRepair || !got.UserInputNeeded {
+		t.Fatalf("diagnostic recovery fields = %#v", got)
 	}
 }
 

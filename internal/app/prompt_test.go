@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"go/parser"
 	"go/token"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
@@ -230,6 +232,82 @@ func TestInterruptRequestWhileIdleStaysRuntimeNoop(t *testing.T) {
 	}
 	if runner.model.Status != runtime.StatusIdle || len(runner.model.Transcript) != 0 || runner.model.NextOperation != 0 {
 		t.Fatalf("runtime model = %#v, want unchanged idle model", runner.model)
+	}
+}
+
+func TestInputRunnerRecordsEffectPanicAsDiagnosticMetadata(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message {
+		panic("fake supervised effect panic")
+	})
+
+	result := runner.submitPrompt("panic path")
+
+	if result.RuntimeStatus != "active" || !result.RuntimeActive {
+		t.Fatalf("runtime state = %+v, want active state unchanged by diagnostic wrapper", result)
+	}
+	if len(result.Diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1", len(result.Diagnostics))
+	}
+	diagnosticView := result.Diagnostics[0]
+	if diagnosticView.Source != string(diagnostic.SourceEffect) || diagnosticView.Severity != string(diagnostic.SeverityError) {
+		t.Fatalf("diagnostic view = %+v", diagnosticView)
+	}
+	if diagnosticView.AffectedArtifact != string(diagnostic.ArtifactRuntimeEffect) || diagnosticView.RecoveryAction != string(diagnostic.RecoveryInspect) || !diagnosticView.UserInputNeeded {
+		t.Fatalf("diagnostic recovery metadata = %+v", diagnosticView)
+	}
+	if !strings.Contains(diagnosticView.BoundedMessage, "supervised effect panic recovered") {
+		t.Fatalf("diagnostic message = %q, want recovered panic", diagnosticView.BoundedMessage)
+	}
+	if runner.model.Status != runtime.StatusActive || len(runner.model.Diagnostics) != 1 {
+		t.Fatalf("runtime model = %#v, want active with one diagnostic", runner.model)
+	}
+}
+
+func TestShutdownWhileIdleRecordsSignalDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithContext(context.Background())
+
+	turn := runner.requestShutdown(context.Canceled)
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive {
+		t.Fatalf("shutdown turn = %+v, want idle runtime", turn)
+	}
+	if len(runner.model.Diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1", len(runner.model.Diagnostics))
+	}
+	recorded := runner.model.Diagnostics[0]
+	if recorded.Category != diagnostic.CategorySignalShutdown || recorded.Source != diagnostic.SourceSignal {
+		t.Fatalf("shutdown diagnostic identity = %#v", recorded)
+	}
+	if recorded.RecoveryAction != diagnostic.RecoveryIgnoreForRun || recorded.UserInputNeeded {
+		t.Fatalf("shutdown diagnostic recovery = %#v", recorded)
+	}
+}
+
+func TestShutdownWhileFakeWorkActiveRecordsCancellationDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runner := newInputRunnerHoldingFakeWorkWithContext(ctx)
+	runner.submitPrompt("active fake work")
+	cancel()
+
+	turn := runner.requestShutdown(ctx.Err())
+
+	if turn.RuntimeStatus != string(runtime.StatusCanceling) || !turn.RuntimeActive {
+		t.Fatalf("shutdown turn = %+v, want canceling active runtime", turn)
+	}
+	if len(runner.model.Diagnostics) != 2 {
+		t.Fatalf("diagnostics = %#v, want signal shutdown and cancellation", runner.model.Diagnostics)
+	}
+	if runner.model.Diagnostics[0].Category != diagnostic.CategorySignalShutdown {
+		t.Fatalf("first diagnostic = %#v, want signal shutdown", runner.model.Diagnostics[0])
+	}
+	if runner.model.Diagnostics[1].Category != diagnostic.CategoryCancellation {
+		t.Fatalf("second diagnostic = %#v, want cancellation", runner.model.Diagnostics[1])
 	}
 }
 

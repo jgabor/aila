@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"io"
 	"strings"
 
@@ -29,6 +30,7 @@ type TranscriptTurn struct {
 	RuntimeResult string
 	QueuedCount   int
 	QueuedText    []string
+	Diagnostics   []DiagnosticView
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -126,7 +128,16 @@ func NewProgramWithStatePromptSubmitAndCommandRoute(input io.Reader, output io.W
 
 // NewProgramWithStatePromptSubmitCommandRouteAndInterrupt constructs the Bubble Tea program with app-owned callbacks.
 func NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) *tea.Program {
+	return NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(context.Background(), input, output, state, submitPrompt, routeCommand, interrupt)
+}
+
+// NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt constructs a Bubble Tea program canceled by an app-owned context.
+func NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx context.Context, input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) *tea.Program {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	options := []tea.ProgramOption{tea.WithAltScreen()}
+	options = append(options, tea.WithContext(ctx), tea.WithoutSignalHandler())
 	if input != nil {
 		options = append(options, tea.WithInput(input))
 	}
@@ -227,6 +238,29 @@ func (m *Model) applyRuntimeStatus(turn TranscriptTurn) {
 	m.state.RuntimeResult = turn.RuntimeResult
 	m.state.QueuedCount = turn.QueuedCount
 	m.state.QueuedText = append([]string(nil), turn.QueuedText...)
+	m.state.Diagnostics = mergeDiagnosticViews(m.state.Diagnostics, turn.Diagnostics)
+}
+
+func mergeDiagnosticViews(existing []DiagnosticView, added []DiagnosticView) []DiagnosticView {
+	if len(added) == 0 {
+		return existing
+	}
+	merged := append([]DiagnosticView(nil), existing...)
+	for _, diagnostic := range added {
+		if !hasDiagnosticView(merged, diagnostic) {
+			merged = append(merged, diagnostic)
+		}
+	}
+	return merged
+}
+
+func hasDiagnosticView(diagnostics []DiagnosticView, diagnostic DiagnosticView) bool {
+	for _, existing := range diagnostics {
+		if existing == diagnostic {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {
@@ -281,6 +315,9 @@ func (m *Model) showCommandSurface(recommendation policy.CommandRecommendation) 
 		}
 		if m.state.ProjectStoreStatus != "" {
 			lines = append(lines, "project store: "+m.state.ProjectStoreStatus+" ("+m.state.ProjectStoreSource+"; "+m.state.ProjectStoreDetail+")")
+		}
+		for _, line := range diagnosticLines(m.state.Diagnostics) {
+			lines = append(lines, strings.TrimSpace(line))
 		}
 		lines = append(lines,
 			"git: "+m.state.FooterGit,

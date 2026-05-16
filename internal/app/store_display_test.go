@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/state"
 	"github.com/jgabor/aila/internal/tui"
 )
@@ -71,6 +73,146 @@ func TestInitialDisplayStateStoreFailureIsPathSafeDegradedStatus(t *testing.T) {
 	}
 	if !strings.Contains(view.ProjectStoreDetail, "project metadata path is a directory") {
 		t.Fatalf("degraded detail = %q, want bounded failure reason", view.ProjectStoreDetail)
+	}
+	if len(view.Diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1", len(view.Diagnostics))
+	}
+	got := view.Diagnostics[0]
+	if got.Severity != "error" || got.Source != "state.open" || got.AffectedArtifact != "project_store" || got.RecoveryAction != "inspect" || !got.UserInputNeeded {
+		t.Fatalf("degraded diagnostic fields = %+v", got)
+	}
+	if !strings.Contains(got.BoundedMessage, "project store unavailable") || strings.Contains(got.BoundedMessage, workspace) || strings.Contains(got.BoundedMessage, layout.ProjectFile) {
+		t.Fatalf("degraded diagnostic message = %q, want bounded path-safe unavailable state", got.BoundedMessage)
+	}
+}
+
+func TestInitialDisplayStateSurfacesRecoveryNeededStoreStatus(t *testing.T) {
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	layout := mustStoreLayout(t, workspace)
+	metadata := "schema_version = 1\nproject_id = [unterminated\n"
+	writeFile(t, layout.ProjectFile, metadata)
+	writeFile(t, filepath.Join(layout.ArtifactsRoot, "keep.txt"), "artifact\n")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+
+	view, err := initialDisplayState(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("initialDisplayState returned error: %v", err)
+	}
+
+	if view.ProjectStoreStatus != "recovery_needed" || view.ProjectStoreSource != "state.open" {
+		t.Fatalf("store display status = %+v, want recovery_needed state.open", view)
+	}
+	for _, value := range []string{view.ProjectStoreDetail, tui.RenderPlain(view, tui.Size{Width: 120, Height: 32})} {
+		if strings.Contains(value, workspace) || strings.Contains(value, layout.ProjectFile) {
+			t.Fatalf("recovery store status leaked path: %q", value)
+		}
+	}
+	if !strings.Contains(view.ProjectStoreDetail, "project metadata requires recovery") {
+		t.Fatalf("recovery detail = %q, want recovery reason", view.ProjectStoreDetail)
+	}
+	for _, token := range []string{"error", "state.open", "project_metadata", "manual_repair", "user_input_needed=true"} {
+		if !strings.Contains(view.ProjectStoreDetail, token) {
+			t.Fatalf("recovery detail = %q, want actionable token %q", view.ProjectStoreDetail, token)
+		}
+	}
+	if len(view.Diagnostics) != 1 {
+		t.Fatalf("diagnostics length = %d, want 1", len(view.Diagnostics))
+	}
+	semantic := tui.Semantic(view, tui.Size{Width: 120, Height: 32})
+	if len(semantic.Diagnostics) != 1 {
+		t.Fatalf("semantic diagnostics length = %d, want 1", len(semantic.Diagnostics))
+	}
+	got := semantic.Diagnostics[0]
+	if got.Severity != "error" || got.Source != "state.open" || got.AffectedArtifact != "project_metadata" || got.RecoveryAction != "manual_repair" || !got.UserInputNeeded {
+		t.Fatalf("semantic diagnostic fields = %+v", got)
+	}
+	assertFileContent(t, layout.ProjectFile, metadata)
+	assertFileContent(t, filepath.Join(layout.ArtifactsRoot, "keep.txt"), "artifact\n")
+}
+
+func TestStartupDebugDiagnosticsOutputIsStructuredBoundedAndRedacted(t *testing.T) {
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	layout := mustStoreLayout(t, workspace)
+	writeFile(t, layout.ProjectFile, "schema_version = 2\nsecret = \"token=abc123\"\n")
+
+	debugOutput := NewDebugDiagnosticsOutput(startupDiagnostics(context.Background(), workspace))
+	encoded, err := debugOutput.JSON()
+	if err != nil {
+		t.Fatalf("debug diagnostics JSON: %v", err)
+	}
+	if len(encoded) > MaxDebugDiagnosticOutputBytes {
+		t.Fatalf("debug diagnostics output length = %d, want <= %d", len(encoded), MaxDebugDiagnosticOutputBytes)
+	}
+	for _, leaked := range []string{workspace, layout.ProjectFile, ".aila", "abc123", "token="} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("debug diagnostics leaked %q in %s", leaked, encoded)
+		}
+	}
+
+	var decoded DebugDiagnosticsOutput
+	if err := json.Unmarshal([]byte(encoded), &decoded); err != nil {
+		t.Fatalf("unmarshal debug diagnostics: %v", err)
+	}
+	if decoded.Count != 1 || decoded.MaxCount != MaxDebugDiagnostics || decoded.MaxMessageBytes != 240 || decoded.MaxOutputBytes != MaxDebugDiagnosticOutputBytes {
+		t.Fatalf("debug diagnostics bounds = %+v", decoded)
+	}
+	got := decoded.Diagnostics[0]
+	if got.Severity != "error" || got.Source != "state.open" || got.AffectedArtifact != "project_metadata" || got.RecoveryAction != "manual_repair" || !got.UserInputNeeded || got.BoundedMessage == "" {
+		t.Fatalf("debug diagnostic fields = %+v", got)
+	}
+}
+
+func TestDebugDiagnosticsOutputRedactsCommonCredentialForms(t *testing.T) {
+	debugOutput := NewDebugDiagnosticsOutput([]diagnostic.Diagnostic{diagnostic.New(diagnostic.Spec{
+		Category: diagnostic.CategoryStartup,
+		Source:   diagnostic.SourceStartup,
+		Severity: diagnostic.SeverityError,
+		Message: strings.Join([]string{
+			"Authorization: Bearer sk-live-secret",
+			"password: hunter2",
+			"token abc123",
+			"apikey=plain-key",
+			"apiKey=camel-key",
+			"api_key=snake-key",
+			"https://user:pass@example.com/path",
+		}, " "),
+		AffectedArtifact: diagnostic.ArtifactProviderRequest,
+		RecoveryAction:   diagnostic.RecoveryInspect,
+	})})
+	encoded, err := debugOutput.JSON()
+	if err != nil {
+		t.Fatalf("debug diagnostics JSON: %v", err)
+	}
+
+	for _, leaked := range []string{
+		"Authorization", "Bearer", "sk-live-secret",
+		"password", "hunter2",
+		"token", "abc123",
+		"apikey", "apiKey", "api_key", "plain-key", "camel-key", "snake-key",
+		"user:pass", "pass@example.com",
+	} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("debug diagnostics leaked %q in %s", leaked, encoded)
+		}
+	}
+}
+
+func TestStartupDebugDiagnosticsOutputReportsEmptySet(t *testing.T) {
+	workspace := filepath.Join(t.TempDir(), "workspace")
+
+	debugOutput := NewDebugDiagnosticsOutput(startupDiagnostics(context.Background(), workspace))
+	encoded, err := debugOutput.JSON()
+	if err != nil {
+		t.Fatalf("debug diagnostics JSON: %v", err)
+	}
+
+	var decoded DebugDiagnosticsOutput
+	if err := json.Unmarshal([]byte(encoded), &decoded); err != nil {
+		t.Fatalf("unmarshal debug diagnostics: %v", err)
+	}
+	if decoded.Count != 0 || len(decoded.Diagnostics) != 0 {
+		t.Fatalf("debug diagnostics = %+v, want empty set", decoded)
 	}
 }
 

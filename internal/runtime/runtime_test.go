@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"go/parser"
 	"go/token"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/jgabor/aila/internal/diagnostic"
 )
 
 func TestUpdateHandlesPromptDeterministically(t *testing.T) {
@@ -452,6 +455,73 @@ func TestDispatchHandlesNoEffects(t *testing.T) {
 	}
 }
 
+func TestDispatchContextRecordsCancellationDiagnosticMessage(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	operation := OperationMetadata{ID: "op-7", Kind: OperationPrompt, Subject: "canceled", Source: "user"}
+
+	messages := DispatchContext(ctx, []Effect{FakePromptEffect{Operation: operation, Prompt: "canceled"}})
+
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	message, ok := messages[0].(RuntimeDiagnostic)
+	if !ok {
+		t.Fatalf("message = %T, want RuntimeDiagnostic", messages[0])
+	}
+	if message.Diagnostic.Category != diagnostic.CategoryCancellation || message.Diagnostic.Source != diagnostic.SourceEffect {
+		t.Fatalf("diagnostic identity = %#v", message.Diagnostic)
+	}
+	if !strings.Contains(message.Diagnostic.BoundedMessage, "context canceled") {
+		t.Fatalf("diagnostic message = %q, want context cancellation", message.Diagnostic.BoundedMessage)
+	}
+
+	model, effects := Update(Model{Status: StatusActive}, message)
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if model.Status != StatusActive {
+		t.Fatalf("status = %q, want active unchanged", model.Status)
+	}
+	if len(model.Diagnostics) != 1 || model.Diagnostics[0].Category != diagnostic.CategoryCancellation {
+		t.Fatalf("model diagnostics = %#v", model.Diagnostics)
+	}
+}
+
+func TestDispatchRecoversEffectPanicAsDiagnosticMessage(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-8", Kind: OperationPrompt, Subject: "panic", Source: "user"}
+	messages := Dispatch([]Effect{panicEffect{operation: operation}})
+
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	message, ok := messages[0].(RuntimeDiagnostic)
+	if !ok {
+		t.Fatalf("message = %T, want RuntimeDiagnostic", messages[0])
+	}
+	if message.Diagnostic.Category != diagnostic.CategoryEffect || message.Diagnostic.Source != diagnostic.SourceEffect {
+		t.Fatalf("diagnostic identity = %#v", message.Diagnostic)
+	}
+	if !strings.Contains(message.Diagnostic.BoundedMessage, "supervised effect panic recovered") {
+		t.Fatalf("diagnostic message = %q, want recovered panic", message.Diagnostic.BoundedMessage)
+	}
+
+	model, effects := Update(Model{Status: StatusActive}, message)
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if model.Status != StatusActive {
+		t.Fatalf("status = %q, want active unchanged", model.Status)
+	}
+	if len(model.Diagnostics) != 1 || model.Diagnostics[0].RecoveryAction != diagnostic.RecoveryInspect {
+		t.Fatalf("model diagnostics = %#v", model.Diagnostics)
+	}
+}
+
 func TestUpdateDoesNotMutateInputModel(t *testing.T) {
 	t.Parallel()
 
@@ -505,7 +575,6 @@ func TestRuntimeProductionFilesHaveNoForbiddenImportsOrTokens(t *testing.T) {
 	t.Parallel()
 
 	forbiddenImports := map[string]bool{
-		"context":       true,
 		"io":            true,
 		"net/http":      true,
 		"os":            true,
@@ -574,4 +643,18 @@ func (unsupportedEffect) runtimeEffect() {}
 
 func (effect unsupportedEffect) Metadata() OperationMetadata {
 	return effect.operation
+}
+
+type panicEffect struct {
+	operation OperationMetadata
+}
+
+func (panicEffect) runtimeEffect() {}
+
+func (effect panicEffect) Metadata() OperationMetadata {
+	return effect.operation
+}
+
+func (panicEffect) dispatchPanic() {
+	panic("fake effect worker panic")
 }

@@ -4362,6 +4362,600 @@ cycles:
       scope: >-
         final targeted validation, full mage check, ROADMAP M15 closeout update, Agentera
         progress/plan synchronization, and final handoff evidence only.
+  - number: 95
+    timestamp: "2026-05-15 23:09"
+    type: docs
+    phase: plan
+    what: >-
+      Ran Planera for the next roadmap milestone after committing M15. Archived the completed
+      M15 plan to `.agentera/archive/plan-2026-05-15-m15.yaml` and wrote an active full
+      `.agentera/plan.yaml` for Milestone 15A Diagnostics And State Recovery Boundary.
+      The plan decomposes diagnostic/recovery contract work, corrupt project metadata
+      detection, bounded debug diagnostics, runtime panic/cancellation messages,
+      SIGINT/SIGTERM graceful shutdown, TUI diagnostic fixtures/snapshots, PTY shutdown/debug
+      smoke, and final freshness closeout.
+    commit: "5de83b6 add project store bootstrap; M15A plan not committed"
+    inspiration: "ROADMAP.md:650-686; Planera prose; M15 closeout commit 5de83b6"
+    discovered: >-
+      The adversarial critic found the first M15A draft mixed diagnostic vocabulary with
+      transport/display wiring, made signal handling depend on implicit runtime/store
+      prerequisites, underspecified panic recovery, left debug output bounds vague, and did
+      not define recovery action semantics tightly enough. The written plan splits vocabulary,
+      state validation, diagnostic/debug transport, runtime failure messages, signal shutdown,
+      TUI evidence, PTY smoke, and closeout into separate dependency-ordered tasks.
+    verified: >-
+      `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera lint --artifact
+      .agentera/plan.yaml` completed with the known advisory `abstraction creep: no concrete
+      anchor`; the plan includes concrete anchors such as ROADMAP.md:650-686,
+      ARCHITECTURE.md:529-607, ARCHITECTURE.md:781-821, and explicit validation commands, so
+      this was treated as non-blocking rather than strict failure. `git diff --check --
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` passed.
+    next: >-
+      Start Orkestrera on the active M15A plan. Dependency-ready task is Task 1, Define
+      diagnostic and recovery contract. Do not implement M15A beyond the selected task, do
+      not commit or push unless separately requested, and keep `.agentera/session.yaml` plus
+      local `.aila/` state uncommitted unless the user decides otherwise.
+    context:
+      intent: >-
+        Convert the completed M15 roadmap handoff into an executable M15A plan before
+        orchestration begins.
+      constraints: >-
+        Plan only M15A. Do not add M16 session resume, event replay, context compaction,
+        destructive recovery execution, provider fallback, permission policy changes, undo,
+        plugins, MCP, or workflow DSL behavior. Do not push or commit the M15A plan unless
+        requested.
+      unknowns: >-
+        Whether the local untracked `.aila/` project store generated after commit should be
+        committed later; it is intentionally left out of the M15 commit and current M15A plan
+        changes for now.
+      scope: >-
+        Planera artifact archival, active M15A plan writing, adversarial review response,
+        lint/diff-check evidence, and Agentera progress evidence only.
+  - number: 96
+    timestamp: "2026-05-15 23:12"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M15A Task 1 diagnostic and recovery contract as a pure
+      internal/diagnostic package. The contract defines typed diagnostic category, source,
+      severity, bounded redacted message, affected logical artifact, recovery action, and
+      user-input-needed fields, with provider-error and permission-decision diagnostics kept
+      as passive records.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md:650-686; ARCHITECTURE.md package boundary constraints"
+    discovered: >-
+      A focused package-level contract was enough for Task 1. No runtime, TUI, state opening,
+      corrupt metadata detection, debug output, signal handling, provider retry/fallback,
+      permission policy, plugin, MCP, session resume, replay, or context compaction behavior
+      was needed or added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/... -run Diagnostic -count=1`
+      passed, including internal/diagnostic contract and boundary tests. `git diff --check --
+      internal/diagnostic .agentera/progress.yaml` passed after this progress cycle was
+      appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 1. Plan status remains pending;
+      do not mark .agentera/plan.yaml Task 1 complete, start Task 2 corrupt metadata
+      detection, run final mage check, commit, or push until evaluation directs it.
+    context:
+      intent: >-
+        Establish a passive, path-safe diagnostic vocabulary and recovery recommendation
+        boundary before later M15A tasks route diagnostics through startup, runtime, debug, and
+        TUI surfaces.
+      constraints: >-
+        Execute only M15A Task 1. Preserve statechart-MVU, keep the TUI presentation-only,
+        make recovery actions recommendations only, and avoid provider selection changes,
+        retries, fallback, permission policy changes, workflow phase mutation, model calls,
+        command execution, plugins, MCP, sessions, replay, context compaction, ROADMAP
+        closeout, final mage check, commit, or push.
+      unknowns: "none"
+      scope: >-
+        internal/diagnostic contract files, diagnostic contract tests, package boundary tests,
+        targeted validation, and this Agentera progress evidence only. .agentera/plan.yaml
+        Task 1 remains pending for conductor evaluation.
+  - number: 97
+    timestamp: "2026-05-15 23:19"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M15A Task 2 project metadata recovery detection in internal/state.
+      Store open now reports typed initialized or recovery-needed status through
+      OpenProjectStoreWithStatus and Store.OpenStatus, validates existing project metadata
+      schema_version, and emits a passive state diagnostic for corrupt, partial, or
+      version-mismatched metadata without overwriting the existing file.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; M15 store bootstrap; internal/diagnostic Task 1 contract"
+    discovered: >-
+      The existing OpenProjectStore API could remain compatible by delegating to the new
+      status-returning opener. The metadata contract is currently only schema_version = 1,
+      so validation intentionally stays narrow and does not introduce TOML-wide parsing,
+      repair execution, debug output, TUI rendering, runtime behavior, sessions, replay,
+      context compaction, mutation history, provider fallback, permission policy changes,
+      plugins, MCP, or workflow DSL behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/state ./internal/diagnostic
+      -count=1` passed, covering valid metadata, missing-store initialization, corrupt
+      metadata, partial metadata, version mismatch, and no-overwrite recovery behavior.
+      `git diff --check -- internal/state internal/diagnostic .agentera/progress.yaml`
+      passed after this progress cycle was appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 2. .agentera/plan.yaml Task 2
+      remains pending for evaluation; do not start Task 3 debug output, later M15A tasks,
+      final mage check, commit, or push until directed.
+    context:
+      intent: >-
+        Treat unsafe project metadata as visible recovery state before later startup, debug,
+        shutdown, and TUI surfaces consume diagnostics.
+      constraints: >-
+        Execute only M15A Task 2; preserve non-destructive recovery recommendations,
+        statechart-MVU boundaries, TUI presentation-only ownership, and existing store
+        artifacts/indexes/diagnostics/checkpoints/backups. Do not mark plan task status
+        complete, run final mage check, commit, push, or add Task 3+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/state metadata validation and open-status reporting, internal/state tests,
+        passive use of internal/diagnostic records, targeted validation, and this Agentera
+        progress evidence only.
+  - number: 98
+    timestamp: "2026-05-15 23:36"
+    type: fix
+    phase: build
+    what: >-
+      Retried M15A Task 2 after Inspektera failure. Startup now opens project state through
+      `OpenProjectStoreWithStatus`, converts recovery-needed metadata status into the existing
+      path-safe app store display fields, and no longer reports corrupt metadata as initialized.
+      Project metadata validation now rejects malformed TOML-shaped extra metadata even when
+      `schema_version = 1` is present.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2 retry; Inspektera findings for internal/app/app.go and internal/state/store.go"
+    discovered: >-
+      Inspektera findings were valid: `internal/app/app.go` ignored the open status returned by
+      the store and silently displayed initialized for recovery-needed metadata, and the state
+      metadata validator only inspected schema_version lines while ignoring malformed extra
+      `key = value` metadata. The retry fixes only Task 2 propagation and validation coverage;
+      it does not add Task 3 debug output, Task 6 fixtures, recovery execution, runtime/signal
+      behavior, session replay/resume, context compaction, mutation history, undo, provider
+      fallback, permission policy changes, plugins, MCP, or workflow DSL behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/state ./internal/app
+      ./internal/diagnostic -count=1` passed, covering valid metadata preservation, missing-store
+      initialization without recovery diagnostics, malformed TOML-shaped metadata with a valid
+      schema_version, partial metadata, version mismatch, app startup recovery-needed display
+      propagation, and no-overwrite recovery behavior for existing metadata and store artifacts.
+      Final whitespace verification for this retry is `git diff --check -- internal/state
+      internal/app .agentera/progress.yaml .agentera/plan.yaml
+      .agentera/archive/plan-2026-05-15-m15.yaml`; no claim is made that this command covers
+      untracked paths.
+    next: >-
+      Await Inspektera/conductor evaluation for the M15A Task 2 retry. `.agentera/plan.yaml`
+      Task 2 remains pending for evaluation; do not start Task 3 debug output, runtime panic or
+      cancellation handling, signal shutdown, TUI diagnostic fixtures, PTY smoke, ROADMAP
+      closeout, final mage check, commit, or push until directed.
+    context:
+      intent: >-
+        Surface unsafe project metadata as typed recovery-needed startup state without
+        overwriting existing project-visible state.
+      constraints: >-
+        Execute only the M15A Task 2 retry. Keep TUI presentation-only, keep recovery actions as
+        recommendations, do not mark `.agentera/plan.yaml` Task 2 complete, do not run final
+        `mage check`, commit, push, or implement Task 3+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/state metadata validation and regression tests, internal/app startup
+        open-status propagation and app tests, targeted validation, and this Agentera progress
+        evidence only.
+  - number: 99
+    timestamp: "2026-05-15 23:55"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M15A Task 3 bounded debug diagnostics. Startup/store recovery diagnostics now
+      flow through app-owned TUI diagnostic display fields, semantic diagnostics use stable field
+      names, and `--debug` on startup or non-interactive command shapes emits the bounded
+      structured diagnostic envelope with severity, source, recovery action, affected artifact,
+      user-input-needed, bounded message, count, and byte/count limits.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; M15A Task 1 diagnostic contract; M15A Task 2 store recovery status"
+    discovered: >-
+      The existing startup display already had path-safe recovery detail, but it did not surface
+      severity, affected artifact, recovery action, or user-input-needed without debug mode. The
+      new TUI fields are injected by app-owned data only; the TUI still does not import state or
+      diagnostic packages or inspect the filesystem. Debug output intentionally reports an empty
+      diagnostic set when no startup diagnostics exist and does not add runtime panic handling,
+      signal shutdown, full Task 6 fixtures, PTY smoke, recovery execution, sessions, replay,
+      context compaction, mutation history, undo, provider fallback, permission policy changes,
+      plugins, MCP, or workflow DSL behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/diagnostic ./internal/state
+      ./internal/app ./internal/tui ./cmd/aila -count=1` passed, covering structured debug
+      envelope output, empty diagnostic sets, app startup recovery diagnostic display/semantic
+      fields, and existing diagnostic/state/TUI/cmd regressions. `git diff --check --
+      internal/diagnostic internal/state internal/app internal/tui cmd/aila .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` passed after this progress
+      cycle was appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 3. `.agentera/plan.yaml` Task 3 remains
+      pending for evaluation; do not start Task 4 runtime panic/cancellation handling, Task 5 signal
+      shutdown, Task 6 full TUI diagnostic fixtures, Task 7 PTY smoke, ROADMAP closeout, final mage
+      check, commit, or push until directed.
+    context:
+      intent: >-
+        Surface existing startup/store diagnostics in bounded normal status and structured debug
+        output before later runtime, shutdown, and fixture expansion tasks consume the same schema.
+      constraints: >-
+        Execute only M15A Task 3. Keep recovery actions recommendations only, preserve
+        statechart-MVU and TUI presentation-only ownership, do not mark `.agentera/plan.yaml` Task
+        3 complete, do not run final `mage check`, commit, push, or implement Task 4+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/app debug diagnostic envelope and startup mapping, cmd/aila `--debug` routing,
+        internal/tui injected diagnostic view/semantic fields, focused app/cmd tests, targeted
+        validation, and this Agentera progress evidence only.
+  - number: 100
+    timestamp: "2026-05-15 23:59"
+    type: fix
+    phase: build
+    what: >-
+      Retried M15A Task 3 after Inspektera failure. Diagnostic message redaction now covers
+      common credential-like forms including Authorization bearer headers, colon-separated
+      passwords, space-separated tokens, apikey/apiKey/api_key variants, and URL userinfo before
+      bounded diagnostics reach normal status, semantic, or debug output surfaces.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3 retry; Inspektera AC4 finding for internal/diagnostic/diagnostic.go redaction coverage"
+    discovered: >-
+      Inspektera's AC4 finding was valid: the prior sanitizer split messages on whitespace and
+      only caught a narrow set of key=value markers, so forms such as `Authorization: Bearer
+      sk-...`, `password: hunter2`, `token abc123`, `apikey=`, `apiKey=`, and
+      `https://user:pass@example.com/path` could leak into diagnostics. The retry keeps the fix
+      inside Task 3 diagnostic/debug surfaces and does not add runtime failure handling, signal
+      shutdown, full diagnostic fixtures, PTY smoke, ROADMAP closeout, sessions/replay/context
+      compaction, provider fallback, permission policy, plugins, MCP, or recovery execution.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/diagnostic ./internal/app
+      ./internal/tui ./cmd/aila -count=1` passed, including regression coverage in
+      internal/diagnostic for the Inspektera examples and in internal/app for debug diagnostic
+      JSON output. `git diff --check --
+      internal/diagnostic internal/app internal/tui cmd/aila .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` passed. `.agentera/plan.yaml`
+      Task 3 remains pending for Inspektera
+      evaluation.
+    next: >-
+      Await Inspektera/conductor evaluation for the M15A Task 3 retry. `.agentera/plan.yaml`
+      Task 3 remains pending; do not start Task 4 runtime failure handling, Task 5 signal
+      shutdown, Task 6 full fixtures, Task 7 PTY smoke, ROADMAP closeout, final mage check,
+      commit, or push until directed.
+    context:
+      intent: >-
+        Make bounded debug and status diagnostics safe against common credential spellings while
+        preserving stable diagnostic fields and existing path-safe behavior.
+      constraints: >-
+        Execute only the M15A Task 3 retry. Keep behavior bounded and path-safe, preserve
+        statechart-MVU and TUI presentation-only ownership, do not mark `.agentera/plan.yaml`
+        Task 3 complete, do not run final `mage check`, commit, push, or implement Task 4+
+        behavior.
+      unknowns: "none"
+      scope: >-
+        internal/diagnostic redaction, regression tests in internal/diagnostic and internal/app,
+        targeted validation, and this Agentera progress evidence only.
+  - number: 101
+    timestamp: "2026-05-15 23:50"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M15A Task 4 runtime failure and cancellation diagnostics. Runtime now carries
+      typed diagnostic records in its model, accepts RuntimeDiagnostic messages, records handled
+      context cancellation from effect dispatch as a cancellation diagnostic, and converts recovered
+      supervised runtime/effect panics into diagnostic messages without directly changing workflow
+      phase or writing project state.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; M15A Task 1 diagnostic contract; M15A Task 3 app-owned diagnostic display fields"
+    discovered: >-
+      The smallest path was to keep recovery at runtime/app boundaries: runtime DispatchContext
+      returns typed diagnostic messages for canceled contexts, Dispatch recovers effect-worker
+      panics as RuntimeDiagnostic messages, and the app input runner supervises runtime update and
+      injected dispatch callbacks while the TUI only renders app-injected diagnostic metadata. The
+      existing active, queued, interrupting, canceled, idle, help, status, and quit paths stayed on
+      their current behavior except for optional diagnostic metadata propagation. This task did not
+      add signal handling, PTY smoke, full diagnostic fixtures, recovery execution, sessions, replay,
+      context compaction, mutation history, undo, provider fallback, permission policy changes,
+      plugins, MCP, or workflow DSL behavior.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/runtime ./internal/app ./internal/tui
+      ./cmd/aila ./internal/diagnostic -count=1` passed, covering runtime cancellation diagnostic
+      messages, effect panic recovery diagnostics, app supervised dispatch recovery, and existing
+      runtime/app/TUI/cmd/diagnostic regressions. Whitespace validation is expected to run as
+      `git diff --check -- internal/runtime internal/app internal/tui cmd/aila internal/diagnostic
+      .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` after
+      this progress cycle is appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 4. `.agentera/plan.yaml` Task 4 remains
+      pending for evaluation; do not implement Task 5 signal shutdown, Task 6 full TUI diagnostic
+      fixtures, Task 7 PTY smoke, ROADMAP closeout, final mage check, commit, or push until directed.
+    context:
+      intent: >-
+        Make runtime/effect panic and cancellation outcomes explicit typed diagnostics before later
+        signal shutdown and fixture validation tasks consume the same state.
+      constraints: >-
+        Execute only M15A Task 4. Preserve statechart-MVU, keep recovery actions recommendations
+        only, keep the TUI presentation-only, do not write project state from recovery wrappers, do
+        not mutate workflow phase directly, and do not mark `.agentera/plan.yaml` Task 4 complete.
+      unknowns: "none"
+      scope: >-
+        internal/runtime diagnostic message/cancellation/recovery path, internal/app supervised
+        runtime/effect callback adapter propagation, internal/tui injected diagnostic metadata merge,
+        focused regression tests, targeted validation, and this Agentera progress evidence only.
+  - number: 102
+    timestamp: "2026-05-16 00:00"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M15A Task 5 signal-triggered graceful shutdown. The CLI now derives its root
+      context from SIGINT/SIGTERM, the TUI program runs under that app-owned context with Bubble
+      Tea's own signal handler disabled, and app shutdown records bounded signal and runtime
+      cancellation diagnostics through the existing runtime adapter path before returning a clean
+      shutdown outcome.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; M15A Task 2 recovery-needed state propagation; M15A Task 4 runtime cancellation diagnostics"
+    discovered: >-
+      Bubble Tea already supports context cancellation, but its default signal handler would bypass
+      the app-owned diagnostic path. The smallest bounded implementation was to let cmd/aila own
+      SIGINT/SIGTERM context cancellation, keep TUI presentation-only by only passing the context as
+      a program option, and isolate shutdown/runtime coupling in internal/app/shutdown.go so startup
+      wiring and input-runner boundary invariants stay intact. No checkpoint file was recorded,
+      avoiding session resume, event replay, context compaction, mutation history, undo, recovery
+      execution, provider fallback, permission policy changes, plugins, MCP, workflow DSL, Task 6
+      fixtures, Task 7 PTY smoke, ROADMAP closeout, final mage check, commit, or push.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app ./cmd/aila ./internal/runtime
+      ./internal/state ./internal/diagnostic -count=1` passed, covering idle signal shutdown
+      diagnostics, active fake-work signal cancellation diagnostics, recovery-needed startup state
+      preservation during shutdown reporting, cmd shutdown handling, and existing runtime/state/
+      diagnostic regressions. Required whitespace validation is expected to run as `git diff --check
+      -- internal/app cmd/aila internal/runtime internal/state internal/diagnostic
+      .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` after
+      this progress cycle is appended. `.agentera/plan.yaml` Task 5 remains pending for
+      Orkestrera/Inspektera evaluation.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 5. `.agentera/plan.yaml` Task 5 remains
+      pending; do not implement Task 6 full diagnostic/recovery TUI fixtures, Task 7 PTY smoke,
+      ROADMAP closeout, final mage check, commit, or push until directed.
+    context:
+      intent: >-
+        Make SIGINT/SIGTERM shutdown bounded, clean, and visible while preserving existing runtime
+        cancellation diagnostics and recovery-needed state reporting.
+      constraints: >-
+        Execute only M15A Task 5. Preserve statechart-MVU, keep TUI presentation-only, keep recovery
+        actions as recommendations only, do not write project state/checkpoints during shutdown, do
+        not mark `.agentera/plan.yaml` Task 5 complete, and do not run final `mage check`, commit,
+        push, Task 6, Task 7, or closeout behavior.
+      unknowns: "none"
+      scope: >-
+        cmd/aila signal context ownership and clean shutdown handling, internal/app shutdown
+        diagnostic/cancellation adapter, TUI context program option, focused app/cmd tests, targeted
+        validation, and this Agentera progress evidence only.
+  - number: 103
+    timestamp: "2026-05-16 00:21"
+    type: fix
+    phase: build
+    what: >-
+      Retried M15A Task 5 after Inspektera FAIL by attaching a typed startup diagnostic to degraded
+      or unavailable project-store open failures before they reach shutdown diagnostic merging. Added
+      regression coverage proving shutdown includes the degraded/recovery-needed store state, remains
+      path-safe and bounded, exits through the clean shutdown diagnostic shape, and preserves
+      unavailable metadata without overwriting it.
+    commit: "N/A: user did not request a git commit"
+    inspiration: >-
+      Inspektera AC4 finding for M15A Task 5: internal/app/app.go converted store-open errors into
+      degraded display status only, so internal/app/shutdown.go could omit degraded/unavailable
+      project-state diagnostics during clean signal shutdown reporting.
+    discovered: >-
+      The narrow fix was to make the existing app-owned store display boundary produce the same typed
+      diagnostic metadata that recovery-needed state already carried. Reusing the bounded store error
+      detail keeps absolute paths and raw state errors out of shutdown/debug diagnostics while leaving
+      recovery actions recommendation-only. No session resume, replay, context compaction, undo,
+      provider fallback, permission policy, plugin/MCP, Task 6 fixture/snapshot, Task 7 PTY smoke,
+      ROADMAP closeout, final mage check, commit, or push behavior was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app ./cmd/aila ./internal/runtime
+      ./internal/state ./internal/diagnostic -count=1` passed, covering degraded store-open shutdown
+      diagnostics, clean signal shutdown reporting, active fake-work cancellation diagnostics, and
+      existing app/cmd/runtime/state/diagnostic regressions. `git diff --check -- internal/app
+      cmd/aila internal/runtime internal/state internal/diagnostic .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` passed with no whitespace
+      errors.
+    next: >-
+      Await Inspektera evaluation for the M15A Task 5 retry after targeted validation. `.agentera/plan.yaml`
+      Task 5 remains pending; do not implement Task 6, Task 7, ROADMAP closeout, final `mage check`,
+      commit, or push until directed.
+    context:
+      intent: >-
+        Close the Task 5 AC4 gap so signal-triggered shutdown reports degraded/unavailable project
+        state as a typed, bounded diagnostic without overwriting corrupt or unavailable metadata.
+      constraints: >-
+        Execute only M15A Task 5 retry scope. Preserve statechart-MVU, keep TUI presentation-only,
+        keep recovery actions as recommendations, do not write shutdown checkpoints or recovery
+        artifacts, and do not mark `.agentera/plan.yaml` Task 5 complete.
+      unknowns: "none"
+      scope: >-
+        internal/app degraded store-open diagnostic propagation, focused app shutdown/store-display
+        regression tests, targeted validation, and this Agentera progress evidence only.
+  - number: 104
+    timestamp: "2026-05-16 00:38"
+    type: test
+    phase: build
+    what: >-
+      Implemented M15A Task 6 deterministic TUI diagnostic fixtures and snapshots for
+      diagnostic-ready, corrupt-state recovery, and graceful-shutdown states. The fixtures inject
+      app-owned diagnostic display data through tui.ViewState and prove severity, source, recovery
+      action, affected artifact, user-input-needed, and bounded messages render visibly and remain
+      machine-readable in semantic snapshots.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; M15A Tasks 3-5 diagnostic display, runtime cancellation, and signal shutdown contracts"
+    discovered: >-
+      No new TUI ownership behavior was needed: internal/tui already consumed DiagnosticView fields
+      from ViewState. The narrow Task 6 work was to add checked-in fixture metadata plus plain, ANSI,
+      and semantic snapshots, then harden assertions that recovery guidance is path-safe,
+      recommendation-only, and does not imply session resume, replay, undo, provider fallback, or
+      destructive repair. Existing queue, interrupt, and project-store fixture snapshots remain
+      unchanged except for the new stability assertions proving they did not gain incidental
+      diagnostic metadata.
+    verified: >-
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestM15ADiagnosticFixtureSnapshots
+      -count=1` intentionally regenerated only the new diagnostic fixture snapshots and failed with
+      the review-gated update message. `go test ./internal/tui -run TestM15ADiagnosticFixtureSnapshots
+      -count=1` then passed normally. `mage fmt` completed successfully. `go test ./internal/tui
+      -count=1` passed, covering new diagnostic fixtures plus existing TUI regression coverage.
+      Required whitespace validation is expected to run as `git diff --check -- internal/tui
+      internal/app internal/runtime internal/state internal/diagnostic cmd/aila .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` after this progress cycle is
+      appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 6. `.agentera/plan.yaml` Task 6 remains
+      pending for evaluation; do not implement Task 7 PTY smoke, ROADMAP closeout, final `mage check`,
+      commit, or push until directed.
+    context:
+      intent: >-
+        Provide deterministic render and semantic evidence for diagnostics and safe recovery
+        presentation before any PTY shutdown smoke or milestone closeout work.
+      constraints: >-
+        Execute only M15A Task 6. Keep TUI presentation-only, inject diagnostics through ViewState,
+        keep recovery actions as recommendations only, avoid filesystem/storage ownership in the TUI,
+        and do not mark `.agentera/plan.yaml` Task 6 complete.
+      unknowns: "none"
+      scope: >-
+        internal/tui diagnostic fixture loaders, render/semantic/path-safety/stability assertions,
+        three new deterministic fixture directories with plain/ANSI/semantic snapshots, and this
+        Agentera progress evidence only.
+  - number: 105
+    timestamp: "2026-05-16 01:05"
+    type: test
+    phase: build
+    what: >-
+      Implemented M15A Task 7 terminal smoke evidence. cmd/aila now has a bounded PTY SIGTERM smoke
+      that starts Aila in an isolated temp workspace, observes the clean shutdown diagnostic path, and
+      asserts shutdown output is path-safe. It also has a non-interactive `--debug` process smoke over
+      corrupt temp project metadata proving structured, bounded, redacted diagnostic JSON without
+      starting the TUI.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 7; M15A Tasks 3, 5, and 6 diagnostic/debug/shutdown contracts"
+    discovered: >-
+      This checkout already has a local repository `.aila/`, so the PTY smoke records a pre-run
+      repository-state baseline and proves the smoke does not create or remove source-tree state rather
+      than requiring the pre-existing local state to be absent. Corrupt-state debug diagnostics open the
+      temp project store enough to create the expected `artifacts/` and `indexes/` directories, while
+      preserving corrupt `project.toml` content and emitting only redacted structured diagnostics.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      'TestM15A.*(Shutdown|Debug).*Smoke' -count=1` passed, covering bounded PTY SIGTERM shutdown,
+      visible shutdown diagnostics, path/config/credential leak assertions, temp workspace project-store
+      cleanup expectations, and non-interactive debug JSON bounds/redaction. `go test ./internal/app
+      ./internal/tui ./cmd/aila ./internal/diagnostic -count=1` passed for the broader targeted
+      regression set. Whitespace validation is expected to run as `git diff --check -- cmd/aila
+      internal/app internal/tui internal/diagnostic .agentera/progress.yaml .agentera/plan.yaml
+      .agentera/archive/plan-2026-05-15-m15.yaml` after this progress cycle is appended.
+    next: >-
+      Await Orkestrera/Inspektera evaluation for M15A Task 7. `.agentera/plan.yaml` Task 7 remains
+      pending for evaluation; do not implement Task 8, ROADMAP closeout, final `mage check`, commit, or
+      push until directed.
+    context:
+      intent: >-
+        Prove diagnostics and signal-triggered shutdown survive real terminal/process boundaries before
+        the final milestone closeout task.
+      constraints: >-
+        Execute only M15A Task 7. Keep PTY/process smokes bounded and isolated, keep debug output
+        structured and redacted, preserve statechart-MVU and TUI presentation-only boundaries, do not
+        execute recovery actions, do not mark `.agentera/plan.yaml` Task 7 complete, and do not run
+        final `mage check`, commit, push, or implement Task 8.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY/process smoke tests, shared test helpers for temp binary/workspace isolation and
+        pollution checks, targeted validation, and this Agentera progress evidence only.
+  - number: 106
+    timestamp: "2026-05-16 00:38"
+    type: fix
+    phase: build
+    what: >-
+      Retried M15A Task 7 after Inspektera FAIL by strengthening terminal shutdown and durable-state
+      smoke evidence. The PTY shutdown smoke now drains and inspects output emitted after shutdown
+      markers through process exit, and durable source-tree `.aila` checks now snapshot existing state
+      recursively instead of proving only create/remove behavior.
+    commit: "N/A: user did not request a git commit"
+    inspiration: >-
+      Inspektera Task 7 findings: shutdown leak inspection stopped at diagnostic markers before
+      process exit, and repository `.aila` pollution evidence only recorded existence rather than
+      proving pre-existing source-tree state was unchanged.
+    discovered: >-
+      The smallest Task 7 fix was to preserve the existing marker wait for bounded PTY synchronization,
+      wait for clean process exit, then drain remaining PTY output before running path/config/secret leak
+      assertions over the complete captured shutdown stream. For no-pollution evidence, the smoke now
+      snapshots both cmd/aila-local and repository-root `.aila` paths, including file modes, sizes,
+      symlink targets, and SHA-256 content digests when present, so a local untracked repository `.aila`
+      can remain uncommitted while still being proven unmodified.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./cmd/aila -run
+      'TestM15A.*(Shutdown|Debug).*Smoke' -count=1` passed, covering bounded SIGTERM PTY shutdown,
+      complete post-exit shutdown output leak inspection, unchanged durable source-tree `.aila`
+      snapshots, expected temp workspace project-store/config files, and bounded structured redacted
+      non-interactive debug output. `go test ./internal/app ./internal/tui ./cmd/aila
+      ./internal/diagnostic -count=1` passed for the requested targeted regression set. `git diff
+      --check -- cmd/aila internal/app internal/tui internal/diagnostic .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml` passed with no whitespace
+      errors.
+    next: >-
+      Await Inspektera evaluation for the M15A Task 7 retry. `.agentera/plan.yaml` Task 7 remains
+      pending; do not implement Task 8 closeout, update ROADMAP closeout status, run final `mage check`,
+      commit, or push until directed.
+    context:
+      intent: >-
+        Prove terminal diagnostics and signal-triggered shutdown through complete process output while
+        preserving stronger evidence that no unrelated durable state was created or modified.
+      constraints: >-
+        Execute only M15A Task 7 retry scope. Keep PTY/process smokes bounded and isolated, keep debug
+        output structured and redacted, do not add sessions, replay, context compaction, provider
+        fallback, permission policy changes, plugins, MCP, ROADMAP closeout, commits, pushes, or mark
+        `.agentera/plan.yaml` Task 7 complete.
+      unknowns: "none"
+      scope: >-
+        cmd/aila PTY smoke shutdown-output draining, durable `.aila` snapshot/no-mutation helpers,
+        targeted validation, and this Agentera progress evidence only.
+  - number: 107
+    timestamp: "2026-05-16 00:51"
+    type: docs
+    phase: validate
+    what: >-
+      Executed M15A Task 8 final freshness checkpoint. Final targeted validation and full Mage check
+      passed, ROADMAP.md now marks Milestone 15A complete with Milestone 16 next, and the completed
+      Milestone 15A Slice Completion Template records diagnostic/recovery contract tests, corrupt
+      metadata recovery tests, bounded debug output, runtime/cancellation/signal diagnostics,
+      diagnostic TUI fixtures/snapshots, SIGTERM/debug smoke, validation, and architecture checklist
+      evidence.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 8; ROADMAP.md milestone completion protocol; docs/notes/PROMPT.md"
+    discovered: >-
+      The first final `mage check` run exposed lint-only dead helpers in internal/app/prompt.go that
+      became unused after context-aware runner constructors moved to shutdown.go. Removing those unused
+      wrappers preserved behavior and let the configured lint gate pass without bypassing checks.
+    verified: >-
+      Final `go test ./internal/state ./internal/runtime ./internal/app ./internal/tui ./cmd/aila
+      -count=1` passed. Final `mage check` passed with 0 lint issues and no vulnerabilities after the
+      unused-helper cleanup. `git diff --check -- ROADMAP.md internal/app internal/runtime internal/state
+      internal/tui internal/diagnostic cmd/aila .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-15-m15.yaml` passed. No commit or push was performed.
+    next: >-
+      Present the completed M15A handoff, including the Slice Completion Template. Do not create a
+      commit unless the user explicitly requests one. Milestone 16 is now the next roadmap milestone.
+    context:
+      intent: >-
+        Close M15A only after diagnostic/recovery implementation, deterministic TUI evidence, PTY/debug
+        smoke, final validation, and roadmap/Agentera metadata synchronization all pass.
+      constraints: >-
+        Do not push or commit without explicit user instruction. Do not add M16 session snapshot/resume,
+        event replay, context compaction, provider fallback, permission policy, undo, plugins, MCP, or
+        workflow DSL behavior.
+      unknowns: "none"
+      scope: >-
+        final targeted validation, full mage check, lint-only cleanup, ROADMAP M15A closeout update,
+        Agentera progress/plan synchronization, and final handoff evidence only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -4373,3 +4967,6 @@ archive:
   - .agentera/archive/plan-2026-05-13-m10.yaml
   - .agentera/archive/plan-2026-05-13-m11.yaml
   - .agentera/archive/plan-2026-05-13-m12.yaml
+  - .agentera/archive/plan-2026-05-15-m13.yaml
+  - .agentera/archive/plan-2026-05-15-m14.yaml
+  - .agentera/archive/plan-2026-05-15-m15.yaml

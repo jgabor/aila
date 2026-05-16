@@ -1,0 +1,132 @@
+{
+  "scenario": "graceful-shutdown",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "canceled",
+    "status_source": "signal.fixture",
+    "status_detail": "shutdown completed without repair",
+    "runtime_result": "cancellation recorded",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "diagnostics": [
+    {
+      "severity": "info",
+      "source": "signal.shutdown",
+      "recovery_action": "none",
+      "affected_artifact": "runtime",
+      "user_input_needed": false,
+      "bounded_message": "graceful shutdown completed after cancellation"
+    }
+  ],
+  "interrupt": {
+    "state": "canceled",
+    "outcome": "fake work canceled",
+    "lower_layer_cancellation_executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "visible": true,
+      "items": [
+        "severity: info",
+        "source: signal.shutdown",
+        "affected_artifact: runtime",
+        "recovery_action: none",
+        "user_input_needed: false",
+        "bounded_message: graceful shutdown completed after cancellation",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: canceled",
+        "status source: signal.fixture",
+        "detail: shutdown completed without repair",
+        "active: false",
+        "result: cancellation recorded",
+        "  interrupt state:",
+        "  interrupt status: canceled",
+        "  lower-layer cancellation executed: false",
+        "  interrupt outcome: fake work canceled",
+        "display-only"
+      ]
+    },
+    {
+      "name": "interrupt",
+      "visible": true,
+      "items": [
+        "state: canceled",
+        "lower_layer_cancellation_executed: false",
+        "display-only",
+        "outcome: fake work canceled"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

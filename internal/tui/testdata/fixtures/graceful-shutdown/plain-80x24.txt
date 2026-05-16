@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Runtime canceled | Model placeholder | Utility placeholder | Auto ~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: placeholder                                                   |
+| utility model: placeholder                                                   |
+| autonomy: placeholder (display-only)                                         |
+| Diagnostics:                                                                 |
+| severity: info                                                               |
+| source: signal.shutdown                                                      |
+| affected artifact: runtime                                                   |
+| recovery action: none                                                        |
+| user input needed: false                                                     |
+| message: graceful shutdown completed after cancellation                      |
+|                                                                              |
+| Runtime status:                                                              |
+| status: canceled                                                             |
+| status source: signal.fixture                                                |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

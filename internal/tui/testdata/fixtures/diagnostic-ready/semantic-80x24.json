@@ -1,0 +1,97 @@
+{
+  "scenario": "diagnostic-ready",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "source": "runtime.fixture",
+      "recovery_action": "inspect",
+      "affected_artifact": "runtime",
+      "user_input_needed": false,
+      "bounded_message": "runtime cancellation was recorded as diagnostic state"
+    }
+  ],
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "visible": true,
+      "items": [
+        "severity: warning",
+        "source: runtime.fixture",
+        "affected_artifact: runtime",
+        "recovery_action: inspect",
+        "user_input_needed: false",
+        "bounded_message: runtime cancellation was recorded as diagnostic state",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

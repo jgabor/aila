@@ -4,15 +4,17 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/state"
 	"github.com/jgabor/aila/internal/tui"
 )
 
 // StoreDisplayStatus is app-owned, path-safe presentation data for project store startup.
 type StoreDisplayStatus struct {
-	Status string
-	Source string
-	Detail string
+	Status      string
+	Source      string
+	Detail      string
+	Diagnostics []diagnostic.Diagnostic
 }
 
 // NewStoreDisplayState injects project store labels without exposing state internals to the TUI.
@@ -20,6 +22,7 @@ func NewStoreDisplayState(base tui.ViewState, store StoreDisplayStatus) tui.View
 	base.ProjectStoreStatus = store.Status
 	base.ProjectStoreSource = store.Source
 	base.ProjectStoreDetail = store.Detail
+	base.Diagnostics = diagnosticViews(store.Diagnostics)
 	return base
 }
 
@@ -51,4 +54,16 @@ func boundedStoreError(err error) string {
 		}
 		return message
 	}
+}
+
+func storeOpenUnavailableDiagnostic(detail string) diagnostic.Diagnostic {
+	return diagnostic.New(diagnostic.Spec{
+		Category:         diagnostic.CategoryStartup,
+		Source:           diagnostic.SourceStateOpen,
+		Severity:         diagnostic.SeverityError,
+		Message:          detail,
+		AffectedArtifact: diagnostic.ArtifactProjectStore,
+		RecoveryAction:   diagnostic.RecoveryInspect,
+		UserInputNeeded:  true,
+	})
 }

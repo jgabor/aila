@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/jgabor/aila/internal/app"
 )
@@ -14,7 +17,7 @@ const version = "dev"
 
 var m7Commands = []string{"run", "continue", "config", "models", "help"}
 
-var m7Flags = []string{"--model", "-m", "--continue", "-c", "--version", "-V"}
+var m7Flags = []string{"--model", "-m", "--continue", "-c", "--version", "-V", "--debug"}
 
 type cliRunner struct {
 	input   io.Reader
@@ -24,9 +27,12 @@ type cliRunner struct {
 	start   func(context.Context, io.Reader, io.Writer) error
 	config  func(bool) (string, error)
 	models  func(string, []string) (string, error)
+	debug   func(context.Context) (string, error)
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	runner := cliRunner{
 		input:   os.Stdin,
 		output:  os.Stdout,
@@ -35,11 +41,24 @@ func main() {
 		start:   app.Run,
 		config:  app.ConfigCommandOutput,
 		models:  app.ModelsCommandOutput,
+		debug:   app.DebugDiagnosticsCommandOutput,
 	}
-	if err := runner.run(context.Background(), os.Args[1:]); err != nil {
-		_, _ = fmt.Fprintln(runner.errors, err)
-		os.Exit(1)
+	if code := exitCodeForError(runner.run(ctx, os.Args[1:]), runner.errors); code != 0 {
+		os.Exit(code)
 	}
+}
+
+func exitCodeForError(err error, errorsOut io.Writer) int {
+	if err == nil {
+		return 0
+	}
+	var shutdown app.ShutdownError
+	if errors.As(err, &shutdown) {
+		_, _ = fmt.Fprintf(errorsOut, "shutdown: %v\n", shutdown)
+		return 0
+	}
+	_, _ = fmt.Fprintln(errorsOut, err)
+	return 1
 }
 
 func (r cliRunner) run(ctx context.Context, args []string) error {
@@ -50,6 +69,21 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 	parsed, err := parseM7CLI(args)
 	if err != nil {
 		return err
+	}
+	if parsed.debug {
+		debugOutput := r.debug
+		if debugOutput == nil {
+			debugOutput = app.DebugDiagnosticsCommandOutput
+		}
+		line, err := debugOutput(ctx)
+		if err != nil {
+			return fmt.Errorf("collect debug diagnostics: %w", err)
+		}
+		if _, err := fmt.Fprint(r.output, line); err != nil {
+			_, _ = fmt.Fprintf(r.errors, "write CLI output: %v\n", err)
+			return err
+		}
+		return nil
 	}
 
 	line := m7StubOutput(r.version, parsed)
@@ -86,6 +120,7 @@ type m7CLI struct {
 	arguments []string
 	all       bool
 	version   bool
+	debug     bool
 }
 
 func parseM7CLI(args []string) (m7CLI, error) {
@@ -97,6 +132,8 @@ func parseM7CLI(args []string) (m7CLI, error) {
 		switch {
 		case arg == "--version" || arg == "-V":
 			parsed.version = true
+		case arg == "--debug":
+			parsed.debug = true
 		case arg == "--continue" || arg == "-c":
 			continuation = true
 		case arg == "--model" || arg == "-m":
@@ -129,7 +166,7 @@ func parseM7CLI(args []string) (m7CLI, error) {
 		}
 	}
 
-	if parsed.version {
+	if parsed.version || (parsed.debug && parsed.command == "") {
 		return parsed, nil
 	}
 	if continuation {
@@ -175,7 +212,7 @@ func m7StubOutput(version string, parsed m7CLI) string {
 	case "config":
 		return fmt.Sprintf("aila %s\ncommand: config\nstatus: deferred-config-ui\naccepted: config [--all]\ndeferred: interactive config UI\n", version)
 	case "help":
-		return fmt.Sprintf("aila %s\nM7 accepted shape:\n  aila run [prompt...] [--model MODEL]\n  aila continue | aila --continue | aila -c\n  aila config [--all]\n  aila models [filter...]\n  aila help\n  aila --version | aila -V\nDeferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n", version)
+		return fmt.Sprintf("aila %s\nM7 accepted shape:\n  aila run [prompt...] [--model MODEL] [--debug]\n  aila continue | aila --continue | aila -c\n  aila config [--all] [--debug]\n  aila models [filter...] [--debug]\n  aila help\n  aila --version | aila -V\n  aila --debug\nDeferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n", version)
 	default:
 		return fmt.Sprintf("aila %s: M7 %s command stub; behavior deferred\n", version, parsed.command)
 	}

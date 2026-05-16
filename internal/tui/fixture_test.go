@@ -167,6 +167,54 @@ func loadProjectStoreFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadDiagnosticFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = name
+	switch name {
+	case "diagnostic-ready":
+		state.Diagnostics = []DiagnosticView{{
+			Severity:         "warning",
+			Source:           "runtime.fixture",
+			RecoveryAction:   "inspect",
+			AffectedArtifact: "runtime",
+			UserInputNeeded:  false,
+			BoundedMessage:   "runtime cancellation was recorded as diagnostic state",
+		}}
+	case "corrupt-state-recovery":
+		state.ProjectStoreStatus = "recovery-needed"
+		state.ProjectStoreSource = "state.open"
+		state.ProjectStoreDetail = "project metadata needs manual review"
+		state.Diagnostics = []DiagnosticView{{
+			Severity:         "error",
+			Source:           "state.open",
+			RecoveryAction:   "manual-repair",
+			AffectedArtifact: "project-metadata",
+			UserInputNeeded:  true,
+			BoundedMessage:   "metadata unreadable; inspect before reinitialize",
+		}}
+	case "graceful-shutdown":
+		state.RuntimeStatus = "canceled"
+		state.StatusSource = "signal.fixture"
+		state.StatusDetail = "shutdown completed without repair"
+		state.RuntimeResult = "cancellation recorded"
+		state.Diagnostics = []DiagnosticView{{
+			Severity:         "info",
+			Source:           "signal.shutdown",
+			RecoveryAction:   "none",
+			AffectedArtifact: "runtime",
+			UserInputNeeded:  false,
+			BoundedMessage:   "graceful shutdown completed after cancellation",
+		}}
+	default:
+		t.Fatalf("unknown diagnostic fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
 func loadWaitingStatusFixture(t *testing.T) renderFixture {
 	t.Helper()
 
@@ -556,6 +604,193 @@ func TestM15ProjectStoreStatusFixtureSnapshots(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestM15ADiagnosticFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name          string
+		severity      string
+		source        string
+		recovery      string
+		artifact      string
+		inputNeeded   bool
+		wantRender    []string
+		forbiddenText []string
+	}{
+		{
+			name:        "diagnostic-ready",
+			severity:    "warning",
+			source:      "runtime.fixture",
+			recovery:    "inspect",
+			artifact:    "runtime",
+			inputNeeded: false,
+			wantRender: []string{
+				"Diagnostics:",
+				"severity: warning",
+				"source: runtime.fixture",
+				"affected artifact: runtime",
+				"recovery action: inspect",
+				"user input needed: false",
+				"message: runtime cancellation was recorded as diagnostic state",
+			},
+			forbiddenText: []string{"state.open", "project store:", "repair executed", "storage owner"},
+		},
+		{
+			name:        "corrupt-state-recovery",
+			severity:    "error",
+			source:      "state.open",
+			recovery:    "manual-repair",
+			artifact:    "project-metadata",
+			inputNeeded: true,
+			wantRender: []string{
+				"project store: recovery-needed - project metadata needs manual review",
+				"severity: error",
+				"source: state.open",
+				"affected artifact: project-metadata",
+				"recovery action: manual-repair",
+				"user input needed: true",
+				"metadata unreadable; inspect before reinitialize",
+			},
+			forbiddenText: []string{"repair executed", "destructive repair", "provider fallback", "session resume"},
+		},
+		{
+			name:        "graceful-shutdown",
+			severity:    "info",
+			source:      "signal.shutdown",
+			recovery:    "none",
+			artifact:    "runtime",
+			inputNeeded: false,
+			wantRender: []string{
+				"Stage IDLE | Runtime canceled",
+				"severity: info",
+				"source: signal.shutdown",
+				"affected artifact: runtime",
+				"recovery action: none",
+				"user input needed: false",
+				"graceful shutdown completed after cancellation",
+			},
+			forbiddenText: []string{"session resume", "replay", "undo", "provider fallback", "repair executed", "destructive repair"},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadDiagnosticFixture(t, tc.name)
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			assertFixtureSizes(t, fixture, []fixtureSize{{Name: "80x24", Width: 80, Height: 24}})
+
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(got, tc.wantRender) {
+						t.Fatalf("%s render missing diagnostic evidence %v:\n%s", fixture.Name, tc.wantRender, got)
+					}
+					assertNoDiagnosticLeak(t, got)
+					if containsAny(got, tc.forbiddenText) {
+						t.Fatalf("%s render implies forbidden behavior:\n%s", fixture.Name, got)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoDiagnosticLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					assertSemanticDiagnostic(t, snapshot, SemanticDiagnostic{
+						Severity:         tc.severity,
+						Source:           tc.source,
+						RecoveryAction:   tc.recovery,
+						AffectedArtifact: tc.artifact,
+						UserInputNeeded:  tc.inputNeeded,
+						BoundedMessage:   fixture.State.Diagnostics[0].BoundedMessage,
+					})
+					if containsAny(got, tc.forbiddenText) {
+						t.Fatalf("%s semantic snapshot implies forbidden behavior:\n%s", fixture.Name, got)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestM15ADiagnosticSupportLeavesExistingFixtureEvidenceStable(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range []renderFixture{
+		loadQueuedMessageFixture(t),
+		loadInterruptFixture(t, "canceling"),
+		loadInterruptFixture(t, "canceled"),
+		loadProjectStoreFixture(t, "store-initialized"),
+		loadProjectStoreFixture(t, "store-uninitialized"),
+		loadProjectStoreFixture(t, "store-degraded"),
+	} {
+		fixture := fixture
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+
+			render := RenderPlain(fixture.State, Size{Width: 80, Height: 24})
+			assertTextSnapshot(t, fixture, "plain-80x24.txt", render)
+			semantic := RenderSemanticJSON(fixture.State, Size{Width: 80, Height: 24})
+			assertSemanticSnapshot(t, fixture, "semantic-80x24.json", semantic)
+			if containsAny(render+semantic, []string{"Diagnostics:", "recovery action:", "\"diagnostics\""}) {
+				t.Fatalf("%s existing fixture gained diagnostic metadata unexpectedly", fixture.Name)
+			}
+		})
+	}
+}
+
+func assertSemanticDiagnostic(t *testing.T, snapshot SemanticSnapshot, want SemanticDiagnostic) {
+	t.Helper()
+
+	if len(snapshot.Diagnostics) != 1 {
+		t.Fatalf("diagnostics = %+v, want one diagnostic", snapshot.Diagnostics)
+	}
+	if snapshot.Diagnostics[0] != want {
+		t.Fatalf("diagnostic = %+v, want %+v", snapshot.Diagnostics[0], want)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	diagnostic, ok := regions["diagnostics"]
+	if !ok || !diagnostic.Visible {
+		t.Fatalf("diagnostics region = %+v, want visible", diagnostic)
+	}
+	items := strings.Join(diagnostic.Items, "\n")
+	if !containsAll(items, []string{
+		"severity: " + want.Severity,
+		"source: " + want.Source,
+		"affected_artifact: " + want.AffectedArtifact,
+		"recovery_action: " + want.RecoveryAction,
+		"user_input_needed: " + boolLabel(want.UserInputNeeded),
+		"bounded_message: " + want.BoundedMessage,
+		"app-owned",
+		"display-only",
+	}) {
+		t.Fatalf("diagnostic semantic region = %+v, want stable machine-readable fields", diagnostic.Items)
+	}
+}
+
+func assertNoDiagnosticLeak(t *testing.T, text string) {
+	t.Helper()
+	assertNoPathLeak(t, text)
+	if containsAny(text, []string{"secret", "token=", "api_key", "authorization", "Bearer "}) {
+		t.Fatalf("diagnostic fixture leaked secret-like text:\n%s", text)
 	}
 }
 

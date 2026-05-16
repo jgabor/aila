@@ -6,12 +6,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"unicode"
+
+	"github.com/jgabor/aila/internal/diagnostic"
 )
 
 const storeDirName = ".aila"
 
 const defaultProjectMetadata = "schema_version = 1\n"
+
+const projectMetadataSchemaVersion = 1
 
 var (
 	ErrEmptyWorkspace  = errors.New("workspace path is empty")
@@ -65,8 +71,23 @@ type Resolver struct {
 
 // Store owns project-visible state layout creation and artifact writes.
 type Store struct {
-	layout   Layout
-	resolver Resolver
+	layout     Layout
+	resolver   Resolver
+	openStatus OpenStatus
+}
+
+// OpenState describes whether a store open is ready for normal use or degraded.
+type OpenState string
+
+const (
+	OpenStateInitialized    OpenState = "initialized"
+	OpenStateRecoveryNeeded OpenState = "recovery_needed"
+)
+
+// OpenStatus reports passive startup state discovered while opening the store.
+type OpenStatus struct {
+	State       OpenState
+	Diagnostics []diagnostic.Diagnostic
 }
 
 type artifactSpec struct {
@@ -102,22 +123,40 @@ func DescribeStore(workspacePath string) (Layout, error) {
 
 // OpenProjectStore creates or reopens the minimal M15 project store layout.
 func OpenProjectStore(ctx context.Context, workspacePath string) (Store, error) {
-	if err := ctx.Err(); err != nil {
+	result, err := OpenProjectStoreWithStatus(ctx, workspacePath)
+	if err != nil {
 		return Store{}, err
+	}
+	return result.Store, nil
+}
+
+// OpenProjectStoreWithStatus creates or reopens the project store and reports passive recovery state.
+func OpenProjectStoreWithStatus(ctx context.Context, workspacePath string) (OpenResult, error) {
+	if err := ctx.Err(); err != nil {
+		return OpenResult{}, err
 	}
 
 	layout, err := DescribeStore(workspacePath)
 	if err != nil {
-		return Store{}, err
+		return OpenResult{}, err
 	}
-	if err := createLayout(ctx, layout); err != nil {
-		return Store{}, err
+	status, err := createLayout(ctx, layout)
+	if err != nil {
+		return OpenResult{}, err
 	}
 
-	return Store{
-		layout:   layout,
-		resolver: NewResolver(layout),
-	}, nil
+	store := Store{
+		layout:     layout,
+		resolver:   NewResolver(layout),
+		openStatus: status,
+	}
+	return OpenResult{Store: store, Status: status}, nil
+}
+
+// OpenResult returns both the usable store handles and passive recovery state.
+type OpenResult struct {
+	Store  Store
+	Status OpenStatus
 }
 
 // Layout returns the store layout derived from the workspace path.
@@ -128,6 +167,11 @@ func (s Store) Layout() Layout {
 // Resolver returns the store resolver for logical artifact paths.
 func (s Store) Resolver() Resolver {
 	return s.resolver
+}
+
+// OpenStatus returns the passive startup state discovered while opening the store.
+func (s Store) OpenStatus() OpenStatus {
+	return s.openStatus
 }
 
 // WriteArtifact validates ownership and atomically replaces a logical artifact file.
@@ -176,42 +220,197 @@ func (r Resolver) ResolveArtifactWrite(name ArtifactName, owner ArtifactOwner) (
 	return r.resolved(name, spec)
 }
 
-func createLayout(ctx context.Context, layout Layout) error {
+func createLayout(ctx context.Context, layout Layout) (OpenStatus, error) {
 	for _, dir := range []string{layout.StoreRoot, layout.ArtifactsRoot, layout.IndexesRoot} {
 		if err := ctx.Err(); err != nil {
-			return err
+			return OpenStatus{}, err
 		}
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create store directory %s: %w", dir, err)
+			return OpenStatus{}, fmt.Errorf("create store directory %s: %w", dir, err)
 		}
 	}
 	return createProjectFile(layout.ProjectFile)
 }
 
-func createProjectFile(path string) error {
+func createProjectFile(path string) (OpenStatus, error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
 			info, statErr := os.Stat(path)
 			if statErr != nil {
-				return fmt.Errorf("stat project metadata: %w", statErr)
+				return OpenStatus{}, fmt.Errorf("stat project metadata: %w", statErr)
 			}
 			if info.IsDir() {
-				return fmt.Errorf("project metadata path is a directory: %s", path)
+				return OpenStatus{}, fmt.Errorf("project metadata path is a directory: %s", path)
 			}
-			return nil
+			return validateProjectMetadata(path)
 		}
-		return fmt.Errorf("create project metadata: %w", err)
+		return OpenStatus{}, fmt.Errorf("create project metadata: %w", err)
 	}
 
 	if _, err := file.WriteString(defaultProjectMetadata); err != nil {
 		_ = file.Close()
-		return fmt.Errorf("write project metadata: %w", err)
+		return OpenStatus{}, fmt.Errorf("write project metadata: %w", err)
 	}
 	if err := file.Close(); err != nil {
-		return fmt.Errorf("close project metadata: %w", err)
+		return OpenStatus{}, fmt.Errorf("close project metadata: %w", err)
+	}
+	return initializedStatus(), nil
+}
+
+func validateProjectMetadata(path string) (OpenStatus, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return OpenStatus{}, fmt.Errorf("read project metadata: %w", err)
+	}
+	version, err := parseProjectMetadataSchemaVersion(string(content))
+	if err != nil {
+		return recoveryStatus(err), nil
+	}
+	if version != projectMetadataSchemaVersion {
+		return recoveryStatus(fmt.Errorf("unsupported schema_version %d", version)), nil
+	}
+	return initializedStatus(), nil
+}
+
+func parseProjectMetadataSchemaVersion(content string) (int, error) {
+	seen := false
+	version := 0
+	for lineNumber, line := range strings.Split(content, "\n") {
+		trimmed, err := stripTOMLComment(line)
+		if err != nil {
+			return 0, fmt.Errorf("invalid project metadata line %d", lineNumber+1)
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "[") {
+			if err := validateTOMLTable(trimmed); err != nil {
+				return 0, fmt.Errorf("invalid project metadata line %d", lineNumber+1)
+			}
+			continue
+		}
+		key, value, ok := strings.Cut(trimmed, "=")
+		if !ok {
+			return 0, fmt.Errorf("invalid project metadata line %d", lineNumber+1)
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if !validTOMLKeyPath(key) || !validTOMLValue(value) {
+			return 0, fmt.Errorf("invalid project metadata line %d", lineNumber+1)
+		}
+		if key != "schema_version" {
+			continue
+		}
+		if seen {
+			return 0, fmt.Errorf("duplicate schema_version")
+		}
+		seen = true
+		parsedVersion, err := strconv.Atoi(value)
+		if err != nil {
+			return 0, fmt.Errorf("invalid schema_version")
+		}
+		version = parsedVersion
+	}
+	if seen {
+		return version, nil
+	}
+	return 0, fmt.Errorf("missing schema_version")
+}
+
+func stripTOMLComment(line string) (string, error) {
+	inString := false
+	escaped := false
+	for i, r := range line {
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			switch r {
+			case '\\':
+				escaped = true
+			case '"':
+				inString = false
+			}
+			continue
+		}
+		switch r {
+		case '"':
+			inString = true
+		case '#':
+			return strings.TrimSpace(line[:i]), nil
+		}
+	}
+	if inString || escaped {
+		return "", fmt.Errorf("unterminated string")
+	}
+	return strings.TrimSpace(line), nil
+}
+
+func validateTOMLTable(line string) error {
+	if !strings.HasSuffix(line, "]") || strings.HasPrefix(line, "[[") || strings.Contains(line[1:len(line)-1], "[") || strings.Contains(line[1:len(line)-1], "]") {
+		return fmt.Errorf("invalid table")
+	}
+	if !validTOMLKeyPath(strings.TrimSpace(line[1 : len(line)-1])) {
+		return fmt.Errorf("invalid table")
 	}
 	return nil
+}
+
+func validTOMLKeyPath(key string) bool {
+	if key == "" {
+		return false
+	}
+	parts := strings.Split(key, ".")
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+func validTOMLValue(value string) bool {
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "\"") {
+		_, err := strconv.Unquote(value)
+		return err == nil
+	}
+	if value == "true" || value == "false" {
+		return true
+	}
+	if _, err := strconv.Atoi(value); err == nil {
+		return true
+	}
+	return false
+}
+
+func initializedStatus() OpenStatus {
+	return OpenStatus{State: OpenStateInitialized}
+}
+
+func recoveryStatus(cause error) OpenStatus {
+	return OpenStatus{
+		State: OpenStateRecoveryNeeded,
+		Diagnostics: []diagnostic.Diagnostic{diagnostic.New(diagnostic.Spec{
+			Category:         diagnostic.CategoryState,
+			Source:           diagnostic.SourceStateOpen,
+			Severity:         diagnostic.SeverityError,
+			Message:          "project metadata requires recovery: " + cause.Error(),
+			AffectedArtifact: diagnostic.ArtifactProjectMetadata,
+			RecoveryAction:   diagnostic.RecoveryManualRepair,
+			UserInputNeeded:  true,
+		})},
+	}
 }
 
 func writeFileAtomic(ctx context.Context, path string, content []byte) error {

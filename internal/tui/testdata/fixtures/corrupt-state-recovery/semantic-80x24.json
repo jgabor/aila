@@ -1,0 +1,110 @@
+{
+  "scenario": "corrupt-state-recovery",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "project_store_status": "recovery-needed",
+    "project_store_source": "state.open",
+    "project_store_detail": "project metadata needs manual review"
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "source": "state.open",
+      "recovery_action": "manual-repair",
+      "affected_artifact": "project-metadata",
+      "user_input_needed": true,
+      "bounded_message": "metadata unreadable; inspect before reinitialize"
+    }
+  ],
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: recovery-needed",
+        "source: state.open",
+        "detail: project metadata needs manual review",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "visible": true,
+      "items": [
+        "severity: error",
+        "source: state.open",
+        "affected_artifact: project-metadata",
+        "recovery_action: manual-repair",
+        "user_input_needed: true",
+        "bounded_message: metadata unreadable; inspect before reinitialize",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

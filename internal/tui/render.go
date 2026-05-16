@@ -34,6 +34,7 @@ type ViewState struct {
 	ProjectStoreStatus string
 	ProjectStoreSource string
 	ProjectStoreDetail string
+	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
 	Transcript         []TranscriptTurn
@@ -42,6 +43,16 @@ type ViewState struct {
 	SurfaceTitle       string
 	SurfaceLines       []string
 	PromptInput        string
+}
+
+// DiagnosticView is app-owned diagnostic presentation data consumed by the TUI.
+type DiagnosticView struct {
+	Severity         string `json:"severity"`
+	Source           string `json:"source"`
+	RecoveryAction   string `json:"recovery_action"`
+	AffectedArtifact string `json:"affected_artifact"`
+	UserInputNeeded  bool   `json:"user_input_needed"`
+	BoundedMessage   string `json:"bounded_message"`
 }
 
 // IdleEmptyState returns the static first-launch view state.
@@ -207,11 +218,30 @@ func displayLabelLines(state ViewState) []string {
 		}
 		lines = append(lines, line)
 	}
+	lines = append(lines, diagnosticLines(state.Diagnostics)...)
 	return append(lines, "")
 }
 
+func diagnosticLines(diagnostics []DiagnosticView) []string {
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	lines := []string{"  Diagnostics:"}
+	for _, diagnostic := range diagnostics {
+		lines = append(lines,
+			"  severity: "+diagnostic.Severity,
+			"  source: "+diagnostic.Source,
+			"  affected artifact: "+diagnostic.AffectedArtifact,
+			"  recovery action: "+diagnostic.RecoveryAction,
+			"  user input needed: "+boolLabel(diagnostic.UserInputNeeded),
+			"  message: "+diagnostic.BoundedMessage,
+		)
+	}
+	return lines
+}
+
 func hasDisplayLabelDetails(state ViewState) bool {
-	return state.PrimaryModel != "placeholder" || state.UtilityModel != "placeholder" || state.Autonomy != "placeholder"
+	return state.PrimaryModel != "placeholder" || state.UtilityModel != "placeholder" || state.Autonomy != "placeholder" || hasProjectStoreStatus(state) || len(state.Diagnostics) > 0
 }
 
 func hasProjectStoreStatus(state ViewState) bool {
@@ -318,14 +348,25 @@ func stripANSI(text string) string {
 
 // SemanticSnapshot is the agent-readable meaning of the rendered static shell.
 type SemanticSnapshot struct {
-	Scenario  string             `json:"scenario"`
-	Screen    SemanticScreen     `json:"screen"`
-	Layout    SemanticLayout     `json:"layout"`
-	Session   SemanticSession    `json:"session"`
-	Interrupt *SemanticInterrupt `json:"interrupt,omitempty"`
-	Command   *SemanticCommand   `json:"command,omitempty"`
-	Regions   []SemanticRegion   `json:"regions"`
-	Actions   []SemanticAction   `json:"actions"`
+	Scenario    string               `json:"scenario"`
+	Screen      SemanticScreen       `json:"screen"`
+	Layout      SemanticLayout       `json:"layout"`
+	Session     SemanticSession      `json:"session"`
+	Diagnostics []SemanticDiagnostic `json:"diagnostics,omitempty"`
+	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
+	Command     *SemanticCommand     `json:"command,omitempty"`
+	Regions     []SemanticRegion     `json:"regions"`
+	Actions     []SemanticAction     `json:"actions"`
+}
+
+// SemanticDiagnostic is the stable diagnostic status contract for fixtures.
+type SemanticDiagnostic struct {
+	Severity         string `json:"severity"`
+	Source           string `json:"source"`
+	RecoveryAction   string `json:"recovery_action"`
+	AffectedArtifact string `json:"affected_artifact"`
+	UserInputNeeded  bool   `json:"user_input_needed"`
+	BoundedMessage   string `json:"bounded_message"`
 }
 
 // SemanticScreen describes the terminal surface for a snapshot.
@@ -408,6 +449,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if hasProjectStoreStatus(state) {
 		regions = append(regions, SemanticRegion{Name: "project_store", Visible: true, Items: semanticProjectStoreItems(state)})
 	}
+	if len(state.Diagnostics) > 0 {
+		regions = append(regions, SemanticRegion{Name: "diagnostics", Visible: true, Items: semanticDiagnosticItems(state.Diagnostics)})
+	}
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
@@ -474,9 +518,10 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			ProjectStoreSource: state.ProjectStoreSource,
 			ProjectStoreDetail: state.ProjectStoreDetail,
 		},
-		Command: command,
-		Regions: regions,
-		Actions: actions,
+		Diagnostics: semanticDiagnostics(state.Diagnostics),
+		Command:     command,
+		Regions:     regions,
+		Actions:     actions,
 	}
 	if hasInterruptState(state) {
 		snapshot.Interrupt = semanticInterrupt(state)
@@ -541,6 +586,33 @@ func semanticProjectStoreItems(state ViewState) []string {
 		items = append(items, "detail: "+state.ProjectStoreDetail)
 	}
 	items = append(items, "app-owned")
+	return items
+}
+
+func semanticDiagnostics(diagnostics []DiagnosticView) []SemanticDiagnostic {
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	items := make([]SemanticDiagnostic, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		items = append(items, SemanticDiagnostic(diagnostic))
+	}
+	return items
+}
+
+func semanticDiagnosticItems(diagnostics []DiagnosticView) []string {
+	items := make([]string, 0, len(diagnostics)*6)
+	for _, diagnostic := range diagnostics {
+		items = append(items,
+			"severity: "+diagnostic.Severity,
+			"source: "+diagnostic.Source,
+			"affected_artifact: "+diagnostic.AffectedArtifact,
+			"recovery_action: "+diagnostic.RecoveryAction,
+			"user_input_needed: "+boolLabel(diagnostic.UserInputNeeded),
+			"bounded_message: "+diagnostic.BoundedMessage,
+		)
+	}
+	items = append(items, "app-owned", "display-only")
 	return items
 }
 

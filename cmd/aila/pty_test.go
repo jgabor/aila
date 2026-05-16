@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/creack/pty"
+
+	"github.com/jgabor/aila/internal/app"
 )
 
 func TestStaticTUISmokeStartupAndQuit(t *testing.T) {
@@ -84,6 +91,120 @@ func TestM15ProjectStoreStartupPTYSmoke(t *testing.T) {
 		}
 	case <-ctx.Done():
 		t.Fatalf("project store startup TUI did not quit after q: %v", ctx.Err())
+	}
+}
+
+func TestM15AShutdownDiagnosticsPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace, cmd := startAilaPTYWithProcess(t, 80, 24, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+	}, 20*time.Second)
+	assertNoDiagnosticSmokeLeaks(t, startup, env, workspace)
+	assertProjectStoreLayout(t, workspace)
+
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("send SIGTERM to PTY process: %v", err)
+	}
+	shutdown := readUntilAll(t, terminal, []string{
+		"shutdown:",
+		"signal_shutdown",
+		"signal-triggered shutdown requested",
+	}, 10*time.Second)
+
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("shutdown PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("shutdown PTY did not clean up before timeout: %v", ctx.Err())
+	}
+	shutdown += readRemainingPTYOutput(t, terminal, 2*time.Second)
+	assertNoDiagnosticSmokeLeaks(t, shutdown, env, workspace)
+
+	assertProjectStoreLayout(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for shutdown smoke: %v", err)
+	}
+}
+
+func TestM15ADebugDiagnosticsNonInteractiveSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process smoke uses Unix path assertions")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	tmp := t.TempDir()
+	workspace := filepath.Join(tmp, "workspace")
+	storeRoot := filepath.Join(workspace, ".aila")
+	if err := os.MkdirAll(storeRoot, 0o755); err != nil {
+		t.Fatalf("create debug smoke project store: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(storeRoot, "project.toml"), []byte("schema_version = 2\nsecret = \"token=debug-smoke-secret\"\npath = \""+workspace+"\"\n"), 0o644); err != nil {
+		t.Fatalf("write debug smoke corrupt metadata: %v", err)
+	}
+	binary := buildAilaTestBinary(t, env.vars, tmp)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "--debug")
+	cmd.Dir = workspace
+	cmd.Env = append(env.vars,
+		"OPENAI_API_KEY=debug-smoke-openai-secret",
+		"AILA_TEST_CONFIG_PATH="+filepath.Join(env.xdgConfigHome, "aila", "config.toml"),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run debug diagnostics smoke: %v\n%s", err, output)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("debug diagnostics smoke exceeded timeout: %v", ctx.Err())
+	}
+	encoded := string(output)
+	if len(encoded) > app.MaxDebugDiagnosticOutputBytes {
+		t.Fatalf("debug diagnostics output length = %d, want <= %d", len(encoded), app.MaxDebugDiagnosticOutputBytes)
+	}
+	for _, marker := range []string{"\"diagnostics\"", "\"count\"", "\"max_count\"", "\"max_message_bytes\"", "\"max_output_bytes\""} {
+		if !strings.Contains(encoded, marker) {
+			t.Fatalf("debug diagnostics output missing structured marker %q: %s", marker, encoded)
+		}
+	}
+	assertNoDiagnosticSmokeLeaks(t, encoded, env, workspace)
+	for _, leaked := range []string{"debug-smoke-secret", "debug-smoke-openai-secret", "token=", "OPENAI_API_KEY", "config.toml"} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("debug diagnostics smoke leaked %q: %s", leaked, encoded)
+		}
+	}
+
+	var decoded app.DebugDiagnosticsOutput
+	if err := json.Unmarshal(output, &decoded); err != nil {
+		t.Fatalf("unmarshal debug diagnostics smoke output: %v\n%s", err, output)
+	}
+	if decoded.Count != 1 || len(decoded.Diagnostics) != 1 || decoded.MaxCount != app.MaxDebugDiagnostics || decoded.MaxOutputBytes != app.MaxDebugDiagnosticOutputBytes {
+		t.Fatalf("debug diagnostics smoke bounds = %+v", decoded)
+	}
+	got := decoded.Diagnostics[0]
+	if got.Source != "state.open" || got.AffectedArtifact != "project_metadata" || got.RecoveryAction != "manual_repair" || !got.UserInputNeeded {
+		t.Fatalf("debug diagnostics smoke diagnostic = %+v", got)
+	}
+
+	assertProjectStoreEntries(t, workspace)
+	assertFileContent(t, filepath.Join(storeRoot, "project.toml"), "schema_version = 2\nsecret = \"token=debug-smoke-secret\"\npath = \""+workspace+"\"\n")
+	assertNoDurableStatePollution(t, env, baseline)
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); !os.IsNotExist(err) {
+		t.Fatalf("debug smoke unexpectedly created temp config file, err=%v", err)
 	}
 }
 
@@ -470,23 +591,21 @@ func startAilaPTYWithSizeAndEnv(t *testing.T, cols uint16, rows uint16, env []st
 
 func startAilaPTYWithSizeEnvAndWorkspace(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error, string) {
 	t.Helper()
+	ctx, cancel, terminal, wait, workspace, _ := startAilaPTYWithProcess(t, cols, rows, env)
+	return ctx, cancel, terminal, wait, workspace
+}
+
+func startAilaPTYWithProcess(t *testing.T, cols uint16, rows uint16, env []string) (context.Context, context.CancelFunc, *os.File, <-chan error, string, *exec.Cmd) {
+	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	sourceDir := mustSourceDir(t)
 	tmp := t.TempDir()
 	workspace := filepath.Join(tmp, "workspace")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		cancel()
 		t.Fatalf("create PTY workspace: %v", err)
 	}
-	binary := filepath.Join(tmp, "aila")
-	build := exec.Command("go", "build", "-o", binary, ".")
-	build.Dir = sourceDir
-	build.Env = env
-	if output, err := build.CombinedOutput(); err != nil {
-		cancel()
-		t.Fatalf("build aila PTY binary: %v\n%s", err, output)
-	}
+	binary := buildAilaTestBinary(t, env, tmp)
 
 	cmd := exec.CommandContext(ctx, binary)
 	cmd.Dir = workspace
@@ -502,7 +621,20 @@ func startAilaPTYWithSizeEnvAndWorkspace(t *testing.T, cols uint16, rows uint16,
 	go func() {
 		wait <- cmd.Wait()
 	}()
-	return ctx, cancel, terminal, wait, workspace
+	return ctx, cancel, terminal, wait, workspace, cmd
+}
+
+func buildAilaTestBinary(t *testing.T, env []string, dir string) string {
+	t.Helper()
+
+	binary := filepath.Join(dir, "aila")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	build.Dir = mustSourceDir(t)
+	build.Env = env
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build aila test binary: %v\n%s", err, output)
+	}
+	return binary
 }
 
 func mustSourceDir(t *testing.T) string {
@@ -533,6 +665,13 @@ func assertProjectStoreLayout(t *testing.T, workspace string) {
 	if string(content) != "schema_version = 1\n" {
 		t.Fatalf("project store metadata = %q, want schema_version", content)
 	}
+	assertProjectStoreEntries(t, workspace)
+}
+
+func assertProjectStoreEntries(t *testing.T, workspace string) {
+	t.Helper()
+
+	storeRoot := filepath.Join(workspace, ".aila")
 	entries, err := os.ReadDir(storeRoot)
 	if err != nil {
 		t.Fatalf("read project store root: %v", err)
@@ -548,6 +687,188 @@ func assertProjectStoreLayout(t *testing.T, workspace string) {
 	if strings.Join(got, ",") != "artifacts/,indexes/,project.toml" {
 		t.Fatalf("project store entries = %v, want artifacts indexes and project.toml only", got)
 	}
+}
+
+func assertFileContent(t *testing.T, path string, want string) {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %q: %v", path, err)
+	}
+	if string(content) != want {
+		t.Fatalf("content of %q = %q, want %q", path, content, want)
+	}
+}
+
+func assertNoDiagnosticSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		workspace,
+		env.home,
+		env.xdgConfigHome,
+		mustRepositoryRoot(t),
+		"/tmp",
+		"/home/",
+		".aila",
+		"project.toml",
+		"artifacts/",
+		"indexes/",
+		"config.toml",
+		".config/aila",
+		"credential",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("diagnostic smoke output leaked marker %q: %q", forbidden, output)
+		}
+	}
+}
+
+type durableStateBaseline struct {
+	snapshots map[string]durablePathSnapshot
+}
+
+type durablePathSnapshot struct {
+	exists  bool
+	entries map[string]durableEntrySnapshot
+}
+
+type durableEntrySnapshot struct {
+	kind       string
+	mode       fs.FileMode
+	size       int64
+	digest     string
+	linkTarget string
+}
+
+func captureDurableStateBaseline(t *testing.T) durableStateBaseline {
+	t.Helper()
+
+	paths := []string{
+		filepath.Join(mustSourceDir(t), ".aila"),
+		filepath.Join(mustRepositoryRoot(t), ".aila"),
+	}
+	snapshots := make(map[string]durablePathSnapshot, len(paths))
+	for _, path := range paths {
+		snapshots[path] = snapshotDurablePath(t, path)
+	}
+	return durableStateBaseline{snapshots: snapshots}
+}
+
+func assertNoDurableStatePollution(t *testing.T, env ailaPTYTestEnv, baseline durableStateBaseline) {
+	t.Helper()
+
+	for _, path := range []string{
+		filepath.Join(env.home, ".aila"),
+		filepath.Join(env.home, ".config", "aila"),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("diagnostic smoke touched durable state path %q, err=%v", path, err)
+		}
+	}
+	for path, before := range baseline.snapshots {
+		after := snapshotDurablePath(t, path)
+		if !durablePathSnapshotsEqual(before, after) {
+			t.Fatalf("diagnostic smoke modified durable state path %q: before=%s after=%s", path, formatDurablePathSnapshot(before), formatDurablePathSnapshot(after))
+		}
+	}
+}
+
+func snapshotDurablePath(t *testing.T, path string) durablePathSnapshot {
+	t.Helper()
+
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return durablePathSnapshot{}
+	}
+	if err != nil {
+		t.Fatalf("stat durable state path %q: %v", path, err)
+	}
+	entries := make(map[string]durableEntrySnapshot)
+	if !info.IsDir() {
+		entries["."] = snapshotDurableEntry(t, path, info)
+		return durablePathSnapshot{exists: true, entries: entries}
+	}
+	if err := filepath.WalkDir(path, func(entryPath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(path, entryPath)
+		if err != nil {
+			return err
+		}
+		entries[rel] = snapshotDurableEntry(t, entryPath, info)
+		return nil
+	}); err != nil {
+		t.Fatalf("snapshot durable state path %q: %v", path, err)
+	}
+	return durablePathSnapshot{exists: true, entries: entries}
+}
+
+func snapshotDurableEntry(t *testing.T, path string, info fs.FileInfo) durableEntrySnapshot {
+	t.Helper()
+
+	entry := durableEntrySnapshot{mode: info.Mode(), size: info.Size()}
+	switch {
+	case info.Mode().IsRegular():
+		entry.kind = "file"
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read durable state file %q: %v", path, err)
+		}
+		entry.digest = fmt.Sprintf("%x", sha256.Sum256(content))
+	case info.IsDir():
+		entry.kind = "dir"
+	case info.Mode()&os.ModeSymlink != 0:
+		entry.kind = "symlink"
+		target, err := os.Readlink(path)
+		if err != nil {
+			t.Fatalf("read durable state symlink %q: %v", path, err)
+		}
+		entry.linkTarget = target
+	default:
+		entry.kind = "other"
+	}
+	return entry
+}
+
+func durablePathSnapshotsEqual(left durablePathSnapshot, right durablePathSnapshot) bool {
+	if left.exists != right.exists || len(left.entries) != len(right.entries) {
+		return false
+	}
+	for path, leftEntry := range left.entries {
+		if right.entries[path] != leftEntry {
+			return false
+		}
+	}
+	return true
+}
+
+func formatDurablePathSnapshot(snapshot durablePathSnapshot) string {
+	if !snapshot.exists {
+		return "absent"
+	}
+	paths := make([]string, 0, len(snapshot.entries))
+	for path := range snapshot.entries {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	parts := make([]string, 0, len(paths))
+	for _, path := range paths {
+		entry := snapshot.entries[path]
+		parts = append(parts, fmt.Sprintf("%s:%s:%s:%d:%s:%s", path, entry.kind, entry.mode, entry.size, entry.digest, entry.linkTarget))
+	}
+	return strings.Join(parts, ",")
+}
+
+func mustRepositoryRoot(t *testing.T) string {
+	t.Helper()
+	return filepath.Dir(filepath.Dir(mustSourceDir(t)))
 }
 
 type ailaPTYTestEnv struct {
@@ -663,5 +984,33 @@ func readUntilMatch(t *testing.T, reader io.Reader, timeout time.Duration, match
 		case <-timer.C:
 			t.Fatalf("timed out waiting for %q; partial output: %q", description, partial)
 		}
+	}
+}
+
+func readRemainingPTYOutput(t *testing.T, reader io.Reader, timeout time.Duration) string {
+	t.Helper()
+
+	result := make(chan string, 1)
+	go func() {
+		var out strings.Builder
+		buf := make([]byte, 1024)
+		for {
+			n, err := reader.Read(buf)
+			if n > 0 {
+				out.Write(buf[:n])
+			}
+			if err != nil {
+				result <- out.String()
+				return
+			}
+		}
+	}()
+
+	select {
+	case output := <-result:
+		return output
+	case <-time.After(timeout):
+		t.Fatalf("timed out draining PTY output after process exit")
+		return ""
 	}
 }

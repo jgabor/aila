@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/state"
 	"github.com/jgabor/aila/internal/tui"
 	"github.com/jgabor/aila/internal/workflow"
@@ -16,6 +17,8 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("start aila: %w", err)
 	}
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
 
 	workspace, err := os.Getwd()
 	if err != nil {
@@ -27,21 +30,18 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return err
 	}
 
-	runner := newInputRunnerForEnvironment()
-	if _, err := tui.NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input, output, state, runner.submitPrompt, runner.routeCommand, runner.requestInterrupt).Run(); err != nil {
-		return fmt.Errorf("run static tui: %w", err)
-	}
-	return nil
+	runner := newInputRunnerForEnvironment(ctx)
+	return runProgramWithShutdown(ctx, input, output, state, runner)
 }
 
-func newInputRunnerForEnvironment() *inputRunner {
+func newInputRunnerForEnvironment(ctx context.Context) *inputRunner {
 	if os.Getenv("AILA_FAKE_RUNTIME_HOLD_ACTIVE") == "1" {
 		if os.Getenv("AILA_FAKE_RUNTIME_RESOLVE_SECOND_INTERRUPT") == "1" {
-			return newInputRunnerHoldingFakeWorkWithSecondInterruptResolution()
+			return newInputRunnerHoldingFakeWorkWithSecondInterruptResolutionContext(ctx)
 		}
-		return newInputRunnerHoldingFakeWork()
+		return newInputRunnerHoldingFakeWorkWithContext(ctx)
 	}
-	return newInputRunner()
+	return newInputRunnerWithContext(ctx)
 }
 
 func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewState, error) {
@@ -58,11 +58,29 @@ func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewSta
 }
 
 func openStoreDisplayStatus(ctx context.Context, workspacePath string) StoreDisplayStatus {
-	if _, err := state.OpenProjectStore(ctx, workspacePath); err != nil {
+	result, err := state.OpenProjectStoreWithStatus(ctx, workspacePath)
+	if err != nil {
+		detail := "project store unavailable: " + boundedStoreError(err)
 		return StoreDisplayStatus{
-			Status: "degraded",
-			Source: "state.open",
-			Detail: "project store unavailable: " + boundedStoreError(err),
+			Status:      "degraded",
+			Source:      "state.open",
+			Detail:      detail,
+			Diagnostics: []diagnostic.Diagnostic{storeOpenUnavailableDiagnostic(detail)},
+		}
+	}
+	if result.Status.State == state.OpenStateRecoveryNeeded {
+		detail := "project metadata requires recovery"
+		if len(result.Status.Diagnostics) > 0 {
+			detail = result.Status.Diagnostics[0].BoundedMessage
+			if summary := diagnosticSummary(result.Status.Diagnostics); summary != "" {
+				detail += " (" + summary + ")"
+			}
+		}
+		return StoreDisplayStatus{
+			Status:      string(result.Status.State),
+			Source:      "state.open",
+			Detail:      detail,
+			Diagnostics: result.Status.Diagnostics,
 		}
 	}
 	return StoreDisplayStatus{

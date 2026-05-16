@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder         
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: placeholder                                                   |
+| utility model: placeholder                                                   |
+| autonomy: placeholder (display-only)                                         |
+| Diagnostics:                                                                 |
+| severity: warning                                                            |
+| source: runtime.fixture                                                      |
+| affected artifact: runtime                                                   |
+| recovery action: inspect                                                     |
+| user input needed: false                                                     |
+| message: runtime cancellation was recorded as diagnostic state               |
+|                                                                              |
+| No messages yet.                                                             |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

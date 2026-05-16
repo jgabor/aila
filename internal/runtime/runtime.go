@@ -1,6 +1,12 @@
 package runtime
 
-import "strings"
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/jgabor/aila/internal/diagnostic"
+)
 
 // Status describes whether the runtime is waiting for user input or a fake
 // operation result.
@@ -65,6 +71,14 @@ type FakeInterruptResolved struct {
 
 func (FakeInterruptResolved) runtimeMessage() {}
 
+// RuntimeDiagnostic records supervised runtime or effect diagnostics as typed
+// runtime messages. It is passive data; Update decides how it affects state.
+type RuntimeDiagnostic struct {
+	Diagnostic diagnostic.Diagnostic
+}
+
+func (RuntimeDiagnostic) runtimeMessage() {}
+
 // Model is runtime-owned state for the current fake interaction surface.
 type Model struct {
 	Status          Status
@@ -74,6 +88,7 @@ type Model struct {
 	LastCommand     string
 	NextOperation   int
 	ActiveOperation OperationMetadata
+	Diagnostics     []diagnostic.Diagnostic
 }
 
 // QueuedEntry is a user message queued while fake work is active.
@@ -134,29 +149,86 @@ func (effect FakeInterruptEffect) Metadata() OperationMetadata {
 // Dispatch interprets fake in-memory effects synchronously and returns result
 // messages in the same order as the input effects.
 func Dispatch(effects []Effect) []Message {
+	return DispatchContext(context.Background(), effects)
+}
+
+// DispatchContext interprets fake in-memory effects and records context
+// cancellation as a typed diagnostic message.
+func DispatchContext(ctx context.Context, effects []Effect) []Message {
 	if len(effects) == 0 {
 		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return []Message{CancellationMessage(diagnostic.SourceEffect, err)}
 	}
 
 	messages := make([]Message, 0, len(effects))
 	for _, effect := range effects {
-		switch typed := effect.(type) {
-		case FakePromptEffect:
-			messages = append(messages, FakeEffectCompleted{
-				Operation: typed.Operation,
-				Result:    "Fake Aila response: " + typed.Prompt,
-			})
-		case FakeCommandEffect:
-			messages = append(messages, FakeEffectCompleted{
-				Operation: typed.Operation,
-				Result:    "fake command result: " + typed.Command,
-			})
-		case FakeInterruptEffect:
-			messages = append(messages, FakeInterruptResolved(typed))
-		}
+		messages = append(messages, dispatchOne(effect)...)
 	}
 
 	return messages
+}
+
+func dispatchOne(effect Effect) (messages []Message) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			messages = []Message{PanicMessage(diagnostic.SourceEffect, recovered)}
+		}
+	}()
+
+	switch typed := effect.(type) {
+	case FakePromptEffect:
+		return []Message{FakeEffectCompleted{
+			Operation: typed.Operation,
+			Result:    "Fake Aila response: " + typed.Prompt,
+		}}
+	case FakeCommandEffect:
+		return []Message{FakeEffectCompleted{
+			Operation: typed.Operation,
+			Result:    "fake command result: " + typed.Command,
+		}}
+	case FakeInterruptEffect:
+		return []Message{FakeInterruptResolved(typed)}
+	case interface{ dispatchPanic() }:
+		typed.dispatchPanic()
+	}
+	return nil
+}
+
+// PanicMessage converts recovered panic data into a typed diagnostic message.
+func PanicMessage(source diagnostic.Source, recovered any) RuntimeDiagnostic {
+	category := diagnostic.CategoryRuntime
+	if source == diagnostic.SourceEffect {
+		category = diagnostic.CategoryEffect
+	}
+	return RuntimeDiagnostic{Diagnostic: diagnostic.New(diagnostic.Spec{
+		Category:         category,
+		Source:           source,
+		Severity:         diagnostic.SeverityError,
+		Message:          fmt.Sprintf("supervised %s panic recovered: %v", source, recovered),
+		AffectedArtifact: diagnostic.ArtifactRuntimeEffect,
+		RecoveryAction:   diagnostic.RecoveryInspect,
+		UserInputNeeded:  true,
+	})}
+}
+
+// CancellationMessage converts handled context cancellation into a typed
+// diagnostic message.
+func CancellationMessage(source diagnostic.Source, err error) RuntimeDiagnostic {
+	message := "runtime work canceled"
+	if err != nil {
+		message += ": " + err.Error()
+	}
+	return RuntimeDiagnostic{Diagnostic: diagnostic.New(diagnostic.Spec{
+		Category:         diagnostic.CategoryCancellation,
+		Source:           source,
+		Severity:         diagnostic.SeverityWarning,
+		Message:          message,
+		AffectedArtifact: diagnostic.ArtifactRuntimeEffect,
+		RecoveryAction:   diagnostic.RecoveryIgnoreForRun,
+		UserInputNeeded:  false,
+	})}
 }
 
 // OperationKind classifies a requested operation without performing it.
@@ -197,6 +269,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 	next := model
 	next.Transcript = append([]TranscriptEntry(nil), model.Transcript...)
 	next.Queued = append([]QueuedEntry(nil), model.Queued...)
+	next.Diagnostics = append([]diagnostic.Diagnostic(nil), model.Diagnostics...)
 
 	switch msg := message.(type) {
 	case PromptSubmitted:
@@ -251,6 +324,10 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation.Cancel = msg.Cancel
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "canceled", Text: next.Result})
+		return next, nil
+	case RuntimeDiagnostic:
+		next.Diagnostics = append(next.Diagnostics, msg.Diagnostic)
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "diagnostic", Text: msg.Diagnostic.BoundedMessage})
 		return next, nil
 	default:
 		return next, nil

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jgabor/aila/internal/app"
+	"github.com/jgabor/aila/internal/diagnostic"
 )
 
 const wantRunStub = "aila test-version\n" +
@@ -76,13 +77,16 @@ const wantOpenAIModelsOutput = "aila test-version\n" +
 
 const wantHelpOutput = "aila test-version\n" +
 	"M7 accepted shape:\n" +
-	"  aila run [prompt...] [--model MODEL]\n" +
+	"  aila run [prompt...] [--model MODEL] [--debug]\n" +
 	"  aila continue | aila --continue | aila -c\n" +
-	"  aila config [--all]\n" +
-	"  aila models [filter...]\n" +
+	"  aila config [--all] [--debug]\n" +
+	"  aila models [filter...] [--debug]\n" +
 	"  aila help\n" +
 	"  aila --version | aila -V\n" +
+	"  aila --debug\n" +
 	"Deferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n"
+
+const validM7FlagsWithDebug = "--model, -m, --continue, -c, --version, -V, --debug"
 
 func TestMainPackageCompiles(t *testing.T) {
 	t.Parallel()
@@ -279,8 +283,8 @@ func TestCLIRunnerRejectsUnknownCommandsAndFlags(t *testing.T) {
 	}{
 		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid M7 commands: run, continue, config, models, help"},
 		{name: "unknown positional after help", args: []string{"help", "topic"}, want: "unknown command \"topic\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
-		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
+		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: " + validM7FlagsWithDebug},
+		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
 		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid M7 commands: run, continue, config, models, help"},
 		{name: "config all on models", args: []string{"models", "--all"}, want: "unsupported M7 flag \"--all\" for models; valid config shape: config [--all]"},
 	}
@@ -312,10 +316,10 @@ func TestM7CLIUnknownInputsReturnBoundedDiagnostics(t *testing.T) {
 		want string
 	}{
 		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
-		{name: "unknown short flag", args: []string{"run", "-x"}, want: "unknown flag \"-x\"; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
-		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
-		{name: "empty model value", args: []string{"--model="}, want: "missing value for --model; valid M7 flags: --model, -m, --continue, -c, --version, -V"},
+		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: " + validM7FlagsWithDebug},
+		{name: "unknown short flag", args: []string{"run", "-x"}, want: "unknown flag \"-x\"; valid M7 flags: " + validM7FlagsWithDebug},
+		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
+		{name: "empty model value", args: []string{"--model="}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
 		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid M7 commands: run, continue, config, models, help"},
 		{name: "ambiguous commands", args: []string{"run", "config"}, want: "incompatible M7 commands \"run\" and \"config\"; valid M7 commands: run, continue, config, models, help"},
 		{name: "ambiguous continuation", args: []string{"run", "--continue"}, want: "incompatible M7 continuation shape \"run\" with --continue; use continue or --continue, not run --continue"},
@@ -335,6 +339,30 @@ func TestM7CLIUnknownInputsReturnBoundedDiagnostics(t *testing.T) {
 				t.Fatalf("diagnostic for %v is not bounded: %d bytes: %q", test.args, len(stderr), stderr)
 			}
 		})
+	}
+}
+
+func TestShutdownErrorExitsCleanlyWithDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	shutdown := app.NewShutdownError([]diagnostic.Diagnostic{diagnostic.New(diagnostic.Spec{
+		Category:         diagnostic.CategorySignalShutdown,
+		Source:           diagnostic.SourceSignal,
+		Severity:         diagnostic.SeverityWarning,
+		Message:          "signal-triggered shutdown requested: context canceled",
+		AffectedArtifact: diagnostic.ArtifactRuntimeEffect,
+		RecoveryAction:   diagnostic.RecoveryIgnoreForRun,
+		UserInputNeeded:  false,
+	})})
+	var errors bytes.Buffer
+
+	code := exitCodeForError(shutdown, &errors)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want clean shutdown", code)
+	}
+	if got := errors.String(); !strings.Contains(got, "shutdown: signal_shutdown: signal-triggered shutdown requested") {
+		t.Fatalf("stderr = %q, want shutdown diagnostic", got)
 	}
 }
 
@@ -519,6 +547,54 @@ func TestCLIRunnerModelsOutputIsBoundedAndSecretFree(t *testing.T) {
 	}
 }
 
+func TestCLIRunnerDebugOutputsStructuredDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	var errors bytes.Buffer
+	runner := cliRunner{
+		input:   failReader{t: t},
+		output:  &output,
+		errors:  &errors,
+		version: "test-version",
+		start: func(context.Context, io.Reader, io.Writer) error {
+			t.Fatal("debug command must not start the interactive TUI path")
+			return nil
+		},
+		debug: func(context.Context) (string, error) {
+			return "{\n  \"diagnostics\": [],\n  \"count\": 0,\n  \"max_count\": 8,\n  \"max_message_bytes\": 240,\n  \"max_output_bytes\": 8192\n}\n", nil
+		},
+	}
+
+	if err := runner.run(context.Background(), []string{"run", "--debug"}); err != nil {
+		t.Fatalf("run debug command: %v", err)
+	}
+	if errors.Len() != 0 {
+		t.Fatalf("stderr for debug command: %q", errors.String())
+	}
+	stdout := output.String()
+	for _, field := range []string{"\"diagnostics\"", "\"count\"", "\"max_count\"", "\"max_message_bytes\"", "\"max_output_bytes\""} {
+		if !strings.Contains(stdout, field) {
+			t.Fatalf("debug output missing %s: %q", field, stdout)
+		}
+	}
+}
+
+func TestCLIRunnerDebugOnlyReportsEmptyDiagnosticsWithoutInteractiveStartup(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, err := runCLITestWithDebug(t, []string{"--debug"}, "{\n  \"diagnostics\": [],\n  \"count\": 0,\n  \"max_count\": 8,\n  \"max_message_bytes\": 240,\n  \"max_output_bytes\": 8192\n}\n")
+	if err != nil {
+		t.Fatalf("run debug-only command: %v", err)
+	}
+	if !strings.Contains(stdout, "\"diagnostics\": []") || !strings.Contains(stdout, "\"count\": 0") {
+		t.Fatalf("debug-only output did not report empty set: %q", stdout)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr for debug-only command: %q", stderr)
+	}
+}
+
 func TestCLIRunnerHelpAndVersionAreStable(t *testing.T) {
 	t.Parallel()
 
@@ -609,6 +685,29 @@ func runCLIWithConfigCommand(t *testing.T, args []string) (string, string, error
 			return nil
 		},
 		config: app.ConfigCommandOutput,
+	}
+
+	err := runner.run(context.Background(), args)
+	return output.String(), errors.String(), err
+}
+
+func runCLITestWithDebug(t *testing.T, args []string, debugOutput string) (string, string, error) {
+	t.Helper()
+
+	var output bytes.Buffer
+	var errors bytes.Buffer
+	runner := cliRunner{
+		input:   failReader{t: t},
+		output:  &output,
+		errors:  &errors,
+		version: "test-version",
+		start: func(context.Context, io.Reader, io.Writer) error {
+			t.Fatal("debug command must not start the interactive TUI path")
+			return nil
+		},
+		debug: func(context.Context) (string, error) {
+			return debugOutput, nil
+		},
 	}
 
 	err := runner.run(context.Background(), args)

@@ -1,0 +1,150 @@
+header:
+  level: full
+  created: 2026-05-15
+  status: complete
+  reviewed: 2026-05-15
+  critic_issues: "5 found, 5 addressed, 3 false positives dismissed"
+  title: Milestone 15 Project Store Layout Bootstrap
+what: >-
+  Deliver ROADMAP.md:606-628 Milestone 15 by creating `.aila/` project state
+  through a narrow `internal/state` store boundary. The product should initialize
+  the project-visible store during startup, resolve logical artifact paths through
+  a resolver instead of scattered hardcoded paths, enforce owned artifact writes,
+  prove atomic write and idempotent reopen behavior, and surface store status
+  through app-owned display data without coupling storage to the TUI.
+why: >-
+  Aila needs durable project memory before sessions, replay, context compaction,
+  tools, or real run history can be safely added. A narrow store boundary gives
+  later milestones a tested place to persist state without letting UI, runtime,
+  capability, or policy code own filesystem layout decisions.
+constraints: >-
+  Execute only Milestone 15 selected from ROADMAP.md after Milestone 14 closeout.
+  Preserve updates-decide/effects-do and presentation-only TUI boundaries. Do not
+  add session snapshot content, event replay, context compaction, M15A diagnostic
+  or recovery semantics, model/tool/provider IO, permission policy, history/undo,
+  Agentera runtime dependency, plugins, MCP, workflow DSL, commits/pushes, or
+  Milestone 16+ behavior. Do not create a M15 commit unless the user separately
+  requests one. Do not revert unrelated user-owned work.
+previous_plan_archived: .agentera/archive/plan-2026-05-15-m14.yaml
+source_anchors:
+  - ROADMAP.md:606-628
+  - docs/notes/PROMPT.md
+  - AGENTS.md
+  - ARCHITECTURE.md:529-607
+  - ARCHITECTURE.md:858-879
+  - README.md:123-127
+  - docs/workflow-architecture.md:337-404
+  - docs/tui-testing.md
+verification_commands:
+  - go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
+  - mage check
+scope:
+  included:
+    - Minimal `.aila/` bootstrap layout creation through `internal/state`.
+    - Logical artifact path resolution through a store/resolver API.
+    - Owned logical artifact writes with atomic finalization.
+    - Idempotent reopen behavior that preserves existing store metadata.
+    - App-owned startup/status handoff for initialized, uninitialized, and degraded store states on existing UI surfaces.
+    - TUI render/semantic evidence that avoids incidental filesystem paths.
+    - PTY startup smoke because this plan deliberately initializes `.aila/` during startup.
+  excluded:
+    - Session snapshot content, event replay, resumable run history, context compaction, stale checks, or checkpoint recovery.
+    - Diagnostics and state recovery semantics from Milestone 15A.
+    - Real model/provider/tool/shell execution or cancellation.
+    - Permission policy, approvals, history/undo, or edit records.
+    - Dynamic plugins, MCP, workflow DSLs, model marketplaces, or hosted control planes.
+  deferred:
+    - Diagnostics and state recovery boundary for Milestone 15A.
+    - Fake session persistence and resume memory for later roadmap slices.
+design: >-
+  Keep filesystem layout ownership in `internal/state`. The M15 layout is
+  intentionally minimal: `.aila/project.toml`, `.aila/artifacts/`, and
+  `.aila/indexes/`. `sessions/`, event logs, context compaction, replay, and
+  recovery are out of scope except as explicitly empty future placeholders if a
+  test proves they are structural only. Store writes must pass through a resolver
+  with logical artifact names, provenance, and invoking-owner checks. The app may
+  initialize the store at startup and pass path-safe status data into existing TUI
+  startup/status surfaces. The TUI remains presentation-only and must not import
+  state or render absolute/internal filesystem paths unless a test explicitly
+  marks a path as intentional.
+tasks:
+  - number: 1
+    name: Define store layout and resolver contract
+    depends_on: []
+    status: complete
+    acceptance:
+      - GIVEN a workspace path WHEN the project store is described THEN `.aila/` owned paths are derived from that workspace and not from HOME, XDG, Agentera, or TUI state.
+      - GIVEN a known logical artifact name WHEN it is resolved THEN the returned path is inside the minimal M15 `.aila/artifacts/` layout with provenance describing the logical name and store root.
+      - GIVEN an unknown or unsafe logical artifact name WHEN it is resolved THEN the resolver rejects it instead of returning an escaped or hardcoded path.
+      - GIVEN a logical artifact write is requested WHEN the invoking owner is not allowed to own that artifact THEN the store rejects the write before touching the final artifact path.
+      - GIVEN package boundary tests run WHEN `internal/state` is inspected THEN it performs no model calls, command execution, runtime updates, workflow transitions, or TUI rendering.
+    evidence:
+      - Progress cycle 89 records the `internal/state` layout/resolver contract, provenance, unsafe-name rejection, write-owner rejection, package boundary tests, `go test ./internal/state -count=1`, and `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 1 acceptance criteria and confirmed no directory creation, atomic writes, app startup wiring, TUI rendering, fixtures, PTY, ROADMAP, final mage check, commit, push, session, replay, compaction, diagnostic, recovery, model/tool/provider IO, permission, history, plugin, MCP, or M16 behavior.
+  - number: 2
+    name: Create, reopen, and write store safely
+    depends_on: [1]
+    status: complete
+    acceptance:
+      - GIVEN a clean workspace WHEN store initialization runs THEN `.aila/project.toml`, `.aila/artifacts/`, and `.aila/indexes/` are created through `internal/state`.
+      - GIVEN an initialized workspace WHEN the store is opened again THEN existing metadata is preserved and no duplicate, destructive, or session/replay/context-compaction writes occur.
+      - GIVEN an owned atomic artifact write is requested WHEN validation inspects the filesystem THEN the final file appears at the resolved logical path through a temporary-write-and-rename style boundary without partial final content.
+      - GIVEN an unowned artifact write is requested WHEN validation inspects the filesystem THEN no final artifact content is created or modified.
+      - GIVEN store tests run WHEN validation completes THEN initialization, path resolution, ownership rejection, atomic writes, and idempotent reopen each have regression-sensitive coverage.
+    evidence:
+      - Progress cycle 90 records `OpenProjectStore`, idempotent `.aila/project.toml` metadata preservation, `.aila/artifacts/` and `.aila/indexes/` creation, owned temp-write-and-rename artifact writes, unowned write rejection before final mutation, `mage fmt`, `go test ./internal/state -count=1`, and `git diff --check -- internal/state` evidence.
+      - Inspektera evaluation passed all Task 2 acceptance criteria, reran `go test ./internal/state -count=1` and `git diff --check -- internal/state .agentera/progress.yaml`, and found no scope creep into app startup wiring, TUI rendering, sessions, replay, context compaction, diagnostics/recovery, provider IO, permission policy, history/undo, plugins, MCP, or M16 behavior.
+  - number: 3
+    name: Wire app-owned store startup status
+    depends_on: [2]
+    status: complete
+    acceptance:
+      - GIVEN Aila starts in a workspace WHEN app startup completes THEN store initialization is invoked by app-owned wiring, not by the TUI.
+      - GIVEN store initialization succeeds WHEN display state is produced THEN initialized store status is visible through injected app state on existing startup or status surfaces.
+      - GIVEN store initialization is unavailable or fails in a controlled test WHEN display state is produced THEN uninitialized or degraded status is represented without leaking incidental absolute paths or secrets.
+      - GIVEN existing config, runtime, queue, interrupt, status, help, and quit behavior is exercised WHEN store startup support exists THEN those behaviors remain stable.
+    evidence:
+      - Progress cycle 91 records app-owned startup store opening, path-safe initialized/degraded display conversion, TUI string-only project store fields, compact render/status/semantic handoff, PTY source-tree isolation, `mage fmt`, targeted app/TUI/cmd/state tests, and relevant `git diff --check` evidence.
+      - Inspektera re-evaluation passed all Task 3 acceptance criteria, confirmed the prior degraded path leak and `cmd/aila/.aila` PTY pollution findings were fixed, reran `go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1`, confirmed `git status --short -- cmd/aila/.aila` had no output, and found no Task 4/Task 5 scope creep.
+  - number: 4
+    name: Render store status without path leakage
+    depends_on: [3]
+    status: complete
+    acceptance:
+      - GIVEN initialized store status is injected into the TUI WHEN existing startup or status surfaces render THEN project store state is visible without the TUI owning storage.
+      - GIVEN uninitialized or degraded store status is injected WHEN fixtures render THEN the state is visible and actionable without exposing incidental filesystem paths.
+      - GIVEN semantic snapshots are inspected WHEN store status is present THEN initialized, uninitialized, or degraded state is machine-readable and path-safe.
+      - GIVEN M13/M14 queue and interrupt fixtures render WHEN store status support exists THEN their existing evidence remains stable except for intentional store-status metadata.
+    evidence:
+      - Progress cycle 92 records deterministic `store-initialized`, `store-uninitialized`, and `store-degraded` TUI fixtures, text/ANSI/semantic snapshots, path-leak assertions, visible path-safe detail text, M13/M14 queue and interrupt regression coverage, `mage fmt`, targeted TUI tests, broader app/TUI/cmd/state tests, and relevant `git diff --check` evidence.
+      - Inspektera re-evaluation passed all Task 4 acceptance criteria, confirmed visible initialized/uninitialized/degraded store status is path-safe and actionable, semantic snapshots expose machine-readable project store state, queue/interrupt fixtures contain no unintended store metadata, and no Task 5/final closeout scope was added.
+  - number: 5
+    name: Prove startup store smoke
+    depends_on: [4]
+    status: complete
+    acceptance:
+      - GIVEN Aila starts in a temp workspace WHEN PTY startup smoke runs THEN `.aila/` is created through the store boundary and startup remains bounded.
+      - GIVEN the PTY output is inspected WHEN startup completes THEN store status is visible without exposing incidental temp filesystem paths.
+      - GIVEN cleanup completes WHEN the smoke exits THEN only expected temp workspace project state and config files exist, with no HOME `.aila` or unrelated durable state.
+    evidence:
+      - Progress cycle 93 records the bounded PTY startup store smoke, temp binary/temp workspace execution, visible path-safe store status, `.aila/project.toml`, `.aila/artifacts/`, and `.aila/indexes/` creation assertions, HOME/source-tree pollution checks, targeted PTY test, broader app/TUI/cmd/state regression tests, and relevant `git diff --check` evidence.
+      - Inspektera evaluation passed all Task 5 acceptance criteria, reran `go test ./cmd/aila -run TestM15ProjectStoreStartupPTYSmoke -count=1`, `go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1`, confirmed `git status --short -- cmd/aila/.aila .aila` had no output, and found no ROADMAP closeout/final-check/M16 scope creep.
+  - number: 6
+    name: Plan-level freshness checkpoint
+    depends_on: [1, 2, 3, 4, 5]
+    status: complete
+    acceptance:
+      - GIVEN Milestone 15 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 15 Slice Completion Template records store tests, TUI store status fixtures and snapshots, PTY smoke, validation, and architecture checklist evidence.
+      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no M15 commit is created unless separately requested.
+      - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
+    evidence:
+      - Progress cycle 94 records final targeted state/app/TUI/cmd validation, full `mage check`, ROADMAP M15 closeout, completed M15 Slice Completion Template, `git diff --check`, no project store pollution, and no commit/push.
+      - Final validation passed after tightening a fragile state test assertion so it rejects exact/descendant HOME/XDG/Agentera/TUI roots rather than incidental substrings such as `/home/` in the repository path.
+overall_acceptance:
+  - GIVEN Aila starts in a project workspace WHEN store initialization runs THEN `.aila/` exists through a tested `internal/state` boundary.
+  - GIVEN logical artifacts are accessed WHEN state paths are needed THEN callers use store/resolver behavior with ownership checks instead of scattered hardcoded paths.
+  - GIVEN store status is shown in the TUI WHEN semantic evidence is generated THEN it is machine-readable and does not leak incidental filesystem paths.
+  - GIVEN the milestone is validated WHEN documented gates run THEN store tests, fixtures/snapshots, PTY smoke, targeted tests, and mage check support closeout.
+surprises:
+  - The adversarial review clarified that M15 must enforce write ownership, define the minimal bootstrap layout explicitly, and make startup initialization an explicit product decision before requiring PTY smoke.
