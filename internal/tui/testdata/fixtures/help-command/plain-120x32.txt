@@ -10,12 +10,12 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | commands:                                                                                                            |
 | /status - Show deterministic placeholder status.                                                                     |
 | /help - Show this deterministic placeholder help.                                                                    |
+| /diff - Review current changes.                                                                                      |
 | /quit - Quit Aila.                                                                                                   |
 | shortcuts:                                                                                                           |
 | ctrl+x s - Show deterministic placeholder status.                                                                    |
+| ctrl+x d - Review current changes.                                                                                   |
 | ctrl+x q - Quit Aila.                                                                                                |
-|                                                                                                                      |
-|                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |

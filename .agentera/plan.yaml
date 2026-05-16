@@ -3,133 +3,129 @@ header:
   created: '2026-05-16'
   status: completed
   reviewed: '2026-05-16'
-  critic_issues: planned as M27-only; mutating shell commands, diff view, durable mutation history/undo browser, and M28+
-    behavior deferred
-  title: Milestone 27 Edit And Write Tools In Temp Workspaces
-what: Deliver ROADMAP.md Milestone 27 by adding edit and write file mutations through explicit effects, immediate permission
-  recheck, and recorded mutation result messages against test workspaces.
-why: M26 made write-shaped permission decisions testable. M27 proves file mutation itself can only happen through the effect
-  dispatcher, with permission evidence and visible recorded results, before broader diff/history features arrive.
-constraints: Execute only Milestone 27. Preserve statechart-MVU and explicit effects. Keep TUI presentation-only. Implement
-  edit/write against test workspaces and do not add mutating shell execution, diff view navigation, durable mutation history/undo
-  browser, context compaction, stale checks, source indexing, provider fallback, plugins, MCP servers, workflow DSLs, model
-  marketplaces, hosted control plane behavior, or Milestone 28+ scope. Do not push.
-previous_plan_archived: .agentera/archive/plan-2026-05-16-m26.yaml
+  critic_issues: planned as M28-only; mutation history, undo metadata, durable diff records, provider review, and M29+ behavior
+    deferred
+  title: Milestone 28 Diff View
+what: Deliver ROADMAP.md Milestone 28 by adding a TUI diff view that makes current or recorded file changes inspectable with
+  exact paths, additions, and removals.
+why: M27 made edit/write mutation results visible. M28 gives users a review surface for changes before the roadmap adds mutation
+  history and undo metadata.
+constraints: 'Execute only Milestone 28. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only:
+  it may render diff state and emit navigation/exit input, but it must not run git, read files, mutate files, decide permissions,
+  or own history. Keep undo, mutation history, durable diff records, provider review, context compaction, stale checks, source
+  indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, and Milestone 29+ behavior
+  out of scope. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m27.yaml
 source_anchors:
-- ROADMAP.md:1170-1210
-- ARCHITECTURE.md:451-523
-- docs/workflow-architecture.md:564-576
+- ROADMAP.md:1238-1257
 - docs/tui-testing.md:69-77
-- README.md:181-188
-- README.md:226-240
+- docs/tui-testing.md:140-153
+- docs/tui-testing.md:184-222
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:867-878
+- docs/workflow-architecture.md:63-80
+- README.md:285-302
 - docs/notes/PROMPT.md:1-39
 verification_commands:
-- go test ./internal/tools ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./internal/policy ./internal/app ./internal/tui ./cmd/aila -count=1
 - go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/tools internal/permission internal/runtime
-  internal/app internal/tui cmd/aila
-- git diff --check --no-index /dev/null <each new M27 fixture/source file>
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/policy internal/app internal/tui cmd/aila
+- git diff --check --no-index /dev/null <each new M28 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve
+  terminal padding and are covered by snapshot tests
 scope:
   included:
-  - Edit/write tool request validation and execution against caller-provided workspace roots, including path safety, target
-    version recheck, changed path reporting, and bounded result metadata.
-  - Runtime edit/write proposed/effect/completed messages and result records that carry permission decision evidence and mutation
-    result details.
-  - App dispatcher integration that validates proposals, rechecks permission immediately before mutation, executes only allowed
-    edit/write effects, and returns denial/failure records without mutating when blocked.
-  - TUI mutation success and mutation failure fixtures plus render/semantic snapshots at 80x24 and 120x32 showing changed
-    paths and recorded results.
-  - A fake or temp-workspace approval-to-write PTY smoke that proves mutation happens only through the explicit effect/permission
-    path.
+  - Closed policy command route for /diff and ctrl+x d that matches existing slash/shortcut parity rules.
+  - App-owned read-only diff acquisition for current workspace changes, with injectable fakes for deterministic tests and
+    bounded failure/empty states.
+  - TUI DiffView presentation state with exact file paths, file statuses, hunks, additions, removals, selected line/file,
+    focus, and exit/navigation state.
+  - diff-view fixture plus plain/ANSI/semantic snapshots covering narrow and wide layouts, additions/removals, paths, selected
+    line, and display-only semantics.
+  - PTY smoke that opens and exits the diff view in a temp workspace with a controlled current diff if interactive navigation
+    is added.
   excluded:
-  - Mutating shell command execution, diff view navigation, durable history browser, durable approval persistence, undo/replay
-    UI, provider fallback, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces,
-    hosted control planes, or Milestone 28+ behavior.
+  - Undo, mutation history browser, durable diff/history records, provider review of diffs, file mutation, git mutation, permission
+    changes, state replay, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces,
+    hosted control planes, or Milestone 29+ behavior.
   deferred:
-  - Diff view, mutation history browsing, full undo metadata workflow, mutating shell commands, and any richer approval persistence
-    beyond the result data needed for this slice.
-design: 'Mirror the existing read/search/bash/fetch pipeline: runtime Update emits typed edit/write effects, app-owned dispatch
-  validates workspace paths, builds exact permission proposals, rechecks autonomy immediately before execution, internal/tools
-  performs the filesystem mutation, and runtime/app/TUI copy recorded results back as display-only state. Keep the executor
-  small and test-heavy, with temp directories as the mutation surface.'
+  - Durable mutation history and undo metadata, richer recorded diff storage, review workflows, and provider-assisted diff
+    analysis.
+design: Mirror the history-view shape for presentation and navigation, but source diff data from app-owned read-only state.
+  Policy owns the closed /diff route, app owns current-diff acquisition and mapping, and TUI owns only rendering, focus, selected-line
+  movement, and exit input. Use deterministic fixtures as the primary contract and a bounded temp-git PTY smoke for real terminal
+  open/exit behavior.
 tasks:
 - number: 1
-  name: Implement edit/write tool contracts and executors
+  name: Add closed diff route and app-owned diff source seam
   depends_on: []
   status: completed
   acceptance:
-  - GIVEN edit/write requests target a temp workspace WHEN validation runs THEN paths are normalized inside the workspace
-    and reserved/traversal/home/XDG/directory-like paths are rejected.
-  - GIVEN write executes WHEN the target version still matches the proposal THEN the file is created or overwritten and the
-    result records changed path, previous existence/version, new version, bytes written, and expected effect.
-  - GIVEN edit executes WHEN the target version and expected old text match THEN the file is updated and the result records
-    changed path, old/new version, bytes written, and expected effect.
-  - GIVEN version or old-text checks fail WHEN execution runs THEN no file mutation occurs and the result is a bounded failure.
+  - GIVEN /diff or ctrl+x d is entered WHEN policy and TUI route it THEN both inputs produce the same closed diff command
+    route without exposing deferred commands.
+  - GIVEN the app opens diff view WHEN a current workspace diff exists THEN diff data is acquired outside the TUI and mapped
+    into display-only view state.
+  - GIVEN diff acquisition fails or no changes exist WHEN /diff opens THEN the view shows bounded empty/error state without
+    mutating files, git state, runtime, or workflow phase.
   evidence:
-  - internal/tools/mutation.go defines validated edit/write request contracts, bounded mutation errors, path/version safety,
-    symlink escape checks, and ExecuteEdit/ExecuteWrite result recording.
-  - internal/tools/mutation_test.go covers workspace path rejection, reserved/path traversal/home/XDG/directory-like rejects,
-    write create/overwrite versions, edit old-text replacement, mismatch failures, and no mutation on failure.
-  - go test ./internal/tools -count=1 passed.
+  - internal/policy command tests prove /diff and ctrl+x d map to the same closed diff route.
+  - internal/app diff tests prove the controller opens diff through an injected app-owned source without runtime, workflow,
+    snapshot, or fake-history persistence mutation.
+  - storeCurrentDiffRead uses the existing safe bash boundary with git diff --cached --color=never -U0 plus git diff --color=never -U0 and bounded failure/empty states;
+    temp-git tests prove staged and unstaged workspace changes map into DiffView state.
 - number: 2
-  name: Add runtime edit/write effects and recorded results
+  name: Model and render navigable diff view state
   depends_on:
   - 1
   status: completed
   acceptance:
-  - GIVEN EditToolProposed or WriteToolProposed messages reach runtime Update WHEN no operation is active THEN typed effects
-    are emitted and active operation state records the correct tool.
-  - GIVEN edit/write completion messages arrive WHEN Update handles them THEN LastMutation/result status is recorded and runtime
-    returns to idle without deterministic IO.
-  - GIVEN denied or failed mutation results are recorded WHEN app/TUI consume them THEN they include permission decision and
-    error metadata rather than disappearing.
+  - GIVEN injected diff view state WHEN rendered THEN exact file paths, file statuses, hunk headers, additions, removals,
+    and selected line metadata are visible.
+  - GIVEN semantic snapshots are generated WHEN diff view is visible THEN files, hunks, lines, line kinds, focus, selected
+    line, and display-only/app-owned markers are machine-readable.
+  - GIVEN ANSI snapshots are generated WHEN additions and removals render THEN stable styling distinguishes additions and
+    removals without over-asserting incidental color.
   evidence:
-  - internal/runtime/runtime.go adds EditToolProposed, WriteToolProposed, MutationToolCompleted, typed edit/write effects,
-    OperationEdit/OperationWrite, ActiveMutation, and LastMutation result state.
-  - internal/runtime/runtime_test.go covers deterministic edit/write proposal effects and mutation completion/failure result
-    recording without deterministic IO.
-  - go test ./internal/runtime ./internal/app -count=1 passed.
+  - DiffView, DiffFileView, DiffHunkView, and DiffLineView render exact paths, statuses, hunk headers, removals, additions,
+    selected line metadata, and read-only/source/status evidence.
+  - diff-view semantic snapshots at 80x24 and 160x45 expose files, hunks, line kinds/text/line numbers, focus, selected index/line,
+    and app-owned/display-only markers.
+  - diff-view ANSI snapshots and render tests distinguish rendered removal/addition rows while leaving unrelated diff previews
+    unchanged.
 - number: 3
-  name: Dispatch edit/write with immediate permission recheck
+  name: Add diff navigation, focus, and exit behavior
   depends_on:
-  - 1
   - 2
   status: completed
   acceptance:
-  - GIVEN autonomy read/off blocks a mutation WHEN dispatch handles edit/write effects THEN no file changes occur and a denied
-    recorded result is returned.
-  - GIVEN autonomy write/yolo allows a mutation WHEN dispatch handles edit/write effects THEN permission is checked before
-    validation and rechecked immediately before execution.
-  - GIVEN validation or recheck fails WHEN dispatch handles edit/write effects THEN the returned result includes bounded failure
-    metadata and no mutation is performed.
-  - GIVEN mutating shell proposals exist WHEN M27 dispatch is inspected THEN no mutating shell executor path is added.
+  - GIVEN diff view has focus WHEN up/down/page/home/end keys are pressed THEN selected diff line changes deterministically
+    and stays in bounds.
+  - GIVEN diff view has focus WHEN exit input is pressed THEN the diff surface exits cleanly without submitting prompt text
+    or mutating lower layers.
+  - GIVEN command parity tests run WHEN /diff and ctrl+x d are compared THEN route, surface, and focus state match.
   evidence:
-  - internal/app/shutdown.go dispatches edit/write effects by building permission proposals, checking autonomy before validation,
-    validating request paths/content, rechecking permission immediately before ExecuteEdit/ExecuteWrite, and returning denied/failed
-    results without mutation.
-  - internal/app/prompt_test.go covers write success, edit success, read-autonomy denial without mutation, target-version
-    mismatch without mutation, and approval-to-write approve/deny behavior.
-  - Inspection confirms M27 added no mutating shell executor path.
+  - internal/tui input tests cover up/down/page/home/end selection bounds for focused diff state.
+  - Escape clears the diff surface without submitting prompt text, emitting commands, or mutating lower layers.
+  - Slash/shortcut parity tests prove /diff and ctrl+x d produce matching route, surface, and focused diff state.
 - number: 4
-  name: Expose mutation result state in TUI fixtures and PTY smoke
+  name: Add diff fixture snapshots and PTY smoke
   depends_on:
   - 2
   - 3
   status: completed
   acceptance:
-  - GIVEN mutation success and mutation failure fixtures render WHEN snapshot tests run THEN changed file paths, status, recorded
-    result, decision source, autonomy, approval requirement, and error details are visible at 80x24 and 120x32.
-  - GIVEN semantic snapshots are inspected WHEN mutation fixtures render THEN mutation result fields are machine-readable
-    and marked display-only.
-  - GIVEN a fake or temp-workspace approval-to-write PTY smoke runs WHEN approval is selected THEN the target file changes
-    only through the explicit effect/permission path and clean quit still works.
+  - GIVEN diff-view fixture renders WHEN snapshot tests run THEN narrow and wide plain/ANSI/semantic snapshots preserve paths,
+    additions, removals, focus, and selected line.
+  - GIVEN PTY smoke runs WHEN /diff opens in a temp workspace with a controlled current diff THEN the diff is visible and
+    exit returns to the normal prompt/idle surface.
+  - GIVEN human visual review is considered WHEN deterministic snapshots cover the state THEN any skip reason is documented.
   evidence:
-  - internal/tui/model.go and internal/tui/render.go expose app-injected MutationView render and semantic state marked app-owned/display-only.
-  - mutation-success and mutation-failure fixtures include 80x24 and 120x32 plain/ANSI/semantic snapshots showing changed
-    paths, recorded status/result, decision source, autonomy, approval requirement, and failure details.
-  - TestMutationResultRenderAndSemantic, TestMutationResultFixtureSnapshots, and TestApprovalToWriteMutationPTYSmoke passed;
-    PTY approval creates the temp-workspace target only after explicit approval through the write effect path.
+  - diff-view fixture added with 80x24 and 160x45 plain, ANSI, and semantic snapshots preserving path, hunk, removal, addition,
+    focus, and selected line evidence.
+  - help-command snapshots updated to show /diff and ctrl+x d as supported visible commands.
+  - TestDiffViewPTYSmoke opens /diff in a temp git workspace with a controlled current diff, verifies visible path/removal/addition
+    state, presses Escape, and verifies return to the normal idle display.
 - number: 5
   name: Prove validation gates and roadmap closeout
   depends_on:
@@ -139,30 +135,30 @@ tasks:
   - 4
   status: completed
   acceptance:
-  - GIVEN M27 implementation is complete WHEN targeted tools/runtime/app/TUI/cmd tests run THEN edit/write mutation policy
-    and visibility pass.
-  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M27 as complete and M28
+  - GIVEN M28 implementation is complete WHEN targeted policy/app/TUI/cmd tests run THEN diff routing, source mapping, rendering,
+    navigation, and PTY behavior pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M28 as complete and M29
     as next.
   - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs,
-    fixtures/snapshots, update/keybinding tests, PTY smoke, architecture checklist, verification commands, and roadmap status.
+    fixture/snapshot evidence, update/keybinding tests, PTY smoke, architecture checklist, verification commands, and roadmap
+    status.
   evidence:
-  - go test ./internal/tools ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1 targeted
-    coverage passed via package-specific runs and full cmd/internal reruns.
+  - go test ./internal/policy ./internal/app ./internal/tui ./cmd/aila -count=1 passed.
   - go test ./internal/... -count=1 passed.
   - go test ./cmd/aila -count=1 passed.
   - mage check passed with 0 lint issues and no vulnerabilities.
-  - Roadmap and Agentera closeout artifacts record M27 complete and M28 next.
+  - Tracked git diff --check passed; new source/YAML/JSON git diff --check --no-index passed, while fixed-width plain/ANSI
+    render snapshots intentionally preserve terminal padding and are covered by snapshot tests.
+  - ROADMAP.md records M28 complete and M29 next; Agentera plan/progress validation passed.
 complete: 5
 total: 5
 active: false
 complete_plan: true
 overall_acceptance:
-- Edit/write file mutations execute only through explicit runtime effects and app-owned dispatch.
-- Permission is checked and rechecked immediately before mutation, with denial/failure results returned without mutation.
-- Mutation results are recorded in runtime/app/TUI-visible data with changed paths, versions, status, and decision evidence.
-- Mutation success/failure fixtures and PTY smoke prove user-visible behavior at the required sizes.
-- No mutating shell command execution, diff view, history browser, undo workflow, or M28+ behavior is introduced.
-surprises:
-- Behavior-first test names replaced milestone-number-only names so mutation render and approval-to-write smoke tests remain
-  understandable after M27 is no longer current.
-- The 80x24 mutation snapshot forced changed paths and decision/error evidence to be front-loaded in the render block.
+- Diff view opens through the fixed /diff and ctrl+x d command routes.
+- Diff data is app-injected and display-only in the TUI, with exact paths, additions, removals, and selected-line state.
+- Navigation/focus/exit behavior is deterministic and covered by update/keybinding tests.
+- diff-view render and semantic snapshots cover narrow and wide layouts, including ANSI additions/removals where styling matters.
+- PTY smoke proves opening and exiting the diff view without adding undo, history, provider review, mutation, plugin, MCP,
+  or M29+ behavior.
+surprises: []

@@ -371,6 +371,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.historyFocused() {
 			return m.handleHistoryKey(msg), nil
 		}
+		if m.diffFocused() {
+			return m.handleDiffKey(msg), nil
+		}
 		return m, m.handlePromptKey(msg)
 	}
 	return m, nil
@@ -647,13 +650,17 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"commands:",
 			"/status - Show deterministic placeholder status.",
 			"/help - Show this deterministic placeholder help.",
+			"/diff - Review current changes.",
 			"/quit - Quit Aila.",
 			"shortcuts:",
 			"ctrl+x s - Show deterministic placeholder status.",
+			"ctrl+x d - Review current changes.",
 			"ctrl+x q - Quit Aila.",
 		}
 	case policy.CommandRouteHistory:
 		state = ApplyHistoryView(state, nil, 0, true)
+	case policy.CommandRouteDiff:
+		state = ApplyDiffView(state, &DiffView{Source: "policy.command", Status: "empty", Empty: true}, 0, true)
 	}
 	return state
 }
@@ -670,6 +677,53 @@ func ApplyHistoryView(state ViewState, items []HistoryItem, selected int, focus 
 	state.HistorySelected = clampHistorySelection(state)
 	state.SurfaceLines = historySurfaceLines(state)
 	return state
+}
+
+// ApplyDiffView injects app-owned read-only diff display data into the TUI state.
+func ApplyDiffView(state ViewState, diff *DiffView, selected int, focus bool) ViewState {
+	state.CommandRoute = string(policy.CommandRouteDiff)
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = "diff"
+	state.Diff = cloneDiffView(diff)
+	if state.Diff == nil {
+		state.Diff = &DiffView{Source: "app.diff", Status: "empty", Empty: true}
+	}
+	state.DiffFocus = focus
+	state.DiffSelected = selected
+	state.DiffSelected = clampDiffSelection(state)
+	state.SurfaceLines = diffSurfaceLines(state)
+	return state
+}
+
+// ClearDiffView exits the focused diff surface without touching lower layers.
+func ClearDiffView(state ViewState) ViewState {
+	state.CommandRoute = ""
+	state.RouteSource = ""
+	state.SurfaceTitle = ""
+	state.SurfaceLines = nil
+	state.Diff = nil
+	state.DiffSelected = 0
+	state.DiffFocus = false
+	return state
+}
+
+func cloneDiffView(diff *DiffView) *DiffView {
+	if diff == nil {
+		return nil
+	}
+	clone := *diff
+	clone.Files = make([]DiffFileView, 0, len(diff.Files))
+	for _, file := range diff.Files {
+		fileClone := file
+		fileClone.Hunks = make([]DiffHunkView, 0, len(file.Hunks))
+		for _, hunk := range file.Hunks {
+			hunkClone := hunk
+			hunkClone.Lines = append([]DiffLineView(nil), hunk.Lines...)
+			fileClone.Hunks = append(fileClone.Hunks, hunkClone)
+		}
+		clone.Files = append(clone.Files, fileClone)
+	}
+	return &clone
 }
 
 func (m Model) historyFocused() bool {
@@ -695,6 +749,33 @@ func (m Model) handleHistoryKey(msg tea.KeyMsg) Model {
 	}
 	m.state.HistorySelected = clampHistorySelection(m.state)
 	m.state.SurfaceLines = historySurfaceLines(m.state)
+	return m
+}
+
+func (m Model) diffFocused() bool {
+	return m.state.DiffFocus && m.state.SurfaceTitle == "diff"
+}
+
+func (m Model) handleDiffKey(msg tea.KeyMsg) Model {
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.DiffSelected--
+	case tea.KeyDown:
+		m.state.DiffSelected++
+	case tea.KeyHome:
+		m.state.DiffSelected = 0
+	case tea.KeyEnd:
+		m.state.DiffSelected = len(diffRows(m.state)) - 1
+	case tea.KeyPgUp:
+		m.state.DiffSelected -= 12
+	case tea.KeyPgDown:
+		m.state.DiffSelected += 12
+	case tea.KeyEsc:
+		m.state = ClearDiffView(m.state)
+		return m
+	}
+	m.state.DiffSelected = clampDiffSelection(m.state)
+	m.state.SurfaceLines = diffSurfaceLines(m.state)
 	return m
 }
 

@@ -352,6 +352,40 @@ func loadHistoryViewFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
+func loadDiffViewFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = "diff-view"
+	state = ApplyDiffView(state, &DiffView{
+		Source: "app.diff.fixture",
+		Status: "ready",
+		Files: []DiffFileView{{
+			Path:    "internal/demo.txt",
+			OldPath: "internal/demo.txt",
+			Status:  "modified",
+			Hunks: []DiffHunkView{{
+				Header:   "@@ -1 +1 @@",
+				OldStart: 1,
+				OldLines: 1,
+				NewStart: 1,
+				NewLines: 1,
+				Lines: []DiffLineView{
+					{Kind: "removal", Text: "old value", OldLine: 1},
+					{Kind: "addition", Text: "new value", NewLine: 1},
+				},
+			}},
+		}},
+	}, 3, true)
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func diffViewFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "160x45", Width: 160, Height: 45}}
+}
+
 func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
 	t.Parallel()
 
@@ -1286,6 +1320,104 @@ func TestM17HistoryViewFixtureSnapshots(t *testing.T) {
 			history := strings.Join(regions["history"].Items, "\n")
 			if !containsAll(history, []string{"read_only: true", "undo_enabled: false", "focus: true", "selected_id: evt-fake-003", "item: run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only selected: true", "app-owned", "display-only"}) {
 				t.Fatalf("history semantic region = %v, want machine-readable selected history", regions["history"].Items)
+			}
+		})
+	}
+}
+
+func TestDiffViewRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadDiffViewFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	assertFixtureSizes(t, fixture, diffViewFixtureSizes())
+
+	plain := RenderPlain(fixture.State, Size{Width: 160, Height: 45})
+	wantRender := []string{
+		"diff:",
+		"command route: diff",
+		"route source: policy.command",
+		"read-only: true",
+		"source: app.diff.fixture",
+		"status: ready",
+		"files: 1",
+		"selected: 4",
+		"file: internal/demo.txt status: modified",
+		"hunk: @@ -1 +1 @@",
+		"- old value",
+		"> + new value",
+		"selected kind: addition",
+		"selected path: internal/demo.txt",
+		"selected text: + new value",
+	}
+	if !containsAll(plain, wantRender) {
+		t.Fatalf("diff-view render missing fixture evidence %v:\n%s", wantRender, plain)
+	}
+	ansi := RenderANSI(fixture.State, Size{Width: 160, Height: 45})
+	if !strings.Contains(ansi, ansiRed) || !strings.Contains(ansi, ansiGreen) || !containsAll(stripANSI(ansi), []string{"- old value", "> + new value"}) {
+		t.Fatalf("diff-view ANSI render missing stable addition/removal styling:\n%s", ansi)
+	}
+
+	snapshot := Semantic(fixture.State, Size{Width: 160, Height: 45})
+	if snapshot.Screen.Focus != "diff" {
+		t.Fatalf("focus = %q, want diff", snapshot.Screen.Focus)
+	}
+	if snapshot.Diff == nil || !snapshot.Diff.Visible || !snapshot.Diff.ReadOnly || !snapshot.Diff.Focus || snapshot.Diff.Empty || snapshot.Diff.FileCount != 1 || snapshot.Diff.SelectedIndex != 3 || snapshot.Diff.SelectedLine != "+ new value" {
+		t.Fatalf("diff semantic = %+v, want focused read-only selected diff", snapshot.Diff)
+	}
+	if snapshot.Diff.Files[0].Path != "internal/demo.txt" || snapshot.Diff.Files[0].Status != "modified" || len(snapshot.Diff.Files[0].Hunks) != 1 || len(snapshot.Diff.Files[0].Hunks[0].Lines) != 2 {
+		t.Fatalf("diff semantic file = %+v, want exact path, one hunk, two lines", snapshot.Diff.Files[0])
+	}
+	if snapshot.Diff.Files[0].Hunks[0].Lines[0].Kind != "removal" || snapshot.Diff.Files[0].Hunks[0].Lines[1].Kind != "addition" {
+		t.Fatalf("diff semantic lines = %+v, want removal then addition", snapshot.Diff.Files[0].Hunks[0].Lines)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	diff := strings.Join(regions["diff"].Items, "\n")
+	if !containsAll(diff, []string{"read_only: true", "source: app.diff.fixture", "focus: true", "file: internal/demo.txt", "file_status: modified", "line_removal: old value", "line_addition: new value", "app-owned", "display-only"}) {
+		t.Fatalf("diff semantic region = %v, want machine-readable selected diff", regions["diff"].Items)
+	}
+}
+
+func TestDiffViewFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadDiffViewFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	if fixture.TerminalBehavior != "bubbletea_static" {
+		t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+	}
+	assertFixtureSizes(t, fixture, diffViewFixtureSizes())
+
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := renderCase.render(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			if !containsAll(stripANSI(got), []string{"diff:", "read-only: true", "internal/demo.txt", "old value", "new value"}) {
+				t.Fatalf("diff-view snapshot missing visible diff evidence:\n%s", got)
+			}
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Diff == nil || !snapshot.Diff.ReadOnly || snapshot.Diff.SelectedLine != "+ new value" {
+				t.Fatalf("diff semantic snapshot = %+v", snapshot.Diff)
 			}
 		})
 	}
@@ -3635,7 +3767,7 @@ func loadMutationResultFixture(t *testing.T, name string) renderFixture {
 			},
 		}
 	default:
-		t.Fatalf("unknown M27 mutation fixture %q", name)
+		t.Fatalf("unknown mutation result fixture %q", name)
 	}
 	return loadRenderFixture(t, name, state)
 }

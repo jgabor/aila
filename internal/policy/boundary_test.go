@@ -23,6 +23,7 @@ func TestM5CommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "status", input: "/status", want: CommandRouteStatus},
 		{name: "help", input: "/help", want: CommandRouteHelp},
 		{name: "history", input: "/history", want: CommandRouteHistory},
+		{name: "diff", input: "/diff", want: CommandRouteDiff},
 		{name: "quit", input: "/quit", want: CommandRouteQuit},
 	}
 	for _, tc := range tests {
@@ -65,6 +66,18 @@ func TestM5SlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 	if historySlash.Route != historyShortcut.Route || historySlash.Route != CommandRouteHistory {
 		t.Fatalf("history route mismatch: slash=%+v shortcut=%+v", historySlash, historyShortcut)
+	}
+
+	diffSlash, ok := RecommendSlashCommand("/diff")
+	if !ok {
+		t.Fatal("/diff did not match")
+	}
+	diffShortcut, ok := RecommendShortcut("ctrl+x", "d")
+	if !ok {
+		t.Fatal("ctrl+x d did not match")
+	}
+	if diffSlash.Route != diffShortcut.Route || diffSlash.Route != CommandRouteDiff {
+		t.Fatalf("diff route mismatch: slash=%+v shortcut=%+v", diffSlash, diffShortcut)
 	}
 
 	quitSlash, ok := RecommendSlashCommand("/quit")

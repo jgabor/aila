@@ -3,23 +3,23 @@
 + [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
 | No messages yet.                                                                                                 |  | phase source: idle                     |
 |                                                                                                                  |  | primary model: placeholder             |
-| help:                                                                                                            |  | utility model: placeholder             |
-| command route: help                                                                                              |  | autonomy: placeholder                  |
-| route source: policy.command                                                                                     |  | git: placeholder                       |
-| Deterministic placeholder help.                                                                                  |  | context: placeholder                   |
-| commands:                                                                                                        |  |                                        |
-| /status - Show deterministic placeholder status.                                                                 |  |                                        |
-| /help - Show this deterministic placeholder help.                                                                |  |                                        |
-| /diff - Review current changes.                                                                                  |  |                                        |
-| /quit - Quit Aila.                                                                                               |  |                                        |
-| shortcuts:                                                                                                       |  |                                        |
-| ctrl+x s - Show deterministic placeholder status.                                                                |  |                                        |
-| ctrl+x d - Review current changes.                                                                               |  |                                        |
-| ctrl+x q - Quit Aila.                                                                                            |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
+| diff:                                                                                                            |  | utility model: placeholder             |
+| command route: diff                                                                                              |  | autonomy: placeholder                  |
+| route source: policy.command                                                                                     |  | read_only: true                        |
+| read-only: true                                                                                                  |  | source: app.diff.fixture               |
+| source: app.diff.fixture                                                                                         |  | status: ready                          |
+| status: ready                                                                                                    |  | focus: true                            |
+| files: 1                                                                                                         |  | file_count: 1                          |
+| selected: 4                                                                                                      |  | selected_index: 3                      |
+|   file: internal/demo.txt status: modified                                                                       |  | file: internal/demo.txt                |
+|   hunk: @@ -1 +1 @@                                                                                              |  | file_status: modified                  |
+| [31m  - old value[0m                                                                                                    |  | hunk: @@ -1 +1 @@                      |
+| [32m> + new value[0m                                                                                                    |  | line_removal: old value                |
+| selected kind: addition                                                                                          |  | line_addition: new value               |
+| selected path: internal/demo.txt                                                                                 |  | app-owned                              |
+| selected text: + new value                                                                                       |  | display-only                           |
+|                                                                                                                  |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |

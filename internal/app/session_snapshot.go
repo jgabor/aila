@@ -44,11 +44,12 @@ type sessionController struct {
 	persist         snapshotPersistenceFunc
 	persistHistory  historyPersistenceFunc
 	readHistory     historyReadFunc
+	readDiff        diffReadFunc
 	historySequence int
 }
 
 func newController(ctx context.Context, workspacePath string, view tui.ViewState, runner *inputRunner) *sessionController {
-	return newSessionControllerWithPersistenceAndHistoryRead(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath))
+	return newSessionControllerWithPersistenceHistoryReadAndDiff(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath), storeCurrentDiffRead(workspacePath))
 }
 
 func newSessionControllerWithPersistence(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc) *sessionController {
@@ -60,10 +61,14 @@ func newSessionControllerWithPersistenceAndHistory(ctx context.Context, view tui
 }
 
 func newSessionControllerWithPersistenceAndHistoryRead(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc, persistHistory historyPersistenceFunc, readHistory historyReadFunc) *sessionController {
+	return newSessionControllerWithPersistenceHistoryReadAndDiff(ctx, view, runner, persist, persistHistory, readHistory, nil)
+}
+
+func newSessionControllerWithPersistenceHistoryReadAndDiff(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc, persistHistory historyPersistenceFunc, readHistory historyReadFunc, readDiff diffReadFunc) *sessionController {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist, persistHistory: persistHistory, readHistory: readHistory}
+	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist, persistHistory: persistHistory, readHistory: readHistory, readDiff: readDiff}
 }
 
 func (controller *sessionController) submitPrompt(text string) tui.TranscriptTurn {
@@ -104,6 +109,10 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	controller.view = tui.ApplyCommandRecommendation(controller.view, recommendation)
 	if recommendation.Route == policy.CommandRouteHistory {
 		controller.openHistoryView()
+		return controller.view
+	}
+	if recommendation.Route == policy.CommandRouteDiff {
+		controller.openDiffView()
 		return controller.view
 	}
 	diagnostics := controller.persistCommandHistory(recommendation)

@@ -408,6 +408,29 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 		t.Fatalf("history surface mismatch: slash=%q shortcut=%q", historySlashModel.state.SurfaceTitle, historyShortcutModel.state.SurfaceTitle)
 	}
 
+	diffSlash, ok := policy.RecommendSlashCommand("/diff")
+	if !ok {
+		t.Fatal("/diff did not match")
+	}
+	diffShortcut, ok := policy.RecommendShortcut("ctrl+x", "d")
+	if !ok {
+		t.Fatal("ctrl+x d did not match")
+	}
+	if diffSlash.Route != diffShortcut.Route || diffSlash.Route != policy.CommandRouteDiff {
+		t.Fatalf("diff policy route mismatch: slash=%+v shortcut=%+v", diffSlash, diffShortcut)
+	}
+	diffSlashModel, diffSlashCmd := routeSlashCommandForParity(t, "/diff")
+	diffShortcutModel, diffShortcutCmd := routeShortcutForParity(t, "d")
+	if diffSlashCmd != nil || diffShortcutCmd != nil {
+		t.Fatal("diff parity routes should not emit Bubble Tea commands")
+	}
+	if diffSlashModel.state.CommandRoute != diffShortcutModel.state.CommandRoute || diffSlashModel.state.RouteSource != diffShortcutModel.state.RouteSource {
+		t.Fatalf("diff TUI route mismatch: slash=%+v shortcut=%+v", diffSlashModel.state, diffShortcutModel.state)
+	}
+	if diffSlashModel.state.SurfaceTitle != "diff" || diffShortcutModel.state.SurfaceTitle != "diff" || !diffSlashModel.state.DiffFocus || !diffShortcutModel.state.DiffFocus {
+		t.Fatalf("diff surface mismatch: slash=%+v shortcut=%+v", diffSlashModel.state, diffShortcutModel.state)
+	}
+
 	quitSlashModel, quitSlashCmd := routeSlashCommandForParity(t, "/quit")
 	quitShortcutModel, quitShortcutCmd := routeShortcutForParity(t, "q")
 	if quitSlashModel.state.CommandRoute != quitShortcutModel.state.CommandRoute || quitSlashModel.state.RouteSource != quitShortcutModel.state.RouteSource {
@@ -523,9 +546,11 @@ func TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder(t *testing.T) {
 		"commands:",
 		"/status - Show deterministic placeholder status.",
 		"/help - Show this deterministic placeholder help.",
+		"/diff - Review current changes.",
 		"/quit - Quit Aila.",
 		"shortcuts:",
 		"ctrl+x s - Show deterministic placeholder status.",
+		"ctrl+x d - Review current changes.",
 		"ctrl+x q - Quit Aila.",
 	} {
 		if !strings.Contains(first, item) {
@@ -533,12 +558,14 @@ func TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder(t *testing.T) {
 		}
 	}
 	assertOrdered(t, first, "/status - Show deterministic placeholder status.", "/help - Show this deterministic placeholder help.")
-	assertOrdered(t, first, "/help - Show this deterministic placeholder help.", "/quit - Quit Aila.")
+	assertOrdered(t, first, "/help - Show this deterministic placeholder help.", "/diff - Review current changes.")
+	assertOrdered(t, first, "/diff - Review current changes.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
-	assertOrdered(t, first, "ctrl+x s - Show deterministic placeholder status.", "ctrl+x q - Quit Aila.")
+	assertOrdered(t, first, "ctrl+x s - Show deterministic placeholder status.", "ctrl+x d - Review current changes.")
+	assertOrdered(t, first, "ctrl+x d - Review current changes.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/new", "/clear", "/continue", "/review", "/history", "/undo", "/redo", "/diff", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
-		"ctrl+x n", "ctrl+x c", "ctrl+x i", "ctrl+x h", "ctrl+x u", "ctrl+x r", "ctrl+x d", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
+		"/new", "/clear", "/continue", "/review", "/history", "/undo", "/redo", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
+		"ctrl+x n", "ctrl+x c", "ctrl+x i", "ctrl+x h", "ctrl+x u", "ctrl+x r", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {
@@ -728,6 +755,120 @@ func TestHistoryViewEmptyStateIsDeterministic(t *testing.T) {
 	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
 	if semantic.History == nil || !semantic.History.ReadOnly || !semantic.History.Empty || semantic.History.Count != 0 {
 		t.Fatalf("empty history semantic = %+v", semantic.History)
+	}
+}
+
+func TestDiffViewNavigationSelectionFocusExitAreDeterministic(t *testing.T) {
+	t.Parallel()
+
+	state := ApplyDiffView(IdleEmptyState(), diffNavigationView(), 0, true)
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, nil)
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff up navigation emitted a command")
+	}
+	if got.state.DiffSelected != 0 {
+		t.Fatalf("diff selection after up at start = %d, want 0", got.state.DiffSelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff page down emitted a command")
+	}
+	if got.state.DiffSelected != 12 {
+		t.Fatalf("diff selection after page down = %d, want 12", got.state.DiffSelected)
+	}
+	if !strings.Contains(strings.Join(got.state.SurfaceLines, "\n"), "selected: 13") {
+		t.Fatalf("bounded diff window did not record selected row: %#v", got.state.SurfaceLines)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff end emitted a command")
+	}
+	if got.state.DiffSelected != 19 {
+		t.Fatalf("diff selection after end = %d, want 19", got.state.DiffSelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff down at end emitted a command")
+	}
+	if got.state.DiffSelected != 19 {
+		t.Fatalf("diff selection after down at end = %d, want 19", got.state.DiffSelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyHome})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff home emitted a command")
+	}
+	if got.state.DiffSelected != 0 {
+		t.Fatalf("diff selection after home = %d, want 0", got.state.DiffSelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("diff escape emitted a command")
+	}
+	if got.state.Diff != nil || got.state.DiffFocus || got.state.SurfaceTitle == "diff" || got.state.CommandRoute == "diff" {
+		t.Fatalf("diff escape should clear diff surface: %+v", got.state)
+	}
+}
+
+func TestDiffViewEmptyStateIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	state := ApplyDiffView(IdleEmptyState(), &DiffView{Source: "app.diff", Status: "empty", Empty: true}, 4, true)
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, nil)
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got := updated.(Model)
+
+	if cmd != nil {
+		t.Fatal("empty diff navigation emitted a command")
+	}
+	if got.state.DiffSelected != 0 || got.state.Diff == nil || !got.state.Diff.Empty || !got.state.DiffFocus {
+		t.Fatalf("empty diff state = %+v, want clamped focused empty diff", got.state)
+	}
+	if !containsAll(got.View(), []string{"diff:", "read-only: true", "source: app.diff", "status: empty", "no changes"}) {
+		t.Fatalf("empty diff render missing deterministic lines:\n%s", got.View())
+	}
+	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
+	if semantic.Diff == nil || !semantic.Diff.ReadOnly || !semantic.Diff.Empty || semantic.Diff.FileCount != 0 {
+		t.Fatalf("empty diff semantic = %+v", semantic.Diff)
+	}
+}
+
+func diffNavigationView() *DiffView {
+	lines := make([]DiffLineView, 0, 18)
+	for i := 0; i < 18; i++ {
+		if i%2 == 0 {
+			lines = append(lines, DiffLineView{Kind: "removal", Text: "old line " + string(rune('a'+i)), OldLine: i + 1})
+			continue
+		}
+		lines = append(lines, DiffLineView{Kind: "addition", Text: "new line " + string(rune('a'+i)), NewLine: i + 1})
+	}
+	return &DiffView{
+		Source: "app.diff",
+		Status: "ready",
+		Files: []DiffFileView{{
+			Path:   "internal/demo.txt",
+			Status: "modified",
+			Hunks: []DiffHunkView{{
+				Header:   "@@ -1,18 +1,18 @@",
+				OldStart: 1,
+				OldLines: 18,
+				NewStart: 1,
+				NewLines: 18,
+				Lines:    lines,
+			}},
+		}},
 	}
 }
 

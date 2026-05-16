@@ -3,19 +3,19 @@
 + [33mConversation[0m ----------------------------------------------------------------+
 | No messages yet.                                                             |
 |                                                                              |
-| help:                                                                        |
-| command route: help                                                          |
+| diff:                                                                        |
+| command route: diff                                                          |
 | route source: policy.command                                                 |
-| Deterministic placeholder help.                                              |
-| commands:                                                                    |
-| /status - Show deterministic placeholder status.                             |
-| /help - Show this deterministic placeholder help.                            |
-| /diff - Review current changes.                                              |
-| /quit - Quit Aila.                                                           |
-| shortcuts:                                                                   |
-| ctrl+x s - Show deterministic placeholder status.                            |
-| ctrl+x d - Review current changes.                                           |
-| ctrl+x q - Quit Aila.                                                        |
+| read-only: true                                                              |
+| source: app.diff.fixture                                                     |
+| status: ready                                                                |
+| files: 1                                                                     |
+| selected: 4                                                                  |
+|   file: internal/demo.txt status: modified                                   |
+|   hunk: @@ -1 +1 @@                                                          |
+| [31m  - old value[0m                                                                |
+| [32m> + new value[0m                                                                |
+| selected kind: addition                                                      |
 +------------------------------------------------------------------------------+
 + [33mPrompt[0m ----------------------------------------------------------------------+
 | [36m>[0m                                                                            |

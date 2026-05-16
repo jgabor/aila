@@ -1,4 +1,49 @@
 cycles:
+  - number: 173
+    timestamp: "2026-05-16 22:51"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M28 by adding a closed /diff and ctrl+x d route, app-owned read-only staged/unstaged current-diff acquisition through the safe bash boundary, unified diff parsing into display-only state, focused TUI diff navigation/exit behavior, diff-view snapshots, help-command snapshot updates, and PTY open/escape smoke.
+    commit: "pending local commit for M28 diff view"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 28; docs/notes/PROMPT.md; README.md diff command/view promises; ARCHITECTURE.md tool/permission/TUI boundaries; docs/workflow-architecture.md TUI ownership table; docs/tui-testing.md diff fixture, semantic, ANSI, and PTY gates"
+    discovered: >-
+      M28 can stay a visibility/navigation slice: policy owns the closed command route, app owns read-only staged/unstaged git diff acquisition and unified-diff parsing, and TUI owns only inert DiffView rendering, selected-row movement, focus, and Escape exit. Existing safe bash validation already allows bounded git diff inspection with --no-ext-diff, so no new shell execution boundary was needed. Mutation history, undo metadata, durable diff records, provider review, file or git mutation, permission changes, context compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M29+ behavior stayed out of scope.
+    verified: >-
+      go test ./internal/policy ./internal/app ./internal/tui ./cmd/aila -count=1 passed. go test ./internal/... -count=1 passed. TestDiffViewPTYSmoke passed. diff-view 80x24 and 160x45 plain/ANSI/semantic snapshots were generated and reviewed. Help-command snapshots were updated for /diff and ctrl+x d. go test ./cmd/aila -count=1 passed. mage check passed with 0 lint issues and no vulnerabilities. Tracked git diff --check passed. New source/YAML/JSON git diff --check --no-index passed; fixed-width plain/ANSI render snapshots intentionally preserve terminal padding and are covered by snapshot tests. Agentera CLI plan/progress validation passed after artifact updates.
+    next: >-
+      Commit the M28 diff view slice, then continue with M29: Mutation History And Undo Metadata in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M28 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, app-owned read-only staged/unstaged diff acquisition, exact path/addition/removal visibility, and no mutation history/undo/provider-review/M29+ scope. Do not include pre-existing .agentera/session.yaml or .aila/ state in the commit.
+      unknowns: "none"
+      scope: >-
+        M28 policy/app/TUI/cmd diff route, staged/unstaged current-diff source mapping, render/semantic/navigation fixtures and tests, PTY smoke, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 172
+    timestamp: "2026-05-16 22:18"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 28: Diff View as the next roadmap milestone, archived the completed M27 plan, and created a new active full plan with five bounded tasks for diff command routing, app-owned current diff source mapping, TUI diff render/semantic state, navigation/focus/exit behavior, fixture/PTY coverage, and validation closeout.
+    commit: "N/A: planning artifact before M28 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 28; AGENTS.md; README.md diff command/view promises; ARCHITECTURE.md tool/permission/TUI boundaries; docs/tui-testing.md diff-view fixture, ANSI, semantic, and PTY gates; docs/workflow-architecture.md TUI ownership table"
+    discovered: >-
+      M28 should be a visibility/navigation slice. The TUI can own rendering, focus, selected-line movement, and exit input, while policy owns the closed /diff route and app owns current-diff acquisition/mapping. The plan must preserve exact paths, additions, and removals while avoiding undo, mutation history, durable diff records, provider review, file or git mutation, context compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M29+ behavior.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress state, ROADMAP.md M28 section, AGENTS.md, docs/notes/PROMPT.md, ARCHITECTURE.md TUI/tool/permission boundaries, docs/workflow-architecture.md TUI ownership, docs/tui-testing.md diff-view and snapshot requirements, README diff command/view promises, and current policy/app/TUI command and fixture seams were reviewed before writing the plan.
+    next: >-
+      Execute M28 Task 1: add the closed diff command route and app-owned diff source seam. Do not implement undo, mutation history, provider review, durable diff records, or M29+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M28; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, app-owned read-only diff acquisition, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact current-diff acquisition should reuse the safest existing read-only command/tool boundary during implementation; deterministic fixtures remain the primary correctness contract.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m27.yaml archival, and progress evidence for the planning handoff.
   - number: 171
     timestamp: "2026-05-16 22:00"
     type: build

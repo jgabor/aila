@@ -13,6 +13,8 @@ const (
 	ansiBold            = "\x1b[1m"
 	ansiDim             = "\x1b[2m"
 	ansiCyan            = "\x1b[36m"
+	ansiGreen           = "\x1b[32m"
+	ansiRed             = "\x1b[31m"
 	ansiYellow          = "\x1b[33m"
 	ansiReset           = "\x1b[0m"
 	maxDisplayTextBytes = 240
@@ -65,6 +67,9 @@ type ViewState struct {
 	HistorySelected    int
 	HistoryFocus       bool
 	HistoryEmpty       bool
+	Diff               *DiffView
+	DiffSelected       int
+	DiffFocus          bool
 	PromptInput        string
 }
 
@@ -77,6 +82,42 @@ type HistoryItem struct {
 	Source      string
 	Provenance  string
 	DisplayText string
+}
+
+// DiffView is app-injected read-only diff presentation data. It is display-only;
+// TUI code must never run git, read files, or mutate workspace state itself.
+type DiffView struct {
+	Source       string
+	Status       string
+	Files        []DiffFileView
+	Empty        bool
+	ErrorMessage string
+}
+
+// DiffFileView records one changed file in a rendered diff.
+type DiffFileView struct {
+	Path    string
+	OldPath string
+	Status  string
+	Hunks   []DiffHunkView
+}
+
+// DiffHunkView records one unified diff hunk.
+type DiffHunkView struct {
+	Header   string
+	OldStart int
+	OldLines int
+	NewStart int
+	NewLines int
+	Lines    []DiffLineView
+}
+
+// DiffLineView records one addition, removal, or context line.
+type DiffLineView struct {
+	Kind    string
+	Text    string
+	OldLine int
+	NewLine int
 }
 
 // DiagnosticView is app-owned diagnostic presentation data consumed by the TUI.
@@ -703,10 +744,24 @@ func panelLines(title string, items []string, width int, height int, ansi bool) 
 		if i < len(items) {
 			text = strings.TrimPrefix(items[i], "  ")
 		}
+		if ansi {
+			text = styleContentLine(text)
+		}
 		lines = append(lines, panelRow(text, width))
 	}
 	lines = append(lines, panelBottom(width))
 	return lines
+}
+
+func styleContentLine(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if strings.HasPrefix(trimmed, "+ ") || strings.HasPrefix(trimmed, "> + ") {
+		return ansiGreen + text + ansiReset
+	}
+	if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "> - ") {
+		return ansiRed + text + ansiReset
+	}
+	return text
 }
 
 func pairedPanelLines(leftTitle string, leftItems []string, leftWidth int, rightTitle string, rightItems []string, rightWidth int, height int, ansi bool) []string {
@@ -781,7 +836,7 @@ func visibleLen(text string) int {
 }
 
 func stripANSI(text string) string {
-	for _, code := range []string{ansiBold, ansiDim, ansiCyan, ansiYellow, ansiReset} {
+	for _, code := range []string{ansiBold, ansiDim, ansiCyan, ansiGreen, ansiRed, ansiYellow, ansiReset} {
 		text = strings.ReplaceAll(text, code, "")
 	}
 	return text
@@ -798,6 +853,7 @@ type SemanticSnapshot struct {
 	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
 	Command     *SemanticCommand     `json:"command,omitempty"`
 	History     *SemanticHistory     `json:"history,omitempty"`
+	Diff        *SemanticDiff        `json:"diff,omitempty"`
 	Read        *SemanticRead        `json:"read_tool,omitempty"`
 	Search      *SemanticSearch      `json:"search_tool,omitempty"`
 	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
@@ -1055,6 +1111,47 @@ type SemanticHistoryItem struct {
 	Selected    bool   `json:"selected"`
 }
 
+// SemanticDiff describes app-injected read-only diff presentation state.
+type SemanticDiff struct {
+	Visible       bool               `json:"visible"`
+	ReadOnly      bool               `json:"read_only"`
+	Source        string             `json:"source"`
+	Status        string             `json:"status"`
+	Focus         bool               `json:"focus"`
+	Empty         bool               `json:"empty"`
+	ErrorMessage  string             `json:"error_message,omitempty"`
+	FileCount     int                `json:"file_count"`
+	SelectedIndex int                `json:"selected_index"`
+	SelectedLine  string             `json:"selected_line,omitempty"`
+	Files         []SemanticDiffFile `json:"files"`
+}
+
+// SemanticDiffFile describes one file in the diff view.
+type SemanticDiffFile struct {
+	Path    string             `json:"path"`
+	OldPath string             `json:"old_path,omitempty"`
+	Status  string             `json:"status"`
+	Hunks   []SemanticDiffHunk `json:"hunks"`
+}
+
+// SemanticDiffHunk describes one hunk in the diff view.
+type SemanticDiffHunk struct {
+	Header   string             `json:"header"`
+	OldStart int                `json:"old_start,omitempty"`
+	OldLines int                `json:"old_lines,omitempty"`
+	NewStart int                `json:"new_start,omitempty"`
+	NewLines int                `json:"new_lines,omitempty"`
+	Lines    []SemanticDiffLine `json:"lines"`
+}
+
+// SemanticDiffLine describes one rendered line in a diff hunk.
+type SemanticDiffLine struct {
+	Kind    string `json:"kind"`
+	Text    string `json:"text"`
+	OldLine int    `json:"old_line,omitempty"`
+	NewLine int    `json:"new_line,omitempty"`
+}
+
 // SemanticRegion describes a visible region of the static shell.
 type SemanticRegion struct {
 	Name    string   `json:"name"`
@@ -1126,6 +1223,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if historyVisible(state) {
 		regions = append(regions, SemanticRegion{Name: "history", Visible: true, Items: semanticHistoryRegionItems(state)})
 	}
+	if diffVisible(state) {
+		regions = append(regions, SemanticRegion{Name: "diff", Visible: true, Items: semanticDiffRegionItems(state)})
+	}
 	var command *SemanticCommand
 	if state.CommandRoute != "" || state.SurfaceTitle != "" {
 		command = &SemanticCommand{
@@ -1187,6 +1287,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Diagnostics: semanticDiagnostics(state.Diagnostics),
 		Command:     command,
 		History:     semanticHistory(state),
+		Diff:        semanticDiff(state),
 		Read:        semanticRead(state.Read),
 		Search:      semanticSearch(state.Search),
 		Bash:        semanticBash(state.Command),
@@ -2185,6 +2286,9 @@ func semanticFocus(state ViewState) string {
 	if historyVisible(state) && state.HistoryFocus {
 		return "history"
 	}
+	if diffVisible(state) && state.DiffFocus {
+		return "diff"
+	}
 	return "prompt"
 }
 
@@ -2296,6 +2400,13 @@ func boolLabel(value bool) string {
 	return "false"
 }
 
+func defaultString(value string, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
 func surfaceLines(route string, source string, title string, items []string) []string {
 	if title == "" {
 		return nil
@@ -2311,6 +2422,197 @@ func surfaceLines(route string, source string, title string, items []string) []s
 		lines = append(lines, "  "+item)
 	}
 	return lines
+}
+
+type diffRow struct {
+	Kind    string
+	Path    string
+	Text    string
+	OldLine int
+	NewLine int
+}
+
+func diffSurfaceLines(state ViewState) []string {
+	if !diffVisible(state) {
+		return nil
+	}
+	diff := state.Diff
+	if diff == nil {
+		diff = &DiffView{Source: "app.diff", Status: "empty", Empty: true}
+	}
+	selected := clampDiffSelection(state)
+	rows := diffRows(state)
+	lines := []string{
+		"read-only: true",
+		"source: " + safeText(diff.Source),
+		"status: " + safeText(defaultString(diff.Status, "ready")),
+		fmt.Sprintf("files: %d", len(diff.Files)),
+		fmt.Sprintf("selected: %d", selected+1),
+	}
+	if diff.ErrorMessage != "" {
+		lines = append(lines, "error: "+safeText(diff.ErrorMessage))
+	}
+	if diff.Empty || len(diff.Files) == 0 {
+		lines = append(lines, "no changes")
+		return lines
+	}
+	start := diffWindowStart(state, 14)
+	for index, row := range visibleDiffRows(state, 14) {
+		marker := " "
+		absolute := start + index
+		if absolute == selected {
+			marker = ">"
+		}
+		lines = append(lines, marker+" "+row.Text)
+	}
+	if selected >= 0 && selected < len(rows) {
+		row := rows[selected]
+		lines = append(lines,
+			"selected kind: "+safeText(row.Kind),
+			"selected path: "+safeText(row.Path),
+			"selected text: "+safeText(row.Text),
+		)
+	}
+	return lines
+}
+
+func diffVisible(state ViewState) bool {
+	return state.SurfaceTitle == "diff" || state.CommandRoute == "diff" || state.DiffFocus || state.Diff != nil
+}
+
+func diffRows(state ViewState) []diffRow {
+	if state.Diff == nil {
+		return nil
+	}
+	rows := make([]diffRow, 0, len(state.Diff.Files)*4)
+	for _, file := range state.Diff.Files {
+		path := safeDecisionTarget(file.Path)
+		status := safeText(file.Status)
+		if status == "" {
+			status = "modified"
+		}
+		rows = append(rows, diffRow{Kind: "file", Path: path, Text: "file: " + path + " status: " + status})
+		for _, hunk := range file.Hunks {
+			header := safeText(hunk.Header)
+			rows = append(rows, diffRow{Kind: "hunk", Path: path, Text: "hunk: " + header})
+			for _, line := range hunk.Lines {
+				prefix := " "
+				switch line.Kind {
+				case "addition":
+					prefix = "+"
+				case "removal":
+					prefix = "-"
+				}
+				rows = append(rows, diffRow{Kind: safeText(line.Kind), Path: path, Text: prefix + " " + safeText(line.Text), OldLine: line.OldLine, NewLine: line.NewLine})
+			}
+		}
+	}
+	return rows
+}
+
+func clampDiffSelection(state ViewState) int {
+	rows := diffRows(state)
+	if len(rows) == 0 {
+		return 0
+	}
+	if state.DiffSelected < 0 {
+		return 0
+	}
+	if state.DiffSelected >= len(rows) {
+		return len(rows) - 1
+	}
+	return state.DiffSelected
+}
+
+func diffWindowStart(state ViewState, window int) int {
+	rows := diffRows(state)
+	selected := clampDiffSelection(state)
+	if len(rows) <= window || window <= 0 {
+		return 0
+	}
+	start := selected - window/2
+	if start < 0 {
+		return 0
+	}
+	maxStart := len(rows) - window
+	if start > maxStart {
+		return maxStart
+	}
+	return start
+}
+
+func visibleDiffRows(state ViewState, window int) []diffRow {
+	rows := diffRows(state)
+	if window <= 0 || len(rows) <= window {
+		return rows
+	}
+	start := diffWindowStart(state, window)
+	end := start + window
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return rows[start:end]
+}
+
+func semanticDiff(state ViewState) *SemanticDiff {
+	if !diffVisible(state) {
+		return nil
+	}
+	diff := state.Diff
+	if diff == nil {
+		diff = &DiffView{Source: "app.diff", Status: "empty", Empty: true}
+	}
+	files := make([]SemanticDiffFile, 0, len(diff.Files))
+	for _, file := range diff.Files {
+		semanticFile := SemanticDiffFile{Path: safeDecisionTarget(file.Path), OldPath: safeDecisionTarget(file.OldPath), Status: safeText(file.Status)}
+		for _, hunk := range file.Hunks {
+			semanticHunk := SemanticDiffHunk{Header: safeText(hunk.Header), OldStart: hunk.OldStart, OldLines: hunk.OldLines, NewStart: hunk.NewStart, NewLines: hunk.NewLines}
+			for _, line := range hunk.Lines {
+				semanticHunk.Lines = append(semanticHunk.Lines, SemanticDiffLine{Kind: safeText(line.Kind), Text: safeText(line.Text), OldLine: line.OldLine, NewLine: line.NewLine})
+			}
+			semanticFile.Hunks = append(semanticFile.Hunks, semanticHunk)
+		}
+		files = append(files, semanticFile)
+	}
+	rows := diffRows(state)
+	selected := clampDiffSelection(state)
+	selectedLine := ""
+	if selected >= 0 && selected < len(rows) {
+		selectedLine = rows[selected].Text
+	}
+	return &SemanticDiff{Visible: true, ReadOnly: true, Source: safeText(diff.Source), Status: safeText(defaultString(diff.Status, "ready")), Focus: state.DiffFocus, Empty: diff.Empty || len(diff.Files) == 0, ErrorMessage: safeText(diff.ErrorMessage), FileCount: len(diff.Files), SelectedIndex: selected, SelectedLine: selectedLine, Files: files}
+}
+
+func semanticDiffRegionItems(state ViewState) []string {
+	semantic := semanticDiff(state)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"read_only: true",
+		"source: " + semantic.Source,
+		"status: " + semantic.Status,
+		"focus: " + boolLabel(semantic.Focus),
+		fmt.Sprintf("file_count: %d", semantic.FileCount),
+		fmt.Sprintf("selected_index: %d", semantic.SelectedIndex),
+	}
+	if semantic.Empty {
+		items = append(items, "empty: true")
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error: "+semantic.ErrorMessage)
+	}
+	for _, file := range semantic.Files {
+		items = append(items, "file: "+file.Path, "file_status: "+file.Status)
+		for _, hunk := range file.Hunks {
+			items = append(items, "hunk: "+hunk.Header)
+			for _, line := range hunk.Lines {
+				items = append(items, "line_"+line.Kind+": "+line.Text)
+			}
+		}
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
 }
 
 func historySurfaceLines(state ViewState) []string {
@@ -2491,6 +2793,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Mutation != nil {
 		items = append(items, semanticMutationItems(state.Mutation)...)
+	}
+	if diffVisible(state) {
+		items = append(items, semanticDiffRegionItems(state)...)
 	}
 	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
 	return items

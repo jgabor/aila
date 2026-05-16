@@ -432,6 +432,70 @@ func TestM17HistoryEmptyPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestDiffViewPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 120, 32, env.vars, func(workspace string) {
+		seedDiffSmokeWorkspace(t, workspace)
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	if _, err := terminal.Write([]byte("/diff\r")); err != nil {
+		t.Fatalf("send /diff command input: %v", err)
+	}
+
+	output := readUntilAll(t, terminal, []string{
+		"diff:",
+		"read-only: true",
+		"source: git diff",
+		"status: ready",
+		"file: internal/demo.txt status: modified",
+		"- old value",
+		"+ new value",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, output, env, workspace)
+	for _, forbidden := range []string{"undo", "redo", "replay", "Mutation result:", "Approval pending:", "provider review"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("diff PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	if _, err := terminal.Write([]byte{0x1b}); err != nil {
+		t.Fatalf("send Escape after diff smoke: %v", err)
+	}
+	closed := readUntilAll(t, terminal, []string{"Display labels:", "No messages yet."}, 10*time.Second)
+	if strings.Contains(closed, "diff:") {
+		t.Fatalf("diff PTY escape did not leave diff view: %q", closed)
+	}
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after diff smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("diff PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("diff PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertProjectStoreLayout(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestPromptSubmitPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -569,7 +633,7 @@ func TestApprovalToWriteMutationPTYSmoke(t *testing.T) {
 		t.Fatalf("approval-to-write mutation startup ran mutation before approval: %q", startup)
 	}
 	if _, err := terminal.Write([]byte("a")); err != nil {
-		t.Fatalf("send M27 approval input: %v", err)
+		t.Fatalf("send approval input: %v", err)
 	}
 
 	_ = readUntilAll(t, terminal, []string{
@@ -1109,6 +1173,34 @@ func seedCurrentSessionSnapshot(t *testing.T, workspace string) {
 	}
 }
 
+func seedDiffSmokeWorkspace(t *testing.T, workspace string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Join(workspace, "internal"), 0o755); err != nil {
+		t.Fatalf("create diff smoke directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "internal", "demo.txt"), []byte("old value\n"), 0o644); err != nil {
+		t.Fatalf("write diff smoke base file: %v", err)
+	}
+	runPTYGit(t, workspace, "init")
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "internal/demo.txt")
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	if err := os.WriteFile(filepath.Join(workspace, "internal", "demo.txt"), []byte("new value\nsecond value\n"), 0o644); err != nil {
+		t.Fatalf("write diff smoke changed file: %v", err)
+	}
+}
+
+func runPTYGit(t *testing.T, workspace string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = workspace
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
+	}
+}
+
 func seedFakeHistoryEvents(t *testing.T, workspace string) {
 	t.Helper()
 
@@ -1353,6 +1445,33 @@ func assertNoResumeSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, w
 	} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("resume smoke output leaked marker %q: %q", forbidden, output)
+		}
+	}
+}
+
+func assertNoDiffSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		workspace,
+		env.home,
+		env.xdgConfigHome,
+		mustRepositoryRoot(t),
+		"/tmp",
+		"/home/",
+		".aila",
+		"project.toml",
+		"artifacts/",
+		"indexes/",
+		"config.toml",
+		".config/aila",
+		"credential",
+		"OPENAI_API_KEY",
+		"ANTHROPIC_API_KEY",
+		"GOOGLE_API_KEY",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("diff smoke output leaked marker %q: %q", forbidden, output)
 		}
 	}
 }
