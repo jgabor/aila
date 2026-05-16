@@ -1,2 +1,2 @@
-// Package tools will implement Aila's fixed read, edit, write, bash, grep, find, and fetch tools.
+// Package tools owns Aila's fixed read-only workspace tool contracts.
 package tools

@@ -6319,6 +6319,111 @@ cycles:
         None for M17 closeout. Uncommitted M17 work remains available for a user-requested commit.
       scope: >-
         Final M17 Agentera plan completion and progress closeout metadata only.
+  - number: 143
+    timestamp: "2026-05-16 09:00"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 18: Read Tool as the next active Agentera plan after committing completed M17 work as
+      `c1ad593 complete fake history view`.
+    commit: "c1ad593 complete fake history view"
+    inspiration: "ROADMAP.md Milestone 18; Agentera plan status completed; user requested continuation to next steps"
+    discovered: >-
+      Agentera reported the M17 plan completed with no active dependency-ready queue because no M18 plan existed.
+      ROADMAP.md marks M18 Read Tool as next and M19 Find/Grep as later. Decisions, health, docs mapping, and TODO
+      fallback commands returned empty or missing artifacts with no blockers.
+    verified: >-
+      Reviewed ROADMAP.md status and M18 scope, docs/notes/PROMPT.md milestone-selection rules, ARCHITECTURE.md
+      tool/effect/state boundaries and implementation checklist, docs/tui-testing.md required tool-running fixture
+      guidance, docs/workflow-architecture.md state/artifact model, and README.md built-in read tool promise. Archived
+      the completed M17 plan to `.agentera/archive/plan-2026-05-16-m17.yaml`, created an active M18 plan, and
+      deferred M19+ search, shell, fetch, mutation, undo, replay, compaction, plugin, and MCP behavior.
+    next: >-
+      Orkestrera may select the first dependency-ready M18 task: Task 1, Define bounded read tool contract. Keep
+      `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Create the next executable plan after M17 closeout while preserving roadmap order and the single active
+        milestone discipline.
+      constraints: >-
+        Plan only M18. Do not start M19 find/grep tools, bash/fetch, edit/write mutation tools, undo/redo, replay,
+        context compaction, stale checks, provider fallback, plugins, MCP, workflow DSL behavior, commits, pushes,
+        vision/objective changes, or local runtime state additions.
+      unknowns: >-
+        No decisions, health, docs mapping, TODO, vision, or objective artifacts are present; the plan relies on
+        ROADMAP.md and architecture source anchors.
+      scope: >-
+        Agentera plan archive, active M18 plan creation, and progress metadata only.
+  - number: 144
+    timestamp: "2026-05-16 09:28"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M18 Task 1 only by adding the bounded read tool request, validation, source metadata, result,
+      truncation, and error contract in internal/tools, with tests covering defaults, unsafe path rejection,
+      deterministic success/failure shaping, and the read-only boundary.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 18; ARCHITECTURE.md tool/effect boundaries"
+    discovered: >-
+      The existing internal/tools package comment named future tool families, so it was narrowed to the read-only
+      workspace contract. No filesystem read executor, app/runtime/effect wiring, policy wiring, TUI rendering,
+      fixtures, search, shell, fetch, mutation, undo/redo, replay, context compaction, plugin, or MCP behavior was
+      introduced.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tools -count=1` passed. Task 1 remains pending in
+      `.agentera/plan.yaml` as requested, and no commit or push was performed.
+    next: >-
+      Hand M18 Task 1 to review. Task 2 should add the filesystem read executor outside deterministic updates,
+      including missing file, directory, binary, oversized, permission, symlink escape, and cancellation handling.
+    context:
+      intent: >-
+        Define only the typed, bounded read contract and deterministic validation/result shaping needed before any
+        actual file read execution exists.
+      constraints: >-
+        Do not mark `.agentera/plan.yaml` Task 1 complete, do not modify `.agentera/session.yaml`, `.aila/`, vision,
+        or objective state, and do not add M18 Task 2 or Milestone 19+ behavior.
+      unknowns: >-
+        Task 2 still needs to decide exact executor behavior for symlinks, binary detection, file size limits,
+        line scanning, permission errors, and cancellation.
+      scope: >-
+        internal/tools read contract, validation tests, result shaping tests, boundary package comment, and this
+        Agentera progress metadata cycle only.
+  - number: 145
+    timestamp: "2026-05-16 09:36"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M18 Task 1 with no findings. The active plan now marks only Task 1
+      complete, with read request/default metadata, unsafe path and range rejection, deterministic read result
+      shaping, and M18-only boundary evidence recorded.
+    commit: "N/A: no commit or push performed"
+    inspiration: "Inspektera M18 Task 1 PASS; .agentera/plan.yaml task 1"
+    discovered: >-
+      The audit confirmed Task 1 stayed limited to the internal/tools read contract and tests. Actual filesystem
+      execution, symlink handling, missing/directory/binary/oversized/permission/cancellation behavior,
+      app/runtime/policy wiring, TUI rendering, fixtures, PTY smoke, search, shell, fetch, mutation, undo/replay,
+      compaction, plugins, MCP, and M19+ behavior remain out of scope.
+    verified: >-
+      Inspektera inspected internal/tools/doc.go, internal/tools/read.go, internal/tools/read_test.go, the active
+      plan Task 1 status, and progress cycle 144. It ran `go test ./internal/tools -count=1` and `git diff --check
+      -- .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m17.yaml internal/tools`;
+      both passed. Local focused validation also reran `mage fmt`, `go test ./internal/tools -count=1`, and the
+      same `git diff --check`; all passed.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M18 task: Task 2, Execute safe file reads outside
+      updates. Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless explicitly
+      requested.
+    context:
+      intent: >-
+        Record M18 Task 1 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 1 complete. Do not start Task 2 in this metadata step, do not commit, push, modify
+        vision/objective state, add local runtime state artifacts, or introduce M19+ behavior.
+      unknowns: >-
+        Task 2 still owns actual file read execution and no-mutation proof across filesystem edge cases.
+      scope: >-
+        internal/tools read contract evidence, Inspektera PASS evidence, and Agentera plan/progress synchronization
+        for Task 1 only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -6335,3 +6440,4 @@ archive:
   - .agentera/archive/plan-2026-05-15-m15.yaml
   - .agentera/archive/plan-2026-05-16-m15a.yaml
   - .agentera/archive/plan-2026-05-16-m16.yaml
+  - .agentera/archive/plan-2026-05-16-m17.yaml

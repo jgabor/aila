@@ -1,288 +1,148 @@
 header:
   level: full
   created: 2026-05-16
-  status: completed
+  status: active
   reviewed: 2026-05-16
-  critic_issues: "planned as M17-only; M18+ deferred"
-  title: Milestone 17 History View For Fake Events
+  critic_issues: "planned as M18-only; M19+ and mutation tools deferred"
+  title: Milestone 18 Read Tool
 what: >-
-  Deliver ROADMAP.md:750-773 Milestone 17 by recording inspectable fake prompt,
-  response, command, and runtime events through `internal/history` records backed
-  by the Aila state store, then surfacing those records in a read-only TUI history
-  view.
+  Deliver ROADMAP.md:795-815 Milestone 18 by adding Aila's first read-only
+  workspace tool through explicit effects. The read tool must return bounded file
+  previews with exact workspace paths and line ranges while keeping filesystem IO
+  outside deterministic updates.
 why: >-
-  M16 proved Aila can preserve current fake session memory across process starts.
-  The next trust boundary is making prior fake activity inspectable through the
-  same store path future real model/tool runs will use, before adding real tools,
-  undo, replay, context compaction, or model/provider history.
+  M17 made prior fake activity inspectable through the project store. The next
+  trust boundary is allowing Aila to inspect workspace files safely, with source
+  references precise enough for future model/tool history, search, edit, and bash
+  milestones to build on.
 constraints: >-
-  Execute only Milestone 17. Preserve the statechart-MVU rule that updates decide
-  and effects do. History persistence must be requested through explicit
-  app-owned commands/effects or guarded state/history calls; deterministic
-  runtime updates and TUI rendering must not perform filesystem IO. Keep history
-  read-only in this milestone. Keep the TUI presentation-only and path-safe. Do
-  not add undo/redo, mutation records, edit/write history, real tool or model
-  history, event replay, session restore/selection, context compaction, stale
-  checks, read/find/grep/bash tools, provider fallback, permission policy changes,
-  plugins, MCP, workflow DSL behavior, or Milestone 18+ behavior. Do not push. Do
-  not commit M17 work unless the user separately requests it.
-previous_plan_archived: .agentera/archive/plan-2026-05-16-m16.yaml
+  Execute only Milestone 18. Preserve the statechart-MVU rule that updates decide
+  and effects do. File reads must run through explicit app/runtime/tool effects,
+  not deterministic updates or TUI rendering. Keep the TUI presentation-only and
+  driven by injected read result state. Preserve exact paths and line ranges in
+  results while bounding previews and errors. Do not add find, grep, bash, fetch,
+  edit, write, mutation history, undo/redo, replay, context compaction, stale
+  checks, real provider fallback, plugin, MCP, workflow DSL, marketplace, or
+  Milestone 19+ behavior. Do not push. Do not commit M18 work unless the user
+  explicitly requests it.
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m17.yaml
 source_anchors:
-  - ROADMAP.md:750-773
+  - ROADMAP.md:795-815
+  - README.md:226-243
+  - ARCHITECTURE.md:451-483
   - ARCHITECTURE.md:529-607
-  - ARCHITECTURE.md:916-923
-  - ARCHITECTURE.md:858-868
-  - README.md:290-309
-  - docs/tui-testing.md:61-79
-  - docs/workflow-architecture.md:337-384
-  - docs/notes/PROMPT.md
+  - ARCHITECTURE.md:916-945
+  - docs/tui-testing.md:52-81
+  - docs/workflow-architecture.md:335-354
+  - docs/notes/PROMPT.md:1-39
 verification_commands:
-  - go test ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
+  - go test ./internal/tools ./internal/app ./internal/tui ./cmd/aila -count=1
   - mage check
 scope:
   included:
-    - A narrow fake history event contract for prompt, response, command, and runtime events.
-    - State/store-backed append and read behavior for the current fake event log with provenance, bounds, and recovery diagnostics.
-    - App-owned recording of fake prompt, response, command, and runtime status events through explicit command/result paths.
-    - A read-only history view reachable through the command surface when introduced by this milestone.
-    - TUI history navigation, selection, and focus behavior over injected history display data.
-    - History-view render and semantic evidence with stable fake run/event identifiers, event kinds, and selected item metadata.
-    - Bounded PTY smoke for opening history if terminal navigation changes.
+    - A narrow read tool request/result contract with path, range, preview, truncation, and error metadata.
+    - Path-safe, read-only file execution outside deterministic updates with bounded byte/line behavior.
+    - App/runtime integration that proposes, classifies, executes, records, and returns read results as typed messages or effects.
+    - TUI running/completed read result display state that preserves exact file paths and line references.
+    - Read result fixture, semantic snapshot, render snapshot, and tool-running fixture evidence where missing.
+    - Targeted tests for bounds, missing files, directories, unsafe paths, binary/oversized content, and no workspace mutation.
+    - PTY smoke only if this milestone exposes a visible interactive command path for read.
   excluded:
-    - Undo/redo, edit/write mutation history, mutation records, approval persistence, file edit records, or destructive recovery.
-    - Real model/provider/tool history, shell command history, read/find/grep/bash tools, or tool execution.
-    - Event replay, session restore, session selection/history browser beyond read-only fake activity inspection, context compaction, stale checks, or context-builder behavior.
-    - Dynamic plugins, MCP servers, workflow DSLs, model marketplaces, hosted control planes, or Milestone 18+ behavior.
+    - Find, grep, bash, fetch, edit, write, shell command history, mutation history, approval persistence, undo/redo, or replay.
+    - Context compaction, stale checks, source index building, real provider/model fallback, multi-tool orchestration, or search ranking.
+    - Dynamic plugins, MCP servers, workflow DSLs, model marketplaces, hosted control planes, or Milestone 19+ behavior.
   deferred:
-    - Workspace read tool for Milestone 18.
     - Find and grep tools for Milestone 19.
     - Safe bash inspection for Milestone 20.
-    - Undo, mutation history, and replay until the fake event history seam is validated.
+    - Fetch, edit/write mutation tools, approval persistence, undo, replay, context compaction, and stale checks until their roadmap slices.
 design: >-
-  Treat M17 history as an append-only, read-only fake activity log, not replay or
-  undo. `internal/history` owns event schema, event shaping, and read model
-  contracts. `internal/state` owns path-safe store integration, file ownership,
-  atomic writes, and recovery diagnostics. App code decides when fake events are
-  recorded and converts read results into TUI view state. The TUI receives
-  injected history display and semantic fields only; it may navigate, select, and
-  focus entries but must not read `.aila/` or mutate workflow phase.
+  Treat read as the first primitive read-only tool seam, not a generic tool
+  framework. `internal/tools` owns the read contract, validation, safe filesystem
+  execution, and deterministic result shaping. App/runtime code owns explicit
+  effect emission and result handling. Policy/permission code classifies the
+  operation as read-only without opening mutation paths. The TUI renders injected
+  running and completed read result data only; it must not import tool/state
+  executors or read workspace files itself.
 tasks:
   - number: 1
-    name: Define fake history event contract
+    name: Define bounded read tool contract
     depends_on: []
     status: completed
     acceptance:
-      - GIVEN M17 history events are inspected WHEN tests validate the contract THEN prompt, response, command, and runtime event kinds have stable IDs, run/session identifiers, source/provenance, bounded display text, and schema version fields.
-      - GIVEN unsafe or escaped history paths are requested WHEN validation runs THEN history/state rejects them instead of returning hardcoded, HOME, XDG, Agentera, or escaped filesystem paths.
-      - GIVEN package boundary tests inspect the contract WHEN validation runs THEN M17 history does not introduce undo/redo, mutation records, real model/tool history, event replay, context compaction, read/find/grep/bash tools, plugins, or MCP behavior.
-      - GIVEN fake event records contain terminal controls or secret-like text WHEN normalized for display/semantic output THEN the contract preserves bounded redacted text without leaking control sequences or credentials.
+      - GIVEN read requests are validated WHEN tests inspect the contract THEN path, optional start line, optional line limit, max preview bytes, and caller-visible source metadata have explicit typed fields and defaults.
+      - GIVEN unsafe, empty, absolute-outside-workspace, traversal, HOME, XDG, Agentera, `.aila`, or directory-like paths are requested WHEN validation runs THEN the contract rejects them with bounded path-safe errors.
+      - GIVEN read results are shaped WHEN tests inspect success and failure values THEN exact workspace-relative path, absolute resolved path provenance where appropriate, requested/effective line ranges, preview text, truncation markers, and error kind are explicit and bounded.
+      - GIVEN package boundary tests inspect the new contract WHEN validation runs THEN M18 does not introduce find, grep, bash, fetch, edit, write, mutation history, undo/redo, replay, context compaction, plugin, MCP, or Milestone 19+ behavior.
     evidence:
       - >-
-        Added `internal/history` fake event contract with closed prompt, response, command, and runtime event
-        kinds plus schema version, event id, run id, session id, source, provenance, and bounded display text
-        validation.
+        Added `internal/tools` read contract types for request path, optional start line, optional line limit,
+        max preview bytes, caller-visible source metadata, validated request defaults, line ranges, truncation,
+        error kinds, and read results.
       - >-
-        Added state-owned fake history path description and validation for `.aila/history/fake-events.jsonl`,
-        derived from the workspace `.aila` store and rejecting HOME, XDG, Agentera, escaped, and traversal
-        paths without implementing append/read persistence.
+        Added lexical validation that rejects empty paths, traversal, absolute paths outside the workspace, HOME/XDG
+        paths, `.agentera`, `.aila`, directory-like paths, invalid ranges, and non-absolute workspace roots with
+        bounded path-safe errors.
       - >-
-        Added package boundary guards proving Task 1 did not introduce undo/redo, mutation records, real
-        model/tool history, event replay, context compaction, read/find/grep/bash tools, plugins, MCP, or M18+
-        behavior.
+        Added deterministic `NewReadSuccess` and `NewReadFailure` result shaping that preserves workspace-relative
+        paths, resolved-path provenance, requested/effective ranges, bounded preview text, truncation markers, and
+        error kind without performing filesystem IO.
       - >-
-        Inspektera found C1 terminal controls were not stripped before redaction; retry 1 fixed
-        `U+0080`-`U+009F` stripping and added regressions for raw C1 controls and C1 controls embedded inside
-        token syntax such as `to\u009bken=abc123`.
-      - >-
-        Verified with `mage fmt`, `go test ./internal/history ./internal/state -run 'History|Event|Boundary'
-        -count=1`, `go test ./internal/history ./internal/state -count=1`, `git diff --check --
-        .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml
-        internal/history internal/state/history_path.go internal/state/history_path_test.go`, and Inspektera
-        PASS with no findings.
+        Inspektera passed with no findings after `go test ./internal/tools -count=1` and `git diff --check --
+        .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m17.yaml internal/tools`.
   - number: 2
-    name: Append and read fake history through the state store
+    name: Execute safe file reads outside updates
     depends_on: [1]
-    status: completed
+    status: pending
     acceptance:
-      - GIVEN no fake history log exists WHEN history is read THEN state/history reports empty history without treating it as a failure.
-      - GIVEN valid fake history events exist WHEN append and read run THEN records round-trip in stable order through `.aila/` store ownership with schema-versioned, bounded, redacted data.
-      - GIVEN corrupt, partial, oversized, version-mismatched, or symlink-escaped history data exists WHEN read or append runs THEN a typed recovery diagnostic is returned without overwriting existing history or unrelated store data.
-      - GIVEN a fake history append is requested WHEN validation inspects the filesystem THEN writes are path-safe, append-only or atomic as appropriate, and leave no partial final content or temporary files behind.
-    evidence:
-      - >-
-        Added state-owned fake history read/append APIs for `.aila/history/fake-events.jsonl`; missing history
-        returns empty state without a diagnostic or failure.
-      - >-
-        Valid Task 1 fake events round-trip in JSONL order through the workspace `.aila` store with schema
-        validation, bounded/redacted display data, and stable event ordering.
-      - >-
-        Corrupt JSONL, partial final records, oversized logs, version mismatches, and symlink/path escapes return
-        typed `state.history` recovery diagnostics without overwriting existing history or unrelated store data.
-      - >-
-        Inspektera found direct final-file append could leave partial content on short writes; retry 1 replaced
-        `O_APPEND` with bounded in-memory JSONL rebuild plus atomic temp-and-rename writing and regression coverage
-        for failed atomic writes preserving final content and cleaning temp files.
-      - >-
-        Verified with `mage fmt`, `go test ./internal/history ./internal/state -run 'History|Event|Boundary'
-        -count=1`, `go test ./internal/history ./internal/state -count=1`, `git diff --check --
-        .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml
-        internal/history internal/state internal/diagnostic/diagnostic.go`, and Inspektera PASS with no findings.
+      - GIVEN a valid text file and bounded range WHEN the read executor runs THEN it returns stable line-numbered preview content with exact effective line ranges and no workspace mutation.
+      - GIVEN missing files, directories, permission errors, symlink escapes, binary content, oversized files, oversized lines, invalid ranges, or context cancellation occur WHEN execution runs THEN typed bounded errors or truncation metadata are returned without panics or partial mutations.
+      - GIVEN deterministic update packages are inspected WHEN the executor exists THEN filesystem IO remains in the tool/effect handler path and not in runtime update or TUI rendering code.
+      - GIVEN repeated reads run WHEN validation inspects state THEN no `.aila`, HOME, config, Agentera, git, or unrelated durable state is created or modified.
+    evidence: []
   - number: 3
-    name: Record fake app activity as explicit history effects
+    name: Wire read effects through app and policy
     depends_on: [2]
-    status: completed
+    status: pending
     acceptance:
-      - GIVEN fake prompt and response activity occurs WHEN history persistence is needed THEN app emits an explicit history persistence command/result rather than writing from deterministic runtime update or TUI code.
-      - GIVEN command surfaces and runtime status changes occur WHEN history recording runs THEN prompt, response, command, and runtime event records capture the visible fake activity that exists at this point.
-      - GIVEN history persistence fails WHEN app handles the result THEN a bounded passive diagnostic is surfaced without workflow phase mutation or destructive recovery execution.
-      - GIVEN existing prompt, queue, interrupt, status, help, quit, snapshot persistence, and continue paths run WHEN history recording exists THEN their behavior remains stable except for intentional history metadata.
-    evidence:
-      - >-
-        Added app-owned `HistoryPersistenceCommand` and `HistoryPersistenceResult` wiring so fake history writes
-        are emitted and executed through the app controller instead of deterministic runtime update or TUI code.
-      - >-
-        Prompt submissions, fake responses, queued prompts, command surfaces, and runtime status/result changes
-        are recorded through the Task 1 event contract and Task 2 state append API, limited to currently visible
-        fake activity.
-      - >-
-        History persistence failures surface bounded passive `state.history` diagnostics without workflow phase
-        mutation or destructive recovery execution.
-      - >-
-        Regression tests preserve prompt, queue, interrupt, status/help/quit, snapshot persistence, shutdown, TUI,
-        and continue paths except for intentional history metadata/effects.
-      - >-
-        Verified with `go test ./internal/app ./internal/history ./internal/state -count=1`, `go test
-        ./internal/tui ./cmd/aila -count=1`, `go test ./internal/app -run
-        'History|SessionController|Continue|Shutdown' -count=1`, `git diff --check -- .agentera/plan.yaml
-        .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml internal/app internal/history
-        internal/state internal/diagnostic/diagnostic.go`, and Inspektera PASS with no findings.
+      - GIVEN a read tool proposal is produced WHEN app/runtime handling runs THEN Aila emits an explicit read command/effect and receives a typed read result message instead of reading files inside deterministic updates.
+      - GIVEN autonomy policy classifies the read operation WHEN validation runs THEN read is treated as safe read-only and does not reuse mutation approval, edit/write, bash, fetch, find, or grep paths.
+      - GIVEN read execution fails WHEN the result is handled THEN a bounded diagnostic/result is surfaced without workflow phase mutation, destructive recovery, or hidden retries.
+      - GIVEN existing prompt, queue, interrupt, history, snapshot, command, help, quit, and diagnostic paths run WHEN read wiring exists THEN their behavior remains stable except for intentional read metadata.
+    evidence: []
   - number: 4
-    name: Add read-only history command and TUI state
-    depends_on: [2, 3]
-    status: completed
+    name: Render running and completed read results
+    depends_on: [3]
+    status: pending
     acceptance:
-      - GIVEN `/history` or the selected M17 shortcut is invoked WHEN route handling runs THEN policy/app opens a read-only history surface without executing tools, mutating files from TUI, or changing workflow phase.
-      - GIVEN history entries are injected into the TUI WHEN users navigate THEN selection, focus, empty-history, and bounded list behavior are deterministic and covered by update tests.
-      - GIVEN package boundary tests inspect the TUI WHEN history view exists THEN TUI consumes injected display/semantic fields only and does not import or call internal/state or internal/history persistence APIs.
-      - GIVEN existing command, prompt, queue, interrupt, memory, diagnostic, help, and quit surfaces render WHEN history support exists THEN their evidence remains stable except for intentional route metadata.
-    evidence:
-      - >-
-        Added policy routes for `/history` and `ctrl+x h` to open a read-only history surface through app-owned
-        fake history reads without tool execution, fake history append, snapshot persistence, or workflow phase
-        mutation.
-      - >-
-        Added injected TUI history display state with deterministic selection, focus release, empty-history,
-        clamped navigation, and bounded latest-64-event list behavior covered by update tests.
-      - >-
-        Strengthened TUI boundary tests so production `internal/tui` consumes injected display/semantic fields
-        only and does not import or call `internal/state` or `internal/history` persistence APIs.
-      - >-
-        Existing command, prompt, queue, interrupt, memory, diagnostic, help, and quit surfaces remain stable
-        except for intentional history route metadata; Task 5 fixture evidence and Task 6 PTY smoke remain
-        pending.
-      - >-
-        Verified with `go test ./internal/policy ./internal/app ./internal/tui ./internal/history
-        ./internal/state ./cmd/aila -count=1`, `go test ./internal/tui -run
-        'History|Command|Prompt|Queue|Interrupt|Memory|Diagnostic|Help|Quit|Boundary' -count=1`, `go test
-        ./internal/app -run 'History|SessionController|Continue|Shutdown' -count=1`, `git diff --check --
-        .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml
-        internal/policy internal/app internal/tui internal/history internal/state internal/diagnostic/diagnostic.go`,
-        and Inspektera PASS with no findings.
+      - GIVEN an injected running read operation exists WHEN the TUI renders THEN tool-running evidence clearly shows the path/range being read and does not look completed.
+      - GIVEN an injected completed read result exists WHEN the TUI renders THEN exact path, requested/effective line range, preview lines, truncation/error metadata, and read-only status are visible without filesystem reads from the TUI.
+      - GIVEN semantic snapshots are inspected WHEN read state is present THEN machine-readable fields preserve tool name, status, path, range, line references, truncation, and error kind.
+      - GIVEN read data contains terminal controls, credential-like text, HOME/config paths, `.aila`, or workspace paths outside the intended source reference WHEN render and semantic evidence is produced THEN output is bounded and redacted without losing the intentional read target reference.
+    evidence: []
   - number: 5
-    name: Render history-view fixture and semantic evidence
+    name: Prove read fixtures and optional PTY smoke
     depends_on: [4]
-    status: completed
+    status: pending
     acceptance:
-      - GIVEN fake history entries are injected into the TUI WHEN the `history-view` fixture renders THEN run/session IDs, event IDs, event kinds, prompt/response/command/runtime summaries, and selected item details are visible without hardcoded filesystem state.
-      - GIVEN semantic snapshots are inspected WHEN history is present THEN stable fake identifiers, event kinds, selected history item, focus state, and read-only/undo-disabled metadata are machine-readable and path-safe.
-      - GIVEN history data contains terminal escape or secret-like text WHEN render and semantic evidence is produced THEN output is bounded and redacted without leaking control sequences, credentials, workspace paths, HOME, `.aila`, or config paths.
-      - GIVEN existing required fixtures render WHEN history view support exists THEN queue, interrupt, idle-with-memory, store-status, diagnostic, status/help, and no-history evidence remain stable except for intentional history metadata.
-    evidence:
-      - >-
-        Added checked-in `history-view` fixture metadata plus 100x30 plain, ANSI, and semantic snapshots rendered
-        from injected TUI history state with stable run/session/event IDs, event kinds, prompt/response/command/runtime
-        summaries, and selected-item details.
-      - >-
-        Semantic evidence exposes stable fake identifiers, event kinds, selected history item, focus state,
-        `read_only: true`, and `undo_enabled: false` without requiring filesystem history reads from the TUI.
-      - >-
-        Added adversarial history fixture data and path-like redaction so render and semantic evidence strip terminal
-        controls and redact credential, workspace, HOME, `.aila`, and config-style path text. Inspektera leak checks
-        found no secret/control/path markers in plain or semantic outputs.
-      - >-
-        Regression coverage proves queue, interrupt, idle-with-memory, store-status, diagnostic, status/help, and
-        no-history fixture evidence does not gain unintended history metadata.
-      - >-
-        Verified with `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run
-        TestM17HistoryViewFixtureSnapshots` for explicit snapshot regeneration, `go test ./internal/tui -run
-        'TestM17HistoryViewFixtureSnapshots|TestSafeTextRedactsPathLikeText' -count=1`, `go test
-        ./internal/tui -run 'TestM17History|TestSafeTextRedactsPathLikeText|TestHistoryView' -count=1`, `go
-        test ./internal/tui -count=1`, `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
-        .agentera/archive/plan-2026-05-16-m16.yaml internal/tui internal/policy internal/app internal/history
-        internal/state internal/diagnostic/diagnostic.go`, and Inspektera PASS with no findings.
+      - GIVEN the read result fixture renders WHEN snapshots are updated THEN plain, ANSI, and semantic outputs are checked in with exact path and line references.
+      - GIVEN a tool-running fixture was missing before M18 WHEN this task completes THEN it is added with deterministic plain, ANSI, and semantic evidence; otherwise existing running-tool evidence is updated only as needed.
+      - GIVEN a visible interactive command path invokes read WHEN terminal smoke runs THEN bounded PTY output shows running/completed read state and exact path/line references without leaking HOME, `.aila`, config, credential, or temp workspace internals.
+      - GIVEN no visible interactive command path invokes read in M18 WHEN closeout evidence is prepared THEN PTY smoke is explicitly documented as skipped by the roadmap gate rather than silently omitted.
+    evidence: []
   - number: 6
-    name: Prove terminal history smoke
-    depends_on: [4, 5]
-    status: completed
-    acceptance:
-      - GIVEN a temp workspace records fake history events WHEN a bounded terminal/process smoke opens history THEN the read-only history view shows event IDs, kinds, selected item, prompt/response/command/runtime summaries, and no undo/replay action.
-      - GIVEN terminal output is inspected WHEN history opens THEN output does not leak temp workspace, HOME, `.aila`, config, credential, or internal path markers.
-      - GIVEN cleanup completes WHEN the smoke exits THEN only expected temp workspace project state and config files exist, with no HOME `.aila`, source-tree `.aila`, or unrelated durable state created or modified.
-      - GIVEN no fake history exists WHEN interactive history smoke runs THEN Aila remains bounded and shows the documented empty-history path.
-    evidence:
-      - >-
-        Added bounded PTY smoke coverage for seeded fake prompt, response, command, and runtime history events
-        opened through `/history`, asserting event IDs, event kinds, selected item fields, summaries, read-only
-        state, and absence of undo/redo/replay markers.
-      - >-
-        Added terminal output leak checks forbidding temp workspace, HOME, XDG config, `.aila`, config,
-        credential, internal path, and secret markers in the history smoke output.
-      - >-
-        Added cleanup/state assertions proving only expected temp workspace `.aila` project state and temporary XDG
-        config exist, with no HOME `.aila`, HOME config state, source-tree `.aila` mutation, or unrelated durable
-        state pollution.
-      - >-
-        Added no-history PTY smoke through `ctrl+x h`, proving bounded empty-history output for a workspace with
-        no fake history log.
-      - >-
-        Verified with `mage fmt`, `go test ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1`,
-        `go test ./cmd/aila -run 'TestM16Continue|TestM17History|TestM15ProjectStore|TestM15AShutdownDiagnostics'
-        -count=1`, `go test ./cmd/aila -count=1`, `git diff --check -- .agentera/plan.yaml
-        .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml cmd/aila/pty_test.go
-        internal/policy internal/app internal/tui internal/history internal/state internal/diagnostic/diagnostic.go`,
-        and Inspektera PASS with no findings.
-  - number: 7
     name: Plan-level freshness checkpoint
-    depends_on: [1, 2, 3, 4, 5, 6]
-    status: completed
+    depends_on: [1, 2, 3, 4, 5]
+    status: pending
     acceptance:
-      - GIVEN Milestone 17 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
-      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 17 Slice Completion Template records history state tests, app recording tests, history-view fixtures and snapshots, navigation/keybinding tests, PTY smoke, validation, and architecture checklist evidence.
-      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no M17 commit is created unless separately requested.
+      - GIVEN Milestone 18 implementation and validation are complete WHEN targeted tests and `mage check` run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 18 Slice Completion Template records read tool tests, app/effect wiring tests, TUI fixtures/snapshots, optional PTY smoke decision, validation, and architecture checklist evidence.
+      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no commit is created unless separately requested.
       - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
-    evidence:
-      - >-
-        Final targeted validation passed with `go test ./internal/history ./internal/state ./internal/app
-        ./internal/policy ./internal/tui ./cmd/aila -count=1`, and focused PTY validation passed with `go test
-        ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1`.
-      - >-
-        The configured full gate passed with `mage check`, including package tests, lint with 0 issues, and
-        vulnerability checks with no vulnerabilities found. `git diff --check` also passed.
-      - >-
-        `ROADMAP.md` records M17 complete, M18 next, active milestone none, and a completed Milestone 17 Slice
-        Completion Template with history state tests, app recording tests, history-view fixtures/snapshots,
-        navigation/keybinding tests, PTY smoke, validation, and architecture checklist evidence.
-      - >-
-        Inspektera confirmed no M17 commit was created after `09c571e complete session snapshot resume`, no M18
-        plan or feature behavior was introduced, `.agentera/session.yaml` and `.aila/` remain untracked local
-        state, and no push occurred.
-      - >-
-        The final response can use the completed Slice Completion Template recorded at `ROADMAP.md:195-212`,
-        satisfying `docs/notes/PROMPT.md` final-response requirements.
+    evidence: []
 overall_acceptance:
-  - GIVEN fake prompt, response, command, and runtime activity exists WHEN history persistence runs THEN `.aila/` contains a durable fake history source through explicit app/state/history boundaries.
-  - GIVEN Aila history is opened WHEN fake history exists THEN the user can inspect prior fake activity through read-only TUI state rather than hardcoded fixtures or filesystem reads from the TUI.
-  - GIVEN fake history data is missing, corrupt, oversized, version-mismatched, or path-unsafe WHEN Aila reads it THEN diagnostics are bounded, path-safe, and non-destructive.
-  - GIVEN milestone validation runs WHEN documented gates complete THEN history state tests, app recording tests, TUI history-view snapshots, navigation tests, PTY history smoke, targeted tests, and mage check support closeout.
+  - GIVEN a valid workspace file is read WHEN the read tool executes THEN Aila returns bounded content with exact path and line-range references without mutating the workspace.
+  - GIVEN invalid, unsafe, binary, oversized, missing, directory, permission-denied, or canceled reads occur WHEN results are surfaced THEN errors are typed, bounded, path-safe, and non-destructive.
+  - GIVEN read operations are proposed and completed WHEN app/runtime/TUI paths handle them THEN IO remains outside deterministic updates and the TUI consumes injected display/semantic state only.
+  - GIVEN milestone validation runs WHEN documented gates complete THEN tool bounds tests, app/effect tests, render and semantic snapshots, tool-running evidence, optional PTY smoke decision, targeted tests, and mage check support closeout.
 surprises:
-  - The roadmap says `/history` may be introduced here only if it belongs to the history view slice; the plan therefore keeps the command read-only and prohibits undo, replay, session restore, real tool/model history, and M18+ tools.
+  - The read tool is the first real workspace tool seam, so this plan keeps the contract narrow and explicitly rejects turning M18 into a generic plugin/tool framework or implementing M19 search tools early.
