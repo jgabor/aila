@@ -15,9 +15,9 @@ import (
 
 const version = "dev"
 
-var m7Commands = []string{"run", "continue", "config", "models", "help"}
+var cliCommands = []string{"run", "continue", "config", "models", "help"}
 
-var m7Flags = []string{"--model", "-m", "--continue", "-c", "--version", "-V", "--debug"}
+var cliFlags = []string{"--model", "-m", "--continue", "-c", "--version", "-V", "--debug"}
 
 type cliRunner struct {
 	input   io.Reader
@@ -26,6 +26,7 @@ type cliRunner struct {
 	version string
 	start   func(context.Context, io.Reader, io.Writer) error
 	resume  func(context.Context, io.Reader, io.Writer) error
+	runCmd  func(context.Context, app.NonInteractiveRunRequest) (string, error)
 	config  func(bool) (string, error)
 	models  func(string, []string) (string, error)
 	debug   func(context.Context) (string, error)
@@ -41,6 +42,7 @@ func main() {
 		version: version,
 		start:   app.Run,
 		resume:  app.RunContinue,
+		runCmd:  app.NonInteractiveRunCommandOutput,
 		config:  app.ConfigCommandOutput,
 		models:  app.ModelsCommandOutput,
 		debug:   app.DebugDiagnosticsCommandOutput,
@@ -68,7 +70,7 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 		return r.start(ctx, r.input, r.output)
 	}
 
-	parsed, err := parseM7CLI(args)
+	parsed, err := parseCLI(args)
 	if err != nil {
 		return err
 	}
@@ -95,8 +97,17 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 		return resume(ctx, r.input, r.output)
 	}
 
-	line := m7StubOutput(r.version, parsed)
-	if parsed.command == "config" {
+	line := commandOutput(r.version, parsed)
+	if parsed.command == "run" {
+		runOutput := r.runCmd
+		if runOutput == nil {
+			runOutput = app.NonInteractiveRunCommandOutput
+		}
+		line, err = runOutput(ctx, app.NonInteractiveRunRequest{Version: r.version, Prompt: strings.Join(parsed.arguments, " ")})
+		if err != nil {
+			return fmt.Errorf("run non-interactive command: %w", err)
+		}
+	} else if parsed.command == "config" {
 		configOutput := r.config
 		if configOutput == nil {
 			configOutput = app.ConfigCommandOutput
@@ -124,16 +135,17 @@ func (r cliRunner) run(ctx context.Context, args []string) error {
 	return nil
 }
 
-type m7CLI struct {
+type parsedCLI struct {
 	command   string
 	arguments []string
+	model     string
 	all       bool
 	version   bool
 	debug     bool
 }
 
-func parseM7CLI(args []string) (m7CLI, error) {
-	parsed := m7CLI{}
+func parseCLI(args []string) (parsedCLI, error) {
+	parsed := parsedCLI{}
 	continuation := false
 
 	for index := 0; index < len(args); index++ {
@@ -148,30 +160,32 @@ func parseM7CLI(args []string) (m7CLI, error) {
 		case arg == "--model" || arg == "-m":
 			index++
 			if index >= len(args) || strings.HasPrefix(args[index], "-") {
-				return m7CLI{}, fmt.Errorf("missing value for %s; valid M7 flags: %s", arg, strings.Join(m7Flags, ", "))
+				return parsedCLI{}, fmt.Errorf("missing value for %s; valid CLI flags: %s", arg, strings.Join(cliFlags, ", "))
 			}
+			parsed.model = args[index]
 		case strings.HasPrefix(arg, "--model="):
-			if strings.TrimPrefix(arg, "--model=") == "" {
-				return m7CLI{}, fmt.Errorf("missing value for --model; valid M7 flags: %s", strings.Join(m7Flags, ", "))
+			parsed.model = strings.TrimPrefix(arg, "--model=")
+			if parsed.model == "" {
+				return parsedCLI{}, fmt.Errorf("missing value for --model; valid CLI flags: %s", strings.Join(cliFlags, ", "))
 			}
 		case arg == "--all":
 			if parsed.command != "config" {
-				return m7CLI{}, fmt.Errorf("unsupported M7 flag %q for %s; valid config shape: config [--all]", arg, commandName(parsed.command))
+				return parsedCLI{}, fmt.Errorf("unsupported CLI flag %q for %s; valid config shape: config [--all]", arg, commandName(parsed.command))
 			}
 			parsed.all = true
 		case strings.HasPrefix(arg, "-"):
-			return m7CLI{}, fmt.Errorf("unknown flag %q; valid M7 flags: %s", arg, strings.Join(m7Flags, ", "))
-		case isM7Command(arg):
+			return parsedCLI{}, fmt.Errorf("unknown flag %q; valid CLI flags: %s", arg, strings.Join(cliFlags, ", "))
+		case isCLICommand(arg):
 			if parsed.command != "" {
-				return m7CLI{}, fmt.Errorf("incompatible M7 commands %q and %q; valid M7 commands: %s", parsed.command, arg, strings.Join(m7Commands, ", "))
+				return parsedCLI{}, fmt.Errorf("incompatible CLI commands %q and %q; valid CLI commands: %s", parsed.command, arg, strings.Join(cliCommands, ", "))
 			}
 			parsed.command = arg
 		default:
-			if acceptsM7Positionals(parsed.command) {
+			if acceptsPositionals(parsed.command) {
 				parsed.arguments = append(parsed.arguments, arg)
 				continue
 			}
-			return m7CLI{}, fmt.Errorf("unknown command %q; valid M7 commands: %s", arg, strings.Join(m7Commands, ", "))
+			return parsedCLI{}, fmt.Errorf("unknown command %q; valid CLI commands: %s", arg, strings.Join(cliCommands, ", "))
 		}
 	}
 
@@ -183,17 +197,17 @@ func parseM7CLI(args []string) (m7CLI, error) {
 			parsed.command = "continue"
 		}
 		if parsed.command == "run" {
-			return m7CLI{}, fmt.Errorf("incompatible M7 continuation shape %q with --continue; use continue or --continue, not run --continue", parsed.command)
+			return parsedCLI{}, fmt.Errorf("incompatible CLI continuation shape %q with --continue; use continue or --continue, not run --continue", parsed.command)
 		}
 	}
 	if parsed.command == "" {
-		return m7CLI{}, fmt.Errorf("missing command; valid M7 commands: %s", strings.Join(m7Commands, ", "))
+		return parsedCLI{}, fmt.Errorf("missing command; valid CLI commands: %s", strings.Join(cliCommands, ", "))
 	}
 	return parsed, nil
 }
 
-func isM7Command(arg string) bool {
-	for _, command := range m7Commands {
+func isCLICommand(arg string) bool {
+	for _, command := range cliCommands {
 		if arg == command {
 			return true
 		}
@@ -201,7 +215,7 @@ func isM7Command(arg string) bool {
 	return false
 }
 
-func acceptsM7Positionals(command string) bool {
+func acceptsPositionals(command string) bool {
 	return command == "run" || command == "models"
 }
 
@@ -212,17 +226,17 @@ func commandName(command string) string {
 	return command
 }
 
-func m7StubOutput(version string, parsed m7CLI) string {
+func commandOutput(version string, parsed parsedCLI) string {
 	switch parsed.command {
 	case "run":
-		return fmt.Sprintf("aila %s\ncommand: run\nstatus: deferred-run stub\naccepted: run [prompt...] [--model MODEL]\ndeferred: prompt execution, stdin review, model turns, tool execution, workflow transitions\n", version)
+		return fmt.Sprintf("aila %s\ncommand: run\nstatus: run handler unavailable\naccepted: run [prompt...] [--model MODEL]\ndeferred: provider model turns, write tools, workflow transitions\n", version)
 	case "continue":
 		return fmt.Sprintf("aila %s\ncommand: continue\nstatus: deferred-continuation stub\naccepted: continue | --continue | -c\ndeferred: session discovery, state lookup, persistence IO, continuation execution\n", version)
 	case "config":
 		return fmt.Sprintf("aila %s\ncommand: config\nstatus: deferred-config-ui\naccepted: config [--all]\ndeferred: interactive config UI\n", version)
 	case "help":
-		return fmt.Sprintf("aila %s\nM7 accepted shape:\n  aila run [prompt...] [--model MODEL] [--debug]\n  aila continue | aila --continue | aila -c\n  aila config [--all] [--debug]\n  aila models [filter...] [--debug]\n  aila help\n  aila --version | aila -V\n  aila --debug\nDeferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n", version)
+		return fmt.Sprintf("aila %s\naccepted command shape:\n  aila run [prompt...] [--model MODEL] [--debug]\n  aila continue | aila --continue | aila -c\n  aila config [--all] [--debug]\n  aila models [filter...] [--debug]\n  aila help\n  aila --version | aila -V\n  aila --debug\nDeferred beyond current read-only run: stdin review, session discovery UI, credentials, provider model turns, write tools, workflow transitions, and mutation persistence.\n", version)
 	default:
-		return fmt.Sprintf("aila %s: M7 %s command stub; behavior deferred\n", version, parsed.command)
+		return fmt.Sprintf("aila %s: %s command behavior deferred\n", version, parsed.command)
 	}
 }

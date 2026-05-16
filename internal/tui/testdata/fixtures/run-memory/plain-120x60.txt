@@ -1,0 +1,59 @@
+Aila                                                                                                              120x60
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: noninteractive.run                                                                                    |
+| detail: read-only run flagged                                                                                        |
+| active: false                                                                                                        |
+| result: Read-only run flagged: inspected 2 file(s), ran 2 check(s).                                                  |
+|                                                                                                                      |
+| Resumed memory:                                                                                                      |
+| source: state.current-session-snapshot                                                                               |
+| session id: current                                                                                                  |
+| resumed transcript turns: 2                                                                                          |
+| queued count: 0                                                                                                      |
+| diagnostics: 0                                                                                                       |
+| run mode: non_interactive_read_only                                                                                  |
+| run status: flagged                                                                                                  |
+| run prompt: explain the repo                                                                                         |
+| inspected file: README.md status=completed source_ref=README.md:1-3                                                  |
+| inspected file: ROADMAP.md status=completed source_ref=ROADMAP.md:1-3                                                |
+| command run: git status --short --branch status=completed                                                            |
+| command run: git diff --stat status=completed                                                                        |
+| run caveat: deterministic read-only run; provider model execution deferred                                           |
+| source ref: README.md:1-3                                                                                            |
+| source ref: ROADMAP.md:1-3                                                                                           |
+| source ref: git status --short --branch                                                                              |
+| source ref: git diff --stat                                                                                          |
+|                                                                                                                      |
+| user: explain the repo                                                                                               |
+| assistant: Read-only run flagged: inspected 2 file(s), ran 2 check(s).                                               |
+|                                                                                                                      |
+| history:                                                                                                             |
+| command route: history                                                                                               |
+| route source: policy.command                                                                                         |
+| read-only: true                                                                                                      |
+| entries: 5                                                                                                           |
+| selected: 5                                                                                                          |
+|   noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt explain the repo                  |
+|   noninteractive-run current noninteractive-run-2 response Read-only run flagged: inspected 2 file(s), ran 2 check(~ |
+|   noninteractive-run current noninteractive-run-3 runtime noninteractive run flagged inspected=2 commands=2          |
+|   noninteractive-run current noninteractive-run-4 command check git status --short --branch completed                |
+| > noninteractive-run current noninteractive-run-5 command check git diff --stat completed                            |
+| selected event id: noninteractive-run-5                                                                              |
+| selected run id: noninteractive-run                                                                                  |
+| selected session id: current                                                                                         |
+| selected kind: command                                                                                               |
+| selected source: noninteractive.run                                                                                  |
+| selected provenance: run.check                                                                                       |
+| selected text: check git diff --stat completed                                                                       |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

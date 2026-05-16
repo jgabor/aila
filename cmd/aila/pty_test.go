@@ -317,6 +317,114 @@ func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestNonInteractiveRunThenContinueSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process and PTY smoke uses Unix path assertions")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	tmp := t.TempDir()
+	workspace := filepath.Join(tmp, "workspace")
+	seedNonInteractiveRunSmokeWorkspace(t, workspace)
+	binary := buildAilaTestBinary(t, env.vars, tmp)
+
+	runCtx, runCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer runCancel()
+	runCmd := exec.CommandContext(runCtx, binary, "run", "explain", "the", "repo")
+	runCmd.Dir = workspace
+	runCmd.Env = append(env.vars, "OPENAI_API_KEY=run-smoke-secret")
+	runOutputBytes, err := runCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("non-interactive run smoke failed: %v\n%s", err, runOutputBytes)
+	}
+	if runCtx.Err() != nil {
+		t.Fatalf("non-interactive run smoke exceeded timeout: %v", runCtx.Err())
+	}
+	runOutput := string(runOutputBytes)
+	for _, want := range []string{
+		"command: run",
+		"mode: non_interactive_read_only",
+		"status: flagged",
+		"prompt: explain the repo",
+		"inspected_files:",
+		"README.md status=completed",
+		"ROADMAP.md status=completed",
+		"commands_run:",
+		"git status --short --branch status=completed",
+		"git diff --stat status=completed",
+		"caveats:",
+		"provider model execution deferred",
+		"source_refs:",
+		"stored_session: true",
+		"stored_history: true",
+	} {
+		if !strings.Contains(runOutput, want) {
+			t.Fatalf("run smoke output missing %q:\n%s", want, runOutput)
+		}
+	}
+	assertNoNonInteractiveRunSmokeLeaks(t, runOutput, env, workspace)
+	assertNonInteractiveRunStoreState(t, workspace)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "continue")
+	cmd.Dir = workspace
+	cmd.Env = env.vars
+	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 60, Cols: 160})
+	if err != nil {
+		t.Fatalf("start continue after run smoke PTY: %v", err)
+	}
+	defer func() { _ = terminal.Close() }()
+	wait := make(chan error, 1)
+	go func() { wait <- cmd.Wait() }()
+
+	resumeOutput := readUntilAll(t, terminal, []string{
+		"Aila",
+		"Resumed memory:",
+		"source: state.current-session-snapshot",
+		"run mode: non_interactive_read_only",
+		"run status: flagged",
+		"run prompt: explain the repo",
+		"inspected file: README.md status=completed",
+		"command run: git status --short --branch status=completed",
+		"run caveat: deterministic read-only run; provider model execution deferred",
+		"source ref: git diff --stat",
+	}, 20*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, resumeOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte("/history\r")); err != nil {
+		t.Fatalf("send /history after run smoke: %v", err)
+	}
+	historyOutput := readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"entries: 5",
+		"noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt explain the repo",
+		"noninteractive-run current noninteractive-run-2 response Read-only run flagged",
+		"noninteractive-run current noninteractive-run-4 command check git status --short --branch completed",
+		"selected event id: noninteractive-run-1",
+		"selected run id: noninteractive-run",
+		"selected session id: current",
+	}, 10*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, historyOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after run continue smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("run continue PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("run continue PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNonInteractiveRunStoreState(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestHistoryViewPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -1268,6 +1376,25 @@ func seedCurrentSessionSnapshot(t *testing.T, workspace string) {
 	}
 }
 
+func seedNonInteractiveRunSmokeWorkspace(t *testing.T, workspace string) {
+	t.Helper()
+
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		t.Fatalf("create run smoke workspace: %v", err)
+	}
+	files := map[string]string{
+		"README.md":  "# Run Smoke Repo\n\nA tiny repo for non-interactive inspection.\n",
+		"ROADMAP.md": "# Roadmap\n\n- non-interactive read-only run smoke\n",
+		"AGENTS.md":  "# Agent Instructions\n\nKeep the run smoke deterministic.\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(workspace, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write run smoke %s: %v", name, err)
+		}
+	}
+	runPTYGit(t, workspace, "init")
+}
+
 func seedDiffSmokeWorkspace(t *testing.T, workspace string) {
 	t.Helper()
 
@@ -1411,6 +1538,81 @@ func assertProjectStoreEntries(t *testing.T, workspace string) {
 	}
 	if strings.Join(got, ",") != "artifacts/,indexes/,project.toml" {
 		t.Fatalf("project store entries = %v, want artifacts indexes and project.toml only", got)
+	}
+}
+
+func assertNonInteractiveRunStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open run smoke project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read run smoke current snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded || snapshot.Snapshot.Run == nil {
+		t.Fatalf("run smoke snapshot state = %q run=%#v, want loaded run memory", snapshot.State, snapshot.Snapshot.Run)
+	}
+	run := snapshot.Snapshot.Run
+	if run.Mode != "non_interactive_read_only" || run.Prompt != "explain the repo" || run.Status != "flagged" || !run.StoredSession || !run.StoredHistory {
+		t.Fatalf("run smoke snapshot run = %#v", run)
+	}
+	if len(run.InspectedFiles) < 2 || len(run.Commands) != 2 || len(run.SourceRefs) < 4 {
+		t.Fatalf("run smoke snapshot evidence = files=%#v commands=%#v source_refs=%#v", run.InspectedFiles, run.Commands, run.SourceRefs)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read run smoke fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded || len(history.Events) != 5 {
+		t.Fatalf("run smoke history state = %q events=%d, want 5", history.State, len(history.Events))
+	}
+	joined := make([]string, 0, len(history.Events))
+	for _, event := range history.Events {
+		joined = append(joined, event.DisplayText)
+	}
+	encoded := strings.Join(joined, "\n")
+	for _, want := range []string{"noninteractive run prompt explain the repo", "Read-only run flagged", "check git status --short --branch completed", "check git diff --stat completed"} {
+		if !strings.Contains(encoded, want) {
+			t.Fatalf("run smoke history missing %q in %q", want, encoded)
+		}
+	}
+	for _, leaked := range []string{workspace, "run-smoke-secret", "token=", "OPENAI_API_KEY"} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("run smoke history leaked %q in %q", leaked, encoded)
+		}
+	}
+}
+
+func assertNoNonInteractiveRunSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		workspace,
+		env.home,
+		env.xdgConfigHome,
+		mustRepositoryRoot(t),
+		"/tmp",
+		"/home/",
+		".aila",
+		"sessions/current.json",
+		"fake-events.jsonl",
+		"project.toml",
+		"artifacts/",
+		"indexes/",
+		"config.toml",
+		".config/aila",
+		"credential",
+		"OPENAI_API_KEY",
+		"run-smoke-secret",
+		"token=",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("non-interactive run smoke output leaked marker %q: %q", forbidden, output)
+		}
 	}
 }
 

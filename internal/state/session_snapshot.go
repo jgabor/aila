@@ -81,6 +81,7 @@ type SessionSnapshot struct {
 	Diagnostics   []SessionSnapshotDiagnostic  `json:"diagnostics"`
 	Blockers      []SessionSnapshotBlocker     `json:"blockers"`
 	Concerns      []SessionSnapshotConcern     `json:"concerns"`
+	Run           *SessionSnapshotRun          `json:"run,omitempty"`
 }
 
 // SessionSnapshotRuntime captures the current fake runtime status shown by the UI.
@@ -122,6 +123,37 @@ type SessionSnapshotBlocker struct {
 type SessionSnapshotConcern struct {
 	Source string `json:"source"`
 	Text   string `json:"text"`
+}
+
+// SessionSnapshotRun captures a bounded non-interactive read-only run summary.
+type SessionSnapshotRun struct {
+	Mode           string                      `json:"mode"`
+	Prompt         string                      `json:"prompt"`
+	Status         string                      `json:"status"`
+	InspectedFiles []SessionSnapshotRunFile    `json:"inspected_files"`
+	Commands       []SessionSnapshotRunCommand `json:"commands"`
+	Blockers       []string                    `json:"blockers"`
+	Caveats        []string                    `json:"caveats"`
+	SourceRefs     []string                    `json:"source_refs"`
+	StoredSession  bool                        `json:"stored_session"`
+	StoredHistory  bool                        `json:"stored_history"`
+}
+
+// SessionSnapshotRunFile records one inspected file for a non-interactive run.
+type SessionSnapshotRunFile struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	LineStart int    `json:"line_start,omitempty"`
+	LineEnd   int    `json:"line_end,omitempty"`
+	SourceRef string `json:"source_ref,omitempty"`
+}
+
+// SessionSnapshotRunCommand records one fixed command/check for a non-interactive run.
+type SessionSnapshotRunCommand struct {
+	Command  string `json:"command"`
+	Status   string `json:"status"`
+	ExitCode int    `json:"exit_code"`
+	Summary  string `json:"summary,omitempty"`
 }
 
 // DescribeCurrentSessionSnapshot derives `.aila/sessions/current.json` from the workspace store layout.
@@ -241,6 +273,61 @@ func ValidateSessionSnapshotContract(snapshot SessionSnapshot) error {
 			return err
 		}
 	}
+	if snapshot.Run != nil {
+		if err := validateSessionSnapshotRun(*snapshot.Run); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSessionSnapshotRun(run SessionSnapshotRun) error {
+	if err := boundedString("run.mode", run.Mode, SnapshotLabelMaxBytes); err != nil {
+		return err
+	}
+	if err := boundedString("run.prompt", run.Prompt, SnapshotTextMaxBytes); err != nil {
+		return err
+	}
+	if err := boundedString("run.status", run.Status, SnapshotStatusMaxBytes); err != nil {
+		return err
+	}
+	for index, file := range run.InspectedFiles {
+		if err := boundedString(fmt.Sprintf("run.inspected_files[%d].path", index), file.Path, SnapshotLabelMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.inspected_files[%d].status", index), file.Status, SnapshotStatusMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.inspected_files[%d].source_ref", index), file.SourceRef, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+	}
+	for index, command := range run.Commands {
+		if err := boundedString(fmt.Sprintf("run.commands[%d].command", index), command.Command, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.commands[%d].status", index), command.Status, SnapshotStatusMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.commands[%d].summary", index), command.Summary, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+	}
+	for index, blocker := range run.Blockers {
+		if err := boundedString(fmt.Sprintf("run.blockers[%d]", index), blocker, SnapshotBlockerMaxBytes); err != nil {
+			return err
+		}
+	}
+	for index, caveat := range run.Caveats {
+		if err := boundedString(fmt.Sprintf("run.caveats[%d]", index), caveat, SnapshotConcernMaxBytes); err != nil {
+			return err
+		}
+	}
+	for index, sourceRef := range run.SourceRefs {
+		if err := boundedString(fmt.Sprintf("run.source_refs[%d]", index), sourceRef, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -333,6 +420,24 @@ func validateSessionSnapshotCompleteness(path string) error {
 	}
 	for _, check := range arrayChecks {
 		if err := requireJSONArrayObjectFields(fields, check.field, check.required); err != nil {
+			return err
+		}
+	}
+	if rawRun, ok := fields["run"]; ok {
+		if isJSONNull(rawRun) {
+			return fmt.Errorf("current session snapshot null field run")
+		}
+		var runFields map[string]json.RawMessage
+		if err := json.Unmarshal(rawRun, &runFields); err != nil {
+			return fmt.Errorf("decode current session snapshot run fields: %w", err)
+		}
+		if err := requireJSONFields("current session snapshot run", runFields, []string{"mode", "prompt", "status", "inspected_files", "commands", "blockers", "caveats", "source_refs", "stored_session", "stored_history"}); err != nil {
+			return err
+		}
+		if err := requireJSONArrayObjectFields(runFields, "inspected_files", []string{"path", "status"}); err != nil {
+			return err
+		}
+		if err := requireJSONArrayObjectFields(runFields, "commands", []string{"command", "status", "exit_code"}); err != nil {
 			return err
 		}
 	}
@@ -510,6 +615,30 @@ func redactSessionSnapshot(snapshot SessionSnapshot) SessionSnapshot {
 	for index := range snapshot.Concerns {
 		snapshot.Concerns[index].Source = redactSnapshotText(snapshot.Concerns[index].Source)
 		snapshot.Concerns[index].Text = redactSnapshotText(snapshot.Concerns[index].Text)
+	}
+	if snapshot.Run != nil {
+		snapshot.Run.Mode = redactSnapshotText(snapshot.Run.Mode)
+		snapshot.Run.Prompt = redactSnapshotText(snapshot.Run.Prompt)
+		snapshot.Run.Status = redactSnapshotText(snapshot.Run.Status)
+		for index := range snapshot.Run.InspectedFiles {
+			snapshot.Run.InspectedFiles[index].Path = redactSnapshotText(snapshot.Run.InspectedFiles[index].Path)
+			snapshot.Run.InspectedFiles[index].Status = redactSnapshotText(snapshot.Run.InspectedFiles[index].Status)
+			snapshot.Run.InspectedFiles[index].SourceRef = redactSnapshotText(snapshot.Run.InspectedFiles[index].SourceRef)
+		}
+		for index := range snapshot.Run.Commands {
+			snapshot.Run.Commands[index].Command = redactSnapshotText(snapshot.Run.Commands[index].Command)
+			snapshot.Run.Commands[index].Status = redactSnapshotText(snapshot.Run.Commands[index].Status)
+			snapshot.Run.Commands[index].Summary = redactSnapshotText(snapshot.Run.Commands[index].Summary)
+		}
+		for index := range snapshot.Run.Blockers {
+			snapshot.Run.Blockers[index] = redactSnapshotText(snapshot.Run.Blockers[index])
+		}
+		for index := range snapshot.Run.Caveats {
+			snapshot.Run.Caveats[index] = redactSnapshotText(snapshot.Run.Caveats[index])
+		}
+		for index := range snapshot.Run.SourceRefs {
+			snapshot.Run.SourceRefs[index] = redactSnapshotText(snapshot.Run.SourceRefs[index])
+		}
 	}
 	return snapshot
 }

@@ -1636,6 +1636,180 @@ func TestM16IdleWithMemoryFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func runMemoryFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "120x60", Width: 120, Height: 60}}
+}
+
+func loadRunMemoryFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = "run-memory"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "noninteractive.run"
+	state.StatusDetail = "read-only run flagged"
+	state.RuntimeResult = "Read-only run flagged: inspected 2 file(s), ran 2 check(s)."
+	state.MemorySource = "state.current-session-snapshot"
+	state.MemorySessionID = "current"
+	state.Transcript = []TranscriptTurn{
+		{UserText: "explain the repo"},
+		{AssistantText: "Read-only run flagged: inspected 2 file(s), ran 2 check(s)."},
+	}
+	state.RunMemory = &RunMemoryView{
+		Mode:   "non_interactive_read_only",
+		Prompt: "explain the repo",
+		Status: "flagged",
+		InspectedFiles: []RunMemoryFileView{
+			{Path: "README.md", Status: "completed", LineStart: 1, LineEnd: 3, SourceRef: "README.md:1-3"},
+			{Path: "ROADMAP.md", Status: "completed", LineStart: 1, LineEnd: 3, SourceRef: "ROADMAP.md:1-3"},
+		},
+		Commands: []RunMemoryCommandView{
+			{Command: "git status --short --branch", Status: "completed", ExitCode: 0, Summary: "## main"},
+			{Command: "git diff --stat", Status: "completed", ExitCode: 0, Summary: "no output"},
+		},
+		Blockers:      []string{},
+		Caveats:       []string{"deterministic read-only run; provider model execution deferred"},
+		SourceRefs:    []string{"README.md:1-3", "ROADMAP.md:1-3", "git status --short --branch", "git diff --stat"},
+		StoredSession: true,
+		StoredHistory: true,
+	}
+	state = ApplyHistoryView(state, runMemoryHistoryItems(), 4, true)
+	state.Scenario = "run-memory"
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func runMemoryHistoryItems() []HistoryItem {
+	return []HistoryItem{
+		{
+			EventID:     "noninteractive-run-1",
+			RunID:       "noninteractive-run",
+			SessionID:   "current",
+			Kind:        "prompt",
+			Source:      "user",
+			Provenance:  "run.prompt",
+			DisplayText: "noninteractive run prompt explain the repo",
+		},
+		{
+			EventID:     "noninteractive-run-2",
+			RunID:       "noninteractive-run",
+			SessionID:   "current",
+			Kind:        "response",
+			Source:      "noninteractive.run",
+			Provenance:  "run.response",
+			DisplayText: "Read-only run flagged: inspected 2 file(s), ran 2 check(s).",
+		},
+		{
+			EventID:     "noninteractive-run-3",
+			RunID:       "noninteractive-run",
+			SessionID:   "current",
+			Kind:        "runtime",
+			Source:      "noninteractive.run",
+			Provenance:  "run.complete",
+			DisplayText: "noninteractive run flagged inspected=2 commands=2",
+		},
+		{
+			EventID:     "noninteractive-run-4",
+			RunID:       "noninteractive-run",
+			SessionID:   "current",
+			Kind:        "command",
+			Source:      "noninteractive.run",
+			Provenance:  "run.check",
+			DisplayText: "check git status --short --branch completed",
+		},
+		{
+			EventID:     "noninteractive-run-5",
+			RunID:       "noninteractive-run",
+			SessionID:   "current",
+			Kind:        "command",
+			Source:      "noninteractive.run",
+			Provenance:  "run.check",
+			DisplayText: "check git diff --stat completed",
+		},
+	}
+}
+
+func TestRunMemoryRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRunMemoryFixture(t)
+	render := RenderPlain(fixture.State, Size{Width: 120, Height: 60})
+	wantRender := []string{
+		"Runtime status:",
+		"status source: noninteractive.run",
+		"Resumed memory:",
+		"run mode: non_interactive_read_only",
+		"run status: flagged",
+		"run prompt: explain the repo",
+		"inspected file: README.md status=completed source_ref=README.md:1-3",
+		"command run: git status --short --branch status=completed",
+		"run caveat: deterministic read-only run; provider model execution deferred",
+		"source ref: git diff --stat",
+		"history:",
+		"entries: 5",
+		"selected kind: command",
+		"selected text: check git diff --stat completed",
+	}
+	if !containsAll(render, wantRender) {
+		t.Fatalf("run-memory render missing evidence %v:\n%s", wantRender, render)
+	}
+
+	snapshot := Semantic(fixture.State, Size{Width: 120, Height: 60})
+	if snapshot.Memory == nil || snapshot.Memory.Run == nil {
+		t.Fatalf("semantic memory missing run evidence: %+v", snapshot.Memory)
+	}
+	run := snapshot.Memory.Run
+	if run.Mode != "non_interactive_read_only" || run.Prompt != "explain the repo" || run.Status != "flagged" || !run.StoredSession || !run.StoredHistory {
+		t.Fatalf("semantic run memory = %+v", run)
+	}
+	if len(run.InspectedFiles) != 2 || run.InspectedFiles[0].Path != "README.md" || len(run.CommandsRun) != 2 || run.CommandsRun[1].Command != "git diff --stat" || !sameStringSet(run.SourceRefs, []string{"README.md:1-3", "ROADMAP.md:1-3", "git status --short --branch", "git diff --stat"}) {
+		t.Fatalf("semantic run evidence = %+v", run)
+	}
+	if snapshot.History == nil || !snapshot.History.ReadOnly || snapshot.History.Count != 5 || snapshot.History.SelectedID != "noninteractive-run-5" {
+		t.Fatalf("semantic history = %+v", snapshot.History)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	memory := strings.Join(regions["memory"].Items, "\n")
+	if !containsAll(memory, []string{"run_mode: non_interactive_read_only", "run_status: flagged", "run_prompt: explain the repo", "stored_session: true", "stored_history: true", "inspected_file: README.md status=completed source_ref=README.md:1-3", "command_run: git diff --stat status=completed", "run_caveat: deterministic read-only run; provider model execution deferred", "source_ref: git status --short --branch", "app-owned", "display-only"}) {
+		t.Fatalf("memory semantic region = %v, want run memory evidence", regions["memory"].Items)
+	}
+	history := strings.Join(regions["history"].Items, "\n")
+	if !containsAll(history, []string{"read_only: true", "selected_id: noninteractive-run-5", "item: noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt explain the repo selected: false", "item: noninteractive-run current noninteractive-run-5 command check git diff --stat completed selected: true", "app-owned", "display-only"}) {
+		t.Fatalf("history semantic region = %v, want non-interactive run event evidence", regions["history"].Items)
+	}
+}
+
+func TestRunMemoryFixtureSnapshots(t *testing.T) {
+	fixture := loadRunMemoryFixture(t)
+	assertFixtureSizes(t, fixture, runMemoryFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			plain := stripANSI(got)
+			if !containsAll(plain, []string{"run mode: non_interactive_read_only", "inspected file: README.md", "history:", "selected text: check git diff --stat completed"}) {
+				t.Fatalf("run-memory fixture missing visible evidence:\n%s", plain)
+			}
+		})
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Memory == nil || snapshot.Memory.Run == nil || snapshot.History == nil {
+				t.Fatalf("semantic run-memory fixture missing memory/history: %+v", snapshot)
+			}
+		})
+	}
+}
+
 func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "PLAN"

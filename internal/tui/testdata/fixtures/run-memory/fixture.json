@@ -1,0 +1,19 @@
+{
+  "name": "run-memory",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle", "memory", "history"],
+  "render_sizes": [
+    {
+      "name": "120x60",
+      "width": 120,
+      "height": 60
+    }
+  ],
+  "render_outputs": {
+    "plain_120x60": "plain-120x60.txt",
+    "ansi_120x60": "ansi-120x60.txt",
+    "semantic_120x60": "semantic-120x60.json"
+  }
+}

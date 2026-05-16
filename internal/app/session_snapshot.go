@@ -230,6 +230,7 @@ func applyCurrentSessionSnapshot(view tui.ViewState, snapshot state.SessionSnaps
 	view.Transcript = snapshotTranscriptTurns(snapshot.Transcript)
 	view.MemoryBlockers = snapshotBlockerText(snapshot.Blockers)
 	view.MemoryConcerns = snapshotConcernText(snapshot.Concerns)
+	view.RunMemory = snapshotRunMemory(snapshot.Run)
 	view.Diagnostics = mergeTUIDiagnostics(view.Diagnostics, snapshotDiagnosticViews(snapshot.Diagnostics))
 	return view
 }
@@ -248,6 +249,32 @@ func snapshotConcernText(entries []state.SessionSnapshotConcern) []string {
 		concerns = append(concerns, entry.Text)
 	}
 	return concerns
+}
+
+func snapshotRunMemory(run *state.SessionSnapshotRun) *tui.RunMemoryView {
+	if run == nil {
+		return nil
+	}
+	files := make([]tui.RunMemoryFileView, 0, len(run.InspectedFiles))
+	for _, file := range run.InspectedFiles {
+		files = append(files, tui.RunMemoryFileView{Path: file.Path, Status: file.Status, LineStart: file.LineStart, LineEnd: file.LineEnd, SourceRef: file.SourceRef})
+	}
+	commands := make([]tui.RunMemoryCommandView, 0, len(run.Commands))
+	for _, command := range run.Commands {
+		commands = append(commands, tui.RunMemoryCommandView{Command: command.Command, Status: command.Status, ExitCode: command.ExitCode, Summary: command.Summary})
+	}
+	return &tui.RunMemoryView{
+		Mode:           run.Mode,
+		Prompt:         run.Prompt,
+		Status:         run.Status,
+		InspectedFiles: files,
+		Commands:       commands,
+		Blockers:       append([]string{}, run.Blockers...),
+		Caveats:        append([]string{}, run.Caveats...),
+		SourceRefs:     append([]string{}, run.SourceRefs...),
+		StoredSession:  run.StoredSession,
+		StoredHistory:  run.StoredHistory,
+	}
 }
 
 func snapshotQueuedText(entries []state.SessionSnapshotQueuedEntry) []string {
@@ -302,6 +329,7 @@ func NewCurrentSessionSnapshot(view tui.ViewState) state.SessionSnapshot {
 		Diagnostics: snapshotDiagnostics(view.Diagnostics),
 		Blockers:    snapshotBlockers(view),
 		Concerns:    snapshotConcerns(view),
+		Run:         snapshotRun(view.RunMemory),
 	}
 }
 
@@ -334,8 +362,34 @@ func snapshotDiagnostics(diagnostics []tui.DiagnosticView) []state.SessionSnapsh
 	return items
 }
 
+func snapshotRun(run *tui.RunMemoryView) *state.SessionSnapshotRun {
+	if run == nil {
+		return nil
+	}
+	files := make([]state.SessionSnapshotRunFile, 0, len(run.InspectedFiles))
+	for _, file := range run.InspectedFiles {
+		files = append(files, state.SessionSnapshotRunFile{Path: file.Path, Status: file.Status, LineStart: file.LineStart, LineEnd: file.LineEnd, SourceRef: file.SourceRef})
+	}
+	commands := make([]state.SessionSnapshotRunCommand, 0, len(run.Commands))
+	for _, command := range run.Commands {
+		commands = append(commands, state.SessionSnapshotRunCommand{Command: command.Command, Status: command.Status, ExitCode: command.ExitCode, Summary: command.Summary})
+	}
+	return &state.SessionSnapshotRun{
+		Mode:           run.Mode,
+		Prompt:         run.Prompt,
+		Status:         run.Status,
+		InspectedFiles: files,
+		Commands:       commands,
+		Blockers:       append([]string{}, run.Blockers...),
+		Caveats:        append([]string{}, run.Caveats...),
+		SourceRefs:     append([]string{}, run.SourceRefs...),
+		StoredSession:  run.StoredSession,
+		StoredHistory:  run.StoredHistory,
+	}
+}
+
 func snapshotBlockers(view tui.ViewState) []state.SessionSnapshotBlocker {
-	var blockers []state.SessionSnapshotBlocker
+	blockers := make([]state.SessionSnapshotBlocker, 0, 2)
 	if view.RuntimeStatus == string(runtime.StatusCanceling) {
 		blockers = append(blockers, state.SessionSnapshotBlocker{Source: view.StatusSource, Text: "interrupt pending"})
 	}
@@ -346,7 +400,7 @@ func snapshotBlockers(view tui.ViewState) []state.SessionSnapshotBlocker {
 }
 
 func snapshotConcerns(view tui.ViewState) []state.SessionSnapshotConcern {
-	var concerns []state.SessionSnapshotConcern
+	concerns := make([]state.SessionSnapshotConcern, 0, 2)
 	if view.Phase != "" || view.PrimaryModel != "" || view.UtilityModel != "" || view.Autonomy != "" {
 		concerns = append(concerns, state.SessionSnapshotConcern{Source: "display.status", Text: strings.Join([]string{
 			"phase=" + view.Phase,

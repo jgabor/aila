@@ -1,0 +1,172 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: M30 completed; provider review, conversation rewind, richer edit-content undo, context compaction, source indexing,
+    non-interactive run behavior, and M31+ behavior deferred
+  title: Milestone 30 Undo And Redo Commands
+what: Deliver ROADMAP.md Milestone 30 by routing /undo and /redo plus shortcuts through shared command handlers, applying supported recovery through
+  app-owned explicit effects and permission checks, recording recovery results, and exposing undoable, undone, and redone states in TUI/history
+  evidence.
+why: M29 made mutations auditable and added descriptive undo metadata. M30 turns the supported recovery metadata into user-facing recovery commands
+  while preserving trust, permission, and history boundaries.
+constraints: 'Execute only Milestone 30. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only: it may route command
+  intents, render app-injected recovery/history state, and handle focus/navigation, but it must not read history files, mutate workspace files,
+  decide permissions, or execute recovery. Support only records with enough safe metadata; unsupported records must produce bounded, auditable
+  no-op results. Keep provider review, conversation rewind beyond file recovery, richer edit/overwrite content restoration, context compaction,
+  stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, non-interactive run behavior,
+  and Milestone 31+ behavior out of scope. Use behavior-based test names. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m29.yaml
+source_anchors:
+- ROADMAP.md:1-110
+- ROADMAP.md:1297-1322
+- docs/notes/PROMPT.md:1-39
+- AGENTS.md:1-163
+- README.md:239-301
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:535-603
+- docs/workflow-architecture.md:573-631
+- docs/tui-testing.md:46-48
+- docs/tui-testing.md:69-77
+- docs/tui-testing.md:413-433
+verification_commands:
+- go test ./internal/policy ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./cmd/aila -run 'TestUndoRedoPTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/policy internal/history internal/state internal/app internal/tui
+  cmd/aila
+- git diff --check --no-index /dev/null <each new M30 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve terminal padding
+  and are covered by snapshot tests
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" plan --format json
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" progress --format json
+scope:
+  included:
+  - Add closed policy command routes for /undo, /redo, ctrl+x u, and ctrl+x r with slash/shortcut parity and help-command visibility.
+  - Extend the bounded history/recovery contract so app-owned recovery results can reference target mutation records and expose undoable, undone,
+    and redone state without leaking unsafe paths or content.
+  - Implement app-owned recovery selection and execution for supported records, with permission classification, immediate recheck, exact target-version
+    guards, and bounded unsupported/failure results.
+  - Render recovery results and history states in deterministic TUI fixtures and semantic snapshots while keeping the TUI display-only.
+  - Add PTY smoke in a temp workspace proving a supported mutation can be undone and redone through the command surface and recorded in history.
+  excluded:
+  - Provider review, conversation rewind beyond supported file recovery, general edit/overwrite content restoration, shell mutation recovery,
+    background recovery, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control
+    planes, non-interactive run behavior, and Milestone 31+ behavior.
+  deferred:
+  - Recovering arbitrary edits/overwrites with previous-content storage, provider-assisted review/recovery, conversation rewind, and broader redo
+    stack behavior after richer durable mutation records exist.
+design: 'Keep command recognition in internal/policy, deterministic input routing in internal/tui, recovery selection/orchestration in internal/app,
+  filesystem mutation in app-owned explicit recovery/tool effects, durable records in internal/history/internal/state, and display-only recovery/history
+  rendering in internal/tui. M30 should recover only the safest already-described mutation shape first: create-file writes whose undo metadata
+  can be guarded by path and target version. Undo may delete that created file after permission and version recheck; redo may restore only when
+  bounded redo metadata is available from a prior recorded undo result. Unsupported records must be visible and auditable, not silently ignored.'
+overall_acceptance:
+- /undo and /redo slash commands and ctrl+x u/r shortcuts route through the same closed command recommendation path and are visible in help snapshots.
+- Supported create-file mutation history can be undone through app-owned recovery execution with permission classification, target-version recheck,
+  history recording, and no TUI filesystem ownership.
+- A recorded undo result can be redone when safe bounded redo metadata is available; unsupported redo/undo attempts return bounded auditable results.
+- Render and semantic snapshots show undoable, undone, and redone states plus recovery result metadata without exposing unsafe paths or hidden
+  execution.
+- PTY smoke proves undo and redo mutate only a temp workspace file through the command surface and leave durable history evidence.
+surprises: []
+tasks:
+- number: 1
+  name: Add closed undo and redo command routes
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN /undo and /redo are submitted WHEN policy recommends command routes THEN both map to closed undo/redo routes without falling through
+    to prompt execution.
+  - GIVEN ctrl+x u and ctrl+x r are pressed WHEN shortcut routing runs THEN they produce the same command routes as /undo and /redo.
+  - GIVEN help snapshots render WHEN command help is visible THEN undo and redo slash commands and shortcuts appear alongside existing fixed commands.
+  evidence:
+  - internal/policy now exposes closed CommandRouteUndo and CommandRouteRedo recommendations for /undo and /redo.
+  - ctrl+x u and ctrl+x r map to the same undo/redo routes through the existing shortcut boundary, with policy and TUI parity tests covering slash/shortcut
+    behavior.
+  - help-command render and semantic snapshots were updated to show /undo, /redo, ctrl+x u, and ctrl+x r alongside the existing fixed commands.
+- number: 2
+  name: Extend history contract for recovery records
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN recovery results are persisted WHEN they reference a target mutation event THEN bounded event validation accepts target ID, command,
+    action, path, status, and version metadata.
+  - GIVEN unsafe or incomplete recovery metadata is decoded WHEN validation runs THEN the event is rejected before history append.
+  - GIVEN existing prompt/response/command/runtime/mutation history events are read WHEN the contract expands THEN older event kinds remain valid
+    and display-stable.
+  evidence:
+  - internal/history now defines a closed recovery event kind plus bounded RecoveryRecord metadata for undo/redo command, status, target event ID,
+    action, paths, versions, redo availability/action/content, reason, error, and permission-decision provenance.
+  - NormalizeFakeEvent rejects recovery metadata on non-recovery events, rejects mutation/undo metadata on recovery events, rejects unsafe/incomplete
+    recovery records, and redacts/bounds display and redo content before append.
+  - internal/state JSONL append/read tests round-trip recovery records with markers for kind, command, target event ID, and redo availability while
+    proving secret-shaped recovery text is redacted.
+- number: 3
+  name: Execute supported undo and redo through app-owned effects
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN the latest supported create-file mutation is undoable WHEN /undo runs THEN the app selects it from history, classifies the recovery
+    mutation, rechecks the target version, deletes only that workspace-relative file, and records a completed undo result.
+  - GIVEN a completed undo has safe redo metadata WHEN /redo runs THEN the app restores the file through the same explicit guarded path and records
+    a completed redo result.
+  - GIVEN no supported target, stale target version, denied permission, or unsafe path exists WHEN undo/redo runs THEN the command records a bounded
+    unsupported/failed recovery result without mutating files.
+  evidence:
+  - internal/app now selects the latest supported create-file mutation for undo, skips already-undone mutations, and selects the latest unredone
+    completed undo with safe redo content for redo.
+  - internal/tools now exposes explicit recovery delete validation/execution with workspace-relative path checks, target-version recheck, symlink
+    escape protection, exact file removal, and bounded redo content capture.
+  - Recovery execution records completed, unsupported, permission-denied, and stale-target failure results through bounded history events while keeping
+    the TUI display-only over app-injected RecoveryView data.
+- number: 4
+  name: Render undoable, undone, and redone states
+  depends_on:
+  - 2
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN history view includes undoable, undone, and redone records WHEN rendered THEN rows and selected details show command, status, target
+    path, target event ID, action, and undo/redo availability.
+  - GIVEN semantic snapshots are generated WHEN recovery records are visible THEN command, status, target_event_id, paths, undo_available, redo_available,
+    and selected state are machine-readable.
+  - GIVEN recovery result state is rendered outside history WHEN a command completes THEN the visible surface names undo/redo status and remains
+    app-injected display data.
+  evidence:
+  - history-view fixtures now include an undoable mutation, a completed undo recovery with redo available, and a completed redo recovery with redo
+    unavailable, with selected-row render evidence and semantic recovery metadata.
+  - Semantic history snapshots now expose recovery command, status, target_event_id, action, paths, redo_available, redo_action, selected state,
+    and aggregate redo_enabled alongside existing undo metadata.
+  - recovery-result plain/ANSI/semantic fixtures render app-injected RecoveryView command/status/action/target/path/version/redo/decision data outside
+    the history surface while keeping the TUI display-only.
+- number: 5
+  name: Add fixture, keybinding, PTY, and closeout validation
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: completed
+  acceptance:
+  - GIVEN M30 command behavior changes WHEN tests run THEN policy, TUI input, app recovery, history/state, and snapshot tests cover slash/shortcut
+    parity, execution, rendering, and semantic state.
+  - GIVEN a temp workspace PTY smoke runs WHEN a supported mutation is created THEN /undo removes the file, /redo restores it, and history evidence
+    remains bounded.
+  - GIVEN full validation passes WHEN ROADMAP.md and Agentera artifacts are updated THEN M30 is recorded complete and M31 is next.
+  evidence:
+  - TestUndoRedoRecoveryPTYSmoke creates a temp-workspace file through the approval mutation path, runs /undo to remove it, runs /redo to restore
+    it, and verifies bounded recovery JSONL markers for mutation, command, undo, redo, target event, actions, redo availability, and redo content.
+  - go test ./cmd/aila -run 'TestUndoRedoRecoveryPTYSmoke|TestApprovalToWriteMutationPTYSmoke|TestHistoryViewPTYSmoke|TestHistoryEmptyPTYSmoke|TestDiffViewPTYSmoke' -count=1 passed.
+  - go test ./internal/tools ./internal/permission ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1 passed.
+  - go test ./internal/... -count=1 passed.
+  - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md records M30 complete and M31 next; behavior-name grep found no stale milestone-numbered test or fixture markers under internal or cmd.
+complete: 5
+total: 5
+active: false
+complete_plan: true

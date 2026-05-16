@@ -3,169 +3,181 @@ header:
   created: '2026-05-16'
   status: completed
   reviewed: '2026-05-16'
-  critic_issues: M30 completed; provider review, conversation rewind, richer edit-content undo, context compaction, source indexing,
-    non-interactive run behavior, and M31+ behavior deferred
-  title: Milestone 30 Undo And Redo Commands
-what: Deliver ROADMAP.md Milestone 30 by routing /undo and /redo plus shortcuts through shared command handlers, applying supported recovery through
-  app-owned explicit effects and permission checks, recording recovery results, and exposing undoable, undone, and redone states in TUI/history
-  evidence.
-why: M29 made mutations auditable and added descriptive undo metadata. M30 turns the supported recovery metadata into user-facing recovery commands
-  while preserving trust, permission, and history boundaries.
-constraints: 'Execute only Milestone 30. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only: it may route command
-  intents, render app-injected recovery/history state, and handle focus/navigation, but it must not read history files, mutate workspace files,
-  decide permissions, or execute recovery. Support only records with enough safe metadata; unsupported records must produce bounded, auditable
-  no-op results. Keep provider review, conversation rewind beyond file recovery, richer edit/overwrite content restoration, context compaction,
-  stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, non-interactive run behavior,
-  and Milestone 31+ behavior out of scope. Use behavior-based test names. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-16-m29.yaml
+  critic_issues: M31 completed; real provider/model execution, stdin diff review, arbitrary shell, write run, hosted control
+    plane behavior, and M32+ behavior deferred
+  title: Milestone 31 Non-Interactive Read-Only Run
+what: Deliver ROADMAP.md Milestone 31 by turning `aila run <prompt>` from a stub into a bounded deterministic read-only CLI
+  task that inspects the repository through app-owned read-only tool paths, prints inspected files, checks/commands, blockers,
+  caveats, and source refs, and stores session state that the interactive TUI can inspect later.
+why: M30 made interactive recovery auditable. M31 makes the documented non-interactive `run` command useful for safe repo
+  inspection before write-mode run behavior arrives in M32.
+constraints: 'Execute only Milestone 31. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only:
+  it may render stored app-injected run memory/history state, but it must not inspect files, run commands, decide permissions,
+  or persist session state. `aila run <prompt>` is read-only for this slice and may use deterministic app-owned read/search/bash
+  inspection through existing permission/tool boundaries. Keep real provider/model execution, stdin diff review, arbitrary
+  shell commands, file mutation, approval UI changes, write-run behavior, context compaction, stale checks, source indexing,
+  plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, and Milestone 32+ behavior out of
+  scope. Use behavior-based test names. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m30.yaml
 source_anchors:
-- ROADMAP.md:1-110
-- ROADMAP.md:1297-1322
+- ROADMAP.md:16-110
+- ROADMAP.md:1361-1382
 - docs/notes/PROMPT.md:1-39
 - AGENTS.md:1-163
-- README.md:239-301
-- ARCHITECTURE.md:451-523
+- README.md:34-56
+- README.md:239-243
+- README.md:273-301
 - ARCHITECTURE.md:535-603
-- docs/workflow-architecture.md:573-631
-- docs/tui-testing.md:46-48
+- ARCHITECTURE.md:919-946
 - docs/tui-testing.md:69-77
 - docs/tui-testing.md:413-433
 verification_commands:
-- go test ./internal/policy ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
-- go test ./cmd/aila -run 'TestUndoRedoPTYSmoke' -count=1
+- go test ./cmd/aila -run 'TestNonInteractiveRunThenContinueSmoke' -count=1
+- go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+  -count=1
+- go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+  -count=1
+- go test ./internal/app ./internal/state ./internal/tui ./cmd/aila -count=1
 - go test ./internal/... -count=1
-- go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/policy internal/history internal/state internal/app internal/tui
-  cmd/aila
-- git diff --check --no-index /dev/null <each new M30 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve terminal padding
-  and are covered by snapshot tests
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml cmd/aila internal/app internal/state internal/tui
+- git diff --check --no-index /dev/null <each new M31 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve
+  terminal padding and are covered by snapshot tests
 - uv run "$HOME/.local/share/agentera/app/scripts/agentera" plan --format json
 - uv run "$HOME/.local/share/agentera/app/scripts/agentera" progress --format json
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" hej
 scope:
   included:
-  - Add closed policy command routes for /undo, /redo, ctrl+x u, and ctrl+x r with slash/shortcut parity and help-command visibility.
-  - Extend the bounded history/recovery contract so app-owned recovery results can reference target mutation records and expose undoable, undone,
-    and redone state without leaking unsafe paths or content.
-  - Implement app-owned recovery selection and execution for supported records, with permission classification, immediate recheck, exact target-version
-    guards, and bounded unsupported/failure results.
-  - Render recovery results and history states in deterministic TUI fixtures and semantic snapshots while keeping the TUI display-only.
-  - Add PTY smoke in a temp workspace proving a supported mutation can be undone and redone through the command surface and recorded in history.
+  - Replace the `aila run` stub with a bounded read-only CLI report for `run <prompt>` that does not start the interactive
+    TUI path.
+  - Inspect a small deterministic repo context through app-owned read-only tool paths, including inspected files and safe
+    check/command summaries.
+  - Persist non-interactive run session state and bounded history evidence for later inspection through existing project-store
+    surfaces.
+  - Extend the interactive TUI session/history rendering and semantic snapshots so stored run memory exposes inspected files,
+    commands, blockers, caveats, and source refs.
+  - Add PTY smoke proving a temp-workspace non-interactive run writes inspectable state and interactive startup/continue can
+    render it afterward.
   excluded:
-  - Provider review, conversation rewind beyond supported file recovery, general edit/overwrite content restoration, shell mutation recovery,
-    background recovery, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control
-    planes, non-interactive run behavior, and Milestone 31+ behavior.
+  - Real provider/model execution, stdin diff review, arbitrary user-selected shell commands, file mutation, approval UI changes,
+    write-run behavior, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces,
+    hosted control planes, and Milestone 32+ behavior.
   deferred:
-  - Recovering arbitrary edits/overwrites with previous-content storage, provider-assisted review/recovery, conversation rewind, and broader redo
-    stack behavior after richer durable mutation records exist.
-design: 'Keep command recognition in internal/policy, deterministic input routing in internal/tui, recovery selection/orchestration in internal/app,
-  filesystem mutation in app-owned explicit recovery/tool effects, durable records in internal/history/internal/state, and display-only recovery/history
-  rendering in internal/tui. M30 should recover only the safest already-described mutation shape first: create-file writes whose undo metadata
-  can be guarded by path and target version. Undo may delete that created file after permission and version recheck; redo may restore only when
-  bounded redo metadata is available from a prior recorded undo result. Unsupported records must be visible and auditable, not silently ignored.'
+  - Provider-backed non-interactive reasoning, piped diff review, write-mode runs, richer per-run session directories, source
+    indexing, and stale-context validation.
+design: 'Keep CLI parsing in cmd/aila and route `run` to an app-owned non-interactive read-only runner. The app runner builds
+  a deterministic run report from existing permission/tool/state boundaries: read selected repo files through read validation/execution,
+  run only fixed safe inspection commands through the bash read-only path, summarize blockers and caveats, persist current-session
+  memory plus bounded fake history records, and return plain CLI output without terminal UI startup. The TUI consumes injected
+  snapshot/history state only; it does not perform inspection IO or infer run state from files.'
 overall_acceptance:
-- /undo and /redo slash commands and ctrl+x u/r shortcuts route through the same closed command recommendation path and are visible in help snapshots.
-- Supported create-file mutation history can be undone through app-owned recovery execution with permission classification, target-version recheck,
-  history recording, and no TUI filesystem ownership.
-- A recorded undo result can be redone when safe bounded redo metadata is available; unsupported redo/undo attempts return bounded auditable results.
-- Render and semantic snapshots show undoable, undone, and redone states plus recovery result metadata without exposing unsafe paths or hidden
-  execution.
-- PTY smoke proves undo and redo mutate only a temp workspace file through the command surface and leave durable history evidence.
+- '`aila run <prompt>` returns a bounded plain-text report that includes prompt, inspected files, checks/commands run, blockers,
+  caveats, source refs, and a stored-session indicator without starting the interactive TUI.'
+- Repo inspection uses only app-owned read-only tool paths with permission decisions and safe fixed commands; no file mutation,
+  approval flow, provider execution, or arbitrary shell is introduced.
+- Current-session state and fake history capture the non-interactive run enough for `aila continue` and `/history` to show
+  it later without leaking absolute workspace paths or secrets.
+- TUI render and semantic snapshots expose stored run inspected files, commands, blockers, caveats, and source refs through
+  display-only state.
+- PTY smoke proves a temp-workspace `aila run <prompt>` completes, persists inspectable state, and a following interactive
+  startup/continue can render the stored non-interactive run.
 surprises: []
 tasks:
 - number: 1
-  name: Add closed undo and redo command routes
+  name: Replace run stub with bounded read-only CLI report
   depends_on: []
-  status: completed
+  status: complete
   acceptance:
-  - GIVEN /undo and /redo are submitted WHEN policy recommends command routes THEN both map to closed undo/redo routes without falling through
-    to prompt execution.
-  - GIVEN ctrl+x u and ctrl+x r are pressed WHEN shortcut routing runs THEN they produce the same command routes as /undo and /redo.
-  - GIVEN help snapshots render WHEN command help is visible THEN undo and redo slash commands and shortcuts appear alongside existing fixed commands.
+  - GIVEN `aila run explain the repo` is executed WHEN CLI parsing completes THEN the command routes to an app-owned non-interactive
+    run function instead of the deferred stub or interactive TUI path.
+  - GIVEN the run completes WHEN stdout is printed THEN the report lists status, prompt, inspected files, checks or commands
+    run, blockers, caveats, source refs, and stored-session status within bounded output.
+  - GIVEN missing prompt or unsafe setup occurs WHEN run starts THEN the CLI returns a bounded diagnostic or blocked report
+    without hanging or reading interactive terminal input.
   evidence:
-  - internal/policy now exposes closed CommandRouteUndo and CommandRouteRedo recommendations for /undo and /redo.
-  - ctrl+x u and ctrl+x r map to the same undo/redo routes through the existing shortcut boundary, with policy and TUI parity tests covering slash/shortcut
-    behavior.
-  - help-command render and semantic snapshots were updated to show /undo, /redo, ctrl+x u, and ctrl+x r alongside the existing fixed commands.
+  - cmd/aila routes `run` to app.NonInteractiveRunCommandOutput through injectable cliRunner.runCmd instead of the deferred
+    stub or interactive TUI path.
+  - go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+    -count=1 passed, including injected run routing and missing-prompt blocked report coverage.
 - number: 2
-  name: Extend history contract for recovery records
+  name: Inspect repository through read-only tool boundaries
   depends_on:
   - 1
-  status: completed
+  status: complete
   acceptance:
-  - GIVEN recovery results are persisted WHEN they reference a target mutation event THEN bounded event validation accepts target ID, command,
-    action, path, status, and version metadata.
-  - GIVEN unsafe or incomplete recovery metadata is decoded WHEN validation runs THEN the event is rejected before history append.
-  - GIVEN existing prompt/response/command/runtime/mutation history events are read WHEN the contract expands THEN older event kinds remain valid
-    and display-stable.
+  - GIVEN a temp repo has README/ROADMAP or other known docs WHEN the non-interactive run executes THEN inspected files are
+    read through existing read validation/execution and reported by workspace-relative path.
+  - GIVEN fixed safe checks run WHEN command summaries are collected THEN they use existing read-only bash validation/execution
+    and record command, status, and bounded output summary.
+  - GIVEN files are missing, git is unavailable, or checks fail WHEN inspection continues THEN blockers/caveats are recorded
+    without mutation or unbounded output.
   evidence:
-  - internal/history now defines a closed recovery event kind plus bounded RecoveryRecord metadata for undo/redo command, status, target event ID,
-    action, paths, versions, redo availability/action/content, reason, error, and permission-decision provenance.
-  - NormalizeFakeEvent rejects recovery metadata on non-recovery events, rejects mutation/undo metadata on recovery events, rejects unsafe/incomplete
-    recovery records, and redacts/bounds display and redo content before append.
-  - internal/state JSONL append/read tests round-trip recovery records with markers for kind, command, target event ID, and redo availability while
-    proving secret-shaped recovery text is redacted.
+  - internal/app/noninteractive_run.go inspects README.md, ROADMAP.md, and AGENTS.md through tools.ValidateReadRequest/ExecuteRead
+    and fixed `git status --short --branch` plus `git diff --stat` through ValidateBashRequest/ExecuteBash.
+  - TestNonInteractiveRunInspectsRepoAndStoresSessionMemory passed, proving workspace-relative inspected files, fixed command
+    summaries, source refs, and no absolute workspace path leaks in stdout.
 - number: 3
-  name: Execute supported undo and redo through app-owned effects
+  name: Persist non-interactive run session and history state
   depends_on:
   - 2
-  status: completed
+  status: complete
   acceptance:
-  - GIVEN the latest supported create-file mutation is undoable WHEN /undo runs THEN the app selects it from history, classifies the recovery
-    mutation, rechecks the target version, deletes only that workspace-relative file, and records a completed undo result.
-  - GIVEN a completed undo has safe redo metadata WHEN /redo runs THEN the app restores the file through the same explicit guarded path and records
-    a completed redo result.
-  - GIVEN no supported target, stale target version, denied permission, or unsafe path exists WHEN undo/redo runs THEN the command records a bounded
-    unsupported/failed recovery result without mutating files.
+  - GIVEN a non-interactive read-only run completes WHEN persistence succeeds THEN current-session snapshot stores prompt,
+    assistant/report text, run metadata, blockers, caveats, inspected files, commands, and source refs for later resume.
+  - GIVEN fake history is available WHEN the run completes THEN prompt, response, and runtime/history evidence are appended
+    with bounded text and no secret or absolute-path leaks.
+  - GIVEN store persistence fails WHEN the run reports THEN stdout includes a bounded persistence blocker/caveat and the process
+    does not claim stored state succeeded.
   evidence:
-  - internal/app now selects the latest supported create-file mutation for undo, skips already-undone mutations, and selects the latest unredone
-    completed undo with safe redo content for redo.
-  - internal/tools now exposes explicit recovery delete validation/execution with workspace-relative path checks, target-version recheck, symlink
-    escape protection, exact file removal, and bounded redo content capture.
-  - Recovery execution records completed, unsupported, permission-denied, and stale-target failure results through bounded history events while keeping
-    the TUI display-only over app-injected RecoveryView data.
+  - Non-interactive run persistence writes state.SessionSnapshot.Run after stored flags are finalized and appends bounded
+    fake history prompt/response/runtime/command events.
+  - TestNonInteractiveRunInspectsRepoAndStoresSessionMemory and TestValidateSessionSnapshotContractAcceptsBoundedRunMemory
+    passed, proving stored session/history flags, run metadata, source refs, and read-back compatibility.
 - number: 4
-  name: Render undoable, undone, and redone states
+  name: Render stored run memory in TUI fixtures and semantic snapshots
   depends_on:
-  - 2
   - 3
-  status: completed
+  status: complete
   acceptance:
-  - GIVEN history view includes undoable, undone, and redone records WHEN rendered THEN rows and selected details show command, status, target
-    path, target event ID, action, and undo/redo availability.
-  - GIVEN semantic snapshots are generated WHEN recovery records are visible THEN command, status, target_event_id, paths, undo_available, redo_available,
-    and selected state are machine-readable.
-  - GIVEN recovery result state is rendered outside history WHEN a command completes THEN the visible surface names undo/redo status and remains
-    app-injected display data.
+  - GIVEN interactive continue loads a stored non-interactive run WHEN the TUI renders THEN visible memory/status/history
+    surfaces show prompt/report context plus inspected files, commands, blockers, caveats, and source refs.
+  - GIVEN semantic snapshots are generated WHEN stored run memory is present THEN inspected_files, commands_run, blockers,
+    caveats, source_refs, and display-only provenance are machine-readable.
+  - GIVEN the history view includes non-interactive run records WHEN rendered THEN the TUI remains presentation-only and history
+    navigation bounds remain stable.
   evidence:
-  - history-view fixtures now include an undoable mutation, a completed undo recovery with redo available, and a completed redo recovery with redo
-    unavailable, with selected-row render evidence and semantic recovery metadata.
-  - Semantic history snapshots now expose recovery command, status, target_event_id, action, paths, redo_available, redo_action, selected state,
-    and aggregate redo_enabled alongside existing undo metadata.
-  - recovery-result plain/ANSI/semantic fixtures render app-injected RecoveryView command/status/action/target/path/version/redo/decision data outside
-    the history surface while keeping the TUI display-only.
+  - Added behavior-named run-memory TUI fixture that renders app-injected non-interactive run memory plus related read-only
+    history rows without TUI-owned IO.
+  - go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+    -count=1 passed, covering visible memory, semantic run metadata, and history rows.
 - number: 5
-  name: Add fixture, keybinding, PTY, and closeout validation
+  name: Add PTY smoke, full validation, and closeout
   depends_on:
   - 1
   - 2
   - 3
   - 4
-  status: completed
+  status: complete
   acceptance:
-  - GIVEN M30 command behavior changes WHEN tests run THEN policy, TUI input, app recovery, history/state, and snapshot tests cover slash/shortcut
-    parity, execution, rendering, and semantic state.
-  - GIVEN a temp workspace PTY smoke runs WHEN a supported mutation is created THEN /undo removes the file, /redo restores it, and history evidence
-    remains bounded.
-  - GIVEN full validation passes WHEN ROADMAP.md and Agentera artifacts are updated THEN M30 is recorded complete and M31 is next.
+  - GIVEN a temp workspace PTY/process smoke runs WHEN `aila run <prompt>` completes THEN stdout proves inspected files, commands/checks,
+    blockers, caveats, source refs, and stored-session status are bounded and path-safe.
+  - GIVEN the same workspace starts interactive `continue` or opens history WHEN PTY smoke runs THEN the stored non-interactive
+    session is visible through existing session/history surfaces.
+  - GIVEN targeted and full validation pass WHEN ROADMAP.md and Agentera artifacts are updated THEN M31 is recorded complete
+    and M32 is next.
   evidence:
-  - TestUndoRedoRecoveryPTYSmoke creates a temp-workspace file through the approval mutation path, runs /undo to remove it, runs /redo to restore
-    it, and verifies bounded recovery JSONL markers for mutation, command, undo, redo, target event, actions, redo availability, and redo content.
-  - go test ./cmd/aila -run 'TestUndoRedoRecoveryPTYSmoke|TestApprovalToWriteMutationPTYSmoke|TestHistoryViewPTYSmoke|TestHistoryEmptyPTYSmoke|TestDiffViewPTYSmoke' -count=1 passed.
-  - go test ./internal/tools ./internal/permission ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1 passed.
+  - TestNonInteractiveRunThenContinueSmoke passed, proving `aila run <prompt>` emits bounded path-safe stdout, stores current-session
+    run memory and fake history, and a following PTY `aila continue` plus `/history` renders the stored non-interactive run.
+  - go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+    -count=1 passed.
+  - go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+    -count=1 passed.
+  - go test ./internal/app ./internal/state ./internal/tui ./cmd/aila -count=1 passed after restoring legacy 160x45 fixture
+    expectations and keeping the new run-memory fixture at 120x60.
   - go test ./internal/... -count=1 passed.
   - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
-  - ROADMAP.md records M30 complete and M31 next; behavior-name grep found no TestM27/TestM28/TestM29/TestM30, run-m27, or m27-fixture markers under internal or cmd.
+  - ROADMAP.md records M31 complete and M32 next; touched/new M31 tests use behavior-based names rather than stale milestone
+    IDs.
 complete: 5
 total: 5
 active: false

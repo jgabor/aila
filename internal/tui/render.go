@@ -56,6 +56,7 @@ type ViewState struct {
 	MemorySessionID    string
 	MemoryBlockers     []string
 	MemoryConcerns     []string
+	RunMemory          *RunMemoryView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
@@ -137,6 +138,37 @@ type HistoryRecoveryItem struct {
 	ErrorMessage       string
 	DecisionRunID      string
 	DecisionCapability string
+}
+
+// RunMemoryView is app-injected metadata for a stored non-interactive read-only run.
+type RunMemoryView struct {
+	Mode           string
+	Prompt         string
+	Status         string
+	InspectedFiles []RunMemoryFileView
+	Commands       []RunMemoryCommandView
+	Blockers       []string
+	Caveats        []string
+	SourceRefs     []string
+	StoredSession  bool
+	StoredHistory  bool
+}
+
+// RunMemoryFileView records one file inspected by a stored read-only run.
+type RunMemoryFileView struct {
+	Path      string
+	Status    string
+	LineStart int
+	LineEnd   int
+	SourceRef string
+}
+
+// RunMemoryCommandView records one fixed check executed by a stored read-only run.
+type RunMemoryCommandView struct {
+	Command  string
+	Status   string
+	ExitCode int
+	Summary  string
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -313,11 +345,34 @@ func memoryLines(state ViewState) []string {
 	for _, concern := range state.MemoryConcerns {
 		lines = append(lines, "  concern: "+safeText(concern))
 	}
+	if state.RunMemory != nil {
+		run := state.RunMemory
+		lines = append(lines,
+			"  run mode: "+safeText(run.Mode),
+			"  run status: "+safeText(run.Status),
+			"  run prompt: "+safeText(run.Prompt),
+		)
+		for _, file := range run.InspectedFiles {
+			lines = append(lines, "  inspected file: "+safeText(file.Path)+" status="+safeText(file.Status)+" source_ref="+safeText(file.SourceRef))
+		}
+		for _, command := range run.Commands {
+			lines = append(lines, "  command run: "+safeText(command.Command)+" status="+safeText(command.Status))
+		}
+		for _, blocker := range run.Blockers {
+			lines = append(lines, "  run blocker: "+safeText(blocker))
+		}
+		for _, caveat := range run.Caveats {
+			lines = append(lines, "  run caveat: "+safeText(caveat))
+		}
+		for _, sourceRef := range run.SourceRefs {
+			lines = append(lines, "  source ref: "+safeText(sourceRef))
+		}
+	}
 	return append(lines, "")
 }
 
 func hasMemory(state ViewState) bool {
-	return state.MemorySource != "" || state.MemorySessionID != "" || len(state.MemoryBlockers) > 0 || len(state.MemoryConcerns) > 0
+	return state.MemorySource != "" || state.MemorySessionID != "" || len(state.MemoryBlockers) > 0 || len(state.MemoryConcerns) > 0 || state.RunMemory != nil
 }
 
 func runtimeStatusLines(state ViewState) []string {
@@ -1193,13 +1248,45 @@ type SemanticDecision struct {
 
 // SemanticMemory describes app-injected resumed current-session memory.
 type SemanticMemory struct {
-	Source          string   `json:"source"`
-	SessionID       string   `json:"session_id"`
-	TranscriptTurns int      `json:"transcript_turns"`
-	QueuedCount     int      `json:"queued_count"`
-	Blockers        []string `json:"blockers,omitempty"`
-	Concerns        []string `json:"concerns,omitempty"`
-	Diagnostics     int      `json:"diagnostics"`
+	Source          string             `json:"source"`
+	SessionID       string             `json:"session_id"`
+	TranscriptTurns int                `json:"transcript_turns"`
+	QueuedCount     int                `json:"queued_count"`
+	Blockers        []string           `json:"blockers,omitempty"`
+	Concerns        []string           `json:"concerns,omitempty"`
+	Diagnostics     int                `json:"diagnostics"`
+	Run             *SemanticRunMemory `json:"run,omitempty"`
+}
+
+// SemanticRunMemory describes a stored non-interactive read-only run.
+type SemanticRunMemory struct {
+	Mode           string                  `json:"mode"`
+	Prompt         string                  `json:"prompt"`
+	Status         string                  `json:"status"`
+	InspectedFiles []SemanticRunMemoryFile `json:"inspected_files,omitempty"`
+	CommandsRun    []SemanticRunCommand    `json:"commands_run,omitempty"`
+	Blockers       []string                `json:"blockers,omitempty"`
+	Caveats        []string                `json:"caveats,omitempty"`
+	SourceRefs     []string                `json:"source_refs,omitempty"`
+	StoredSession  bool                    `json:"stored_session"`
+	StoredHistory  bool                    `json:"stored_history"`
+}
+
+// SemanticRunMemoryFile records one inspected file in run memory.
+type SemanticRunMemoryFile struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	LineStart int    `json:"line_start,omitempty"`
+	LineEnd   int    `json:"line_end,omitempty"`
+	SourceRef string `json:"source_ref,omitempty"`
+}
+
+// SemanticRunCommand records one command/check in run memory.
+type SemanticRunCommand struct {
+	Command  string `json:"command"`
+	Status   string `json:"status"`
+	ExitCode int    `json:"exit_code"`
+	Summary  string `json:"summary,omitempty"`
 }
 
 // SemanticDiagnostic is the stable diagnostic status contract for fixtures.
@@ -1654,6 +1741,33 @@ func semanticMemory(state ViewState) *SemanticMemory {
 		Blockers:        safeTextSlice(state.MemoryBlockers),
 		Concerns:        safeTextSlice(state.MemoryConcerns),
 		Diagnostics:     len(state.Diagnostics),
+		Run:             semanticRunMemory(state.RunMemory),
+	}
+}
+
+func semanticRunMemory(run *RunMemoryView) *SemanticRunMemory {
+	if run == nil {
+		return nil
+	}
+	files := make([]SemanticRunMemoryFile, 0, len(run.InspectedFiles))
+	for _, file := range run.InspectedFiles {
+		files = append(files, SemanticRunMemoryFile{Path: safeText(file.Path), Status: safeText(file.Status), LineStart: file.LineStart, LineEnd: file.LineEnd, SourceRef: safeText(file.SourceRef)})
+	}
+	commands := make([]SemanticRunCommand, 0, len(run.Commands))
+	for _, command := range run.Commands {
+		commands = append(commands, SemanticRunCommand{Command: safeText(command.Command), Status: safeText(command.Status), ExitCode: command.ExitCode, Summary: safeText(command.Summary)})
+	}
+	return &SemanticRunMemory{
+		Mode:           safeText(run.Mode),
+		Prompt:         safeText(run.Prompt),
+		Status:         safeText(run.Status),
+		InspectedFiles: files,
+		CommandsRun:    commands,
+		Blockers:       safeTextSlice(run.Blockers),
+		Caveats:        safeTextSlice(run.Caveats),
+		SourceRefs:     safeTextSlice(run.SourceRefs),
+		StoredSession:  run.StoredSession,
+		StoredHistory:  run.StoredHistory,
 	}
 }
 
@@ -1673,6 +1787,30 @@ func semanticMemoryItems(state ViewState) []string {
 	}
 	for _, concern := range memory.Concerns {
 		items = append(items, "concern: "+concern)
+	}
+	if memory.Run != nil {
+		items = append(items,
+			"run_mode: "+memory.Run.Mode,
+			"run_status: "+memory.Run.Status,
+			"run_prompt: "+memory.Run.Prompt,
+			"stored_session: "+boolLabel(memory.Run.StoredSession),
+			"stored_history: "+boolLabel(memory.Run.StoredHistory),
+		)
+		for _, file := range memory.Run.InspectedFiles {
+			items = append(items, "inspected_file: "+file.Path+" status="+file.Status+" source_ref="+file.SourceRef)
+		}
+		for _, command := range memory.Run.CommandsRun {
+			items = append(items, "command_run: "+command.Command+" status="+command.Status)
+		}
+		for _, blocker := range memory.Run.Blockers {
+			items = append(items, "run_blocker: "+blocker)
+		}
+		for _, caveat := range memory.Run.Caveats {
+			items = append(items, "run_caveat: "+caveat)
+		}
+		for _, sourceRef := range memory.Run.SourceRefs {
+			items = append(items, "source_ref: "+sourceRef)
+		}
 	}
 	return items
 }

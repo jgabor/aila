@@ -319,6 +319,31 @@ func TestValidateSessionSnapshotContractAcceptsBoundedVisibleState(t *testing.T)
 	}
 }
 
+func TestValidateSessionSnapshotContractAcceptsBoundedRunMemory(t *testing.T) {
+	t.Parallel()
+
+	snapshot := validSessionSnapshot()
+	snapshot.Run = validSessionSnapshotRun()
+	if err := ValidateSessionSnapshotContract(snapshot); err != nil {
+		t.Fatalf("ValidateSessionSnapshotContract with run memory returned error: %v", err)
+	}
+
+	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+	if _, err := store.WriteCurrentSessionSnapshot(context.Background(), snapshot); err != nil {
+		t.Fatalf("WriteCurrentSessionSnapshot with run memory returned error: %v", err)
+	}
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("ReadCurrentSessionSnapshot with run memory returned error: %v", err)
+	}
+	if result.State != SessionSnapshotLoaded || result.Snapshot.Run == nil {
+		t.Fatalf("read run memory state = %q run=%#v, want loaded run memory", result.State, result.Snapshot.Run)
+	}
+	if result.Snapshot.Run.Prompt != "explain repo" || len(result.Snapshot.Run.InspectedFiles) != 1 || len(result.Snapshot.Run.Commands) != 1 {
+		t.Fatalf("run memory = %#v", result.Snapshot.Run)
+	}
+}
+
 func TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStrings(t *testing.T) {
 	t.Parallel()
 
@@ -357,6 +382,18 @@ func TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStr
 		},
 		"concern text": func(snapshot *SessionSnapshot) {
 			snapshot.Concerns[0].Text = strings.Repeat("s", SnapshotConcernMaxBytes+1)
+		},
+		"run prompt": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotRun()
+			snapshot.Run.Prompt = strings.Repeat("s", SnapshotTextMaxBytes+1)
+		},
+		"run file path": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotRun()
+			snapshot.Run.InspectedFiles[0].Path = strings.Repeat("s", SnapshotLabelMaxBytes+1)
+		},
+		"run command summary": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotRun()
+			snapshot.Run.Commands[0].Summary = strings.Repeat("s", SnapshotTextMaxBytes+1)
 		},
 	}
 	for name, mutate := range tests {
@@ -414,6 +451,7 @@ func TestSessionSnapshotContractFieldsRemainNarrow(t *testing.T) {
 		"Diagnostics",
 		"Blockers",
 		"Concerns",
+		"Run",
 	}
 	snapshotType := reflect.TypeOf(SessionSnapshot{})
 	got := make([]string, 0, snapshotType.NumField())
@@ -459,6 +497,32 @@ func validSessionSnapshot() SessionSnapshot {
 			Source: "display",
 			Text:   "visible concern",
 		}},
+	}
+}
+
+func validSessionSnapshotRun() *SessionSnapshotRun {
+	return &SessionSnapshotRun{
+		Mode:   "non_interactive_read_only",
+		Prompt: "explain repo",
+		Status: "flagged",
+		InspectedFiles: []SessionSnapshotRunFile{{
+			Path:      "README.md",
+			Status:    "completed",
+			LineStart: 1,
+			LineEnd:   20,
+			SourceRef: "README.md:1-20",
+		}},
+		Commands: []SessionSnapshotRunCommand{{
+			Command:  "git status --short --branch",
+			Status:   "completed",
+			ExitCode: 0,
+			Summary:  "## main",
+		}},
+		Blockers:      []string{},
+		Caveats:       []string{"provider model execution deferred"},
+		SourceRefs:    []string{"README.md:1-20", "git status --short --branch"},
+		StoredSession: true,
+		StoredHistory: true,
 	}
 }
 

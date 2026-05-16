@@ -19,11 +19,23 @@ import (
 	"github.com/jgabor/aila/internal/diagnostic"
 )
 
-const wantRunStub = "aila test-version\n" +
+const wantRunOutput = "aila test-version\n" +
 	"command: run\n" +
-	"status: deferred-run stub\n" +
-	"accepted: run [prompt...] [--model MODEL]\n" +
-	"deferred: prompt execution, stdin review, model turns, tool execution, workflow transitions\n"
+	"mode: non_interactive_read_only\n" +
+	"status: completed\n" +
+	"prompt: injected prompt\n" +
+	"inspected_files:\n" +
+	"- README.md status=completed source_ref=README.md:1-20\n" +
+	"commands_run:\n" +
+	"- git status --short --branch status=completed exit=0 summary=## main\n" +
+	"blockers:\n" +
+	"- none\n" +
+	"caveats:\n" +
+	"- none\n" +
+	"source_refs:\n" +
+	"- README.md:1-20\n" +
+	"stored_session: true\n" +
+	"stored_history: true\n"
 
 const wantContinueStub = ""
 
@@ -72,7 +84,7 @@ const wantOpenAIModelsOutput = "aila test-version\n" +
 	"source: deterministic-fakes\n"
 
 const wantHelpOutput = "aila test-version\n" +
-	"M7 accepted shape:\n" +
+	"accepted command shape:\n" +
 	"  aila run [prompt...] [--model MODEL] [--debug]\n" +
 	"  aila continue | aila --continue | aila -c\n" +
 	"  aila config [--all] [--debug]\n" +
@@ -80,9 +92,9 @@ const wantHelpOutput = "aila test-version\n" +
 	"  aila help\n" +
 	"  aila --version | aila -V\n" +
 	"  aila --debug\n" +
-	"Deferred in M7: prompt execution, stdin review, session discovery, config IO, XDG/env reads, credentials, model turns, tools, workflow transitions, persistence.\n"
+	"Deferred beyond current read-only run: stdin review, session discovery UI, credentials, provider model turns, write tools, workflow transitions, and mutation persistence.\n"
 
-const validM7FlagsWithDebug = "--model, -m, --continue, -c, --version, -V, --debug"
+const validCLIFlagsWithDebug = "--model, -m, --continue, -c, --version, -V, --debug"
 
 func TestMainPackageCompiles(t *testing.T) {
 	t.Parallel()
@@ -140,6 +152,7 @@ func TestCLIRunnerArgsAreNonInteractiveAndInjected(t *testing.T) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		runCmd: testRunOutput,
 	}
 
 	done := make(chan error, 1)
@@ -158,23 +171,23 @@ func TestCLIRunnerArgsAreNonInteractiveAndInjected(t *testing.T) {
 	if !strings.Contains(output.String(), "test-version") {
 		t.Fatalf("command output did not use injected version: %q", output.String())
 	}
-	if !strings.Contains(output.String(), "status: deferred-run stub") {
-		t.Fatalf("command output did not stay within M7 boundary: %q", output.String())
+	if !strings.Contains(output.String(), "mode: non_interactive_read_only") {
+		t.Fatalf("command output did not stay within the read-only run boundary: %q", output.String())
 	}
 	if errors.Len() != 0 {
 		t.Fatalf("command-arg CLI wrote unexpected stderr: %q", errors.String())
 	}
 }
 
-func TestCLIRunnerRecognizesM7Commands(t *testing.T) {
+func TestCLIRunnerRecognizesSupportedCommands(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]string{
-		"run":      "status: deferred-run stub",
+		"run":      "mode: non_interactive_read_only",
 		"continue": "",
 		"config":   "deferred: interactive config UI",
 		"models":   "status: fake diagnostics",
-		"help":     "M7 accepted shape:",
+		"help":     "accepted command shape:",
 	}
 
 	for command, want := range tests {
@@ -249,9 +262,9 @@ func TestCLIRunnerAcceptsGlobalFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "long model", args: []string{"--model", "openai/gpt", "run"}, want: wantRunStub},
-		{name: "short model", args: []string{"-m", "openai/gpt", "run"}, want: wantRunStub},
-		{name: "equals model", args: []string{"--model=openai/gpt", "run"}, want: wantRunStub},
+		{name: "long model", args: []string{"--model", "openai/gpt", "run"}, want: wantRunOutput},
+		{name: "short model", args: []string{"-m", "openai/gpt", "run"}, want: wantRunOutput},
+		{name: "equals model", args: []string{"--model=openai/gpt", "run"}, want: wantRunOutput},
 		{name: "long continue", args: []string{"--continue"}, want: wantContinueStub},
 		{name: "short continue", args: []string{"-c"}, want: wantContinueStub},
 		{name: "long version", args: []string{"--version"}, want: "aila test-version\n"},
@@ -276,7 +289,7 @@ func TestCLIRunnerAcceptsGlobalFlags(t *testing.T) {
 	}
 }
 
-func TestM7CLIAcceptedShapesExitWithExpectedStreams(t *testing.T) {
+func TestCLICommandShapesExitWithExpectedStreams(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -286,11 +299,11 @@ func TestM7CLIAcceptedShapesExitWithExpectedStreams(t *testing.T) {
 		wantStdout string
 		wantStderr string
 	}{
-		{name: "run", args: []string{"run"}, wantStdout: wantRunStub},
-		{name: "run global model flag", args: []string{"--model", "openai/gpt", "run"}, wantStdout: wantRunStub},
-		{name: "run short model flag", args: []string{"-m", "openai/gpt", "run"}, wantStdout: wantRunStub},
-		{name: "run equals model flag", args: []string{"--model=openai/gpt", "run"}, wantStdout: wantRunStub},
-		{name: "run prompt model", args: []string{"run", "write", "tests", "--model", "openai/gpt"}, wantStdout: wantRunStub},
+		{name: "run", args: []string{"run"}, wantStdout: wantRunOutput},
+		{name: "run global model flag", args: []string{"--model", "openai/gpt", "run"}, wantStdout: wantRunOutput},
+		{name: "run short model flag", args: []string{"-m", "openai/gpt", "run"}, wantStdout: wantRunOutput},
+		{name: "run equals model flag", args: []string{"--model=openai/gpt", "run"}, wantStdout: wantRunOutput},
+		{name: "run prompt model", args: []string{"run", "write", "tests", "--model", "openai/gpt"}, wantStdout: wantRunOutput},
 		{name: "continue command", args: []string{"continue"}, wantStdout: wantContinueStub},
 		{name: "continue flag", args: []string{"--continue"}, wantStdout: wantContinueStub},
 		{name: "short continue flag", args: []string{"-c"}, wantStdout: wantContinueStub},
@@ -323,12 +336,12 @@ func TestCLIRunnerRejectsUnknownCommandsAndFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "unknown positional after help", args: []string{"help", "topic"}, want: "unknown command \"topic\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid M7 commands: run, continue, config, models, help"},
-		{name: "config all on models", args: []string{"models", "--all"}, want: "unsupported M7 flag \"--all\" for models; valid config shape: config [--all]"},
+		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid CLI commands: run, continue, config, models, help"},
+		{name: "unknown positional after help", args: []string{"help", "topic"}, want: "unknown command \"topic\"; valid CLI commands: run, continue, config, models, help"},
+		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid CLI commands: run, continue, config, models, help"},
+		{name: "config all on models", args: []string{"models", "--all"}, want: "unsupported CLI flag \"--all\" for models; valid config shape: config [--all]"},
 	}
 
 	for _, test := range tests {
@@ -349,7 +362,7 @@ func TestCLIRunnerRejectsUnknownCommandsAndFlags(t *testing.T) {
 	}
 }
 
-func TestM7CLIUnknownInputsReturnBoundedDiagnostics(t *testing.T) {
+func TestCLIUnknownInputsReturnBoundedDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -357,15 +370,15 @@ func TestM7CLIUnknownInputsReturnBoundedDiagnostics(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "unknown short flag", args: []string{"run", "-x"}, want: "unknown flag \"-x\"; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "empty model value", args: []string{"--model="}, want: "missing value for --model; valid M7 flags: " + validM7FlagsWithDebug},
-		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid M7 commands: run, continue, config, models, help"},
-		{name: "ambiguous commands", args: []string{"run", "config"}, want: "incompatible M7 commands \"run\" and \"config\"; valid M7 commands: run, continue, config, models, help"},
-		{name: "ambiguous continuation", args: []string{"run", "--continue"}, want: "incompatible M7 continuation shape \"run\" with --continue; use continue or --continue, not run --continue"},
-		{name: "command specific flag", args: []string{"models", "--all"}, want: "unsupported M7 flag \"--all\" for models; valid config shape: config [--all]"},
+		{name: "unknown command", args: []string{"status"}, want: "unknown command \"status\"; valid CLI commands: run, continue, config, models, help"},
+		{name: "unknown flag", args: []string{"run", "--dry-run"}, want: "unknown flag \"--dry-run\"; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "unknown short flag", args: []string{"run", "-x"}, want: "unknown flag \"-x\"; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "missing model value", args: []string{"--model"}, want: "missing value for --model; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "empty model value", args: []string{"--model="}, want: "missing value for --model; valid CLI flags: " + validCLIFlagsWithDebug},
+		{name: "missing command", args: []string{"--model", "openai/gpt"}, want: "missing command; valid CLI commands: run, continue, config, models, help"},
+		{name: "ambiguous commands", args: []string{"run", "config"}, want: "incompatible CLI commands \"run\" and \"config\"; valid CLI commands: run, continue, config, models, help"},
+		{name: "ambiguous continuation", args: []string{"run", "--continue"}, want: "incompatible CLI continuation shape \"run\" with --continue; use continue or --continue, not run --continue"},
+		{name: "command specific flag", args: []string{"models", "--all"}, want: "unsupported CLI flag \"--all\" for models; valid config shape: config [--all]"},
 	}
 
 	for _, test := range tests {
@@ -420,7 +433,7 @@ func TestCLIRunnerContinuationShapesAreDeterministic(t *testing.T) {
 		{name: "continue command", args: []string{"continue"}, wantOut: wantContinueStub},
 		{name: "continue flag", args: []string{"--continue"}, wantOut: wantContinueStub},
 		{name: "short continue flag", args: []string{"-c"}, wantOut: wantContinueStub},
-		{name: "run continue flag", args: []string{"run", "--continue"}, wantErr: "incompatible M7 continuation shape \"run\" with --continue; use continue or --continue, not run --continue"},
+		{name: "run continue flag", args: []string{"run", "--continue"}, wantErr: "incompatible CLI continuation shape \"run\" with --continue; use continue or --continue, not run --continue"},
 	}
 
 	for _, test := range tests {
@@ -454,15 +467,15 @@ func TestCLIRunnerContinuationShapesAreDeterministic(t *testing.T) {
 	}
 }
 
-func TestCLIRunnerRunStubDefersPromptStdinAndExecution(t *testing.T) {
+func TestCLIRunnerRunCommandUsesInjectedReadOnlyRunner(t *testing.T) {
 	t.Parallel()
 
 	stdout, stderr, err := runCLITest(t, []string{"run", "write", "code"})
 	if err != nil {
 		t.Fatalf("run prompt stub: %v", err)
 	}
-	if stdout != wantRunStub {
-		t.Fatalf("stdout mismatch: got %q want %q", stdout, wantRunStub)
+	if stdout != wantRunOutput {
+		t.Fatalf("stdout mismatch: got %q want %q", stdout, wantRunOutput)
 	}
 	if stderr != "" {
 		t.Fatalf("stderr for run prompt stub: %q", stderr)
@@ -681,6 +694,7 @@ func TestCLIRunnerUsesInjectedErrorOutput(t *testing.T) {
 			t.Fatal("command arguments must not start the interactive TUI path")
 			return nil
 		},
+		runCmd: testRunOutput,
 	}
 
 	if err := runner.run(context.Background(), []string{"run"}); err == nil {
@@ -706,6 +720,7 @@ func runCLITest(t *testing.T, args []string) (string, string, error) {
 			return nil
 		},
 		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
+		runCmd: testRunOutput,
 		config: testConfigOutput,
 	}
 
@@ -728,6 +743,7 @@ func runCLIWithConfigCommand(t *testing.T, args []string) (string, string, error
 			return nil
 		},
 		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
+		runCmd: testRunOutput,
 		config: app.ConfigCommandOutput,
 	}
 
@@ -750,6 +766,7 @@ func runCLITestWithDebug(t *testing.T, args []string, debugOutput string) (strin
 			return nil
 		},
 		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
+		runCmd: testRunOutput,
 		debug: func(context.Context) (string, error) {
 			return debugOutput, nil
 		},
@@ -774,6 +791,7 @@ func runCLIExitTest(t *testing.T, args []string) (string, string, int) {
 			return nil
 		},
 		resume: func(context.Context, io.Reader, io.Writer) error { return nil },
+		runCmd: testRunOutput,
 		config: testConfigOutput,
 	}
 
@@ -793,6 +811,10 @@ func runCLIExitTest(t *testing.T, args []string) (string, string, int) {
 		t.Fatalf("CLI args %v did not return without hanging", args)
 		return "", "", 1
 	}
+}
+
+func testRunOutput(_ context.Context, _ app.NonInteractiveRunRequest) (string, error) {
+	return wantRunOutput, nil
 }
 
 func testConfigOutput(all bool) (string, error) {
@@ -820,7 +842,7 @@ func TestCLIRunnerBoundaryImports(t *testing.T) {
 	}
 }
 
-func TestM7CLIStubCommandPathHasNoIOReachability(t *testing.T) {
+func TestCLICommandParsingHasNoDirectIOReachability(t *testing.T) {
 	t.Parallel()
 
 	file, err := parser.ParseFile(token.NewFileSet(), filepath.FromSlash("main.go"), nil, 0)
@@ -829,12 +851,12 @@ func TestM7CLIStubCommandPathHasNoIOReachability(t *testing.T) {
 	}
 
 	guardedFunctions := map[string]bool{
-		"run":                  true,
-		"parseM7CLI":           true,
-		"isM7Command":          true,
-		"acceptsM7Positionals": true,
-		"commandName":          true,
-		"m7StubOutput":         true,
+		"run":                true,
+		"parseCLI":           true,
+		"isCLICommand":       true,
+		"acceptsPositionals": true,
+		"commandName":        true,
+		"commandOutput":      true,
 	}
 	forbiddenSelectors := map[string]bool{
 		"app.Run":             true,

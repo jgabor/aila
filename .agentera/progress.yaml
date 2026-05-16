@@ -1,4 +1,95 @@
 cycles:
+  - number: 185
+    timestamp: "2026-05-17 00:23"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M31 by replacing the deferred run stub with a bounded app-owned non-interactive read-only report, routing repository inspection through existing read-only tool and permission paths, persisting inspectable run memory and fake history, rendering it in the TUI, validating the process/PTY smoke, updating ROADMAP.md, and validating Agentera state.
+    commit: "pending local commit for M31 non-interactive read-only run"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 31; README.md run usage; ARCHITECTURE.md state/session/history and TUI presentation-only boundaries; docs/tui-testing.md fixture, semantic snapshot, and PTY gates"
+    discovered: >-
+      The useful M31 slice is deterministic rather than provider-backed: `aila run <prompt>` can now inspect selected repo files and fixed safe git checks, persist bounded run evidence, and let `aila continue` plus `/history` inspect the stored state. Legacy fixture-size expectations still needed to stay at 160x45; only the new run-memory fixture uses 120x60. Touched CLI parser/test names now describe behavior instead of stale milestone labels.
+    verified: >-
+      mage fmt passed. go test ./cmd/aila -run 'TestNonInteractiveRunThenContinueSmoke' -count=1 passed. go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI' -count=1 passed. go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView' -count=1 passed. go test ./internal/app ./internal/state ./internal/tui ./cmd/aila -count=1 passed. go test ./internal/... -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+    next: >-
+      Commit the completed M31 slice, leaving M32: Non-Interactive Write Run as the next roadmap milestone.
+    context:
+      intent: >-
+        Close the current roadmap milestone first, with CLI, persistence, TUI, PTY, full validation, and Agentera evidence complete before committing.
+      constraints: >-
+        No provider model execution, stdin diff review, arbitrary shell, write-run behavior, file mutation, approval UI changes, hosted control-plane behavior, or M32+ behavior was added. TUI remains presentation-only. New/touched tests use behavior-based names rather than stale milestone identifiers.
+      unknowns: "none"
+      scope: >-
+        cmd/aila run routing and smoke, internal/app non-interactive runner and snapshot mapping, internal/state run snapshot contract, internal/tui run-memory rendering/semantic fixture, run-memory snapshots, ROADMAP closeout, and Agentera plan/progress closeout.
+  - number: 184
+    timestamp: "2026-05-17 00:08"
+    type: build
+    phase: build
+    what: >-
+      Completed M31 Task 4 by rendering stored non-interactive run memory and its history rows through a deterministic TUI fixture and machine-readable semantic snapshot.
+    commit: "N/A: implementation in progress before M31 commit"
+    inspiration: ".agentera/plan.yaml task 4; docs/tui-testing.md fixture and semantic snapshot gates; ARCHITECTURE.md TUI presentation-only boundary"
+    discovered: >-
+      A single run-memory fixture can prove both resume-visible run memory and the non-interactive run history row shape while keeping inspection and persistence outside the TUI. The fixture needed a taller deterministic viewport so selected history details stay visible with run memory present.
+    verified: >-
+      mage fmt passed. AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run 'TestRunMemoryFixtureSnapshots' -count=1 regenerated the reviewed run-memory snapshots. go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView' -count=1 passed.
+    next: >-
+      Execute M31 Task 5: add process or PTY smoke for `aila run <prompt>` plus continue/history visibility, then run full validation, ROADMAP closeout, Agentera validation, and commit.
+    context:
+      intent: >-
+        Prove stored non-interactive run memory is visible and agent-readable through TUI rendering only.
+      constraints: >-
+        TUI consumes app-injected RunMemory and HistoryItem data only; no file reads, shell checks, permission decisions, persistence, provider execution, write-run behavior, or M32+ behavior were added.
+      unknowns: >-
+        The final smoke may be process-based for bounded stdout and PTY-based for continue visibility depending on the existing CLI test harness affordances.
+      scope: >-
+        internal/tui RunMemory rendering, semantic memory/run structures, run-memory fixture metadata, plain/ANSI/semantic snapshots, and behavior-named fixture tests.
+  - number: 183
+    timestamp: "2026-05-17 00:02"
+    type: build
+    phase: build
+    what: >-
+      Completed M31 Tasks 1-3 by replacing the run stub with an app-owned bounded read-only report, inspecting deterministic repo context through existing read-only tool boundaries, and persisting run memory plus bounded fake history for later resume/history display.
+    commit: "N/A: implementation in progress before M31 commit"
+    inspiration: ".agentera/plan.yaml tasks 1-3; ROADMAP.md Milestone 31; README.md run usage; ARCHITECTURE.md state/session/history boundaries"
+    discovered: >-
+      The run snapshot must be written after stored-session/history flags are finalized; otherwise stdout can claim stored state that the resumable snapshot does not contain. Old milestone-numbered parser/test labels were also stale, so touched CLI names and diagnostics now use behavior-based CLI wording instead of milestone names.
+    verified: >-
+      mage fmt passed. go test ./internal/app -run 'TestNonInteractiveRun|TestContinueStartupLoadsCurrentSnapshotIntoInjectedViewState|TestSessionControllerPersistsPromptSnapshot' -count=1 passed. go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI' -count=1 passed.
+    next: >-
+      Execute M31 Task 4: add stored run memory TUI fixture, semantic snapshot coverage, and history display evidence while keeping TUI presentation-only.
+    context:
+      intent: >-
+        Make `aila run <prompt>` useful for deterministic read-only repo inspection and prove that the result is resumable before adding TUI fixture and PTY evidence.
+      constraints: >-
+        No provider model execution, stdin diff review, arbitrary shell, write-run behavior, file mutation, approval UI changes, or M32+ behavior. TUI remains presentation-only. New/touched test names use behavior-based wording instead of milestone IDs.
+      unknowns: >-
+        PTY smoke may require small adjustment to render timing once the TUI fixture and continue path are wired to show stored run memory.
+      scope: >-
+        cmd/aila CLI routing and diagnostics, internal/app non-interactive runner and tests, internal/state session snapshot run schema, internal/app snapshot mapping, and internal/tui run-memory data model.
+  - number: 182
+    timestamp: "2026-05-16 23:43"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 31: Non-Interactive Read-Only Run as the next roadmap milestone, archived the completed M30 plan, and created a new active full plan with five bounded tasks for CLI run reporting, read-only inspection, session/history persistence, TUI fixture evidence, PTY smoke, validation, and closeout.
+    commit: "N/A: planning artifact before M31 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 31; AGENTS.md; README.md run usage and read-only tools; ARCHITECTURE.md state store, session snapshot, history, and implementation checklist; docs/tui-testing.md fixture/semantic/PTY gates"
+    discovered: >-
+      M31 should not become a real model turn yet. The smallest useful slice is a deterministic app-owned read-only `aila run <prompt>` that inspects a small fixed repo context through existing read-only tool paths, prints bounded inspected-file/check/blocker/caveat/source-ref evidence, stores current-session/history state, and lets the interactive TUI render that stored run later. Provider execution, stdin diff review, arbitrary shell, write-run behavior, context compaction, indexing, and M32+ scope stay deferred.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress state, ROADMAP.md top status and M31 section, docs/notes/PROMPT.md, AGENTS.md, README run usage and tool list, ARCHITECTURE.md state/history/session requirements and implementation checklist, docs/tui-testing.md history fixture and completion criteria, and current cmd/app/state/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M31 Task 1: replace the deferred `aila run` stub with a bounded app-owned read-only CLI report. Do not implement provider-backed model execution, stdin diff review, write-run behavior, arbitrary shell, or M32+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M31; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, app-owned read-only inspection, bounded session/history persistence, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        The report format should stay deterministic and plain for tests; if later provider-backed reasoning changes wording, the persisted run metadata should remain stable enough for TUI semantics.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m30.yaml archival, and progress evidence for the M31 planning handoff.
   - number: 181
     timestamp: "2026-05-16 23:39"
     type: build
