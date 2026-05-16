@@ -1,4 +1,49 @@
 cycles:
+  - number: 175
+    timestamp: "2026-05-16 22:51"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M29 by extending fake history with structured mutation records and undo metadata, persisting edit/write results through app-owned history commands, rendering mutation approval/path/undo metadata in history-view snapshots, adding 120x45 tall history evidence, and expanding PTY history navigation to selected mutation records.
+    commit: "pending local commit for M29 mutation history and undo metadata"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 29; docs/notes/PROMPT.md; README.md history/undo promises; ARCHITECTURE.md history/undo/state boundaries; docs/workflow-architecture.md mutation history and undo data flow; docs/tui-testing.md history-view and PTY gates"
+    discovered: >-
+      M29 fits cleanly into the existing fake history path: internal/history owns bounded event contracts, internal/state owns JSONL append/read, app owns mutation-result to history-event conversion, and TUI remains display-only over app-injected HistoryItem metadata. Create-file writes can advertise delete_created_file undo availability; edit/overwrite or failed/denied results remain auditable with explicit unavailable reasons until M30 or a richer previous-content store exists. Stale milestone-numbered test names in touched history/write-permission areas were renamed to behavior-based names.
+    verified: >-
+      go test ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1 passed. go test ./cmd/aila -run TestHistory(View|Empty)PTYSmoke -count=1 passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed during targeted and mage check runs. mage check passed with 0 lint issues and no vulnerabilities. history-view 100x30 and 120x45 plain/ANSI/semantic snapshots were generated and reviewed. Agentera CLI plan/progress validation passed after artifact updates.
+    next: >-
+      Commit the M29 mutation history and undo metadata slice, then continue with M30: Undo And Redo Commands in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M29 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, app-owned history persistence, descriptive undo metadata only, and no /undo, /redo, recovery mutation, provider review, or M30+ scope. Do not include pre-existing .agentera/session.yaml or .aila/ state in the commit.
+      unknowns: "none"
+      scope: >-
+        M29 history event contracts, state/app mutation history persistence, TUI history render/semantic metadata, history-view snapshots, PTY navigation smoke, behavior-based test naming cleanup, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 174
+    timestamp: "2026-05-16 22:24"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 29: Mutation History And Undo Metadata as the next roadmap milestone, archived the completed M28 plan, and created a new active full plan with five bounded tasks for mutation history contracts, app-owned persistence, TUI history rendering, fixture/PTY coverage, and validation closeout.
+    commit: "N/A: planning artifact before M29 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 29; AGENTS.md; README.md history/undo promises; ARCHITECTURE.md history/undo/state boundaries; docs/workflow-architecture.md mutation history and undo data flow; docs/tui-testing.md history-view fixture and PTY gates"
+    discovered: >-
+      M29 should extend the existing fake history/event path rather than introduce a separate recovery subsystem. The history contract can carry structured mutation metadata and descriptive undo metadata, app code can persist mutation records after explicit effects resolve, and the TUI can remain presentation-only by rendering app-injected history items. Actual /undo and /redo commands, redo state, recovery mutation, provider review, context compaction, stale checks, indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M30+ behavior stay out of scope. Test names should describe behavior instead of temporary roadmap numbers.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress state, ROADMAP.md M29 section, AGENTS.md, docs/notes/PROMPT.md, README history/undo command promises, ARCHITECTURE.md history/undo/state boundaries, docs/workflow-architecture.md mutation history and undo data notes, docs/tui-testing.md history-view and PTY requirements, and current history/state/app/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M29 Task 1: extend the bounded history event contract for mutation records and undo metadata. Do not implement /undo, /redo, recovery mutation, provider review, or M30+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M29; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, app-owned mutation history persistence, descriptive undo metadata only, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Undo metadata availability should be conservative: mark recovery available only when the mutation result contains enough bounded metadata to support a later safe undo command, otherwise record an explicit unsupported reason.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m28.yaml archival, and progress evidence for the planning handoff.
   - number: 173
     timestamp: "2026-05-16 22:51"
     type: build

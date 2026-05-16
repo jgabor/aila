@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/history"
@@ -131,9 +132,52 @@ func historyDisplayItems(events []history.FakeEvent) []tui.HistoryItem {
 			Source:      event.Source,
 			Provenance:  event.Provenance,
 			DisplayText: event.DisplayText,
+			Mutation:    historyMutationItem(event.Mutation),
+			Undo:        historyUndoItem(event.Undo),
 		})
 	}
 	return items
+}
+
+func historyMutationItem(record *history.MutationRecord) *tui.HistoryMutationItem {
+	if record == nil {
+		return nil
+	}
+	return &tui.HistoryMutationItem{
+		Name:                  record.ToolName,
+		Status:                record.Status,
+		CommandSource:         record.CommandSource,
+		RequestID:             record.RequestID,
+		ApprovalID:            record.ApprovalID,
+		ApprovalAction:        record.ApprovalAction,
+		ChangedPaths:          append([]string(nil), record.ChangedPaths...),
+		RequestedPath:         record.RequestedPath,
+		ExpectedEffect:        record.ExpectedEffect,
+		PreviousVersion:       record.PreviousVersion,
+		NewVersion:            record.NewVersion,
+		PreviousExists:        record.PreviousExists,
+		BytesWritten:          record.BytesWritten,
+		ReplacementCount:      record.ReplacementCount,
+		ResolvedPathAvailable: record.ResolvedPathAvailable,
+		ErrorKind:             record.ErrorKind,
+		ErrorMessage:          record.ErrorMessage,
+		DecisionRunID:         record.DecisionRunID,
+		DecisionCapability:    record.DecisionCapability,
+	}
+}
+
+func historyUndoItem(metadata *history.UndoMetadata) *tui.HistoryUndoItem {
+	if metadata == nil {
+		return nil
+	}
+	return &tui.HistoryUndoItem{
+		Available:       metadata.Available,
+		Action:          metadata.Action,
+		Paths:           append([]string(nil), metadata.Paths...),
+		PreviousVersion: metadata.PreviousVersion,
+		NewVersion:      metadata.NewVersion,
+		Reason:          metadata.Reason,
+	}
 }
 
 func (controller *sessionController) persistPromptHistory(turn tui.TranscriptTurn) []tui.DiagnosticView {
@@ -145,6 +189,7 @@ func (controller *sessionController) persistPromptHistory(turn tui.TranscriptTur
 		diagnostics = append(diagnostics, controller.persistHistoryEvent(history.EventKindResponse, "runtime.response", "fake-runtime", turn.AssistantText)...)
 	}
 	diagnostics = append(diagnostics, controller.persistRuntimeHistory(turn)...)
+	diagnostics = append(diagnostics, controller.persistMutationHistory(turn)...)
 	return mergeTUIDiagnostics(nil, diagnostics)
 }
 
@@ -199,7 +244,132 @@ func (controller *sessionController) persistRuntimeHistory(turn tui.TranscriptTu
 	return controller.persistHistoryEvent(history.EventKindRuntime, turn.StatusSource, "runtime.dispatch", display)
 }
 
+func (controller *sessionController) persistMutationHistory(turn tui.TranscriptTurn) []tui.DiagnosticView {
+	if turn.Mutation == nil || turn.Mutation.Status == "running" {
+		return nil
+	}
+	result := controller.runner.model.LastMutation
+	if result.ToolName == "" && result.RequestedPath == "" && result.WorkspaceRelativePath == "" {
+		return nil
+	}
+	record := mutationHistoryRecord(result, turn.ApprovalDecision)
+	undo := mutationUndoMetadata(record)
+	display := mutationHistoryDisplay(record, undo)
+	return controller.persistHistoryStructuredEvent(history.EventKindMutation, "mutation.result", "mutation.tool", display, record, undo)
+}
+
+func mutationHistoryRecord(result runtime.MutationToolResult, approval *tui.ApprovalDecisionView) *history.MutationRecord {
+	path := mutationHistoryPath(result.WorkspaceRelativePath)
+	if path == "" {
+		path = mutationHistoryPath(result.RequestedPath)
+	}
+	if path == "" {
+		path = "unresolved"
+	}
+	requestedPath := mutationHistoryPath(result.RequestedPath)
+	status := result.Status
+	if status == "" {
+		status = "completed"
+	}
+	commandSource := result.Source.Caller
+	if commandSource == "" {
+		commandSource = result.Decision.Capability
+	}
+	if commandSource == "" {
+		commandSource = "mutation.tool"
+	}
+	record := &history.MutationRecord{
+		ToolName:              defaultString(result.ToolName, "mutation"),
+		Status:                status,
+		CommandSource:         commandSource,
+		RequestID:             result.Source.RequestID,
+		ChangedPaths:          []string{path},
+		RequestedPath:         requestedPath,
+		ExpectedEffect:        result.ExpectedEffect,
+		PreviousVersion:       result.PreviousVersion,
+		NewVersion:            result.NewVersion,
+		PreviousExists:        result.PreviousExists,
+		BytesWritten:          result.BytesWritten,
+		ReplacementCount:      result.ReplacementCount,
+		ResolvedPathAvailable: result.ResolvedPathAvailable,
+		ErrorMessage:          result.Error.Message,
+		DecisionRunID:         result.Decision.RunID,
+		DecisionCapability:    result.Decision.Capability,
+	}
+	if result.Error.Kind != "" && result.Error.Kind != runtime.MutationToolErrorNone {
+		record.ErrorKind = string(result.Error.Kind)
+	}
+	if approval != nil {
+		record.ApprovalID = approval.ProposalID
+		record.ApprovalAction = approval.Action
+	}
+	return record
+}
+
+func mutationUndoMetadata(record *history.MutationRecord) *history.UndoMetadata {
+	path := ""
+	if len(record.ChangedPaths) > 0 {
+		path = record.ChangedPaths[0]
+	}
+	metadata := &history.UndoMetadata{
+		Available:       false,
+		Paths:           []string{path},
+		PreviousVersion: record.PreviousVersion,
+		NewVersion:      record.NewVersion,
+	}
+	if record.Status != "completed" {
+		metadata.Action = "inspect_result"
+		metadata.Reason = "mutation did not complete"
+		return metadata
+	}
+	if path == "" || path == "unresolved" {
+		metadata.Action = "inspect_result"
+		metadata.Reason = "changed path unavailable"
+		return metadata
+	}
+	if record.ToolName == "write" && !record.PreviousExists && record.PreviousVersion == "missing" {
+		metadata.Available = true
+		metadata.Action = "delete_created_file"
+		metadata.Reason = ""
+		return metadata
+	}
+	metadata.Action = "restore_previous_content"
+	metadata.Reason = "previous content not recorded"
+	return metadata
+}
+
+func mutationHistoryDisplay(record *history.MutationRecord, undo *history.UndoMetadata) string {
+	path := strings.Join(record.ChangedPaths, ",")
+	display := fmt.Sprintf("mutation %s %s %s", record.ToolName, record.Status, path)
+	if record.ApprovalID != "" {
+		display += " approval " + record.ApprovalID
+	}
+	if undo != nil && undo.Available {
+		display += " undo " + undo.Action
+	} else if undo != nil && undo.Reason != "" {
+		display += " undo unavailable"
+	}
+	return display
+}
+
+func mutationHistoryPath(path string) string {
+	path = strings.TrimSpace(strings.ReplaceAll(path, "\\", "/"))
+	if path == "" || path == "." || strings.HasPrefix(path, "/") || strings.HasPrefix(path, "~") || strings.Contains(path, "$HOME") || strings.Contains(path, "${HOME}") || strings.Contains(strings.ToUpper(path), "XDG_") {
+		return ""
+	}
+	for _, part := range strings.Split(path, "/") {
+		if part == ".." || part == ".aila" || part == ".agentera" {
+			return ""
+		}
+	}
+	return path
+}
+
 func (controller *sessionController) persistHistoryEvent(kind history.EventKind, provenance string, source string, displayText string) []tui.DiagnosticView {
+	return controller.persistHistoryStructuredEvent(kind, provenance, source, displayText, nil, nil)
+}
+
+func (controller *sessionController) persistHistoryStructuredEvent(kind history.EventKind, provenance string, source string, displayText string, mutation *history.MutationRecord, undo *history.UndoMetadata) []tui.DiagnosticView {
 	if controller.persistHistory == nil || displayText == "" {
 		return nil
 	}
@@ -213,6 +383,8 @@ func (controller *sessionController) persistHistoryEvent(kind history.EventKind,
 		Source:        source,
 		Provenance:    provenance,
 		DisplayText:   displayText,
+		Mutation:      mutation,
+		Undo:          undo,
 	}})
 	return diagnosticViews(result.Diagnostics)
 }

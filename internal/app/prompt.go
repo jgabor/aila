@@ -579,7 +579,7 @@ func fakeApprovalWriteProposal() runtime.ApprovalProposal {
 		DiffPreview:    []string{"--- " + path, "+++ " + path, "@@", "+" + strings.TrimRight(fakeApprovalWriteContent(), "\n")},
 		Reversible:     false,
 		RunID:          "run-fake-approval-write",
-		Capability:     "m27-pty",
+		Capability:     "approval-write",
 	}
 }
 
@@ -590,7 +590,7 @@ func fakeApprovalWriteRequest() runtime.MutationToolRequest {
 		Content:        fakeApprovalWriteContent(),
 		ExpectedEffect: "create fake approval write target through explicit mutation effect",
 		Source: runtime.MutationSourceMetadata{
-			Caller:    "m27-pty",
+			Caller:    "approval-write",
 			RequestID: "fake-approval-write",
 		},
 	}

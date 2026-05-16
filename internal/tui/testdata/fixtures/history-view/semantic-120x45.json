@@ -1,12 +1,12 @@
 {
   "scenario": "history-view",
   "screen": {
-    "width": 100,
-    "height": 30,
+    "width": 120,
+    "height": 45,
     "focus": "history"
   },
   "layout": {
-    "class": "standard",
+    "class": "spacious",
     "right_rail_visible": false
   },
   "session": {

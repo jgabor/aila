@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -345,10 +346,43 @@ func loadHistoryViewFixture(t *testing.T) renderFixture {
 			Kind:        "diagnostic",
 			Source:      "state.fixture",
 			Provenance:  "redaction.fixture",
-			DisplayText: "credential token=abc123 path /home/jgabor/git/aila/.aila/project.toml \x1b[31mcontrol",
+			DisplayText: "credential token=abc123 path $HOME/git/aila/.aila/project.toml \x1b[31mcontrol",
+		},
+		{
+			EventID:     "evt-fake-006",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "mutation",
+			Source:      "mutation.tool",
+			Provenance:  "mutation.result",
+			DisplayText: "mutation write completed notes.txt approval fake-approval-write-001 undo delete_created_file",
+			Mutation: &HistoryMutationItem{
+				Name:                  "write",
+				Status:                "completed",
+				CommandSource:         "approval-write",
+				RequestID:             "fake-approval-write",
+				ApprovalID:            "fake-approval-write-001",
+				ApprovalAction:        "approve",
+				ChangedPaths:          []string{"notes.txt"},
+				RequestedPath:         "notes.txt",
+				ExpectedEffect:        "create fake approval write target through explicit mutation effect",
+				PreviousVersion:       "missing",
+				NewVersion:            "sha256:fixture-new-version",
+				BytesWritten:          23,
+				ResolvedPathAvailable: true,
+				DecisionRunID:         "op-write-fixture",
+				DecisionCapability:    "approval-write",
+			},
+			Undo: &HistoryUndoItem{
+				Available:       true,
+				Action:          "delete_created_file",
+				Paths:           []string{"notes.txt"},
+				PreviousVersion: "missing",
+				NewVersion:      "sha256:fixture-new-version",
+			},
 		},
 	}
-	state = ApplyHistoryView(state, items, 2, true)
+	state = ApplyHistoryView(state, items, 5, true)
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
@@ -1255,31 +1289,32 @@ func assertNoReadLeak(t *testing.T, text string) {
 	}
 }
 
-func TestM17HistoryViewFixtureSnapshots(t *testing.T) {
+func TestHistoryViewFixtureShowsMutationUndoMetadata(t *testing.T) {
 	t.Parallel()
 
 	fixture := loadHistoryViewFixture(t)
 	if fixture.Kind != "static_shell" {
 		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
 	}
-	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "100x30", Width: 100, Height: 30}})
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "100x30", Width: 100, Height: 30}, {Name: "120x45", Width: 120, Height: 45}})
 
 	wantRender := []string{
 		"history:",
 		"read-only: true",
-		"entries: 5",
-		"selected: 3",
+		"entries: 6",
+		"selected: 6",
+		"undo enabled: true",
 		"run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history",
 		"run-fake-017 session-fake-alpha evt-fake-002 response response summary",
-		"> run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only",
+		"run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only",
 		"run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event",
-		"selected event id: evt-fake-003",
+		"> run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt",
+		"selected event id: evt-fake-006",
 		"selected run id: run-fake-017",
 		"selected session id: session-fake-alpha",
-		"selected kind: command",
-		"selected source: policy.command",
-		"selected provenance: slash.route",
-		"selected text: command summary: /status rendered only",
+		"selected kind: mutation",
+		"selected source: mutation.tool",
+		"selected provenance: mutation.result",
 	}
 	for _, renderCase := range fixture.TextCases() {
 		renderCase := renderCase
@@ -1310,16 +1345,17 @@ func TestM17HistoryViewFixtureSnapshots(t *testing.T) {
 			if snapshot.Screen.Focus != "history" {
 				t.Fatalf("focus = %q, want history", snapshot.Screen.Focus)
 			}
-			if snapshot.History == nil || !snapshot.History.Visible || !snapshot.History.ReadOnly || snapshot.History.UndoEnabled || !snapshot.History.Focus || snapshot.History.Count != 5 || snapshot.History.SelectedIndex != 2 || snapshot.History.SelectedID != "evt-fake-003" {
-				t.Fatalf("history semantic = %+v, want focused read-only selected fake history", snapshot.History)
+			if snapshot.History == nil || !snapshot.History.Visible || !snapshot.History.ReadOnly || !snapshot.History.UndoEnabled || !snapshot.History.Focus || snapshot.History.Count != 6 || snapshot.History.SelectedIndex != 5 || snapshot.History.SelectedID != "evt-fake-006" {
+				t.Fatalf("history semantic = %+v, want focused read-only selected mutation history", snapshot.History)
 			}
-			if snapshot.History.Items[2].Kind != "command" || !snapshot.History.Items[2].Selected || snapshot.History.Items[2].RunID != "run-fake-017" || snapshot.History.Items[2].SessionID != "session-fake-alpha" {
-				t.Fatalf("selected history item = %+v, want stable fake command identifiers", snapshot.History.Items[2])
+			selected := snapshot.History.Items[5]
+			if selected.Kind != "mutation" || !selected.Selected || selected.Mutation == nil || selected.Undo == nil || selected.Mutation.ApprovalID != "fake-approval-write-001" || !reflect.DeepEqual(selected.Mutation.ChangedPaths, []string{"notes.txt"}) || !selected.Undo.Available {
+				t.Fatalf("selected history item = %+v, want stable mutation identifiers and undo metadata", selected)
 			}
 			regions := semanticRegionsByName(t, snapshot)
 			history := strings.Join(regions["history"].Items, "\n")
-			if !containsAll(history, []string{"read_only: true", "undo_enabled: false", "focus: true", "selected_id: evt-fake-003", "item: run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only selected: true", "app-owned", "display-only"}) {
-				t.Fatalf("history semantic region = %v, want machine-readable selected history", regions["history"].Items)
+			if !containsAll(history, []string{"read_only: true", "undo_enabled: true", "focus: true", "selected_id: evt-fake-006", "item: run-fake-017 session-fake-alpha evt-fake-006 mutation mutation write completed notes.txt approval fake-approval-write-001 undo delete_created_file selected: true", "item_approval_id: fake-approval-write-001", "item_changed_paths: notes.txt", "item_undo_available: true", "item_undo_action: delete_created_file", "app-owned", "display-only"}) {
+				t.Fatalf("history semantic region = %v, want machine-readable selected mutation history", regions["history"].Items)
 			}
 		})
 	}
@@ -1423,7 +1459,7 @@ func TestDiffViewFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func TestM17HistorySupportLeavesExistingFixtureEvidenceStable(t *testing.T) {
+func TestHistorySupportLeavesExistingFixtureEvidenceStable(t *testing.T) {
 	t.Parallel()
 
 	for _, fixture := range []renderFixture{
@@ -3529,11 +3565,11 @@ func TestM25ApprovalKeysEmitDecisionMessagesOnly(t *testing.T) {
 	}
 }
 
-func m26WritePermissionFixtureSizes() []fixtureSize {
+func writePermissionFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "80x44", Width: 80, Height: 44}, {Name: "120x44", Width: 120, Height: 44}}
 }
 
-func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixture {
+func loadWritePermissionDecisionFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
 	var autonomy string
@@ -3549,7 +3585,7 @@ func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixt
 		reason = "yolo autonomy grants classified operation"
 		runID = "run-yolo-permission"
 	default:
-		t.Fatalf("unknown M26 write permission fixture %q", name)
+		t.Fatalf("unknown write permission fixture %q", name)
 	}
 
 	state := commandToolState(&CommandView{
@@ -3559,7 +3595,7 @@ func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixt
 		Argv:           []string{"sh", "-c", "printf updated > internal/demo.txt"},
 		WorkingDir:     ".",
 		CommandFamily:  "shell mutation",
-		ExpectedEffect: "would update internal/demo.txt; not executed in M26",
+		ExpectedEffect: "would update internal/demo.txt; not executed by permission decision fixture",
 		Decision: &DecisionView{
 			Autonomy:         autonomy,
 			Source:           "autonomy_policy",
@@ -3571,10 +3607,10 @@ func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixt
 			Name:             "bash",
 			Command:          []string{"sh", "-c", "printf updated > internal/demo.txt"},
 			WorkingDir:       ".",
-			ExpectedEffect:   "would update internal/demo.txt; not executed in M26",
+			ExpectedEffect:   "would update internal/demo.txt; not executed by permission decision fixture",
 			Reversible:       false,
 			RunID:            runID,
-			Capability:       "m26-fixture",
+			Capability:       "write-permission-fixture",
 		},
 	})
 	state.Scenario = name
@@ -3584,7 +3620,7 @@ func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixt
 	return loadRenderFixture(t, name, state)
 }
 
-func TestM26WritePermissionDecisionRenderAndSemantic(t *testing.T) {
+func TestWritePermissionDecisionRenderAndSemantic(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		autonomy string
@@ -3595,7 +3631,7 @@ func TestM26WritePermissionDecisionRenderAndSemantic(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			fixture := loadM26WritePermissionDecisionFixture(t, tc.name)
+			fixture := loadWritePermissionDecisionFixture(t, tc.name)
 			render := RenderPlain(fixture.State, Size{Width: 120, Height: 44})
 			if !containsAll(render, []string{
 				"Bash command:",
@@ -3603,7 +3639,7 @@ func TestM26WritePermissionDecisionRenderAndSemantic(t *testing.T) {
 				"read-only: false",
 				"command: sh -c printf updated > internal/demo.txt",
 				"completed: false",
-				"expected effect: would update internal/demo.txt; not executed in M26",
+				"expected effect: would update internal/demo.txt; not executed by permission decision fixture",
 				"decision source: autonomy_policy",
 				"decision: allowed",
 				"decision automatic: true",
@@ -3635,12 +3671,12 @@ func TestM26WritePermissionDecisionRenderAndSemantic(t *testing.T) {
 	}
 }
 
-func TestM26WritePermissionFixtureSnapshots(t *testing.T) {
+func TestWritePermissionFixtureSnapshots(t *testing.T) {
 	for _, name := range []string{"write-permission-decision", "yolo-permission-decision"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			fixture := loadM26WritePermissionDecisionFixture(t, name)
-			assertFixtureSizes(t, fixture, m26WritePermissionFixtureSizes())
+			fixture := loadWritePermissionDecisionFixture(t, name)
+			assertFixtureSizes(t, fixture, writePermissionFixtureSizes())
 			for _, renderCase := range fixture.TextCases() {
 				got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 				assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3667,7 +3703,7 @@ func TestM26WritePermissionFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func TestM26WritePermissionInputsDoNotSwitchAutonomyOrExecute(t *testing.T) {
+func TestWritePermissionInputsDoNotSwitchAutonomyOrExecute(t *testing.T) {
 	for _, input := range []string{"/autonomy write", "autonomy yolo", "approve write"} {
 		input := input
 		t.Run(input, func(t *testing.T) {

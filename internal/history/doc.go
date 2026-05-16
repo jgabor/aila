@@ -1,2 +1,2 @@
-// Package history defines the M17 fake activity event contract.
+// Package history defines bounded fake activity and mutation event contracts.
 package history

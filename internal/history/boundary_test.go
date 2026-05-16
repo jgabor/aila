@@ -13,7 +13,7 @@ func TestPackageCompiles(t *testing.T) {
 	t.Parallel()
 }
 
-func TestHistoryPackageBoundaryExcludesLaterMilestoneBehavior(t *testing.T) {
+func TestHistoryPackageBoundaryAllowsOnlyEventContracts(t *testing.T) {
 	t.Parallel()
 
 	entries, err := os.ReadDir(".")
@@ -30,9 +30,7 @@ func TestHistoryPackageBoundaryExcludesLaterMilestoneBehavior(t *testing.T) {
 		"github.com/jgabor/aila/internal/tui":     true,
 	}
 	forbiddenTokens := []string{
-		"undo",
 		"redo",
-		"mutation",
 		"real model",
 		"real tool",
 		"replay",

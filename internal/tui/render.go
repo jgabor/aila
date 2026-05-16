@@ -82,6 +82,41 @@ type HistoryItem struct {
 	Source      string
 	Provenance  string
 	DisplayText string
+	Mutation    *HistoryMutationItem
+	Undo        *HistoryUndoItem
+}
+
+// HistoryMutationItem is app-injected mutation history metadata.
+type HistoryMutationItem struct {
+	Name                  string
+	Status                string
+	CommandSource         string
+	RequestID             string
+	ApprovalID            string
+	ApprovalAction        string
+	ChangedPaths          []string
+	RequestedPath         string
+	ExpectedEffect        string
+	PreviousVersion       string
+	NewVersion            string
+	PreviousExists        bool
+	BytesWritten          int
+	ReplacementCount      int
+	ResolvedPathAvailable bool
+	ErrorKind             string
+	ErrorMessage          string
+	DecisionRunID         string
+	DecisionCapability    string
+}
+
+// HistoryUndoItem is app-injected descriptive undo metadata.
+type HistoryUndoItem struct {
+	Available       bool
+	Action          string
+	Paths           []string
+	PreviousVersion string
+	NewVersion      string
+	Reason          string
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -1101,14 +1136,41 @@ type SemanticHistory struct {
 
 // SemanticHistoryItem describes one app-injected history row.
 type SemanticHistoryItem struct {
-	EventID     string `json:"event_id"`
-	RunID       string `json:"run_id"`
-	SessionID   string `json:"session_id"`
-	Kind        string `json:"kind"`
-	Source      string `json:"source"`
-	Provenance  string `json:"provenance"`
-	DisplayText string `json:"display_text"`
-	Selected    bool   `json:"selected"`
+	EventID     string                   `json:"event_id"`
+	RunID       string                   `json:"run_id"`
+	SessionID   string                   `json:"session_id"`
+	Kind        string                   `json:"kind"`
+	Source      string                   `json:"source"`
+	Provenance  string                   `json:"provenance"`
+	DisplayText string                   `json:"display_text"`
+	Mutation    *SemanticHistoryMutation `json:"mutation,omitempty"`
+	Undo        *SemanticHistoryUndo     `json:"undo,omitempty"`
+	Selected    bool                     `json:"selected"`
+}
+
+// SemanticHistoryMutation describes mutation metadata inside history snapshots.
+type SemanticHistoryMutation struct {
+	Name           string   `json:"tool_name"`
+	Status         string   `json:"status"`
+	CommandSource  string   `json:"command_source"`
+	RequestID      string   `json:"request_id,omitempty"`
+	ApprovalID     string   `json:"approval_id,omitempty"`
+	ApprovalAction string   `json:"approval_action,omitempty"`
+	ChangedPaths   []string `json:"changed_paths"`
+	RequestedPath  string   `json:"requested_path,omitempty"`
+	ExpectedEffect string   `json:"expected_effect,omitempty"`
+	ErrorKind      string   `json:"error_kind,omitempty"`
+	ErrorMessage   string   `json:"error_message,omitempty"`
+}
+
+// SemanticHistoryUndo describes descriptive undo metadata inside history snapshots.
+type SemanticHistoryUndo struct {
+	Available       bool     `json:"available"`
+	Action          string   `json:"action,omitempty"`
+	Paths           []string `json:"paths,omitempty"`
+	PreviousVersion string   `json:"previous_version,omitempty"`
+	NewVersion      string   `json:"new_version,omitempty"`
+	Reason          string   `json:"reason,omitempty"`
 }
 
 // SemanticDiff describes app-injected read-only diff presentation state.
@@ -2632,6 +2694,9 @@ func historySurfaceLines(state ViewState) []string {
 		fmt.Sprintf("entries: %d", len(state.HistoryItems)),
 		fmt.Sprintf("selected: %d", selected+1),
 	}
+	if historyUndoEnabled(state.HistoryItems) {
+		lines = append(lines, "undo enabled: true")
+	}
 	start := historyWindowStart(state, 12)
 	for index, item := range visibleHistoryItems(state, 12) {
 		marker := " "
@@ -2639,7 +2704,7 @@ func historySurfaceLines(state ViewState) []string {
 		if absolute == selected {
 			marker = ">"
 		}
-		lines = append(lines, fmt.Sprintf("%s %s %s %s %s %s", marker, safeText(item.RunID), safeText(item.SessionID), safeText(item.EventID), safeText(item.Kind), safeText(item.DisplayText)))
+		lines = append(lines, fmt.Sprintf("%s %s %s %s %s %s", marker, safeText(item.RunID), safeText(item.SessionID), safeText(item.EventID), safeText(item.Kind), historyRowSummary(item)))
 	}
 	item := state.HistoryItems[selected]
 	lines = append(lines,
@@ -2651,6 +2716,59 @@ func historySurfaceLines(state ViewState) []string {
 		"selected provenance: "+safeText(item.Provenance),
 		"selected text: "+safeText(item.DisplayText),
 	)
+	lines = append(lines, selectedHistoryMutationLines(item)...)
+	return lines
+}
+
+func historyRowSummary(item HistoryItem) string {
+	if item.Mutation == nil {
+		return safeText(item.DisplayText)
+	}
+	paths := strings.Join(item.Mutation.ChangedPaths, ",")
+	if paths == "" {
+		paths = safeText(item.DisplayText)
+	}
+	return safeText(fmt.Sprintf("%s %s %s", item.Mutation.Name, item.Mutation.Status, paths))
+}
+
+func selectedHistoryMutationLines(item HistoryItem) []string {
+	if item.Mutation == nil {
+		return nil
+	}
+	mutation := item.Mutation
+	lines := []string{
+		"selected mutation tool: " + safeText(mutation.Name),
+		"selected mutation status: " + safeText(mutation.Status),
+		"selected command source: " + safeText(mutation.CommandSource),
+		"selected changed paths: " + safeText(strings.Join(mutation.ChangedPaths, ", ")),
+	}
+	if mutation.ApprovalID != "" {
+		lines = append(lines, "selected approval id: "+safeText(mutation.ApprovalID))
+	}
+	if mutation.ApprovalAction != "" {
+		lines = append(lines, "selected approval action: "+safeText(mutation.ApprovalAction))
+	}
+	if mutation.ExpectedEffect != "" {
+		lines = append(lines, "selected expected effect: "+safeText(mutation.ExpectedEffect))
+	}
+	if mutation.PreviousVersion != "" {
+		lines = append(lines, "selected previous version: "+safeText(mutation.PreviousVersion))
+	}
+	if mutation.NewVersion != "" {
+		lines = append(lines, "selected new version: "+safeText(mutation.NewVersion))
+	}
+	if mutation.ErrorKind != "" {
+		lines = append(lines, "selected error kind: "+safeText(mutation.ErrorKind))
+	}
+	if item.Undo != nil {
+		lines = append(lines,
+			"selected undo available: "+boolLabel(item.Undo.Available),
+			"selected undo action: "+safeText(item.Undo.Action),
+		)
+		if item.Undo.Reason != "" {
+			lines = append(lines, "selected undo reason: "+safeText(item.Undo.Reason))
+		}
+	}
 	return lines
 }
 
@@ -2726,6 +2844,8 @@ func semanticHistory(state ViewState) *SemanticHistory {
 			Source:      safeText(item.Source),
 			Provenance:  safeText(item.Provenance),
 			DisplayText: safeText(item.DisplayText),
+			Mutation:    semanticHistoryMutation(item.Mutation),
+			Undo:        semanticHistoryUndo(item.Undo),
 			Selected:    index == selected && len(state.HistoryItems) > 0,
 		})
 	}
@@ -2736,7 +2856,7 @@ func semanticHistory(state ViewState) *SemanticHistory {
 	return &SemanticHistory{
 		Visible:       true,
 		ReadOnly:      true,
-		UndoEnabled:   false,
+		UndoEnabled:   historyUndoEnabled(state.HistoryItems),
 		Focus:         state.HistoryFocus,
 		Empty:         state.HistoryEmpty || len(state.HistoryItems) == 0,
 		Count:         len(state.HistoryItems),
@@ -2746,6 +2866,48 @@ func semanticHistory(state ViewState) *SemanticHistory {
 	}
 }
 
+func semanticHistoryMutation(mutation *HistoryMutationItem) *SemanticHistoryMutation {
+	if mutation == nil {
+		return nil
+	}
+	return &SemanticHistoryMutation{
+		Name:           safeText(mutation.Name),
+		Status:         safeText(mutation.Status),
+		CommandSource:  safeText(mutation.CommandSource),
+		RequestID:      safeText(mutation.RequestID),
+		ApprovalID:     safeText(mutation.ApprovalID),
+		ApprovalAction: safeText(mutation.ApprovalAction),
+		ChangedPaths:   safeTextSlice(mutation.ChangedPaths),
+		RequestedPath:  safeText(mutation.RequestedPath),
+		ExpectedEffect: safeText(mutation.ExpectedEffect),
+		ErrorKind:      safeText(mutation.ErrorKind),
+		ErrorMessage:   safeText(mutation.ErrorMessage),
+	}
+}
+
+func semanticHistoryUndo(undo *HistoryUndoItem) *SemanticHistoryUndo {
+	if undo == nil {
+		return nil
+	}
+	return &SemanticHistoryUndo{
+		Available:       undo.Available,
+		Action:          safeText(undo.Action),
+		Paths:           safeTextSlice(undo.Paths),
+		PreviousVersion: safeText(undo.PreviousVersion),
+		NewVersion:      safeText(undo.NewVersion),
+		Reason:          safeText(undo.Reason),
+	}
+}
+
+func historyUndoEnabled(items []HistoryItem) bool {
+	for _, item := range items {
+		if item.Undo != nil && item.Undo.Available {
+			return true
+		}
+	}
+	return false
+}
+
 func semanticHistoryRegionItems(state ViewState) []string {
 	history := semanticHistory(state)
 	if history == nil {
@@ -2753,7 +2915,7 @@ func semanticHistoryRegionItems(state ViewState) []string {
 	}
 	items := []string{
 		"read_only: true",
-		"undo_enabled: false",
+		"undo_enabled: " + boolLabel(history.UndoEnabled),
 		"focus: " + boolLabel(history.Focus),
 		"empty: " + boolLabel(history.Empty),
 		fmt.Sprintf("count: %d", history.Count),
@@ -2764,6 +2926,21 @@ func semanticHistoryRegionItems(state ViewState) []string {
 	}
 	for _, item := range history.Items {
 		items = append(items, "item: "+item.RunID+" "+item.SessionID+" "+item.EventID+" "+item.Kind+" "+item.DisplayText+" selected: "+boolLabel(item.Selected))
+		if item.Mutation != nil {
+			items = append(items,
+				"item_mutation: "+item.EventID+" "+item.Mutation.Name+" "+item.Mutation.Status,
+				"item_changed_paths: "+strings.Join(item.Mutation.ChangedPaths, ","),
+			)
+			if item.Mutation.ApprovalID != "" {
+				items = append(items, "item_approval_id: "+item.Mutation.ApprovalID)
+			}
+		}
+		if item.Undo != nil {
+			items = append(items, "item_undo_available: "+boolLabel(item.Undo.Available))
+			if item.Undo.Action != "" {
+				items = append(items, "item_undo_action: "+item.Undo.Action)
+			}
+		}
 	}
 	items = append(items, "app-owned", "display-only")
 	return items

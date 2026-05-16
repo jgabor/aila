@@ -11,9 +11,11 @@ import (
 
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/history"
+	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/state"
+	"github.com/jgabor/aila/internal/tui"
 )
 
 func TestSessionControllerPersistsVisibleFakeActivityThroughExplicitHistoryCommands(t *testing.T) {
@@ -106,6 +108,43 @@ func TestSessionControllerOpensReadOnlyHistoryWithoutPersistenceOrRuntimeMutatio
 	}
 	if got.HistoryItems[0].EventID != "event-1" || got.HistoryItems[0].DisplayText != "show me history" {
 		t.Fatalf("history item = %+v", got.HistoryItems[0])
+	}
+}
+
+func TestSessionControllerPersistsApprovedMutationHistoryWithUndoMetadata(t *testing.T) {
+	workspace := t.TempDir()
+	configureFakeApprovalWrite("notes.txt", "approved from approval\n")
+	t.Cleanup(func() { configureFakeApprovalWrite("", "") })
+	var commands []HistoryPersistenceCommand
+	controller := newSessionControllerWithPersistenceAndHistory(context.Background(), snapshotTestView(), newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite)), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	})
+
+	_ = controller.runner.proposeApproval(fakeApprovalWriteProposal())
+	turn := controller.decideApproval(tui.ApprovalDecisionInput{ProposalID: fakeApprovalWriteProposalID, Action: string(runtime.ApprovalActionApprove)})
+
+	if turn.Mutation == nil || turn.Mutation.Status != "completed" {
+		t.Fatalf("approval mutation turn = %+v", turn)
+	}
+	if len(commands) != 1 {
+		t.Fatalf("history commands = %#v, want one mutation record", commands)
+	}
+	event := commands[0].Event
+	if _, err := history.NormalizeFakeEvent(event); err != nil {
+		t.Fatalf("mutation history event invalid: %#v err=%v", event, err)
+	}
+	if event.Kind != history.EventKindMutation || event.Mutation == nil || event.Undo == nil {
+		t.Fatalf("history event = %#v, want structured mutation", event)
+	}
+	if event.Mutation.ApprovalID != fakeApprovalWriteProposalID || event.Mutation.ApprovalAction != string(runtime.ApprovalActionApprove) {
+		t.Fatalf("approval metadata = %#v", event.Mutation)
+	}
+	if event.Mutation.CommandSource != "approval-write" || event.Mutation.RequestID != "fake-approval-write" || !reflect.DeepEqual(event.Mutation.ChangedPaths, []string{"notes.txt"}) {
+		t.Fatalf("mutation source/path metadata = %#v", event.Mutation)
+	}
+	if !event.Undo.Available || event.Undo.Action != "delete_created_file" || !reflect.DeepEqual(event.Undo.Paths, []string{"notes.txt"}) {
+		t.Fatalf("undo metadata = %#v", event.Undo)
 	}
 }
 

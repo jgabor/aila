@@ -7,21 +7,21 @@
 | command route: history                                                                           |
 | route source: policy.command                                                                     |
 | read-only: true                                                                                  |
-| entries: 5                                                                                       |
-| selected: 3                                                                                      |
+| entries: 6                                                                                       |
+| selected: 6                                                                                      |
+| undo enabled: true                                                                               |
 |   run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history       |
 |   run-fake-017 session-fake-alpha evt-fake-002 response response summary: fake answer for histo~ |
-| > run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only    |
+|   run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only    |
 |   run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event    |
 |   run-fake-017 session-fake-alpha evt-fake-005 diagnostic credential [redacted] path [path-reda~ |
-| selected event id: evt-fake-003                                                                  |
+| > run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt                |
+| selected event id: evt-fake-006                                                                  |
 | selected run id: run-fake-017                                                                    |
 | selected session id: session-fake-alpha                                                          |
-| selected kind: command                                                                           |
-| selected source: policy.command                                                                  |
-| selected provenance: slash.route                                                                 |
-| selected text: command summary: /status rendered only                                            |
-|                                                                                                  |
+| selected kind: mutation                                                                          |
+| selected source: mutation.tool                                                                   |
+| selected provenance: mutation.result                                                             |
 +--------------------------------------------------------------------------------------------------+
 + [33mPrompt[0m ------------------------------------------------------------------------------------------+
 | [36m>[0m                                                                                                |

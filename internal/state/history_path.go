@@ -9,7 +9,7 @@ import (
 
 var ErrUnsafeFakeHistoryPath = errors.New("fake history path is unsafe")
 
-// FakeHistoryName identifies the single M17 fake activity history contract.
+// FakeHistoryName identifies the single fake activity history contract.
 type FakeHistoryName string
 
 const CurrentFakeHistory FakeHistoryName = "current_fake_history"

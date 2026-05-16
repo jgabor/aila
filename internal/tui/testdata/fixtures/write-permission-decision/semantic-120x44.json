@@ -28,7 +28,7 @@
     "argv": ["sh", "-c", "printf updated > internal/demo.txt"],
     "working_dir": ".",
     "command_family": "shell mutation",
-    "expected_effect": "would update internal/demo.txt; not executed in M26",
+    "expected_effect": "would update internal/demo.txt; not executed by permission decision fixture",
     "exit_code": 0,
     "stdout_truncated": false,
     "stderr_truncated": false,
@@ -44,10 +44,10 @@
       "target": "requested path",
       "command": ["sh", "-c", "printf updated > internal/demo.txt"],
       "working_dir": ".",
-      "expected_effect": "would update internal/demo.txt; not executed in M26",
+      "expected_effect": "would update internal/demo.txt; not executed by permission decision fixture",
       "reversible": false,
       "run_id": "run-write-permission",
-      "capability": "m26-fixture"
+      "capability": "write-permission-fixture"
     },
     "completed": false
   },
@@ -108,7 +108,7 @@
         "working_dir: .",
         "completed: false",
         "command_family: shell mutation",
-        "expected_effect: would update internal/demo.txt; not executed in M26",
+        "expected_effect: would update internal/demo.txt; not executed by permission decision fixture",
         "decision_source: autonomy_policy",
         "decision: allowed",
         "decision_automatic: true",
@@ -119,10 +119,10 @@
         "decision_target: requested path",
         "decision_command: sh -c printf updated > internal/demo.txt",
         "decision_working_dir: .",
-        "decision_expected_effect: would update internal/demo.txt; not executed in M26",
+        "decision_expected_effect: would update internal/demo.txt; not executed by permission decision fixture",
         "decision_reversible: false",
         "decision_run_id: run-write-permission",
-        "decision_capability: m26-fixture",
+        "decision_capability: write-permission-fixture",
         "decision_reason: write autonomy allows classified operation",
         "app-owned",
         "display-only"

@@ -670,7 +670,7 @@ func ApplyHistoryView(state ViewState, items []HistoryItem, selected int, focus 
 	state.CommandRoute = string(policy.CommandRouteHistory)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "history"
-	state.HistoryItems = append([]HistoryItem(nil), items...)
+	state.HistoryItems = cloneHistoryItems(items)
 	state.HistoryEmpty = len(items) == 0
 	state.HistoryFocus = focus
 	state.HistorySelected = selected
@@ -724,6 +724,28 @@ func cloneDiffView(diff *DiffView) *DiffView {
 		clone.Files = append(clone.Files, fileClone)
 	}
 	return &clone
+}
+
+func cloneHistoryItems(items []HistoryItem) []HistoryItem {
+	if len(items) == 0 {
+		return nil
+	}
+	clone := make([]HistoryItem, 0, len(items))
+	for _, item := range items {
+		itemClone := item
+		if item.Mutation != nil {
+			mutation := *item.Mutation
+			mutation.ChangedPaths = append([]string(nil), item.Mutation.ChangedPaths...)
+			itemClone.Mutation = &mutation
+		}
+		if item.Undo != nil {
+			undo := *item.Undo
+			undo.Paths = append([]string(nil), item.Undo.Paths...)
+			itemClone.Undo = &undo
+		}
+		clone = append(clone, itemClone)
+	}
+	return clone
 }
 
 func (m Model) historyFocused() bool {

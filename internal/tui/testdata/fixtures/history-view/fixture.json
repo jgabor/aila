@@ -4,14 +4,20 @@
   "terminal_behavior": "bubbletea_static",
   "quit_input": "q",
   "states": ["idle", "history", "focused", "read_only"],
-  "render_sizes": [{ "name": "100x30", "width": 100, "height": 30 }],
+  "render_sizes": [
+    { "name": "100x30", "width": 100, "height": 30 },
+    { "name": "120x45", "width": 120, "height": 45 }
+  ],
   "render_outputs": {
     "plain_100x30": "plain-100x30.txt",
     "ansi_100x30": "ansi-100x30.txt",
-    "semantic_100x30": "semantic-100x30.json"
+    "semantic_100x30": "semantic-100x30.json",
+    "plain_120x45": "plain-120x45.txt",
+    "ansi_120x45": "ansi-120x45.txt",
+    "semantic_120x45": "semantic-120x45.json"
   },
   "notes": [
-    "M17 presentation-only history-view fixture; view state is injected by tests and does not read project history from disk.",
-    "Fake entries include prompt, response, command, runtime, and adversarial redaction evidence."
+    "Presentation-only history-view fixture with mutation undo metadata; view state is injected by tests and does not read project history from disk.",
+    "Fake entries include prompt, response, command, runtime, diagnostic redaction, mutation approval, changed paths, and undo availability evidence."
   ]
 }

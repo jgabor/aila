@@ -87,6 +87,72 @@ func TestAppendAndReadFakeHistoryRoundTripsStableBoundedRedactedEvents(t *testin
 	}
 }
 
+func TestAppendAndReadFakeHistoryRoundTripsMutationUndoMetadata(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+	event := validFakeHistoryEvent("event-mutation", history.EventKindMutation)
+	event.Source = "mutation.tool"
+	event.Provenance = "mutation.result"
+	event.DisplayText = "mutation write completed notes.txt token=abc123"
+	event.Mutation = &history.MutationRecord{
+		ToolName:              "write",
+		Status:                "completed",
+		CommandSource:         "fake-approval",
+		RequestID:             "write-1",
+		ApprovalID:            "approval-1",
+		ApprovalAction:        "approve",
+		ChangedPaths:          []string{"notes.txt"},
+		RequestedPath:         "notes.txt",
+		ExpectedEffect:        "create notes Authorization: Bearer sk-live",
+		PreviousVersion:       "missing",
+		NewVersion:            "sha256:abc",
+		BytesWritten:          6,
+		ResolvedPathAvailable: true,
+		DecisionRunID:         "op-1",
+		DecisionCapability:    "fake-approval",
+	}
+	event.Undo = &history.UndoMetadata{
+		Available:       true,
+		Action:          "delete_created_file",
+		Paths:           []string{"notes.txt"},
+		PreviousVersion: "missing",
+		NewVersion:      "sha256:abc",
+	}
+
+	if _, err := store.AppendFakeHistory(context.Background(), event); err != nil {
+		t.Fatalf("AppendFakeHistory returned error: %v", err)
+	}
+	read, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("ReadFakeHistory returned error: %v", err)
+	}
+	if read.State != FakeHistoryLoaded || len(read.Events) != 1 {
+		t.Fatalf("read mutation history = %#v, want one loaded event", read)
+	}
+	got := read.Events[0]
+	if got.Mutation == nil || got.Undo == nil {
+		t.Fatalf("mutation event missing structured metadata: %#v", got)
+	}
+	if got.Mutation.ApprovalID != "approval-1" || !reflect.DeepEqual(got.Mutation.ChangedPaths, []string{"notes.txt"}) || !got.Undo.Available || got.Undo.Action != "delete_created_file" {
+		t.Fatalf("mutation/undo metadata = mutation %#v undo %#v", got.Mutation, got.Undo)
+	}
+	content, err := os.ReadFile(mustCurrentFakeHistoryLocation(t, store.Layout()).Path)
+	if err != nil {
+		t.Fatalf("read fake history JSONL: %v", err)
+	}
+	for _, marker := range []string{"\"kind\":\"mutation\"", "\"approval_id\":\"approval-1\"", "\"changed_paths\":[\"notes.txt\"]", "\"available\":true"} {
+		if !strings.Contains(string(content), marker) {
+			t.Fatalf("history JSONL missing %q: %s", marker, content)
+		}
+	}
+	for _, leaked := range []string{"token=", "abc123", "Authorization:", "sk-live"} {
+		if strings.Contains(string(content), leaked) {
+			t.Fatalf("history JSONL leaked %q: %s", leaked, content)
+		}
+	}
+}
+
 func TestReadAndAppendFakeHistoryReturnRecoveryWithoutOverwrite(t *testing.T) {
 	t.Parallel()
 

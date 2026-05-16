@@ -20,7 +20,7 @@ Stage BUILD | Runtime permission-evaluated | Model placeholder | Utility placeh~
 | working dir: .                                                               |
 | completed: false                                                             |
 | command family: shell mutation                                               |
-| expected effect: would update internal/demo.txt; not executed in M26         |
+| expected effect: would update internal/demo.txt; not executed by permission~ |
 | decision source: autonomy_policy                                             |
 | decision: allowed                                                            |
 | decision automatic: true                                                     |
@@ -31,10 +31,10 @@ Stage BUILD | Runtime permission-evaluated | Model placeholder | Utility placeh~
 | decision target: requested path                                              |
 | decision command: sh -c printf updated > internal/demo.txt                   |
 | decision working dir: .                                                      |
-| decision expected effect: would update internal/demo.txt; not executed in M~ |
+| decision expected effect: would update internal/demo.txt; not executed by p~ |
 | decision reversible: false                                                   |
 | decision run id: run-write-permission                                        |
-| decision capability: m26-fixture                                             |
+| decision capability: write-permission-fixture                                |
 | decision reason: write autonomy allows classified operation                  |
 +------------------------------------------------------------------------------+
 + Prompt ----------------------------------------------------------------------+

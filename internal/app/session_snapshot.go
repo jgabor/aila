@@ -100,6 +100,8 @@ func (controller *sessionController) requestShutdown(err error) tui.TranscriptTu
 func (controller *sessionController) decideApproval(decision tui.ApprovalDecisionInput) tui.TranscriptTurn {
 	turn := controller.runner.decideApproval(decision)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	turn.Diagnostics = append(turn.Diagnostics, controller.persistMutationHistory(turn)...)
+	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
 	return controller.persistCurrentSnapshot(turn)
 }
 

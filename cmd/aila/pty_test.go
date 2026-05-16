@@ -317,14 +317,14 @@ func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
 	}
 }
 
-func TestM17HistoryViewPTYSmoke(t *testing.T) {
+func TestHistoryViewPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
 	env := newAilaPTYEnv(t)
 	baseline := captureDurableStateBaseline(t)
-	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 120, 32, env.vars, func(workspace string) {
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 120, 45, env.vars, func(workspace string) {
 		seedFakeHistoryEvents(t, workspace)
 	})
 	defer cancel()
@@ -342,24 +342,39 @@ func TestM17HistoryViewPTYSmoke(t *testing.T) {
 	output := readUntilAll(t, terminal, []string{
 		"history:",
 		"read-only: true",
-		"entries: 4",
+		"entries: 5",
 		"selected: 1",
-		"m17-run m17-session m17-event-1 prompt user asked for fake history",
-		"m17-run m17-session m17-event-2 response fake response summary",
-		"m17-run m17-session m17-event-3 command history command summary",
-		"m17-run m17-session m17-event-4 runtime runtime idle: smoke complete",
-		"selected event id: m17-event-1",
-		"selected run id: m17-run",
-		"selected session id: m17-session",
+		"history-run history-session history-event-1 prompt user asked for fake history",
+		"history-run history-session history-event-2 response fake response summary",
+		"history-run history-session history-event-3 command history command summary",
+		"history-run history-session history-event-4 runtime runtime idle: smoke complete",
+		"history-run history-session history-event-5 mutation write completed notes.txt",
+		"selected event id: history-event-1",
+		"selected run id: history-run",
+		"selected session id: history-session",
 		"selected kind: prompt",
 		"selected text: user asked for fake history",
 	}, 10*time.Second)
 	assertNoHistorySmokeLeaks(t, output, env, workspace)
-	for _, forbidden := range []string{"undo", "redo", "replay", "token=", "Authorization:", "m17-smoke-secret"} {
+	for _, forbidden := range []string{"redo", "replay", "token=", "Authorization:", "history-smoke-secret"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("history PTY output exposed forbidden marker %q: %q", forbidden, output)
 		}
 	}
+
+	if _, err := terminal.Write([]byte("\x1b[B\x1b[B\x1b[B\x1b[B")); err != nil {
+		t.Fatalf("send history down navigation input: %v", err)
+	}
+	mutationOutput := readUntilAll(t, terminal, []string{
+		"selected: 5",
+		"selected event id: history-event-5",
+		"selected kind: mutation",
+		"selected changed paths: notes.txt",
+		"selected approval id: smoke-approval",
+		"selected undo available: true",
+		"selected undo action: delete_created_file",
+	}, 10*time.Second)
+	assertNoHistorySmokeLeaks(t, mutationOutput, env, workspace)
 
 	if _, err := terminal.Write([]byte("q")); err != nil {
 		t.Fatalf("send q quit input after history smoke: %v", err)
@@ -380,7 +395,7 @@ func TestM17HistoryViewPTYSmoke(t *testing.T) {
 	}
 }
 
-func TestM17HistoryEmptyPTYSmoke(t *testing.T) {
+func TestHistoryEmptyPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1209,10 +1224,11 @@ func seedFakeHistoryEvents(t *testing.T, workspace string) {
 		t.Fatalf("open history smoke project store: %v", err)
 	}
 	for _, event := range []history.FakeEvent{
-		fakeHistorySmokeEvent("m17-event-1", history.EventKindPrompt, "prompt.submit", "user", "user asked for fake history"),
-		fakeHistorySmokeEvent("m17-event-2", history.EventKindResponse, "runtime.response", "fake-runtime", "fake response summary"),
-		fakeHistorySmokeEvent("m17-event-3", history.EventKindCommand, "policy.command", "policy.command", "history command summary token=m17-smoke-secret"),
-		fakeHistorySmokeEvent("m17-event-4", history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: smoke complete Authorization: Bearer m17-smoke-secret"),
+		fakeHistorySmokeEvent("history-event-1", history.EventKindPrompt, "prompt.submit", "user", "user asked for fake history"),
+		fakeHistorySmokeEvent("history-event-2", history.EventKindResponse, "runtime.response", "fake-runtime", "fake response summary"),
+		fakeHistorySmokeEvent("history-event-3", history.EventKindCommand, "policy.command", "policy.command", "history command summary token=history-smoke-secret"),
+		fakeHistorySmokeEvent("history-event-4", history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: smoke complete Authorization: Bearer history-smoke-secret"),
+		fakeMutationHistorySmokeEvent(),
 	} {
 		result, err := store.AppendFakeHistory(context.Background(), event)
 		if err != nil {
@@ -1229,12 +1245,41 @@ func fakeHistorySmokeEvent(eventID string, kind history.EventKind, provenance st
 		SchemaVersion: history.FakeEventSchemaVersion,
 		Kind:          kind,
 		EventID:       eventID,
-		RunID:         "m17-run",
-		SessionID:     "m17-session",
+		RunID:         "history-run",
+		SessionID:     "history-session",
 		Source:        source,
 		Provenance:    provenance,
 		DisplayText:   displayText,
 	}
+}
+
+func fakeMutationHistorySmokeEvent() history.FakeEvent {
+	event := fakeHistorySmokeEvent("history-event-5", history.EventKindMutation, "mutation.result", "mutation.tool", "mutation write completed notes.txt approval smoke-approval undo delete_created_file")
+	event.Mutation = &history.MutationRecord{
+		ToolName:              "write",
+		Status:                "completed",
+		CommandSource:         "approval-write",
+		RequestID:             "smoke-write",
+		ApprovalID:            "smoke-approval",
+		ApprovalAction:        "approve",
+		ChangedPaths:          []string{"notes.txt"},
+		RequestedPath:         "notes.txt",
+		ExpectedEffect:        "create notes through approval smoke",
+		PreviousVersion:       "missing",
+		NewVersion:            "sha256:smoke-new-version",
+		BytesWritten:          6,
+		ResolvedPathAvailable: true,
+		DecisionRunID:         "smoke-run",
+		DecisionCapability:    "approval-write",
+	}
+	event.Undo = &history.UndoMetadata{
+		Available:       true,
+		Action:          "delete_created_file",
+		Paths:           []string{"notes.txt"},
+		PreviousVersion: "missing",
+		NewVersion:      "sha256:smoke-new-version",
+	}
+	return event
 }
 
 func mustSourceDir(t *testing.T) string {
@@ -1373,12 +1418,12 @@ func assertFakeHistoryProjectStoreState(t *testing.T, workspace string) {
 	if err != nil {
 		t.Fatalf("read history smoke JSONL: %v", err)
 	}
-	for _, marker := range []string{"m17-event-1", "m17-event-2", "m17-event-3", "m17-event-4", "[secret]"} {
+	for _, marker := range []string{"history-event-1", "history-event-2", "history-event-3", "history-event-4", "history-event-5", "smoke-approval", "delete_created_file", "[secret]"} {
 		if !strings.Contains(string(content), marker) {
 			t.Fatalf("history smoke JSONL missing marker %q: %s", marker, content)
 		}
 	}
-	for _, leaked := range []string{"m17-smoke-secret", "token=", "Authorization:"} {
+	for _, leaked := range []string{"history-smoke-secret", "token=", "Authorization:"} {
 		if strings.Contains(string(content), leaked) {
 			t.Fatalf("history smoke JSONL leaked %q: %s", leaked, content)
 		}
