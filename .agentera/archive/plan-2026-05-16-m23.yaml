@@ -1,0 +1,99 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M23-only; real provider calls, go-agent runner execution, tool execution, and M24+ deferred
+  title: Milestone 23 Agent Event Adapter With Fake Provider
+what: Deliver ROADMAP.md Milestone 23 by defining an internal agent event boundary and mapping fake provider-style streams into typed Aila runtime messages. Assistant deltas, tool requests, errors, and completion must be deterministic and testable before any real provider execution is introduced.
+why: M22 made read-only tool permission decisions observable. M23 prepares the model/provider seam by proving event mapping independently from go-agent, credentials, live providers, and real turn execution so M24 can wire the real runner behind a tested adapter contract.
+constraints: 'Execute only Milestone 23. Preserve statechart-MVU: provider-style events may be adapted into typed runtime messages, but no real provider calls, go-agent runner execution, credential flows, tool execution, approval prompts, write classes, context compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, or Milestone 24+ behavior may be added. Runtime remains deterministic and TUI consumes injected presentation fields only. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m22.yaml
+source_anchors:
+- ROADMAP.md:987-1006
+- README.md:181-188
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:871-906
+- docs/tui-testing.md:52-83
+- docs/tui-testing.md:126-228
+- docs/workflow-architecture.md:457-475
+- docs/notes/PROMPT.md:1-39
+verification_commands:
+- go test ./internal/agent ./internal/runtime ./internal/tui -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/agent internal/runtime internal/tui
+- git diff --check --no-index /dev/null <each new agent/streaming fixture file>
+scope:
+  included:
+  - Agent event types for assistant deltas, tool requests, provider errors, and turn completion with bounded metadata and no provider client dependency.
+  - Fake provider stream adapter tests proving stable event-to-runtime-message mapping in order.
+  - Runtime messages/state for streaming assistant draft, last provider tool request metadata, provider completion, and provider errors without executing tools or mutating workflow phase.
+  - TUI streaming assistant fixture and semantic snapshots showing incomplete assistant output from injected state only.
+  excluded:
+  - Real provider calls, go-agent runner wiring, credential checks, tool execution from provider requests, approval prompts, write/edit tools, mutation classes, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, marketplaces, hosted control planes, or Milestone 24+ behavior.
+  deferred:
+  - Real go-agent read-only turn execution for M24 and later provider/tool loops, source context, compaction, stale checks, mutation tools, and approvals.
+design: Add a small internal/agent event adapter that imports runtime and converts fake provider-style events into runtime messages. Runtime owns the typed message results and deterministic in-progress assistant/tool-request state. TUI renders only app-injected streaming transcript state; it does not import agent/runtime provider code or infer provider behavior.
+tasks:
+- number: 1
+  name: Define agent event and fake stream contracts
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN fake provider events are constructed WHEN tests inspect contracts THEN assistant delta text, tool request ID/name/arguments, provider error code/message/retryability, completion finish reason, provider, model, and sequence metadata are explicit and bounded.
+  - GIVEN unsafe or empty event data appears WHEN adapter tests run THEN output remains bounded and does not leak credentials, HOME/config paths, `.aila`, `.agentera`, or imply a real provider call.
+  - GIVEN package boundaries are inspected WHEN contracts exist THEN M23 does not introduce go-agent execution, provider clients, tool execution, approval prompts, write classes, plugins, MCP, workflow DSLs, or M24+ behavior.
+  evidence:
+  - internal/agent/events.go defines EventKind, Event, ToolArgument, ProviderError, FakeStream, and bounded event text handling without provider clients or go-agent execution.
+  - internal/agent/events_test.go proves fake stream construction, ordered event fields, provider error metadata, and redaction/bounding for controls, secret-like text, HOME/config paths, and `.aila` state.
+- number: 2
+  name: Map fake provider events into runtime messages
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN assistant deltas, tool requests, errors, and completion events appear in a fake stream WHEN the adapter runs THEN it emits deterministic typed runtime messages in the same order.
+  - GIVEN an event stream includes a tool request WHEN runtime update handles mapped messages THEN the request is recorded as provider-request metadata only and no read/search/bash/fetch executor runs.
+  - GIVEN provider errors occur WHEN runtime update handles mapped messages THEN bounded failure state is recorded without retries, provider fallback, workflow phase mutation, or destructive recovery.
+  evidence:
+  - internal/agent/events.go AdaptEvents maps assistant deltas, tool requests, provider errors, and completion into typed runtime messages in order.
+  - internal/runtime/runtime.go adds AgentAssistantDelta, AgentToolRequested, AgentTurnFailed, AgentTurnCompleted, assistant draft state, provider/model metadata, and provider tool-request metadata without executing tools.
+  - internal/runtime/runtime_test.go proves streaming deltas accumulate, tool requests remain metadata only, completion records final assistant text, and errors produce bounded failure state.
+- number: 3
+  name: Expose streaming assistant state in TUI fixtures
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN an incomplete assistant draft is injected WHEN TUI renders THEN plain and ANSI output show streaming/incomplete assistant output without claiming completion.
+  - GIVEN semantic snapshots are inspected WHEN streaming state is present THEN assistant text, streaming=true, runtime active state, provider/model source, and display-only semantics are machine-readable.
+  - GIVEN streaming text includes controls, secret-like text, HOME/config paths, `.aila`, `.agentera`, or outside-workspace paths WHEN render and semantic evidence is produced THEN output is bounded and redacted.
+  evidence:
+  - internal/tui/model.go and internal/tui/render.go add injected streaming assistant transcript fields and render/semantic output without provider imports or terminal behavior changes.
+  - internal/tui/fixture_test.go and streaming-assistant snapshots expose incomplete assistant output, active runtime state, provider/model source, and redaction.
+- number: 4
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN M23 implementation is complete WHEN targeted agent/runtime/TUI tests run THEN fake stream mapping and streaming fixture behavior pass.
+  - GIVEN no terminal streaming behavior changes in M23 WHEN closeout evidence is prepared THEN PTY smoke is explicitly documented as skipped rather than silently omitted.
+  - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 23 Slice Completion Template records adapter tests, runtime mapping tests, TUI streaming fixtures/snapshots, PTY smoke decision, validation, architecture checklist evidence, roadmap status, and commit readiness.
+  evidence:
+  - TestM23StreamingPTYSmokeDecision documents PTY smoke skipped because no visible streaming command path was added.
+  - 'Validation passed: go test ./internal/agent ./internal/runtime ./internal/tui -count=1; go test ./internal/... -count=1; mage check.'
+complete: 4
+total: 4
+active: false
+complete_plan: true
+overall_acceptance:
+- Fake provider-style assistant deltas, tool requests, errors, and completion events map to typed runtime messages deterministically.
+- Runtime records streaming assistant/tool-request/error state without executing tools, calling providers, or mutating workflow phase.
+- TUI snapshots expose streaming/incomplete assistant output from injected state only.
+- Targeted tests, full internal tests, mage check, roadmap closeout, and Agentera validation support the M23 commit.
+surprises:
+- M23 is adapter-only; prompt-to-provider execution remains fake/inert until the real go-agent read-only turn slice.

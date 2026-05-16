@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jgabor/aila/internal/agent"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/runtime"
@@ -77,6 +79,10 @@ func newInputRunnerWithReadContext(ctx context.Context, workspacePath string, au
 
 func newInputRunnerWithReadContextAndFetchClient(ctx context.Context, workspacePath string, autonomyLevel string, fetchClient tools.FetchClient) *inputRunner {
 	return newInputRunnerWithDispatch(readDispatchContextWithFetchClient(ctx, workspacePath, autonomyLevel, fetchClient))
+}
+
+func newInputRunnerWithAgentReadOnlyContext(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
+	return newInputRunnerWithDispatchAndAgent(ctx, readDispatchContext(ctx, workspacePath, autonomyLevel), agent.FakeReadOnlyRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))})
 }
 
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {

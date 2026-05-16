@@ -164,6 +164,21 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	if state.SurfaceTitle == "agent evidence" {
+		items = append(items, diagnosticLines(state.Diagnostics)...)
+		items = append(items, chatLines(state.Transcript)...)
+		items = append(items, readLines(state.Read)...)
+		items = append(items, searchLines(state.Search)...)
+		items = append(items, commandLines(state.Command)...)
+		items = append(items, fetchLines(state.Fetch)...)
+		items = append(items, memoryLines(state)...)
+		items = append(items, queueLines(state)...)
+		items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
+		return items
+	}
+	if state.SurfaceTitle != "" {
+		items = append(items, diagnosticLines(state.Diagnostics)...)
+	}
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
 	items = append(items, commandLines(state.Command)...)

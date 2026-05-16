@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime idle | Model fake/fake-readonly | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| active: false                                                                                                        |
+| result: provider authentication failed                                                                               |
+|                                                                                                                      |
+| Diagnostics:                                                                                                         |
+| severity: error                                                                                                      |
+| source: provider                                                                                                     |
+| affected artifact: provider_request                                                                                  |
+| recovery action: check provider configuration                                                                        |
+| user input needed: true                                                                                              |
+| message: provider_auth_failed: provider authentication failed retryable=false                                        |
+| user: summarize the build                                                                                            |
+| assistant: provider authentication failed                                                                            |
+| assistant source: fake fake-readonly                                                                                 |
+|                                                                                                                      |
+| agent evidence:                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

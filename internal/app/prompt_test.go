@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/agent"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/policy"
@@ -62,6 +63,46 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	}
 	if runner.model.Status != runtime.StatusIdle || runner.model.NextOperation != 1 {
 		t.Fatalf("runtime model = %#v, want idle after one operation", runner.model)
+	}
+}
+
+func TestM24AgentReadOnlyPromptRoutesToolThroughPermissionEffects(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nAila is a testable terminal coding agent.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyRead)), agent.DefaultFakeReadOnlyRunner())
+
+	turn := runner.submitPrompt("build a summary")
+
+	if turn.UserText != "build a summary" || !strings.Contains(turn.AssistantText, "terminal coding agent") {
+		t.Fatalf("agent turn transcript = %+v", turn)
+	}
+	if turn.AssistantSource != "fake" || turn.AssistantModel != "fake-readonly" || turn.RuntimeStatus != "idle" || turn.RuntimeActive {
+		t.Fatalf("agent turn runtime = %+v", turn)
+	}
+	if turn.Read == nil || turn.Read.Status != "completed" || !turn.Read.ReadOnly || turn.Read.Path != "README.md" || len(turn.Read.PreviewLines) == 0 {
+		t.Fatalf("agent read view = %+v", turn.Read)
+	}
+	if turn.Read.Decision == nil || !turn.Read.Decision.Allowed || turn.Read.Decision.OperationKind != "read" {
+		t.Fatalf("agent read decision = %+v", turn.Read.Decision)
+	}
+}
+
+func TestM24AgentProviderFailuresBecomeTypedDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agent.FakeReadOnlyRunner{Failure: agent.FailureProviderAuth})
+
+	turn := runner.submitPrompt("fail auth")
+
+	if turn.AssistantText != "provider authentication failed" || turn.RuntimeResult != "provider authentication failed" {
+		t.Fatalf("provider failure turn = %+v", turn)
+	}
+	if len(turn.Diagnostics) != 1 || turn.Diagnostics[0].Source != string(diagnostic.SourceProvider) || !strings.Contains(turn.Diagnostics[0].BoundedMessage, "provider_auth_failed") || !turn.Diagnostics[0].UserInputNeeded {
+		t.Fatalf("provider diagnostics = %+v", turn.Diagnostics)
 	}
 }
 

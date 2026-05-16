@@ -3165,6 +3165,118 @@ func TestM23StreamingAssistantFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func m24FixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
+}
+
+func loadM24BuildActiveFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = "build-active"
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.PrimaryModel = "fake/fake-readonly"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.RuntimeStatus = "active"
+	state.RuntimeActive = true
+	state.SurfaceTitle = "agent evidence"
+	state.Read = &ReadView{Name: "read", Status: "running", ReadOnly: true, Path: "README.md", RequestedRange: ReadLineRangeView{Limit: 6}}
+	state.Transcript = []TranscriptTurn{{UserText: "summarize the build", AssistantText: "I will inspect README.md before answering.", AssistantStreaming: true}}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func loadM24ProviderFailureFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	code := "provider_auth_failed"
+	message := "provider authentication failed"
+	retryable := false
+	switch name {
+	case "provider-auth-failed":
+		code = "provider_auth_failed"
+	case "provider-timeout":
+		code = "provider_timeout"
+		message = "provider request timed out"
+		retryable = true
+	case "rate-limited":
+		code = "rate_limited"
+		message = "provider rate limit reached"
+		retryable = true
+	case "model-unavailable":
+		code = "model_unavailable"
+		message = "model unavailable"
+	default:
+		t.Fatalf("unknown M24 provider failure fixture %q", name)
+	}
+	state := IdleEmptyState()
+	state.Scenario = name
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.PrimaryModel = "fake/fake-readonly"
+	state.Autonomy = "read"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = message
+	state.SurfaceTitle = "agent evidence"
+	state.Transcript = []TranscriptTurn{{UserText: "summarize the build", AssistantText: message, AssistantSource: "fake", AssistantModel: "fake-readonly"}}
+	state.Diagnostics = []DiagnosticView{{Severity: "error", Source: "provider", RecoveryAction: "check provider configuration", AffectedArtifact: "provider_request", UserInputNeeded: !retryable, BoundedMessage: code + ": " + message + " retryable=" + boolLabel(retryable)}}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM24BuildActiveFixtureSnapshots(t *testing.T) {
+	fixture := loadM24BuildActiveFixture(t)
+	assertFixtureSizes(t, fixture, m24FixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		if !containsAll(plain, []string{"Runtime active", "Model fake/fake-readonly", "Read tool:", "status: running", "assistant streaming:", "assistant status: incomplete"}) {
+			t.Fatalf("M24 build-active render missing evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if !snapshot.Session.Active || snapshot.Read == nil || snapshot.Read.Status != "running" || snapshot.Session.PrimaryModel != "fake/fake-readonly" {
+			t.Fatalf("build-active semantic = %+v", snapshot)
+		}
+	}
+}
+
+func TestM24ProviderFailureFixtureSnapshots(t *testing.T) {
+	for _, name := range []string{"provider-auth-failed", "provider-timeout", "rate-limited", "model-unavailable"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			fixture := loadM24ProviderFailureFixture(t, name)
+			assertFixtureSizes(t, fixture, m24FixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+				assertTextSnapshot(t, fixture, renderCase.file, got)
+				plain := stripANSI(got)
+				if !containsAll(plain, []string{"Diagnostics:", "source: provider", "affected artifact: provider_request", "assistant source: fake fake-readonly"}) {
+					t.Fatalf("M24 provider failure render missing evidence:\n%s", plain)
+				}
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				got := RenderSemanticJSON(fixture.State, semanticCase.size)
+				assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+				var snapshot SemanticSnapshot
+				if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+					t.Fatalf("unmarshal semantic snapshot: %v", err)
+				}
+				if len(snapshot.Diagnostics) != 1 || snapshot.Diagnostics[0].Source != "provider" || snapshot.Diagnostics[0].AffectedArtifact != "provider_request" {
+					t.Fatalf("provider failure semantic = %+v", snapshot.Diagnostics)
+				}
+			}
+		})
+	}
+}
+
 func TestM23StreamingPTYSmokeDecision(t *testing.T) {
 	t.Parallel()
 

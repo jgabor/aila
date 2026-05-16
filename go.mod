@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/creack/pty v1.1.24
+	github.com/jgabor/go-agent v0.0.0-20260512061631-d4676f984ee1
 )
 
 require (

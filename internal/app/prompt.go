@@ -14,6 +14,7 @@ type runtimeDispatchFunc func([]runtime.Effect) []runtime.Message
 type inputRunner struct {
 	model    runtime.Model
 	dispatch runtimeDispatchFunc
+	agent    *agentPromptRunner
 }
 
 func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
@@ -24,6 +25,9 @@ func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
 }
 
 func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
+	if runner.agent != nil {
+		return runner.submitAgentPrompt(text)
+	}
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.PromptSubmitted{Text: text})
 	turn := transcriptTurn(runner.model.Transcript[before:])
@@ -88,9 +92,14 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.StatusDetail = "fake in-memory runtime loop"
 	turn.RuntimeActive = runner.model.Status == runtime.StatusActive || runner.model.Status == runtime.StatusCanceling
 	turn.RuntimeResult = runner.model.Result
+	if runner.model.AssistantDraft != "" && turn.AssistantText == "" {
+		turn.AssistantText = runner.model.AssistantDraft
+		turn.AssistantStreaming = runner.model.Status == runtime.StatusActive
+	}
 	turn.QueuedCount = len(runner.model.Queued)
 	turn.QueuedText = queuedText(runner.model.Queued)
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
+	runner.applyAgentState(turn)
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)

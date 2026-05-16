@@ -1,0 +1,126 @@
+{
+  "scenario": "model-unavailable",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "runtime_result": "model unavailable",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-readonly",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "source": "provider",
+      "recovery_action": "check provider configuration",
+      "affected_artifact": "provider_request",
+      "user_input_needed": true,
+      "bounded_message": "model_unavailable: model unavailable retryable=false"
+    }
+  ],
+  "command": {
+    "route": "",
+    "route_source": "",
+    "surface": "agent evidence",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-readonly",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": [
+        "user: summarize the build",
+        "assistant: model unavailable",
+        "assistant_source: fake",
+        "assistant_model: fake-readonly"
+      ]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-readonly",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "visible": true,
+      "items": [
+        "severity: error",
+        "source: provider",
+        "affected_artifact: provider_request",
+        "recovery_action: check provider configuration",
+        "user_input_needed: true",
+        "bounded_message: model_unavailable: model unavailable retryable=false",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "active: false",
+        "result: model unavailable",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": ["agent evidence"]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

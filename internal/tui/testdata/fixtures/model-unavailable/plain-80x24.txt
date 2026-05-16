@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model fake/fake-readonly | Utility placeholder | A~
++ Conversation ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| active: false                                                                |
+| result: model unavailable                                                    |
+|                                                                              |
+| Diagnostics:                                                                 |
+| severity: error                                                              |
+| source: provider                                                             |
+| affected artifact: provider_request                                          |
+| recovery action: check provider configuration                                |
+| user input needed: true                                                      |
+| message: model_unavailable: model unavailable retryable=false                |
+| user: summarize the build                                                    |
+| assistant: model unavailable                                                 |
+| assistant source: fake fake-readonly                                         |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit

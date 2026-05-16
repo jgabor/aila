@@ -1,4 +1,49 @@
 cycles:
+  - number: 165
+    timestamp: "2026-05-16 19:42"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M24 by adding an Aila-owned fake/default runner and real go-agent adapter, routing bounded read-only agent prompt tool requests through existing permission/effect dispatch, surfacing typed provider failures, adding build-active and provider-failure TUI fixtures/snapshots at 80x24 and 120x32, and adding M24 PTY smoke for read-only success and provider failure.
+    commit: "pending local commit for M24 go-agent read-only turn"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 24; docs/notes/PROMPT.md; ARCHITECTURE.md agent/runtime boundaries; docs/tui-testing.md fixture and PTY gates; go-agent public module source"
+    discovered: >-
+      The go-agent module exposes a host-owned Runner.Stream/Event contract that can be wrapped without giving it Aila workflow, prompt, permission, state, or UI ownership. The app-visible read-only path remains fake-runner-first and opt-in for PTY smoke, while the real go-agent adapter is compiled and tested with a scripted model and read tool. Read-only tool requests use existing dispatch/permission decisions; provider failures are typed diagnostics. No live provider calls, mutations, approval UI, provider fallback, plugins, MCP, workflow DSL, marketplace, hosted control plane, or M25+ behavior was added.
+    verified: >-
+      `go test ./internal/agent ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1` passed. `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. `git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml go.mod go.sum internal/agent internal/runtime internal/app internal/tui cmd/aila` passed. Explicit new-file `git diff --check --no-index` checks passed for the M24 plan archive, new agent/app source files, and all new M24 fixture files. Installed Agentera CLI plan/progress validation passed after this metadata write.
+    next: >-
+      Commit the M24 go-agent read-only turn slice, then continue with M25: Approval UI Without Mutation in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M24 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, fake-runner-first validation, read-only tool effects, and no live-provider/mutation/approval/M25+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M24 implementation, go-agent dependency and adapter, app/runtime/TUI/cmd evidence, fixtures/snapshots, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 164
+    timestamp: "2026-05-16 19:18"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 24: go-agent Read-Only Turn as the next roadmap milestone, archived the completed M23 plan, and created a new active full plan with five bounded tasks for runner boundaries, go-agent adapter confinement, read-only tool routing, TUI/PTY evidence, and validation closeout.
+    commit: "N/A: planning artifact before M24 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 24; AGENTS.md; README.md; ARCHITECTURE.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      Active milestone was none and ROADMAP.md Next milestone was M24. M23 already provides bounded provider-style event mapping, while prompt submission still uses the fake prompt effect. M24 must introduce an executable read-only runner path and real go-agent adapter boundary without letting go-agent own Aila workflow, prompts, permissions, state, or UI. Read-only tool requests must pass through existing permission/tool effects, and fake runner tests remain the default verification path. The plan must avoid live provider calls in tests, mutations, approval UI, undo/replay, compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M25+ behavior.
+    verified: >-
+      docs/notes/PROMPT.md, the top of ROADMAP.md, the M24 roadmap section, AGENTS.md, README.md, ARCHITECTURE.md agent/runtime boundaries, docs/tui-testing.md, docs/workflow-architecture.md, current internal/agent event adapter, runtime agent messages, app prompt dispatch, and TUI fixture surfaces were reviewed before writing the plan.
+    next: >-
+      Execute M24 Task 1: define the executable runner boundary and default fake read-only runner, then inspect go-agent source APIs before wiring the real adapter. Do not implement approval UI, mutations, provider fallback, compaction, plugins, MCP, or M25+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M24; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, fake-runner-first validation, and commit only after implementation and validation complete.
+      unknowns: >-
+        The exact go-agent public API must be inspected from the module source before the real adapter is implemented; Context7 MCP is requested by AGENTS.md for library docs but no Context7 tool is available in this environment.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m23.yaml archival, and progress evidence for the planning handoff.
   - number: 163
     timestamp: "2026-05-16 20:35"
     type: build

@@ -202,6 +202,7 @@ type Model struct {
 	AgentModel           string
 	LastAgentToolRequest AgentToolRequest
 	AgentFinishReason    string
+	LastAgentFailure     FailureMetadata
 	NextOperation        int
 	ActiveOperation      OperationMetadata
 	Diagnostics          []diagnostic.Diagnostic
@@ -788,6 +789,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.AgentModel = ""
 		next.LastAgentToolRequest = AgentToolRequest{}
 		next.AgentFinishReason = ""
+		next.LastAgentFailure = FailureMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
 	case CommandSelected:
@@ -920,6 +922,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.AgentProvider = msg.Provider
 		next.AgentModel = msg.Model
 		next.AgentFinishReason = msg.FinishReason
+		next.LastAgentFailure = FailureMetadata{}
 		result := strings.TrimSpace(next.AssistantDraft)
 		if result == "" {
 			result = "agent turn completed"
@@ -933,6 +936,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = msg.Failure.Message
 		next.AgentProvider = msg.Provider
 		next.AgentModel = msg.Model
+		next.LastAgentFailure = msg.Failure
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
 		return next, nil

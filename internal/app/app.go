@@ -55,6 +55,9 @@ func newInputRunnerForEnvironment(ctx context.Context, workspacePath string, aut
 		}
 		return newInputRunnerHoldingFakeWorkWithContext(ctx)
 	}
+	if os.Getenv("AILA_AGENT_READONLY") == "1" {
+		return newInputRunnerWithAgentReadOnlyContext(ctx, workspacePath, autonomyLevel)
+	}
 	return newInputRunnerWithReadContext(ctx, workspacePath, autonomyLevel)
 }
 

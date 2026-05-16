@@ -1,0 +1,124 @@
+{
+  "scenario": "build-active",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "active",
+    "active": true,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-readonly",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "command": {
+    "route": "",
+    "route_source": "",
+    "surface": "agent evidence",
+    "visible": true,
+    "executed": false
+  },
+  "read_tool": {
+    "tool_name": "read",
+    "status": "running",
+    "read_only": true,
+    "path": "README.md",
+    "requested_range": {
+      "limit": 6
+    },
+    "preview_truncated": false,
+    "line_limit_hit": false,
+    "completed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-readonly",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": [
+        "user: summarize the build",
+        "assistant_streaming: true",
+        "assistant_incomplete: true",
+        "assistant: I will inspect README.md before answering."
+      ]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-readonly",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": ["status: active", "active: true", "display-only"]
+    },
+    {
+      "name": "read_tool",
+      "visible": true,
+      "items": [
+        "tool_name: read",
+        "status: running",
+        "read_only: true",
+        "path: README.md",
+        "requested_range: limit 6",
+        "completed: false",
+        "preview_truncated: false",
+        "line_limit_hit: false",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": ["agent evidence"]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

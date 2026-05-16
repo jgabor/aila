@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime active | Model fake/fake-readonly | Utility placeholder |~
++ Conversation ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: active                                                               |
+| active: true                                                                 |
+|                                                                              |
+| user: summarize the build                                                    |
+| assistant streaming: I will inspect README.md before answering.              |
+| assistant status: incomplete                                                 |
+| Read tool:                                                                   |
+| tool: read                                                                   |
+| status: running                                                              |
+| read-only: true                                                              |
+| path: README.md                                                              |
+| requested range: limit 6                                                     |
+| completed: false                                                             |
+| preview truncated: false                                                     |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
