@@ -6424,6 +6424,136 @@ cycles:
       scope: >-
         internal/tools read contract evidence, Inspektera PASS evidence, and Agentera plan/progress synchronization
         for Task 1 only.
+  - number: 146
+    timestamp: "2026-05-16 09:47"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M18 Task 2 only by adding the cancellable internal/tools read executor for validated requests,
+      including symlink-resolved workspace containment, directory/missing/permission/binary/canceled typed failures,
+      and bounded stable line-numbered previews with truncation metadata.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 18; ARCHITECTURE.md statechart-MVU effect boundary"
+    discovered: >-
+      The existing Task 1 contract could stay intact with one added validated workspace-root field and narrow
+      execution error kinds. Local review tightened the executor to stop once preview or line bounds are proven rather
+      than scanning to EOF. No app/runtime/policy/TUI wiring, read result rendering, fixtures, PTY smoke, search,
+      shell, fetch, edit/write, mutation history, undo/replay, compaction, plugin, MCP, or M19+ behavior was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tools -count=1` passed with valid range, missing file,
+      directory, permission, symlink escape, binary content, bounded oversized file/line truncation, invalid effective
+      range, cancellation, no durable state mutation, and runtime/TUI boundary coverage. Local review reran `mage fmt`,
+      `go test ./internal/tools -count=1`, `go test ./internal/runtime -count=1`, `go test ./internal/tui -count=1`,
+      and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml internal/tools`; all passed.
+    next: >-
+      Hand M18 Task 2 to Inspektera. Leave `.agentera/plan.yaml` Task 2 pending until audit PASS; Task 3 owns
+      app/runtime/policy wiring and Task 4 owns TUI rendering.
+    context:
+      intent: >-
+        Execute safe read-only workspace file previews outside deterministic updates while preserving exact path and
+        line-range result metadata and proving no durable state mutation.
+      constraints: >-
+        Implement only M18 Task 2. Do not modify `.agentera/session.yaml`, `.aila/`, vision, objective state, or
+        `.agentera/plan.yaml` task status. Do not wire through app/runtime/policy/TUI, commit, push, or add M19+
+        behavior.
+      unknowns: >-
+        Inspektera still needs to audit the executor before Task 2 can be marked complete in the active plan.
+      scope: >-
+        internal/tools read executor and tests plus this Agentera progress metadata cycle only.
+  - number: 147
+    timestamp: "2026-05-16 09:58"
+    type: fix
+    phase: build
+    what: >-
+      Fixed the M18 Task 2 Inspektera finding that reads with a high start line could scan an oversized file before
+      returning any bounded result.
+    commit: "N/A: no commit or push performed"
+    inspiration: "Inspektera M18 Task 2 FAIL on unbounded skipped-content scanning"
+    discovered: >-
+      The executor bounded preview bytes and stopped after preview or line bounds were proven, but skipped content
+      before the requested start line could still be read until the start line or EOF. That made oversized files before
+      the selected preview range unbounded.
+    verified: >-
+      Added an internal scan cap and typed `oversized_file` failure, plus regression coverage for oversized skipped
+      content. Reran `mage fmt` and `go test ./internal/tools -count=1`; both passed. Task 2 remains pending for
+      Inspektera retry.
+    next: >-
+      Retry Inspektera for M18 Task 2. Leave `.agentera/plan.yaml` Task 2 pending until audit PASS.
+    context:
+      intent: >-
+        Close the bounded-read audit gap without expanding Task 2 into app/runtime/policy/TUI wiring or later tool
+        milestones.
+      constraints: >-
+        Implement only the audit fix for M18 Task 2. Do not modify `.agentera/session.yaml`, `.aila/`, vision,
+        objective state, `.agentera/plan.yaml` task status, commit, push, or add M19+ behavior.
+      unknowns: >-
+        Inspektera retry still needs to verify the fix and remaining Task 2 criteria.
+      scope: >-
+        internal/tools read executor scan bound, regression test, and this progress cycle only.
+  - number: 148
+    timestamp: "2026-05-16 10:05"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera retry evaluation for M18 Task 2 with no findings. The active plan now marks only Task 2
+      complete, with read executor, typed failure, scan-bound, no-mutation, and runtime/TUI boundary evidence recorded.
+    commit: "N/A: no commit or push performed"
+    inspiration: "Inspektera M18 Task 2 retry PASS; .agentera/plan.yaml task 2"
+    discovered: >-
+      The retry confirmed the prior oversized skipped-content scan gap is closed by the internal scan cap and
+      `oversized_file` regression coverage. App/runtime/policy wiring, TUI rendering, fixtures, PTY smoke, search,
+      shell, fetch, edit/write, mutation history, undo/replay, compaction, plugins, MCP, and M19+ behavior remain out
+      of scope.
+    verified: >-
+      Inspektera reran `go test ./internal/tools -count=1`, `go test ./internal/runtime -count=1`, `go test
+      ./internal/tui -count=1`, and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      internal/tools`; all passed. It also verified progress cycles 146-147 parse and are scoped, changed tracked
+      files are limited to `.agentera/progress.yaml`, `internal/tools/read.go`, and `internal/tools/read_test.go`, and
+      `.agentera/session.yaml` / `.aila/` remain untracked local state.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M18 task: Task 3, Wire read effects through app and policy.
+      Do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Record M18 Task 2 audit success and synchronize the active plan after independent retry evaluation passed.
+      constraints: >-
+        Mark only Task 2 complete. Do not start Task 3 in this metadata step, do not commit, push, modify
+        vision/objective state, add local runtime state artifacts, or introduce M19+ behavior.
+      unknowns: >-
+        Task 3 still owns app/runtime/policy wiring for read effects; Task 4 and Task 5 still own rendering,
+        fixtures, and optional PTY smoke.
+      scope: >-
+        internal/tools read executor evidence, Inspektera retry PASS evidence, and Agentera plan/progress
+        synchronization for Task 2 only.
+  - number: 149
+    timestamp: "2026-05-16 10:12"
+    type: fix
+    phase: validate
+    what: >-
+      Fixed the commit-hook lint issue for M18 Task 2 by explicitly ignoring the read executor file close error in
+      the deferred close path.
+    commit: "N/A: commit retry pending"
+    inspiration: "Commit hook errcheck failure on deferred file.Close in internal/tools/read.go"
+    discovered: >-
+      The first commit attempt failed before creating a commit because golangci-lint reported an unchecked
+      `file.Close` error in the read executor. The issue was lint-only and did not change Task 2 scope.
+    verified: >-
+      The deferred close now explicitly assigns the close result to `_`. Reran `mage fmt`, `go test
+      ./internal/tools ./internal/runtime ./internal/tui -count=1`, `git diff --check -- .agentera/plan.yaml
+      .agentera/progress.yaml internal/tools`, and `agentera progress --format json`; all passed before commit retry.
+    next: >-
+      Rerun formatting/tests/diff checks, then retry the requested Task 2 commit. Orkestrera's next dependency-ready
+      task remains M18 Task 3, Wire read effects through app and policy.
+    context:
+      intent: >-
+        Keep the Task 2 commit hook-clean without changing read behavior or expanding milestone scope.
+      constraints: >-
+        Do not alter `.agentera/session.yaml`, `.aila/`, vision/objective state, Task 3 implementation, or M19+
+        behavior.
+      unknowns: >-
+        Commit retry still needs to pass hooks.
+      scope: >-
+        Lint-only close handling fix and progress metadata.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

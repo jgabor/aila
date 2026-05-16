@@ -92,13 +92,26 @@ tasks:
   - number: 2
     name: Execute safe file reads outside updates
     depends_on: [1]
-    status: pending
+    status: completed
     acceptance:
       - GIVEN a valid text file and bounded range WHEN the read executor runs THEN it returns stable line-numbered preview content with exact effective line ranges and no workspace mutation.
       - GIVEN missing files, directories, permission errors, symlink escapes, binary content, oversized files, oversized lines, invalid ranges, or context cancellation occur WHEN execution runs THEN typed bounded errors or truncation metadata are returned without panics or partial mutations.
       - GIVEN deterministic update packages are inspected WHEN the executor exists THEN filesystem IO remains in the tool/effect handler path and not in runtime update or TUI rendering code.
       - GIVEN repeated reads run WHEN validation inspects state THEN no `.aila`, HOME, config, Agentera, git, or unrelated durable state is created or modified.
-    evidence: []
+    evidence:
+      - >-
+        Added cancellable `internal/tools.ExecuteRead` for validated read requests, keeping filesystem IO in the
+        tools/effect seam and outside runtime update or TUI rendering code.
+      - >-
+        Added symlink-resolved workspace containment, directory, missing file, permission, binary/invalid UTF-8,
+        cancellation, invalid effective range, and typed bounded execution failure handling.
+      - >-
+        Added stable line-numbered previews with exact effective ranges, preview truncation, line-limit metadata,
+        and an oversized skipped-content scan cap returning `oversized_file` instead of scanning to EOF.
+      - >-
+        Inspektera retry passed with no findings after `go test ./internal/tools -count=1`, `go test
+        ./internal/runtime -count=1`, `go test ./internal/tui -count=1`, and `git diff --check --
+        .agentera/plan.yaml .agentera/progress.yaml internal/tools`.
   - number: 3
     name: Wire read effects through app and policy
     depends_on: [2]

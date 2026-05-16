@@ -1,7 +1,13 @@
 package tools
 
 import (
+	"bufio"
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -15,7 +21,10 @@ const (
 	DefaultReadMaxPreviewBytes = 32 * 1024
 )
 
-const maxReadErrorMessageBytes = 240
+const (
+	maxReadErrorMessageBytes = 240
+	maxReadScanBytes         = 1 * 1024 * 1024
+)
 
 // ReadRequest is the caller-facing read tool contract before validation.
 type ReadRequest struct {
@@ -37,6 +46,7 @@ type ReadSourceMetadata struct {
 type ValidatedReadRequest struct {
 	ToolName                 string
 	RequestedPath            string
+	WorkspaceRoot            string
 	WorkspaceRelativePath    string
 	ResolvedPath             string
 	RequestedPathWasAbsolute bool
@@ -75,6 +85,13 @@ const (
 	ReadErrorReservedPath      ReadErrorKind = "reserved_path"
 	ReadErrorDirectoryLikePath ReadErrorKind = "directory_like_path"
 	ReadErrorInvalidRange      ReadErrorKind = "invalid_range"
+	ReadErrorMissingFile       ReadErrorKind = "missing_file"
+	ReadErrorDirectory         ReadErrorKind = "directory"
+	ReadErrorPermission        ReadErrorKind = "permission_denied"
+	ReadErrorSymlinkEscape     ReadErrorKind = "symlink_escape"
+	ReadErrorBinaryContent     ReadErrorKind = "binary_content"
+	ReadErrorOversizedFile     ReadErrorKind = "oversized_file"
+	ReadErrorCanceled          ReadErrorKind = "canceled"
 	ReadErrorExecution         ReadErrorKind = "execution_error"
 )
 
@@ -99,7 +116,7 @@ type ReadResult struct {
 }
 
 // ValidateReadRequest applies defaults and rejects paths that are unsafe for a
-// future workspace read executor. It performs only lexical path validation.
+// workspace read executor. It performs only lexical path validation.
 func ValidateReadRequest(workspaceRoot string, request ReadRequest) (ValidatedReadRequest, ReadError) {
 	root := filepath.Clean(workspaceRoot)
 	if root == "." || !filepath.IsAbs(root) {
@@ -165,6 +182,7 @@ func ValidateReadRequest(workspaceRoot string, request ReadRequest) (ValidatedRe
 	return ValidatedReadRequest{
 		ToolName:                 ReadToolName,
 		RequestedPath:            request.Path,
+		WorkspaceRoot:            root,
 		WorkspaceRelativePath:    workspaceRelativePath,
 		ResolvedPath:             resolvedPath,
 		RequestedPathWasAbsolute: wasAbsolute,
@@ -178,8 +196,50 @@ func ValidateReadRequest(workspaceRoot string, request ReadRequest) (ValidatedRe
 	}, ReadError{}
 }
 
+// ExecuteRead reads a validated workspace file through the tool/effect path and
+// returns a bounded line-numbered preview. It performs filesystem IO by design;
+// deterministic update and rendering packages must call it only through effects.
+func ExecuteRead(ctx context.Context, request ValidatedReadRequest) ReadResult {
+	if err := ctx.Err(); err != nil {
+		return NewReadFailure(request, readExecutionError(err))
+	}
+	if request.EffectiveStartLine < 1 || request.EffectiveLineLimit < 1 || request.EffectiveMaxPreviewBytes < 1 {
+		return NewReadFailure(request, readError(ReadErrorInvalidRange, "effective read range must be positive"))
+	}
+
+	resolvedPath, err := resolveReadPath(request)
+	if err.Kind != "" {
+		return NewReadFailure(request, err)
+	}
+	request.ResolvedPath = resolvedPath
+
+	info, statErr := os.Stat(resolvedPath)
+	if statErr != nil {
+		return NewReadFailure(request, readExecutionError(statErr))
+	}
+	if info.IsDir() {
+		return NewReadFailure(request, readError(ReadErrorDirectory, "path is a directory"))
+	}
+	if info.Mode().Perm()&0o444 == 0 {
+		return NewReadFailure(request, readError(ReadErrorPermission, "file is not readable"))
+	}
+
+	file, openErr := os.Open(resolvedPath)
+	if openErr != nil {
+		return NewReadFailure(request, readExecutionError(openErr))
+	}
+	defer func() { _ = file.Close() }()
+
+	preview, endLine, lineLimitHit, readErr := readPreview(ctx, file, request)
+	if readErr.Kind != "" {
+		return NewReadFailure(request, readErr)
+	}
+
+	return NewReadSuccess(request, preview, endLine, lineLimitHit)
+}
+
 // NewReadSuccess shapes already-produced preview text into the public read result
-// contract. Later execution code will own obtaining the preview bytes.
+// contract.
 func NewReadSuccess(request ValidatedReadRequest, previewText string, effectiveEndLine int, lineLimitHit bool) ReadResult {
 	preview, previewTruncated := boundPreview(previewText, request.EffectiveMaxPreviewBytes)
 	marker := ""
@@ -273,6 +333,127 @@ func isReservedWorkspacePath(path string) bool {
 
 func readError(kind ReadErrorKind, message string) ReadError {
 	return ReadError{Kind: kind, Message: boundString(message, maxReadErrorMessageBytes)}
+}
+
+func readExecutionError(err error) ReadError {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return readError(ReadErrorCanceled, "read canceled")
+	case errors.Is(err, os.ErrNotExist):
+		return readError(ReadErrorMissingFile, "file does not exist")
+	case errors.Is(err, os.ErrPermission):
+		return readError(ReadErrorPermission, "file is not readable")
+	default:
+		return readError(ReadErrorExecution, "read failed")
+	}
+}
+
+func resolveReadPath(request ValidatedReadRequest) (string, ReadError) {
+	root := request.WorkspaceRoot
+	if root == "" {
+		root = filepath.Dir(request.ResolvedPath)
+	}
+	root = filepath.Clean(root)
+	if root == "." || !filepath.IsAbs(root) {
+		return "", readError(ReadErrorInvalidPath, "workspace root must be absolute")
+	}
+
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", readExecutionError(err)
+	}
+	realPath, err := filepath.EvalSymlinks(request.ResolvedPath)
+	if err != nil {
+		return "", readExecutionError(err)
+	}
+	if !pathInside(realRoot, realPath) {
+		return "", readError(ReadErrorSymlinkEscape, "resolved path escapes workspace")
+	}
+	return realPath, ReadError{}
+}
+
+func pathInside(root string, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+}
+
+func readPreview(ctx context.Context, reader io.Reader, request ValidatedReadRequest) (string, int, bool, ReadError) {
+	buffered := bufio.NewReader(reader)
+	var preview bytes.Buffer
+	previewLimit := request.EffectiveMaxPreviewBytes + 1
+	lineNumber := 1
+	selectedLines := 0
+	endLine := 0
+	lineLimitHit := false
+	lineStarted := false
+	scannedBytes := 0
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", 0, false, readExecutionError(err)
+		}
+
+		chunk, err := buffered.ReadSlice('\n')
+		scannedBytes += len(chunk)
+		if scannedBytes > maxReadScanBytes {
+			return "", 0, false, readError(ReadErrorOversizedFile, "file exceeds read scan limit")
+		}
+		if len(chunk) > 0 && bytes.IndexByte(chunk, 0) >= 0 {
+			return "", 0, false, readError(ReadErrorBinaryContent, "binary content is not readable")
+		}
+
+		if len(chunk) > 0 && lineNumber >= request.EffectiveStartLine {
+			if selectedLines >= request.EffectiveLineLimit {
+				lineLimitHit = true
+				break
+			} else {
+				if !lineStarted {
+					appendBounded(&preview, fmt.Sprintf("%d: ", lineNumber), previewLimit)
+					lineStarted = true
+				}
+				appendBounded(&preview, string(chunk), previewLimit)
+				if preview.Len() >= previewLimit {
+					return preview.String(), lineNumber, lineLimitHit, ReadError{}
+				}
+			}
+		}
+
+		if errors.Is(err, bufio.ErrBufferFull) {
+			continue
+		}
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", 0, false, readExecutionError(err)
+		}
+
+		if lineStarted {
+			selectedLines++
+			endLine = lineNumber
+			lineStarted = false
+		}
+
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		lineNumber++
+	}
+	if !utf8.Valid(preview.Bytes()) {
+		return "", 0, false, readError(ReadErrorBinaryContent, "binary content is not readable")
+	}
+
+	return preview.String(), endLine, lineLimitHit, ReadError{}
+}
+
+func appendBounded(buffer *bytes.Buffer, text string, maxBytes int) {
+	remaining := maxBytes - buffer.Len()
+	if remaining <= 0 {
+		return
+	}
+	if len(text) <= remaining {
+		buffer.WriteString(text)
+		return
+	}
+	bounded, _ := boundPreview(text, remaining)
+	buffer.WriteString(bounded)
 }
 
 func boundPreview(text string, maxBytes int) (string, bool) {
