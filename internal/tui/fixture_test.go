@@ -694,7 +694,7 @@ func loadReadFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
-func TestM18ReadFixtureSnapshots(t *testing.T) {
+func TestReadToolFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -1200,7 +1200,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 	}
 }
 
-func TestM20CommandFixtureSnapshots(t *testing.T) {
+func TestCommandToolFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
 	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed"} {
@@ -2089,7 +2089,7 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 	}
 }
 
-func TestM13QueuedMessageFixtureSnapshots(t *testing.T) {
+func TestQueuedMessageFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
 	fixture := loadQueuedMessageFixture(t)
@@ -2161,7 +2161,7 @@ func TestM13QueuedMessageFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func TestM14InterruptFixtureSnapshots(t *testing.T) {
+func TestInterruptFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -3743,11 +3743,11 @@ func TestM23StreamingAssistantFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func m24FixtureSizes() []fixtureSize {
+func readOnlyAgentFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
 }
 
-func loadM24BuildActiveFixture(t *testing.T) renderFixture {
+func loadReadOnlyBuildActiveFixture(t *testing.T) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
@@ -3765,7 +3765,7 @@ func loadM24BuildActiveFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
-func loadM24ProviderFailureFixture(t *testing.T, name string) renderFixture {
+func loadReadOnlyProviderFailureFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
 	code := "provider_auth_failed"
@@ -3786,7 +3786,7 @@ func loadM24ProviderFailureFixture(t *testing.T, name string) renderFixture {
 		code = "model_unavailable"
 		message = "model unavailable"
 	default:
-		t.Fatalf("unknown M24 provider failure fixture %q", name)
+		t.Fatalf("unknown read-only provider failure fixture %q", name)
 	}
 	state := IdleEmptyState()
 	state.Scenario = name
@@ -3802,15 +3802,15 @@ func loadM24ProviderFailureFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
-func TestM24BuildActiveFixtureSnapshots(t *testing.T) {
-	fixture := loadM24BuildActiveFixture(t)
-	assertFixtureSizes(t, fixture, m24FixtureSizes())
+func TestReadOnlyBuildActiveFixtureSnapshots(t *testing.T) {
+	fixture := loadReadOnlyBuildActiveFixture(t)
+	assertFixtureSizes(t, fixture, readOnlyAgentFixtureSizes())
 	for _, renderCase := range fixture.TextCases() {
 		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 		assertTextSnapshot(t, fixture, renderCase.file, got)
 		plain := stripANSI(got)
 		if !containsAll(plain, []string{"Runtime active", "Model fake/fake-readonly", "Read tool:", "status: running", "assistant streaming:", "assistant status: incomplete"}) {
-			t.Fatalf("M24 build-active render missing evidence:\n%s", plain)
+			t.Fatalf("read-only build-active render missing evidence:\n%s", plain)
 		}
 	}
 	for _, semanticCase := range fixture.SemanticCases() {
@@ -3826,18 +3826,18 @@ func TestM24BuildActiveFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func TestM24ProviderFailureFixtureSnapshots(t *testing.T) {
+func TestReadOnlyProviderFailureFixtureSnapshots(t *testing.T) {
 	for _, name := range []string{"provider-auth-failed", "provider-timeout", "rate-limited", "model-unavailable"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
-			fixture := loadM24ProviderFailureFixture(t, name)
-			assertFixtureSizes(t, fixture, m24FixtureSizes())
+			fixture := loadReadOnlyProviderFailureFixture(t, name)
+			assertFixtureSizes(t, fixture, readOnlyAgentFixtureSizes())
 			for _, renderCase := range fixture.TextCases() {
 				got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 				assertTextSnapshot(t, fixture, renderCase.file, got)
 				plain := stripANSI(got)
 				if !containsAll(plain, []string{"Diagnostics:", "source: provider", "affected artifact: provider_request", "assistant source: fake fake-readonly"}) {
-					t.Fatalf("M24 provider failure render missing evidence:\n%s", plain)
+					t.Fatalf("read-only provider failure render missing evidence:\n%s", plain)
 				}
 			}
 			for _, semanticCase := range fixture.SemanticCases() {

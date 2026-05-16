@@ -35,6 +35,9 @@ type TranscriptTurn struct {
 	AssistantStreaming bool
 	AssistantSource    string
 	AssistantModel     string
+	Phase              string
+	PhaseSource        string
+	SurfaceTitle       string
 	RuntimeStatus      string
 	StatusSource       string
 	StatusDetail       string
@@ -452,6 +455,15 @@ func ApplyTranscriptTurn(state ViewState, turn TranscriptTurn) ViewState {
 }
 
 func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
+	if turn.Phase != "" {
+		state.Phase = turn.Phase
+	}
+	if turn.PhaseSource != "" {
+		state.PhaseSource = turn.PhaseSource
+	}
+	if turn.SurfaceTitle != "" {
+		state.SurfaceTitle = turn.SurfaceTitle
+	}
 	if turn.RuntimeStatus == "" {
 		return state
 	}

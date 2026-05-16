@@ -9,6 +9,7 @@ import (
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 func (runner *inputRunner) applyAgentState(turn *tui.TranscriptTurn) {
@@ -40,13 +41,19 @@ func newInputRunnerWithDispatchAndAgent(ctx context.Context, dispatch runtimeDis
 }
 
 func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
+	buildTurn := func(turn tui.TranscriptTurn) tui.TranscriptTurn {
+		turn.Phase = workflow.PhaseBuild.DisplayLabel()
+		turn.PhaseSource = workflow.PhaseBuild.String()
+		turn.SurfaceTitle = "agent evidence"
+		return turn
+	}
 	before := len(runner.model.Transcript)
 	model, effects := runner.update(runtime.PromptSubmitted{Text: text})
 	runner.model = model
 	if len(effects) == 0 {
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
-		return turn
+		return buildTurn(turn)
 	}
 	operation := effects[0].Metadata()
 	stream, err := runner.agent.runner.Stream(runner.agent.ctx, agent.RunRequest{Prompt: strings.TrimSpace(text), Provider: "fake", Model: "fake-readonly", RunID: operation.ID, MaxSteps: 4, ToolNames: []string{"read"}})
@@ -54,7 +61,7 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: "fake", Model: "fake-readonly", Failure: runtime.FailureMetadata{Code: "stream_error", Message: err.Error(), Retryable: true}})
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
-		return turn
+		return buildTurn(turn)
 	}
 
 	var read *tui.ReadView
@@ -76,8 +83,9 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	runner.applyRuntimeState(&turn)
 	if read != nil {
 		turn.Read = read
+		turn.StatusDetail = "read tool dispatch"
 	}
-	return turn
+	return buildTurn(turn)
 }
 
 func (runner *inputRunner) executeAgentReadTool(request runtime.AgentToolRequest) *tui.ReadView {

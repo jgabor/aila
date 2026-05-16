@@ -773,7 +773,11 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 	}
 
 	env := newAilaPTYEnv(t)
-	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 80, 24, env.vars)
+	ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nAila is a bounded read-only coding agent.\n"), 0o644); err != nil {
+			t.Fatalf("seed README for prompt submit PTY smoke: %v", err)
+		}
+	})
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 
@@ -783,16 +787,20 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 	}
 
 	output := readUntilAll(t, terminal, []string{
-		"Stage IDLE | Runtime idle",
+		"Stage BUILD | Runtime idle",
 		"Runtime status:",
 		"status source: runtime.dispatch",
-		"detail: fake in-memory runtime loop",
+		"detail: read tool dispatch",
 		"active: false",
-		"result: Fake Aila response: explain this repo",
+		"result: I will inspect README.md before answering. Read-only inspection completed.",
 		"user: explain this repo",
-		"assistant: Fake Aila response: explain this repo",
+		"assistant: I will inspect README.md before answering. Read-only inspection completed.",
+		"Read tool:",
+		"status: completed",
+		"read-only: true",
+		"path: README.md",
 	}, 10*time.Second)
-	for _, forbidden := range []string{"OPENAI", "ANTHROPIC", "GOOGLE_API", "credential", "provider", "tool execution", "config.toml", ".config/aila"} {
+	for _, forbidden := range []string{"OPENAI", "ANTHROPIC", "GOOGLE_API", "credential", "write class", "approval prompt", "config.toml", ".config/aila"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("runtime prompt PTY exposed provider/tool/config marker %q: %q", forbidden, output)
 		}
@@ -1011,16 +1019,15 @@ func TestUndoRedoRecoveryPTYSmoke(t *testing.T) {
 	assertUndoRedoRecoveryHistory(t, workspace)
 }
 
-func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
+func TestInteractiveReadOnlyBuildLoopPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
 	env := newAilaPTYEnv(t)
-	env.vars = append(env.vars, "AILA_AGENT_READONLY=1")
 	ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
 		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nAila is a bounded read-only coding agent.\n"), 0o644); err != nil {
-			t.Fatalf("seed README for M24 PTY smoke: %v", err)
+			t.Fatalf("seed README for read-only PTY smoke: %v", err)
 		}
 	})
 	defer cancel()
@@ -1028,7 +1035,7 @@ func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
 
 	readUntil(t, terminal, "Aila", 20*time.Second)
 	if _, err := terminal.Write([]byte("summarize read only turn\r")); err != nil {
-		t.Fatalf("send M24 prompt input: %v", err)
+		t.Fatalf("send read-only prompt input: %v", err)
 	}
 
 	output := readUntilAll(t, terminal, []string{
@@ -1040,35 +1047,35 @@ func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
 		"path: README.md",
 	}, 10*time.Second)
 	if strings.Contains(output, "approval prompt") || strings.Contains(output, "write class") {
-		t.Fatalf("M24 PTY smoke exposed out-of-scope approval/mutation text: %q", output)
+		t.Fatalf("read-only PTY smoke exposed out-of-scope approval/mutation text: %q", output)
 	}
 	if _, err := terminal.Write([]byte("q")); err != nil {
-		t.Fatalf("send q after M24 prompt: %v", err)
+		t.Fatalf("send q after read-only prompt: %v", err)
 	}
 	select {
 	case err := <-wait:
 		if err != nil {
-			t.Fatalf("M24 read-only PTY quit returned error: %v", err)
+			t.Fatalf("read-only PTY quit returned error: %v", err)
 		}
 	case <-ctx.Done():
-		t.Fatalf("M24 read-only PTY did not quit cleanly: %v", ctx.Err())
+		t.Fatalf("read-only PTY did not quit cleanly: %v", ctx.Err())
 	}
 }
 
-func TestM24ProviderFailurePTYSmoke(t *testing.T) {
+func TestReadOnlyProviderFailurePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
 	env := newAilaPTYEnv(t)
-	env.vars = append(env.vars, "AILA_AGENT_READONLY=1", "AILA_AGENT_FAILURE=provider_auth_failed")
+	env.vars = append(env.vars, "AILA_AGENT_FAILURE=provider_auth_failed")
 	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 160, 45, env.vars)
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 
 	readUntil(t, terminal, "Aila", 20*time.Second)
 	if _, err := terminal.Write([]byte("trigger provider failure\r")); err != nil {
-		t.Fatalf("send M24 provider failure input: %v", err)
+		t.Fatalf("send provider failure input: %v", err)
 	}
 
 	output := readUntilAll(t, terminal, []string{
@@ -1078,22 +1085,22 @@ func TestM24ProviderFailurePTYSmoke(t *testing.T) {
 		"assistant: provider authentication failed",
 	}, 10*time.Second)
 	if strings.Contains(output, "api_key=") || strings.Contains(output, "Authorization") {
-		t.Fatalf("M24 provider failure PTY leaked credential-shaped text: %q", output)
+		t.Fatalf("provider failure PTY leaked credential-shaped text: %q", output)
 	}
 	if _, err := terminal.Write([]byte("q")); err != nil {
-		t.Fatalf("send q after M24 provider failure: %v", err)
+		t.Fatalf("send q after provider failure: %v", err)
 	}
 	select {
 	case err := <-wait:
 		if err != nil {
-			t.Fatalf("M24 provider failure PTY quit returned error: %v", err)
+			t.Fatalf("provider failure PTY quit returned error: %v", err)
 		}
 	case <-ctx.Done():
-		t.Fatalf("M24 provider failure PTY did not quit cleanly: %v", ctx.Err())
+		t.Fatalf("provider failure PTY did not quit cleanly: %v", ctx.Err())
 	}
 }
 
-func TestM13SubmitWhileActivePTYSmoke(t *testing.T) {
+func TestSubmitWhileActivePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1156,7 +1163,7 @@ func TestM13SubmitWhileActivePTYSmoke(t *testing.T) {
 	}
 }
 
-func TestM14InterruptActiveWorkPTYSmoke(t *testing.T) {
+func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1307,12 +1314,14 @@ func TestM5CommandPTYSmoke(t *testing.T) {
 	}
 }
 
-func TestM6ResizePTYSmoke(t *testing.T) {
+func TestResizePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
 
-	ctx, cancel, terminal, wait := startAilaPTYWithSize(t, 160, 45)
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars, "AILA_FAKE_PROMPT_ECHO=1")
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 160, 45, env.vars)
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 

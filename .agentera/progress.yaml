@@ -1,4 +1,95 @@
 cycles:
+  - number: 190
+    timestamp: "2026-05-17 02:05"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M33 by making normal interactive prompts use the existing read-only agent loop, injecting app-owned BUILD and
+      agent evidence display state, preserving readable final summaries and read-tool detail, validating queue/interrupt/focus
+      fixture behavior, running PTY smokes for prompt/provider/queue/interrupt/resize/quit, and updating ROADMAP.md after green validation.
+    commit: "pending local commit for M33 interactive read-only build loop"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 33; README.md TUI/tool promises; ARCHITECTURE.md go-agent/tool/TUI boundaries; docs/workflow-architecture.md BUILD runtime event plane; docs/tui-testing.md fixture/update/PTY gates"
+    discovered: >-
+      The read-only build loop could stay narrow by promoting the existing fake read-only agent runner into the normal interactive
+      path. The live TUI needed the same agent evidence surface used by deterministic fixtures, and assistant deltas needed a
+      spacing guard after sanitization so final summaries read naturally.
+    verified: >-
+      mage fmt passed. go test ./internal/runtime -run 'TestUpdateHandlesAgent|TestUpdateHandlesPrompt|TestUpdateHandlesFakeResultMessages' -count=1 passed. go test ./internal/app -run 'TestReadOnlyAgent|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff' -count=1 passed. go test ./internal/tui focused read-only, queue, interrupt, prompt, fixture, and resize tests passed. go test ./cmd/aila -run 'TestPromptSubmitPTYSmoke|TestInteractiveReadOnlyBuildLoopPTYSmoke|TestReadOnlyProviderFailurePTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke|TestResizePTYSmoke' -count=1 passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+    next: >-
+      Commit the completed M33 slice, leaving Milestone 34: Interactive Write Build Loop as the next roadmap milestone.
+    context:
+      intent: >-
+        Close the current roadmap milestone first, with interactive read-only prompt behavior, TUI evidence, PTY smoke, full validation, ROADMAP, and Agentera evidence complete before committing.
+      constraints: >-
+        No interactive writes, approval execution, mutation history changes, real provider configuration, source indexing, plugins, MCP servers, workflow DSLs, hosted control planes, or M34+ behavior was added. TUI remains presentation-only. Public artifact updates avoid machine-specific home paths.
+      unknowns: >-
+        Richer asynchronous streaming and real provider selection are still deferred until later roadmap work needs them.
+      scope: >-
+        internal/app read-only runner selection and agent turn display mapping, internal/runtime assistant delta spacing, internal/tui TranscriptTurn phase/surface injection, behavior-named TUI/cmd tests, ROADMAP closeout, and Agentera plan/progress closeout.
+  - number: 189
+    timestamp: "2026-05-17 01:52"
+    type: build
+    phase: build
+    what: >-
+      Completed M33 Tasks 1-4 by promoting normal interactive prompts to the existing read-only agent loop, preserving BUILD
+      phase and agent evidence display state, keeping completed read-tool details visible, validating queue and interrupt behavior,
+      and refreshing behavior-named tests for the fixtures M33 depends on.
+    commit: "N/A: implementation in progress before M33 commit"
+    inspiration: ".agentera/plan.yaml tasks 1-4; ROADMAP.md Milestone 33; ARCHITECTURE.md go-agent adapter and TUI boundaries; docs/tui-testing.md fixture, semantic, update, and PTY gates"
+    discovered: >-
+      The existing read-only agent path was already the right implementation seam. The live TUI needed app-owned BUILD phase and
+      agent evidence surface injection so chat, final summary, and read-tool evidence stay visible together. Agent text deltas also
+      needed a small spacing guard so final summaries remain readable after bounded event sanitization.
+    verified: >-
+      mage fmt passed. go test ./internal/runtime -run 'TestUpdateHandlesAgent|TestUpdateHandlesPrompt|TestUpdateHandlesFakeResultMessages' -count=1 passed. go test ./internal/app -run 'TestReadOnlyAgent|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff' -count=1 passed. go test ./internal/tui focused read-only, queue, interrupt, prompt, fixture, and resize tests passed. go test ./cmd/aila -run 'TestPromptSubmitPTYSmoke|TestInteractiveReadOnlyBuildLoopPTYSmoke|TestReadOnlyProviderFailurePTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke|TestResizePTYSmoke' -count=1 passed.
+    next: >-
+      Execute M33 Task 5: run package and full validation, update ROADMAP.md only after green validation, validate Agentera artifacts, and commit the completed milestone.
+    context:
+      intent: >-
+        Finish the implementation part of M33 before closeout, while keeping Agentera evidence current and using behavior-named tests for touched validation surfaces.
+      constraints: >-
+        No interactive writes, approval execution, mutation history changes, real provider configuration, source indexing, plugins, MCP servers, workflow DSLs, or M34+ behavior was added. The TUI still receives app-injected display state only.
+      unknowns: >-
+        Richer asynchronous streaming remains deferred; the M33 loop stays deterministic around the existing fake read-only agent runner.
+      scope: >-
+        internal/app read-only runner selection and agent turn display mapping, internal/runtime assistant delta spacing, internal/tui TranscriptTurn phase/surface injection, behavior-named app/TUI/cmd tests, and PTY smoke.
+  - number: 188
+    timestamp: "2026-05-17 01:38"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 33: Interactive Read-Only Build Loop as the next roadmap milestone, archived the completed M32 plan,
+      and created a new active full plan with five bounded tasks for default interactive read-only prompt routing, visible runtime
+      state, behavior-named update/app tests, required TUI fixtures, PTY smoke, validation, and closeout.
+    commit: "N/A: planning artifact before M33 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 33; AGENTS.md; README.md built-in tools and TUI promises; ARCHITECTURE.md go-agent adapter, tool/permission, runtime, and TUI boundaries; docs/workflow-architecture.md BUILD dispatch and runtime event plane; docs/tui-testing.md fixture/semantic/PTY gates"
+    discovered: >-
+      M33 should use the existing read-only agent runner and app-owned read tool path rather than invent a new TUI loop. The
+      useful slice is to make normal interactive prompts enter the bounded fake read-only BUILD loop by default, while keeping
+      provider-failure and hold-active test controls for deterministic terminal smoke of queue and interrupt behavior. Interactive
+      writes, approval execution, real provider setup, richer async streaming mechanics, and M34+ scope stay deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, agentera plan/progress/describe state, ROADMAP.md top status and
+      M33 section, docs/notes/PROMPT.md, AGENTS.md, README built-in tools and TUI sections, ARCHITECTURE.md go-agent/tool/TUI
+      boundary sections, docs/workflow-architecture.md BUILD dispatch/runtime event sections, docs/tui-testing.md fixture and PTY
+      requirements, and current app/runtime/TUI/cmd read-only prompt seams were reviewed before writing the plan.
+    next: >-
+      Execute M33 Task 1: promote ordinary interactive prompts to the existing read-only agent loop. Do not add interactive
+      mutation, approval execution, real provider credential setup, source indexing, plugins, MCP, workflow DSLs, or M34+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md, using the Agentera planera startup
+        contract and keeping the active thread goal in its planera -> orkestrera -> commit loop.
+      constraints: >-
+        Plan only M33; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, app-owned read-only
+        agent/tool execution, deterministic fixtures and PTY smoke, behavior-based test names, and commit only after implementation
+        and validation complete.
+      unknowns: >-
+        The first live loop may remain synchronously deterministic around the fake read-only runner; richer asynchronous streaming
+        can be introduced later if it becomes necessary for real provider UX.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m32.yaml archival, and progress evidence for the M33
+        planning handoff.
   - number: 187
     timestamp: "2026-05-17 01:37"
     type: build

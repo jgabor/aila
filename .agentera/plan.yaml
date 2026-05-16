@@ -3,167 +3,166 @@ header:
   created: '2026-05-17'
   status: completed
   reviewed: '2026-05-17'
-  critic_issues: Plan scoped as M32-only; provider-backed reasoning, arbitrary prompt-to-code synthesis, stdin diff review,
-    interactive approval prompts, broad edit/overwrite restoration, hosted control plane behavior, and M33+ behavior deferred
-  title: Milestone 32 Non-Interactive Write Run
-what: Deliver ROADMAP.md Milestone 32 by letting `aila run <prompt>` complete one bounded deterministic workspace write through
-  the same runtime write effect, permission, tools, state, history, and TUI inspection paths used by interactive mutation
-  flows.
-why: M31 made non-interactive runs useful for safe repo inspection. M32 adds the first guarded mutation path so CLI runs can
-  create a small inspectable change without inventing a separate safety model.
-constraints: 'Execute only Milestone 32. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only:
-  it may render stored app-injected write-run memory, history, approvals/decisions, blockers, and diff state, but it must
-  not inspect files, run commands, decide permissions, mutate files, or persist state. Non-interactive write behavior must
-  route through existing runtime write effects, permission/autonomy decisions, tools.ValidateWriteRequest/ExecuteWrite, fake
-  history mutation records, and current-session snapshot storage. Keep provider-backed reasoning, arbitrary prompt-to-code
-  synthesis, stdin diff review, interactive approval prompts, file edits beyond the single bounded write target, shell mutation,
-  richer source indexing, hosted control planes, and Milestone 33+ behavior out of scope. Use behavior-based test names. Do
-  not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m31.yaml
+  critic_issues: M33 scope completed as read-only interactive BUILD loop; interactive writes, approval execution, real provider
+    configuration, richer async streaming mechanics, source indexing, hosted control planes, plugins, MCP servers, workflow
+    DSLs, and M34+ behavior remain deferred.
+  title: Milestone 33 Interactive Read-Only Build Loop
+what: Deliver ROADMAP.md Milestone 33 by making ordinary interactive prompts enter the read-only BUILD loop through the existing
+  Aila-owned agent runner, read-only tool effects, runtime state, and presentation-only TUI surfaces.
+why: Earlier read-only runner work proved a bounded agent turn behind an explicit environment gate, and M31-M32 made run results inspectable.
+  M33 turns the interactive path into useful read-only coding assistance while preserving the same queue, interrupt, tool,
+  and final-summary evidence before interactive writes arrive in M34.
+constraints: 'Execute only Milestone 33. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected prompt, runtime, read-tool, queued, interrupt, diagnostic, and final-summary state, but it must
+  not inspect files, run commands, choose tools, decide permissions, mutate files, persist state, or own model prompts. Interactive
+  work must stay read-only and route tool requests through the existing runtime read effects and autonomy policy. Keep mutations,
+  approval execution, edit/write tools, real provider credential setup, arbitrary shell mutation, session replay, source indexing,
+  hosted control planes, plugins, MCP servers, workflow DSLs, and M34+ behavior out of scope. Use behavior-based test names.
+  Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m32.yaml
 source_anchors:
 - ROADMAP.md:16-110
-- ROADMAP.md:1385-1404
+- ROADMAP.md:1411-1433
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-163
-- README.md:54-55
-- README.md:138-149
-- README.md:180-190
-- README.md:239-302
-- ARCHITECTURE.md:447-522
-- ARCHITECTURE.md:535-603
-- ARCHITECTURE.md:918-946
-- docs/workflow-architecture.md:551-576
-- docs/workflow-architecture.md:618-633
+- README.md:226-329
+- ARCHITECTURE.md:403-545
+- ARCHITECTURE.md:681-727
+- docs/workflow-architecture.md:281-335
+- docs/workflow-architecture.md:523-533
 - docs/tui-testing.md:69-77
-- docs/tui-testing.md:216-227
+- docs/tui-testing.md:216-318
 verification_commands:
 - mage fmt
-- go test ./internal/app -run 'TestNonInteractiveWrite|TestNonInteractiveRun' -count=1
-- go test ./internal/state -run 'TestValidateSessionSnapshotContractAcceptsBounded.*RunMemory|TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStrings'
+- go test ./internal/app -run 'Test.*ReadOnly.*Prompt|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff' -count=1
+- go test ./internal/runtime -run 'TestUpdateHandlesPrompt|TestUpdateQueues|TestUpdateHandlesAgent|TestUpdateHandlesInterrupt'
   -count=1
-- go test ./internal/tui -run 'TestWriteRunMemory|TestRunMemory|TestResizePathStaysPresentationOnlyAndIOFree' -count=1
-- go test ./internal/tools ./internal/app -run 'TestValidateBashRequestAllowsOnlySafeInspectionCommands|TestStoreCurrentDiffRead|TestParseUnifiedDiffView'
+- go test ./internal/tui -run 'Test.*ReadOnly.*|Test.*Queued.*|Test.*Interrupt.*|Test.*FixtureSnapshots|Test.*Focus.*|TestResizePathStaysPresentationOnlyAndIOFree'
   -count=1
-- go test ./cmd/aila -run 'TestNonInteractiveWriteRunThenContinueSmoke' -count=1
-- go test ./internal/app ./internal/state ./internal/tui ./internal/tools ./cmd/aila -count=1
+- go test ./cmd/aila -run 'TestInteractiveReadOnlyBuildLoopPTYSmoke|TestReadOnlyProviderFailurePTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke'
+  -count=1
+- go test ./internal/app ./internal/runtime ./internal/tui ./cmd/aila -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml cmd/aila internal/app internal/state internal/tools
-  internal/tui internal/tui/testdata/fixtures/write-run-memory
-- changed-line home-path and milestone-numbered test-name hygiene returned no matches
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m32.yaml cmd/aila
+  internal/app internal/runtime internal/tui internal/tui/testdata/fixtures
+- changed-line home-path and milestone-numbered test-name hygiene returns no matches
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej
 scope:
   included:
-  - Add a deterministic non-interactive write intent for `aila run <prompt>` that creates or updates one bounded workspace-relative
-    note file only when the prompt asks for a write-shaped task.
-  - Load configured autonomy for non-interactive runs and route the write through the existing runtime write effect, permission
-    decision, write validation/execution, immediate recheck, and mutation result structures.
-  - Extend CLI output and stored run memory with changed files, mutation/decision evidence, blockers, caveats, source refs,
-    stored-session status, and stored-history status.
-  - Persist mutation history and undo metadata through the existing fake history contract so `/history` can inspect the non-interactive
-    write result later.
-  - Extend TUI run-memory rendering/semantic snapshots and PTY smoke so `aila continue`, `/history`, and `/diff` can inspect
-    the stored non-interactive mutation state.
+  - Make the ordinary interactive prompt path start the bounded fake read-only agent BUILD loop by default, using the existing
+    Aila-owned agent runner adapter and read-only tool registry.
+  - Preserve app/runtime-owned visible state for active assistant output, read-only tool activity, final summaries, typed
+    provider failures, queued input, and interrupts.
+  - Refresh behavior-named app/runtime/TUI tests so prompt submission, active queueing, interrupt routing, and focus behavior
+    are covered without stale milestone-numbered names in touched tests.
+  - Refresh the required build-active, queued-message, tool-running, and tool-failed fixture evidence so the current read-only
+    loop is visible in render and semantic snapshots.
+  - Add or update PTY smoke to prove interactive read-only prompt submission, queue, interrupt, resize, and quit behavior
+    without mutation or approval surfaces.
   excluded:
-  - Provider-backed code generation, arbitrary prompt interpretation, stdin diff review, interactive approval prompts inside
-    non-interactive mode, edit/overwrite restoration beyond existing undo metadata, shell mutation, source indexing, plugins,
-    MCP servers, workflow DSLs, model marketplaces, hosted control planes, and Milestone 33+ behavior.
+  - Interactive edit/write tools, approval execution, mutation history changes, real provider credential setup, arbitrary
+    shell mutation, source indexing, session replay, plugin/MCP/dynamic workflow behavior, hosted control planes, and M34+
+    behavior.
   deferred:
-  - Provider-backed non-interactive reasoning, richer task planning from arbitrary prompts, piped diff review, multi-file
-    write runs, interactive non-interactive approval handoff, source indexing, and stale-context validation.
-design: 'Keep CLI parsing in cmd/aila and route `run` to the app-owned non-interactive runner. The runner remains deterministic:
-  read-only inspection still runs first, then a write-shaped prompt proposes one bounded write request to the existing inputRunner/runtime
-  write effect under the configured autonomy level. Autonomy write/yolo may proceed automatically through the same dispatchWriteEffect
-  -> tools.ValidateWriteRequest -> tools.ExecuteWrite path; autonomy off/read records a denied mutation and a blocker without
-  mutating. The run report, current-session snapshot, and fake history then expose changed files, mutation decision evidence,
-  blockers, caveats, and source refs. The TUI consumes only injected snapshot/history/diff state.'
+  - Interactive write build loop, guarded approvals plus mutation execution, richer asynchronous streaming mechanics, real
+    provider selection from configuration, durable event replay, source indexing, and stale-context validation.
+design: Use the existing read-only agent runner and runtime/tool surfaces instead of adding a new loop. The app
+  composition root should choose the read-only agent runner for normal interactive prompts, while test-only environment switches
+  remain available for provider-failure and hold-active queue/interrupt smokes. Runtime Update remains deterministic and effect-based;
+  read tool requests still execute only through app-owned readDispatchContext and permission decisions. The TUI receives TranscriptTurn/ViewState
+  data and renders it with no provider, filesystem, permission, or mutation ownership.
 overall_acceptance:
-- '`aila run <write-shaped prompt>` can create one bounded workspace-relative file through the existing write tool path and
-  prints changed files, checks run, blockers, caveats, and stored-state indicators.'
-- Autonomy read/off blocks the non-interactive write without mutation and reports the approval-required decision; autonomy
-  write/yolo records an automatic allowed decision before mutation.
-- Mutation history includes the non-interactive write result and undo metadata through the same fake history schema used by
-  interactive writes.
-- Current-session run memory and semantic snapshots expose non-interactive mutation state, changed files, mutation/decision
-  evidence, blockers, caveats, and source refs through display-only TUI state.
-- PTY smoke proves a temp-workspace write run creates a bounded file, then `aila continue`, `/history`, and `/diff` can inspect
-  the stored mutation state.
+- A normal interactive prompt can produce a bounded read-only fake agent answer and README read-tool evidence without requiring
+  a test-only read-only flag.
+- Read-only tool requests continue to pass through runtime read effects, app-owned permission decisions, and tool result view
+  models; unsupported mutation/approval surfaces do not appear in the read-only loop.
+- Queued input, interrupt, focus, and resize behavior remain visible and presentation-only while work is active.
+- The required build-active, queued-message, tool-running, and tool-failed fixtures have current render and semantic evidence
+  for the read-only loop.
+- PTY smoke proves submit prompt, queue, interrupt, resize, and quit behavior with fake or read-only work, and full validation
+  passes before ROADMAP.md is updated.
 surprises:
-- The existing diff view only covered tracked staged/unstaged changes, so M32 added bounded untracked-file diff synthesis
-  through app-owned safe bash/read boundaries to make the created run output inspectable without TUI IO.
+- The live read-only agent turn needed to use the existing agent evidence surface so chat, final summary, and read-tool details
+  stay visible together instead of letting tool details push the conversation below the fold.
+- Bounded provider event sanitization collapsed trailing delta whitespace, so runtime now inserts a space between adjacent
+  assistant deltas when needed.
 tasks:
 - number: 1
-  name: Route write-shaped run prompts through existing write effects
+  name: Promote interactive prompts to the read-only agent loop
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN `aila run create a note` executes with write/yolo autonomy WHEN the prompt is recognized as write-shaped THEN the
-    app runner proposes one bounded write request through the existing runtime write effect instead of writing files directly.
-  - GIVEN autonomy is read or off WHEN the write proposal is evaluated THEN the mutation is denied with approval-required
-    decision evidence and no file is created.
-  - GIVEN the prompt is read-only or missing WHEN the run executes THEN M31 read-only behavior remains bounded and no write
-    request is made.
+  - GIVEN Aila starts interactively without test-only read-only flags WHEN the user submits a normal prompt THEN the app routes
+    it through the existing read-only agent runner and readDispatchContext instead of the old fake prompt echo.
+  - GIVEN the agent requests `read` WHEN autonomy allows read-only tools THEN the tool result carries app-owned permission
+    evidence and bounded preview lines.
+  - GIVEN provider-failure test configuration is set WHEN the prompt runs THEN typed provider diagnostics remain visible and
+    bounded.
   evidence:
-  - internal/app/noninteractive_run.go routes narrow write-shaped prompts to one bounded docs/aila-run-output.md WriteToolProposed
-    request through inputRunner/runtime dispatch.
-  - TestNonInteractiveWriteRunUsesAutonomyAndStoresMutationMemory proves write autonomy completes through the mutation path;
-    TestNonInteractiveWriteRunDeniedByReadAutonomyDoesNotMutate proves read autonomy denies without creating the file; existing
-    non-interactive run tests preserve read-only behavior.
+  - newInputRunnerForEnvironment now defaults ordinary interactive prompts to newInputRunnerWithAgentReadOnlyContext while
+    preserving AILA_FAKE_PROMPT_ECHO only for legacy layout smokes.
+  - TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects and TestPromptSubmitPTYSmoke prove the read-only agent path,
+    BUILD phase display, read tool result, and permission decision evidence without a test-only read-only flag.
 - number: 2
-  name: Report changed files, checks, blockers, and caveats
+  name: Preserve visible runtime state for active, queued, interrupt, and final states
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN a write run completes WHEN stdout is printed THEN changed_files, commands_run/checks, blockers, caveats, source_refs,
-    stored_session, and stored_history are present and bounded.
-  - GIVEN validation, permission, or persistence fails WHEN the report is built THEN blockers/caveats name the failure without
-    leaking absolute workspace paths or secrets.
-  - GIVEN write output includes mutation metadata WHEN the target is changed THEN the changed path, status, bytes, decision
-    source, autonomy, and approval-required flag are reported in bounded text.
+  - GIVEN read-only BUILD work is active WHEN a second prompt is submitted THEN the prompt is queued and no second work item
+    starts immediately.
+  - GIVEN read-only or fake BUILD work is active WHEN interrupt is requested THEN the runtime exposes canceling/canceled display
+    state through the existing interrupt path without lower-layer cancellation claims.
+  - GIVEN the read-only turn completes WHEN the TUI renders THEN final assistant summary, source/model, read-tool evidence,
+    and runtime idle result remain visible.
   evidence:
-  - formatNonInteractiveRunReport prints changed_files, commands_run, blockers, caveats, source_refs, stored_session, stored_history,
-    and mutation decision fields in bounded workspace-relative text.
-  - TestNonInteractiveWriteRunUsesAutonomyAndStoresMutationMemory and TestNonInteractiveWriteRunThenContinueSmoke assert changed
-    file, bytes, decision source/autonomy, blockers, caveats, and path-safety evidence.
+  - Agent turns now inject BUILD phase and agent evidence surface data; runtime AgentAssistantDelta preserves spaces between
+    bounded deltas, and completed read-tool turns keep read tool dispatch status detail.
+  - TestSubmitWhileActivePTYSmoke and TestInterruptActiveWorkPTYSmoke passed, proving queue and interrupt visibility through
+    fake active work while TestInteractiveReadOnlyBuildLoopPTYSmoke proves final read-only summaries and read evidence remain
+    visible.
 - number: 3
-  name: Persist write-run snapshot and mutation history
+  name: Refresh behavior-named update and app tests
   depends_on:
   - 1
   - 2
   status: complete
   acceptance:
-  - GIVEN a write run completes or is denied WHEN persistence succeeds THEN current-session snapshot stores write-run memory
-    including changed files, mutation status, decision evidence, blockers, caveats, and source refs.
-  - GIVEN mutation history is available WHEN the run completes THEN fake history appends prompt, response, runtime/check events,
-    and mutation events with undo metadata through the existing mutation history contract.
-  - GIVEN persistence fails WHEN the report is printed THEN stdout does not claim stored state succeeded.
+  - GIVEN touched tests cover read-only prompt routing WHEN names are reviewed THEN they describe behavior rather than milestone
+    numbers.
+  - GIVEN TUI prompt, queue, interrupt, and focus inputs are exercised WHEN tests run THEN they emit app callbacks or local
+    presentation state only and do not perform IO.
+  - GIVEN runtime/app read-only tests run WHEN assertions inspect state THEN they prove deterministic updates, permission-backed
+    read results, final summaries, and provider diagnostics.
   evidence:
-  - SessionSnapshotRun now stores changed_files and mutation decision evidence; fake history appends a mutation event plus
-    undo metadata for completed write runs.
-  - TestValidateSessionSnapshotContractAcceptsBoundedWriteRunMemory, TestNonInteractiveWriteRunUsesAutonomyAndStoresMutationMemory,
-    and TestNonInteractiveWriteRunThenContinueSmoke prove persisted snapshot/history state.
+  - Touched read-only agent, PTY, queued, interrupt, and fixture tests were renamed to behavior-based names such as TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects,
+    TestInteractiveReadOnlyBuildLoopPTYSmoke, TestSubmitWhileActivePTYSmoke, and TestQueuedMessageFixtureSnapshots.
+  - 'Focused app/runtime/TUI tests passed after the naming and read-only route changes: go test ./internal/app -run ''TestReadOnlyAgent|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff''
+    -count=1; go test ./internal/runtime -run ''TestUpdateHandlesAgent|TestUpdateHandlesPrompt|TestUpdateHandlesFakeResultMessages''
+    -count=1; and focused TUI input/fixture tests.'
 - number: 4
-  name: Render stored write-run state in TUI and semantic snapshots
+  name: Refresh required render and semantic fixtures
   depends_on:
+  - 1
+  - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN interactive continue loads a stored write run WHEN the TUI renders THEN visible memory/history surfaces show changed
-    files, mutation status, decision evidence, blockers, caveats, and source refs.
-  - GIVEN semantic snapshots are generated WHEN write-run memory is present THEN changed_files, mutation status, decision
-    evidence, blockers, caveats, source_refs, and display-only provenance are machine-readable.
-  - GIVEN `/history` and `/diff` are opened after a write run WHEN rendered THEN existing app-owned history/diff surfaces
-    expose the mutation and workspace diff without TUI-owned IO.
+  - GIVEN `build-active` renders WHEN inspected THEN active BUILD, streaming assistant text, read-only model/source, and running
+    read tool state are visible.
+  - GIVEN `queued-message`, `tool-running`, and `tool-failed` render WHEN inspected THEN queue defaults, running read state,
+    and failed read/tool evidence remain visible and machine-readable.
+  - GIVEN semantic snapshots are generated WHEN these fixtures are loaded THEN active/queued/runtime/tool/error meanings are
+    present without TUI-owned IO or mutation state.
   evidence:
-  - RunMemoryView and semantic snapshots expose changed files and mutation evidence; write-run-memory fixture snapshots were
-    generated at 120x60.
-  - Diff view now includes bounded untracked-file additions through safe bash/read boundaries so /diff can inspect the created
-    file; TestWriteRunMemoryRenderAndSemantic, TestWriteRunMemoryFixtureSnapshots, and TestStoreCurrentDiffReadIncludesBoundedUntrackedFiles
-    passed.
+  - The existing build-active, queued-message, tool-running, and tool-failed fixture artifacts remain current for the M33
+    loop and were validated through behavior-named fixture tests.
+  - go test ./internal/tui -run 'TestReadOnlyBuildActiveFixtureSnapshots|TestReadOnlyProviderFailureFixtureSnapshots|TestQueuedMessageFixtureSnapshots|TestReadToolFixtureSnapshots|TestCommandToolFixtureSnapshots|TestQueuedInput|TestNoQueue|TestInterrupting|TestCanceled|TestInterruptSemantic|TestPromptSubmit|TestCtrlC|TestCtrlXC|TestResizePathStaysPresentationOnlyAndIOFree'
+    -count=1 passed.
 - number: 5
   name: Add PTY smoke, full validation, and closeout
   depends_on:
@@ -173,18 +172,19 @@ tasks:
   - 4
   status: complete
   acceptance:
-  - GIVEN a temp workspace smoke runs WHEN `aila run create a note` completes THEN stdout proves changed files, checks, blockers,
-    caveats, source refs, stored-session status, and path safety while the target file is created only inside the temp workspace.
-  - GIVEN the same workspace starts interactive `continue`, `/history`, and `/diff` WHEN PTY smoke runs THEN stored write-run
-    memory, mutation history, and current diff are visible through existing surfaces.
-  - GIVEN targeted and full validation pass WHEN ROADMAP.md and Agentera artifacts are updated THEN M32 is recorded complete
-    and M33 is next.
+  - GIVEN a temp workspace interactive smoke starts Aila WHEN a read-only prompt is submitted THEN the screen shows the final
+    read-only answer, README read evidence, runtime idle result, and no mutation or approval surface.
+  - GIVEN fake or read-only active work is used WHEN queue, interrupt, resize, and quit are exercised THEN each behavior remains
+    visible and exits cleanly.
+  - GIVEN targeted and full validation pass WHEN ROADMAP.md and Agentera artifacts are updated THEN M33 is recorded complete
+    and M34 is next.
   evidence:
-  - TestNonInteractiveWriteRunThenContinueSmoke passed, proving CLI write output, temp-workspace file creation, continue memory,
-    /history mutation undo metadata, and /diff inspection.
-  - Validated with mage fmt; targeted app/state/tools/TUI/cmd tests; go test ./internal/app ./internal/state ./internal/tui
-    ./internal/tools ./cmd/aila -count=1; go test ./internal/... -count=1; go test ./cmd/aila -count=1; mage check; git diff
-    --check; and Agentera plan validation.
+  - TestPromptSubmitPTYSmoke, TestInteractiveReadOnlyBuildLoopPTYSmoke, TestReadOnlyProviderFailurePTYSmoke, TestSubmitWhileActivePTYSmoke,
+    TestInterruptActiveWorkPTYSmoke, and TestResizePTYSmoke passed, proving prompt submit, final read-only answer, provider
+    failure, queue, interrupt, resize, and quit behavior.
+  - Validated with mage fmt; focused app/runtime/TUI/cmd tests; go test ./internal/... -count=1; go test ./cmd/aila -count=1;
+    mage check with full cmd/internal tests, 0 lint issues, and no vulnerabilities; then ROADMAP.md and Agentera artifacts
+    were updated for M33 closeout.
 complete: 5
 total: 5
 active: false

@@ -102,7 +102,7 @@ func TestM6CommandSemanticsSurviveLayoutSizes(t *testing.T) {
 	}
 }
 
-func TestM13QueuedInputRenderShowsDefaultAfterCurrentTurn(t *testing.T) {
+func TestQueuedInputRenderShowsDefaultAfterCurrentTurn(t *testing.T) {
 	t.Parallel()
 
 	state := activeQueuedState()
@@ -126,7 +126,7 @@ func TestM13QueuedInputRenderShowsDefaultAfterCurrentTurn(t *testing.T) {
 	}
 }
 
-func TestM13QueuedInputSemanticDefaultAction(t *testing.T) {
+func TestQueuedInputSemanticDefaultAction(t *testing.T) {
 	t.Parallel()
 
 	snapshot := Semantic(activeQueuedState(), Size{Width: 80, Height: 24})
@@ -163,7 +163,7 @@ func TestM13QueuedInputSemanticDefaultAction(t *testing.T) {
 	}
 }
 
-func TestM13NoQueueRenderAndSemanticRemainStable(t *testing.T) {
+func TestNoQueueRenderAndSemanticRemainStable(t *testing.T) {
 	t.Parallel()
 
 	for _, state := range []ViewState{
@@ -196,7 +196,7 @@ func TestM13NoQueueRenderAndSemanticRemainStable(t *testing.T) {
 	}
 }
 
-func TestM14InterruptingRenderShowsActiveWorkAndInFlightState(t *testing.T) {
+func TestInterruptingRenderShowsActiveWorkAndInFlightState(t *testing.T) {
 	t.Parallel()
 
 	state := interruptState("canceling")
@@ -219,7 +219,7 @@ func TestM14InterruptingRenderShowsActiveWorkAndInFlightState(t *testing.T) {
 	}
 }
 
-func TestM14CanceledRenderShowsActiveWorkAndFakeOutcome(t *testing.T) {
+func TestCanceledRenderShowsActiveWorkAndFakeOutcome(t *testing.T) {
 	t.Parallel()
 
 	state := interruptState("canceled")
@@ -243,7 +243,7 @@ func TestM14CanceledRenderShowsActiveWorkAndFakeOutcome(t *testing.T) {
 	}
 }
 
-func TestM14InterruptSemanticIsMachineReadableAndNonExecuting(t *testing.T) {
+func TestInterruptSemanticIsMachineReadableAndNonExecuting(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {

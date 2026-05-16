@@ -21,6 +21,7 @@ import (
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
@@ -68,7 +69,7 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	}
 }
 
-func TestM24AgentReadOnlyPromptRoutesToolThroughPermissionEffects(t *testing.T) {
+func TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects(t *testing.T) {
 	t.Parallel()
 
 	workspace := t.TempDir()
@@ -82,7 +83,7 @@ func TestM24AgentReadOnlyPromptRoutesToolThroughPermissionEffects(t *testing.T) 
 	if turn.UserText != "build a summary" || !strings.Contains(turn.AssistantText, "terminal coding agent") {
 		t.Fatalf("agent turn transcript = %+v", turn)
 	}
-	if turn.AssistantSource != "fake" || turn.AssistantModel != "fake-readonly" || turn.RuntimeStatus != "idle" || turn.RuntimeActive {
+	if turn.AssistantSource != "fake" || turn.AssistantModel != "fake-readonly" || turn.Phase != workflow.PhaseBuild.DisplayLabel() || turn.PhaseSource != workflow.PhaseBuild.String() || turn.RuntimeStatus != "idle" || turn.RuntimeActive {
 		t.Fatalf("agent turn runtime = %+v", turn)
 	}
 	if turn.Read == nil || turn.Read.Status != "completed" || !turn.Read.ReadOnly || turn.Read.Path != "README.md" || len(turn.Read.PreviewLines) == 0 {
@@ -93,14 +94,14 @@ func TestM24AgentReadOnlyPromptRoutesToolThroughPermissionEffects(t *testing.T) 
 	}
 }
 
-func TestM24AgentProviderFailuresBecomeTypedDiagnostics(t *testing.T) {
+func TestReadOnlyAgentProviderFailuresBecomeTypedDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agent.FakeReadOnlyRunner{Failure: agent.FailureProviderAuth})
 
 	turn := runner.submitPrompt("fail auth")
 
-	if turn.AssistantText != "provider authentication failed" || turn.RuntimeResult != "provider authentication failed" {
+	if turn.AssistantText != "provider authentication failed" || turn.RuntimeResult != "provider authentication failed" || turn.Phase != workflow.PhaseBuild.DisplayLabel() {
 		t.Fatalf("provider failure turn = %+v", turn)
 	}
 	if len(turn.Diagnostics) != 1 || turn.Diagnostics[0].Source != string(diagnostic.SourceProvider) || !strings.Contains(turn.Diagnostics[0].BoundedMessage, "provider_auth_failed") || !turn.Diagnostics[0].UserInputNeeded {

@@ -1182,6 +1182,9 @@ func Update(model Model, message Message) (Model, []Effect) {
 		if next.ActiveOperation.ID == "" {
 			next.ActiveOperation = msg.Operation
 		}
+		if next.AssistantDraft != "" && msg.Text != "" && !strings.HasSuffix(next.AssistantDraft, " ") && !strings.HasPrefix(msg.Text, " ") {
+			next.AssistantDraft += " "
+		}
 		next.AssistantDraft += msg.Text
 		next.AgentProvider = msg.Provider
 		next.AgentModel = msg.Model
