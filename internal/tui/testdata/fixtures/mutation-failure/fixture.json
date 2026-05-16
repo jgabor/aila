@@ -1,0 +1,31 @@
+{
+  "name": "mutation-failure",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["runtime_idle", "mutation_result"],
+  "render_sizes": [
+    {
+      "name": "80x24",
+      "width": 80,
+      "height": 24
+    },
+    {
+      "name": "120x32",
+      "width": 120,
+      "height": 32
+    }
+  ],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json",
+    "plain_120x32": "plain-120x32.txt",
+    "ansi_120x32": "ansi-120x32.txt",
+    "semantic_120x32": "semantic-120x32.json"
+  },
+  "notes": [
+    "Milestone 27 mutation result fixture.",
+    "Mutation state is app-injected display evidence; TUI does not execute file mutations."
+  ]
+}

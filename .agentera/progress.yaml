@@ -1,4 +1,49 @@
 cycles:
+  - number: 171
+    timestamp: "2026-05-16 22:00"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M27 by adding explicit edit/write mutation tools, runtime mutation effects/results, app-owned permission-checked dispatch with immediate recheck, TUI mutation result fixtures/snapshots, and approval-to-write PTY smoke against a temp workspace.
+    commit: "pending local commit for M27 edit and write tools in temp workspaces"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 27; docs/notes/PROMPT.md; ARCHITECTURE.md explicit effect and mutation boundaries; README autonomy/tool semantics; docs/tui-testing.md mutation fixture and PTY gates; docs/workflow-architecture.md approval/recheck flow"
+    discovered: >-
+      Edit/write mutation can follow the existing read/search/bash/fetch pipeline cleanly: runtime emits typed effects, app dispatch owns permission proposals and immediate rechecks, internal/tools performs bounded temp-workspace filesystem mutation, and runtime/app/TUI record display-only results. The visible mutation block needed behavior-first tests and front-loaded path/status/decision/error fields to satisfy 80x24 and 120x32 gates. Mutating shell, diff view, durable mutation history, undo, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M28+ behavior stayed out of scope.
+    verified: >-
+      go test ./internal/tools -count=1 passed. go test ./internal/runtime ./internal/app -count=1 passed. go test ./internal/tui -run TestMutationResult -count=1 passed. go test ./cmd/aila -run TestApprovalToWriteMutationPTYSmoke -count=1 passed. go test ./internal/tools ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1 passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with 0 lint issues and no vulnerabilities. Mutation success/failure 80x24 and 120x32 plain/ANSI/semantic snapshots were generated and reviewed. Tracked and new-file whitespace checks passed. Agentera CLI plan/progress validation passed.
+    next: >-
+      Commit the M27 edit/write mutation tools slice, then continue with M28: Diff View in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M27 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, explicit effect mutation boundary, immediate permission recheck, and no mutating shell/diff/history/undo/M28+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M27 edit/write tool contracts/executors, runtime/app dispatch and result recording, TUI mutation result fixtures/snapshots, approval-to-write PTY smoke, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 170
+    timestamp: "2026-05-16 21:03"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 27: Edit And Write Tools In Temp Workspaces as the next roadmap milestone, archived the completed M26 plan, and created a new active full plan with five bounded tasks for edit/write executors, runtime effects/results, permission-rechecked app dispatch, TUI fixtures plus PTY smoke, and validation closeout.
+    commit: "N/A: planning artifact before M27 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 27; AGENTS.md; README.md edit/write autonomy semantics; ARCHITECTURE.md tool/effect/permission rules; docs/tui-testing.md mutation fixture and PTY gates; docs/workflow-architecture.md approval/recheck flow"
+    discovered: >-
+      M27 should mirror the existing read/search/bash/fetch explicit-effect pipeline while adding the first actual file mutation surface. The mutation executor must be limited to edit/write against test workspaces, return recorded results, and keep mutating shell commands out of scope. The permission path must recheck immediately before mutation, and the TUI must show mutation success/failure without owning mutation behavior. The plan must avoid diff view navigation, durable history/undo browser, mutating shell execution, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M28+ behavior.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress state, ROADMAP.md M27 section, AGENTS.md, docs/notes/PROMPT.md, ARCHITECTURE.md tool and permission plane, docs/workflow-architecture.md approval/recheck flow, docs/tui-testing.md mutation fixture guidance, README autonomy/tool table, and current runtime/app/tools/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M27 Task 1: implement edit/write tool contracts and executors against temp workspaces. Do not implement mutating shell commands, diff view, durable mutation history browser, undo workflow, or M28+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M27; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, explicit effect mutation boundary, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact edit operation shape should be the smallest useful text replacement contract that can be version-checked and result-recorded before a richer diff view exists.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m26.yaml archival, and progress evidence for the planning handoff.
   - number: 169
     timestamp: "2026-05-16 20:52"
     type: build

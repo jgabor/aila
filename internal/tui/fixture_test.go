@@ -3558,3 +3558,146 @@ func TestM26WritePermissionInputsDoNotSwitchAutonomyOrExecute(t *testing.T) {
 		})
 	}
 }
+
+func mutationResultFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
+}
+
+func loadMutationResultFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = name
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.dispatch"
+	state.StatusDetail = "mutation tool dispatch"
+	state.Autonomy = "write"
+	switch name {
+	case "mutation-success":
+		state.RuntimeResult = "write internal/demo.txt: completed 12 bytes"
+		state.Mutation = &MutationView{
+			Name:                  "write",
+			Status:                "completed",
+			Path:                  "internal/demo.txt",
+			ExpectedEffect:        "create demo file",
+			PreviousVersion:       "missing",
+			NewVersion:            "sha256:demo-new",
+			PreviousExists:        false,
+			BytesWritten:          12,
+			ResolvedPathAvailable: true,
+			Decision: &DecisionView{
+				Autonomy:         "write",
+				Source:           "autonomy_policy",
+				Allowed:          true,
+				Automatic:        true,
+				ApprovalRequired: false,
+				Reason:           "write autonomy allows classified operation",
+				OperationKind:    "mutation",
+				Name:             "write",
+				Target:           "internal/demo.txt",
+				ExpectedEffect:   "create demo file",
+				Reversible:       false,
+				RunID:            "run-m27-write",
+				Capability:       "m27-fixture",
+			},
+		}
+	case "mutation-failure":
+		state.RuntimeResult = "edit internal/demo.txt failed: target_version_mismatch"
+		state.Mutation = &MutationView{
+			Name:                  "edit",
+			Status:                "failed",
+			Path:                  "internal/demo.txt",
+			ExpectedEffect:        "replace demo text",
+			PreviousVersion:       "",
+			NewVersion:            "",
+			PreviousExists:        false,
+			BytesWritten:          0,
+			ReplacementCount:      0,
+			ResolvedPathAvailable: true,
+			ErrorKind:             "target_version_mismatch",
+			ErrorMessage:          "target version mismatch: expected sha256:old",
+			Decision: &DecisionView{
+				Autonomy:         "write",
+				Source:           "autonomy_policy",
+				Allowed:          true,
+				Automatic:        true,
+				ApprovalRequired: false,
+				Reason:           "write autonomy allows classified operation",
+				OperationKind:    "mutation",
+				Name:             "edit",
+				Target:           "internal/demo.txt",
+				ExpectedEffect:   "replace demo text",
+				Reversible:       true,
+				RunID:            "run-m27-edit",
+				Capability:       "m27-fixture",
+			},
+		}
+	default:
+		t.Fatalf("unknown M27 mutation fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
+func TestMutationResultRenderAndSemantic(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		tool      string
+		status    string
+		errorKind string
+	}{
+		{name: "mutation-success", tool: "write", status: "completed"},
+		{name: "mutation-failure", tool: "edit", status: "failed", errorKind: "target_version_mismatch"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := loadMutationResultFixture(t, tc.name)
+			render := RenderPlain(fixture.State, Size{Width: 120, Height: 32})
+			if !containsAll(render, []string{"Mutation result:", "tool: " + tc.tool, "status: " + tc.status, "path: internal/demo.txt", "decision source: autonomy_policy", "approval required: false", "autonomy: write", "operation: mutation"}) {
+				t.Fatalf("mutation render missing evidence:\n%s", render)
+			}
+			if tc.errorKind != "" && !containsAll(render, []string{"error kind: " + tc.errorKind, "bytes written: 0"}) {
+				t.Fatalf("mutation failure render missing error evidence:\n%s", render)
+			}
+			snapshot := Semantic(fixture.State, Size{Width: 120, Height: 32})
+			if snapshot.Mutation == nil || snapshot.Mutation.Name != tc.tool || snapshot.Mutation.Status != tc.status || snapshot.Mutation.Path != "internal/demo.txt" || snapshot.Mutation.Decision == nil || snapshot.Mutation.Decision.Source != "autonomy_policy" || snapshot.Mutation.Decision.ApprovalRequired {
+				t.Fatalf("mutation semantic = %+v", snapshot.Mutation)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			mutationRegion := strings.Join(regions["mutation_tool"].Items, "\n")
+			if !containsAll(mutationRegion, []string{"tool_name: " + tc.tool, "status: " + tc.status, "path: internal/demo.txt", "decision_source: autonomy_policy", "display-only"}) {
+				t.Fatalf("mutation semantic region = %v", regions["mutation_tool"].Items)
+			}
+		})
+	}
+}
+
+func TestMutationResultFixtureSnapshots(t *testing.T) {
+	for _, name := range []string{"mutation-success", "mutation-failure"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			fixture := loadMutationResultFixture(t, name)
+			assertFixtureSizes(t, fixture, mutationResultFixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+				assertTextSnapshot(t, fixture, renderCase.file, got)
+				plain := stripANSI(got)
+				if !containsAll(plain, []string{"Mutation result:", "path: internal/demo.txt", "status:"}) {
+					t.Fatalf("%s fixture missing mutation evidence:\n%s", name, plain)
+				}
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				got := RenderSemanticJSON(fixture.State, semanticCase.size)
+				assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+				var snapshot SemanticSnapshot
+				if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+					t.Fatalf("unmarshal semantic snapshot: %v", err)
+				}
+				if snapshot.Mutation == nil || snapshot.Mutation.Decision == nil || snapshot.Mutation.Decision.Source != "autonomy_policy" {
+					t.Fatalf("semantic mutation = %+v", snapshot.Mutation)
+				}
+			}
+		})
+	}
+}

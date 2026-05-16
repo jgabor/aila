@@ -75,6 +75,22 @@ func (runner *inputRunner) proposeFetchTool(request runtime.FetchToolRequest) tu
 	return turn
 }
 
+func (runner *inputRunner) proposeEditTool(request runtime.MutationToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.EditToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
+func (runner *inputRunner) proposeWriteTool(request runtime.MutationToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.WriteToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) proposeApproval(proposal runtime.ApprovalProposal) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.ApprovalProposed{Proposal: proposal})
@@ -88,6 +104,11 @@ func (runner *inputRunner) decideApproval(decision tui.ApprovalDecisionInput) tu
 	runner.apply(runtime.ApprovalDecisionSelected{ProposalID: decision.ProposalID, Action: runtime.ApprovalAction(decision.Action)})
 	turn := transcriptTurn(runner.model.Transcript[before:])
 	runner.applyRuntimeState(&turn)
+	if decision.ProposalID == fakeApprovalWriteProposalID && runtime.ApprovalAction(decision.Action) == runtime.ApprovalActionApprove {
+		mutationTurn := runner.proposeWriteTool(fakeApprovalWriteRequest())
+		mutationTurn.ApprovalDecision = turn.ApprovalDecision
+		return mutationTurn
+	}
 	return turn
 }
 
@@ -120,6 +141,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)
 	turn.Fetch = fetchView(runner.model)
+	turn.Mutation = mutationView(runner.model)
 	turn.Approval = approvalView(runner.model.PendingApproval)
 	turn.ApprovalDecision = approvalDecisionView(runner.model.LastApprovalDecision)
 	if turn.Read != nil {
@@ -133,6 +155,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Fetch != nil {
 		turn.StatusDetail = "fetch tool dispatch"
+	}
+	if turn.Mutation != nil {
+		turn.StatusDetail = "mutation tool dispatch"
 	}
 	if turn.Approval != nil {
 		turn.StatusDetail = "approval pending"
@@ -370,6 +395,50 @@ func commandView(model runtime.Model) *tui.CommandView {
 	}
 }
 
+func mutationView(model runtime.Model) *tui.MutationView {
+	if (model.ActiveOperation.Kind == runtime.OperationEdit || model.ActiveOperation.Kind == runtime.OperationWrite) && model.Status == runtime.StatusActive {
+		request := model.ActiveMutation
+		return &tui.MutationView{
+			Name:           string(request.ToolName),
+			Status:         "running",
+			Path:           request.Path,
+			ExpectedEffect: request.ExpectedEffect,
+		}
+	}
+	if model.LastMutation.ToolName == "" && model.LastMutation.RequestedPath == "" && model.LastMutation.WorkspaceRelativePath == "" {
+		return nil
+	}
+	status := model.LastMutation.Status
+	if status == "" {
+		status = "completed"
+	}
+	if model.LastMutation.Error.Kind != "" && model.LastMutation.Error.Kind != runtime.MutationToolErrorNone {
+		status = "failed"
+		if model.LastMutation.Status != "" {
+			status = model.LastMutation.Status
+		}
+	}
+	path := model.LastMutation.WorkspaceRelativePath
+	if path == "" {
+		path = model.LastMutation.RequestedPath
+	}
+	return &tui.MutationView{
+		Name:                  defaultString(model.LastMutation.ToolName, "mutation"),
+		Status:                status,
+		Path:                  path,
+		ExpectedEffect:        model.LastMutation.ExpectedEffect,
+		PreviousVersion:       model.LastMutation.PreviousVersion,
+		NewVersion:            model.LastMutation.NewVersion,
+		PreviousExists:        model.LastMutation.PreviousExists,
+		BytesWritten:          model.LastMutation.BytesWritten,
+		ReplacementCount:      model.LastMutation.ReplacementCount,
+		ResolvedPathAvailable: model.LastMutation.ResolvedPathAvailable,
+		ErrorKind:             string(model.LastMutation.Error.Kind),
+		ErrorMessage:          model.LastMutation.Error.Message,
+		Decision:              decisionView(model.LastMutation.Decision),
+	}
+}
+
 func fetchView(model runtime.Model) *tui.FetchView {
 	if model.ActiveOperation.Kind == runtime.OperationFetch && model.Status == runtime.StatusActive {
 		request := model.ActiveFetch
@@ -463,6 +532,18 @@ func defaultString(value string, fallback string) string {
 	return value
 }
 
+const fakeApprovalWriteProposalID = "fake-approval-write-001"
+
+var fakeApprovalWriteOverride struct {
+	path    string
+	content string
+}
+
+func configureFakeApprovalWrite(path string, content string) {
+	fakeApprovalWriteOverride.path = path
+	fakeApprovalWriteOverride.content = content
+}
+
 func fakeApprovalProposal() runtime.ApprovalProposal {
 	return runtime.ApprovalProposal{
 		ID:             "fake-approval-001",
@@ -480,4 +561,51 @@ func fakeApprovalProposal() runtime.ApprovalProposal {
 		RunID:          "run-fake-approval",
 		Capability:     "m25-fixture",
 	}
+}
+
+func fakeApprovalWriteProposal() runtime.ApprovalProposal {
+	path := fakeApprovalWritePath()
+	return runtime.ApprovalProposal{
+		ID:             fakeApprovalWriteProposalID,
+		OperationKind:  "mutation",
+		Target:         path,
+		RiskSummary:    "Will create a workspace file through the explicit write mutation effect.",
+		Preview:        []string{"write requested by fake PTY approval path", "approval dispatches an app-owned write effect"},
+		DefaultAction:  runtime.ApprovalActionDeny,
+		Path:           path,
+		Command:        []string{"write", path},
+		WorkingDir:     ".",
+		ExpectedEffect: "create fake approval write target through explicit mutation effect",
+		DiffPreview:    []string{"--- " + path, "+++ " + path, "@@", "+" + strings.TrimRight(fakeApprovalWriteContent(), "\n")},
+		Reversible:     false,
+		RunID:          "run-fake-approval-write",
+		Capability:     "m27-pty",
+	}
+}
+
+func fakeApprovalWriteRequest() runtime.MutationToolRequest {
+	return runtime.MutationToolRequest{
+		Path:           fakeApprovalWritePath(),
+		TargetVersion:  "missing",
+		Content:        fakeApprovalWriteContent(),
+		ExpectedEffect: "create fake approval write target through explicit mutation effect",
+		Source: runtime.MutationSourceMetadata{
+			Caller:    "m27-pty",
+			RequestID: "fake-approval-write",
+		},
+	}
+}
+
+func fakeApprovalWritePath() string {
+	if value := strings.TrimSpace(fakeApprovalWriteOverride.path); value != "" {
+		return value
+	}
+	return "internal/fake-approval-write.txt"
+}
+
+func fakeApprovalWriteContent() string {
+	if fakeApprovalWriteOverride.content != "" {
+		return fakeApprovalWriteOverride.content
+	}
+	return "approved write\n"
 }

@@ -42,6 +42,7 @@ type ViewState struct {
 	ApprovalDecision   *ApprovalDecisionView
 	Command            *CommandView
 	Fetch              *FetchView
+	Mutation           *MutationView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -174,6 +175,7 @@ func contentItems(state ViewState) []string {
 		items = append(items, searchLines(state.Search)...)
 		items = append(items, commandLines(state.Command)...)
 		items = append(items, fetchLines(state.Fetch)...)
+		items = append(items, mutationLines(state.Mutation)...)
 		items = append(items, memoryLines(state)...)
 		items = append(items, queueLines(state)...)
 		items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
@@ -187,6 +189,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, searchLines(state.Search)...)
 	items = append(items, commandLines(state.Command)...)
 	items = append(items, fetchLines(state.Fetch)...)
+	items = append(items, mutationLines(state.Mutation)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
@@ -431,6 +434,55 @@ func commandLines(command *CommandView) []string {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
 	lines = appendDecisionLines(lines, semantic.Decision)
+	lines = append(lines, "")
+	return lines
+}
+
+func mutationLines(mutation *MutationView) []string {
+	if mutation == nil {
+		return nil
+	}
+	semantic := semanticMutation(mutation)
+	lines := []string{
+		"  Mutation result:",
+		"  path: " + semantic.Path,
+		"  status: " + semantic.Status,
+		"  tool: " + semantic.Name,
+		"  completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.ErrorKind)
+	}
+	lines = append(lines,
+		"  previous exists: "+boolLabel(semantic.PreviousExists),
+		fmt.Sprintf("  bytes written: %d", semantic.BytesWritten),
+	)
+	if semantic.Decision != nil {
+		lines = append(lines,
+			"  decision source: "+semantic.Decision.Source,
+			"  approval required: "+boolLabel(semantic.Decision.ApprovalRequired),
+			"  operation: "+semantic.Decision.OperationKind,
+			"  autonomy: "+semantic.Decision.Autonomy,
+		)
+		if semantic.Decision.Name != "" {
+			lines = append(lines, "  decision tool: "+semantic.Decision.Name)
+		}
+	}
+	if semantic.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.PreviousVersion != "" {
+		lines = append(lines, "  previous version: "+semantic.PreviousVersion)
+	}
+	if semantic.NewVersion != "" {
+		lines = append(lines, "  new version: "+semantic.NewVersion)
+	}
+	if semantic.ReplacementCount > 0 {
+		lines = append(lines, fmt.Sprintf("  replacements: %d", semantic.ReplacementCount))
+	}
+	if semantic.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.ErrorMessage)
+	}
 	lines = append(lines, "")
 	return lines
 }
@@ -750,6 +802,7 @@ type SemanticSnapshot struct {
 	Search      *SemanticSearch      `json:"search_tool,omitempty"`
 	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
 	Fetch       *SemanticFetch       `json:"fetch_tool,omitempty"`
+	Mutation    *SemanticMutation    `json:"mutation_tool,omitempty"`
 	Approval    *SemanticApproval    `json:"approval,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
@@ -869,6 +922,24 @@ type SemanticFetch struct {
 	ErrorMessage      string            `json:"error_message,omitempty"`
 	Decision          *SemanticDecision `json:"decision,omitempty"`
 	Completed         bool              `json:"completed"`
+}
+
+// SemanticMutation describes injected edit/write state for snapshots.
+type SemanticMutation struct {
+	Name                  string            `json:"tool_name"`
+	Status                string            `json:"status"`
+	Path                  string            `json:"path"`
+	ExpectedEffect        string            `json:"expected_effect,omitempty"`
+	PreviousVersion       string            `json:"previous_version,omitempty"`
+	NewVersion            string            `json:"new_version,omitempty"`
+	PreviousExists        bool              `json:"previous_exists"`
+	BytesWritten          int               `json:"bytes_written"`
+	ReplacementCount      int               `json:"replacement_count,omitempty"`
+	ResolvedPathAvailable bool              `json:"resolved_path_available"`
+	ErrorKind             string            `json:"error_kind,omitempty"`
+	ErrorMessage          string            `json:"error_message,omitempty"`
+	Decision              *SemanticDecision `json:"decision,omitempty"`
+	Completed             bool              `json:"completed"`
 }
 
 // SemanticDecision describes app-injected autonomy decision evidence.
@@ -1040,6 +1111,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Fetch != nil {
 		regions = append(regions, SemanticRegion{Name: "fetch_tool", Visible: true, Items: semanticFetchItems(state.Fetch)})
 	}
+	if state.Mutation != nil {
+		regions = append(regions, SemanticRegion{Name: "mutation_tool", Visible: true, Items: semanticMutationItems(state.Mutation)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -1117,6 +1191,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Search:      semanticSearch(state.Search),
 		Bash:        semanticBash(state.Command),
 		Fetch:       semanticFetch(state.Fetch),
+		Mutation:    semanticMutation(state.Mutation),
 		Approval:    semanticApproval(state.Approval),
 		Regions:     regions,
 		Actions:     actions,
@@ -1667,6 +1742,69 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticMutationItems(mutation *MutationView) []string {
+	semantic := semanticMutation(mutation)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"tool_name: " + semantic.Name,
+		"status: " + semantic.Status,
+		"path: " + semantic.Path,
+		"completed: " + boolLabel(semantic.Completed),
+		"previous_exists: " + boolLabel(semantic.PreviousExists),
+		fmt.Sprintf("bytes_written: %d", semantic.BytesWritten),
+	}
+	if semantic.ExpectedEffect != "" {
+		items = append(items, "expected_effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.PreviousVersion != "" {
+		items = append(items, "previous_version: "+semantic.PreviousVersion)
+	}
+	if semantic.NewVersion != "" {
+		items = append(items, "new_version: "+semantic.NewVersion)
+	}
+	if semantic.ReplacementCount > 0 {
+		items = append(items, fmt.Sprintf("replacement_count: %d", semantic.ReplacementCount))
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = appendDecisionItems(items, semantic.Decision)
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticMutation(mutation *MutationView) *SemanticMutation {
+	if mutation == nil {
+		return nil
+	}
+	status := safeText(mutation.Status)
+	if status == "" {
+		status = "completed"
+	}
+	completed := status == "completed" || status == "failed" || status == "denied"
+	return &SemanticMutation{
+		Name:                  safeText(mutation.Name),
+		Status:                status,
+		Path:                  safeDecisionTarget(mutation.Path),
+		ExpectedEffect:        safeText(mutation.ExpectedEffect),
+		PreviousVersion:       safeText(mutation.PreviousVersion),
+		NewVersion:            safeText(mutation.NewVersion),
+		PreviousExists:        mutation.PreviousExists,
+		BytesWritten:          mutation.BytesWritten,
+		ReplacementCount:      mutation.ReplacementCount,
+		ResolvedPathAvailable: mutation.ResolvedPathAvailable,
+		ErrorKind:             safeText(mutation.ErrorKind),
+		ErrorMessage:          safeText(mutation.ErrorMessage),
+		Decision:              semanticDecision(mutation.Decision),
+		Completed:             completed,
+	}
 }
 
 func semanticFetchItems(fetch *FetchView) []string {
@@ -2350,6 +2488,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Command != nil {
 		items = append(items, semanticBashItems(state.Command)...)
+	}
+	if state.Mutation != nil {
+		items = append(items, semanticMutationItems(state.Mutation)...)
 	}
 	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
 	return items

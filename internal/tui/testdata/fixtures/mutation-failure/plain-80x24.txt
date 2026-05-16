@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto wri~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: placeholder                                                   |
+| utility model: placeholder                                                   |
+| autonomy: write (display-only)                                               |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| status source: runtime.dispatch                                              |
+| detail: mutation tool dispatch                                               |
+| active: false                                                                |
+| result: edit internal/demo.txt failed: target_version_mismatch               |
+|                                                                              |
+| Mutation result:                                                             |
+| path: internal/demo.txt                                                      |
+| status: failed                                                               |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit

@@ -1196,3 +1196,81 @@ func TestUpdateIgnoresStaleApprovalDecisionWithoutMutationEffects(t *testing.T) 
 		t.Fatalf("stale approval state = %+v", updated)
 	}
 }
+
+func TestUpdateHandlesMutationToolProposalsDeterministically(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		message  Message
+		wantKind OperationKind
+		wantTool MutationToolName
+		wantText string
+		effectOK func(Effect) bool
+	}{
+		{
+			name:     "edit",
+			message:  EditToolProposed{Request: MutationToolRequest{Path: "notes.txt", TargetVersion: "sha256:old", OldText: "old", NewText: "new", ExpectedEffect: "replace text", Source: MutationSourceMetadata{Caller: "test"}}},
+			wantKind: OperationEdit,
+			wantTool: MutationToolEdit,
+			wantText: "edit notes.txt",
+			effectOK: func(effect Effect) bool { _, ok := effect.(EditToolEffect); return ok },
+		},
+		{
+			name:     "write",
+			message:  WriteToolProposed{Request: MutationToolRequest{Path: "notes.txt", TargetVersion: "missing", Content: "new", ExpectedEffect: "create file", Source: MutationSourceMetadata{Caller: "test"}}},
+			wantKind: OperationWrite,
+			wantTool: MutationToolWrite,
+			wantText: "write notes.txt",
+			effectOK: func(effect Effect) bool { _, ok := effect.(WriteToolEffect); return ok },
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			model := Model{Status: StatusIdle, NextOperation: 8}
+			firstModel, firstEffects := Update(model, tc.message)
+			secondModel, secondEffects := Update(model, tc.message)
+			if !reflect.DeepEqual(firstModel, secondModel) || !reflect.DeepEqual(firstEffects, secondEffects) {
+				t.Fatalf("mutation proposal not deterministic:\nfirst=%+v effects=%+v\nsecond=%+v effects=%+v", firstModel, firstEffects, secondModel, secondEffects)
+			}
+			assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{ID: "op-9", Kind: tc.wantKind, Subject: "notes.txt", Source: "user"})
+			if firstModel.ActiveMutation.ToolName != tc.wantTool || firstModel.ActiveMutation.Path != "notes.txt" {
+				t.Fatalf("ActiveMutation = %+v", firstModel.ActiveMutation)
+			}
+			if got := firstModel.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "tool", Text: tc.wantText}}) {
+				t.Fatalf("Transcript = %#v", got)
+			}
+			if len(firstEffects) != 1 || !tc.effectOK(firstEffects[0]) {
+				t.Fatalf("effects = %#v", firstEffects)
+			}
+			assertOperationMetadata(t, firstEffects[0].Metadata(), firstModel.ActiveOperation)
+		})
+	}
+}
+
+func TestUpdateHandlesMutationToolResultMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-2", Kind: OperationWrite, Subject: "notes.txt", Source: "user"}
+	model := Model{Status: StatusActive, NextOperation: 2, ActiveOperation: operation, ActiveMutation: MutationToolRequest{ToolName: MutationToolWrite, Path: "notes.txt"}}
+	result := MutationToolResult{ToolName: "write", RequestedPath: "notes.txt", WorkspaceRelativePath: "notes.txt", Status: "completed", PreviousVersion: "missing", NewVersion: "sha256:new", BytesWritten: 5}
+	completed, effects := Update(model, MutationToolCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 || completed.Status != StatusIdle || completed.Result != "write notes.txt: completed 5 bytes" {
+		t.Fatalf("completed mutation = %+v effects=%v", completed, effects)
+	}
+	if completed.ActiveMutation != (MutationToolRequest{}) || !reflect.DeepEqual(completed.LastMutation, result) || completed.ActiveOperation != (OperationMetadata{}) {
+		t.Fatalf("mutation state = active %+v last %+v op %+v", completed.ActiveMutation, completed.LastMutation, completed.ActiveOperation)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got != (TranscriptEntry{Kind: "result", Text: "write notes.txt: completed 5 bytes"}) {
+		t.Fatalf("transcript = %+v", got)
+	}
+
+	failure := result
+	failure.Error = MutationToolError{Kind: MutationToolErrorTargetVersionMismatch, Message: "target version mismatch"}
+	failed, _ := Update(model, MutationToolCompleted{Operation: operation, Result: failure})
+	if failed.Transcript[len(failed.Transcript)-1].Kind != "failure" || !strings.Contains(failed.Result, "target_version_mismatch") {
+		t.Fatalf("failed mutation = %+v", failed)
+	}
+}

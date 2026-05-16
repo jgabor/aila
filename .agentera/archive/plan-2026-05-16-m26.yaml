@@ -1,0 +1,161 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M26-only; mutation tool execution, temp-workspace editing, history/undo, and M27+ behavior remain
+    deferred
+  title: Milestone 26 Write Permission Classes
+what: Deliver ROADMAP.md Milestone 26 by making write-shaped permission classes testable before mutation tools are live. The
+  slice must map generic proposals onto edit, write, and mutating shell classes, enforce off/read/write/yolo autonomy decisions,
+  and record automatic plus manual decision evidence without executing file mutations.
+why: M25 made risky proposals visible and message-only. M26 gives those proposals real policy semantics so later edit/write
+  tools can reuse tested autonomy decisions instead of inventing permission behavior at mutation time.
+constraints: Execute only Milestone 26. Preserve statechart-MVU and explicit effects. Permission code may classify and record
+  decisions, but no approval or autonomy path may execute filesystem, shell, git, state-store, or mutation IO. Do not add
+  edit/write tool executors, temp-workspace mutation, recheck execution, durable approval persistence, mutation history, undo/replay,
+  provider fallback, context compaction, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted
+  control plane behavior, or Milestone 27+ scope. Do not push.
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m25.yaml
+source_anchors:
+- ROADMAP.md:1146-1168
+- ARCHITECTURE.md:451-523
+- docs/workflow-architecture.md:564-576
+- docs/tui-testing.md:69-77
+- README.md:181-188
+- docs/notes/PROMPT.md:1-39
+verification_commands:
+- go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/permission internal/runtime internal/app
+  internal/tui cmd/aila
+- git diff --check --no-index /dev/null <each new M26 fixture file>
+scope:
+  included:
+  - Permission constructors/classification for edit, write, and mutating shell proposals using exact target, command, diff
+    preview, expected effect, reversibility, run id, and capability fields.
+  - Autonomy decisions for off/read/write/yolo over read, mutation, and exec classes, including automatic decisions and approval-required
+    records without execution.
+  - Manual approval decision record support that can record approved, denied, and deferred outcomes against exact proposal
+    data without executing mutations.
+  - TUI fixture/semantic evidence for write/yolo decisions and approval requirement/source/autonomy visibility using injected
+    decision metadata.
+  - PTY smoke only if terminal-visible autonomy or approval behavior changes; otherwise an explicit skip/regression test.
+  excluded:
+  - Edit/write tool execution, file mutation, mutating shell execution, temp workspace mutation, recheck-before-execution,
+    durable approval persistence, history/undo/replay, live provider calls, provider fallback, context compaction, source
+    indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control planes, or Milestone 27+ behavior.
+  deferred:
+  - Actual edit/write tools in temp workspaces, mutation result messages, recheck immediately before execution, mutation history,
+    undo metadata, and durable approval records.
+design: Keep permission policy pure and copy-based. Extend ProposedOperation helpers and Decide/RecordDecision semantics so
+  write autonomy can allow edit/write/mutating shell classes automatically while read/off require approval and yolo records
+  automatic grants. App/TUI continue to consume copied decision metadata only; fake fixtures prove visibility without creating
+  mutation effects.
+tasks:
+- number: 1
+  name: Define write-shaped operation constructors
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN edit, write, and mutating shell proposal helpers are used WHEN tests inspect the operations THEN kind, tool, target
+    path, target version, command, working directory, expected effect, diff preview, reversibility, run id, and capability
+    are copied and explicit.
+  - GIVEN callers mutate source slices or strings after construction WHEN records are inspected THEN command data remains
+    isolated and no execution handles are present.
+  - GIVEN package boundaries are inspected WHEN write-shaped classes exist THEN no tool executor, temp-workspace mutation,
+    state-store write, shell execution, or M27+ behavior is introduced.
+  evidence:
+  - internal/permission.NewEditOperation, NewWriteOperation, and NewMutatingBashOperation classify write-shaped proposals
+    as mutation/exec without execution handles.
+  - TestWriteShapedOperationConstructorsPreserveEvidence proves target/version/diff/effect/reversibility metadata and command
+    slice isolation.
+- number: 2
+  name: Enforce autonomy decisions for write classes
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN off/read/write/yolo levels are evaluated against read, edit, write, and mutating shell proposals WHEN permission
+    tests run THEN each level allows, denies, or requires approval according to README/ARCHITECTURE autonomy semantics.
+  - GIVEN write autonomy sees edit/write/mutating shell proposals WHEN DecideRecord runs THEN allowed automatic decision evidence
+    is recorded without execution.
+  - GIVEN read autonomy sees mutation or exec proposals WHEN DecideRecord runs THEN approval-required or denied evidence is
+    recorded without fabricating execution.
+  evidence:
+  - Decide now evaluates off/read/write/yolo across read, mutation, and exec classes while rejecting unclassified kinds.
+  - TestDecideAutonomyMatrixForWriteShapedOperations proves allow/deny/approval-required behavior for each autonomy level
+    and operation class.
+- number: 3
+  name: Record manual decisions against exact proposals
+  depends_on:
+  - 1
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN an approval, denial, or defer action is recorded for a write-shaped proposal WHEN tests inspect the record THEN
+    source, allowed, automatic=false, approval_required, reason, operation fields, and action provenance are copied exactly.
+  - GIVEN manual approval records are produced WHEN mutation executors are absent THEN no runtime effects or tool execution
+    paths are introduced.
+  - GIVEN stale or invalid manual actions are supplied WHEN records are created THEN they remain denied/deferred evidence
+    rather than permission to mutate.
+  evidence:
+  - RecordManualDecision records approve/deny/defer with source=manual_approval, automatic=false, copied operation evidence,
+    and no effects.
+  - TestManualDecisionRecordCopiesExactProposalWithoutExecuting and TestManualDecisionRecordUsesExplicitReason prove action
+    normalization, reasons, approval_required semantics, and command copy isolation.
+- number: 4
+  name: Expose write/yolo decision evidence in TUI fixtures
+  depends_on:
+  - 2
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN write/yolo decision fixtures are rendered WHEN snapshot tests run THEN autonomy, decision source, approval requirement,
+    operation kind, tool, target, command/diff metadata, and automatic/manual state are visible and semantic.
+  - GIVEN autonomy fixtures are updated WHEN render/semantic snapshots are inspected THEN they do not imply mutation execution
+    or selectable autonomy controls beyond current product behavior.
+  - GIVEN PTY smoke is considered WHEN no terminal-visible interaction changed THEN a regression test documents the skip;
+    otherwise smoke covers the changed behavior.
+  evidence:
+  - write-permission-decision and yolo-permission-decision fixtures render proposed write-shaped bash policy evidence with
+    completed=false.
+  - Semantic snapshots expose autonomy, decision source, approval_required=false, operation kind, command, expected effect,
+    run id, capability, and display-only regions without mutation execution.
+  - TestM26WritePermissionInputsDoNotSwitchAutonomyOrExecute documents that typed autonomy/approval phrases do not create
+    terminal-visible switching or execute mutations.
+- number: 5
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: completed
+  acceptance:
+  - GIVEN M26 implementation is complete WHEN targeted permission/runtime/app/TUI/cmd tests run THEN write-class policy and
+    decision visibility pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M26 as complete and M27
+    as next.
+  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs,
+    fixtures/snapshots, update/keybinding tests, PTY smoke or skip reason, architecture checklist, verification commands,
+    and roadmap status.
+  evidence:
+  - go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1 passed.
+  - go test ./internal/... -count=1 passed.
+  - mage check passed with 0 lint issues and no vulnerabilities.
+  - ROADMAP.md, Agentera plan/progress, tracked diff whitespace, new fixture whitespace, and Agentera CLI plan/progress validation
+    were completed during closeout.
+complete: 5
+total: 5
+active: false
+complete_plan: true
+overall_acceptance:
+- Edit, write, and mutating shell proposals have pure permission classifications with exact copied proposal metadata.
+- off/read/write/yolo decisions are enforced and recorded for read, mutation, and exec classes without executing mutations.
+- Automatic and manual decisions are observable in record data and TUI semantic snapshots.
+- No file mutation, shell mutation, state persistence, history/undo, edit/write tools, or M27+ behavior is introduced.
+surprises:
+- CommandView semantic completion needed to treat proposed/denied command states as not completed so write-permission fixtures
+  could show decision evidence without exit-code execution evidence.

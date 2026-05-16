@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"go/parser"
 	"go/token"
@@ -771,6 +773,25 @@ func writeAppTestFile(t *testing.T, root string, rel string, content string) {
 	}
 }
 
+func readAppTestFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(content)
+}
+
+func appTestFileVersion(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(content)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
 type appFakeFetchClient struct {
 	response *http.Response
 	err      error
@@ -888,5 +909,116 @@ func TestFetchToolProposalSurfacesNetworkFailureWithoutProviderFallback(t *testi
 	}
 	if len(runner.model.Diagnostics) != 0 {
 		t.Fatalf("network fetch diagnostics = %#v, want no workflow or recovery mutation", runner.model.Diagnostics)
+	}
+}
+
+func TestWriteToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite))
+	turn := runner.proposeWriteTool(runtime.MutationToolRequest{Path: "notes.txt", TargetVersion: "missing", Content: "hello\n", ExpectedEffect: "create notes", Source: runtime.MutationSourceMetadata{Caller: "test", RequestID: "write-1"}})
+	if turn.Mutation == nil || turn.Mutation.Status != "completed" || turn.Mutation.Name != "write" || turn.Mutation.Path != "notes.txt" || turn.Mutation.BytesWritten != len("hello\n") || turn.Mutation.PreviousExists {
+		t.Fatalf("mutation view = %+v", turn.Mutation)
+	}
+	if got := readAppTestFile(t, filepath.Join(workspace, "notes.txt")); got != "hello\n" {
+		t.Fatalf("written file = %q", got)
+	}
+	if got := runner.model.LastMutation; got.ToolName != "write" || got.WorkspaceRelativePath != "notes.txt" || (got.Error.Kind != "" && got.Error.Kind != runtime.MutationToolErrorNone) || got.PreviousVersion != "missing" || got.NewVersion == "" {
+		t.Fatalf("last mutation = %+v", got)
+	}
+	assertMutationDecision(t, runner.model.LastMutation.Decision, string(permission.AutonomyWrite), "write", "notes.txt", true)
+}
+
+func TestEditToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	path := filepath.Join(workspace, "notes.txt")
+	writeAppTestFile(t, workspace, "notes.txt", "alpha\nbeta\n")
+	version := appTestFileVersion(t, path)
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite))
+	turn := runner.proposeEditTool(runtime.MutationToolRequest{Path: "notes.txt", TargetVersion: version, OldText: "beta", NewText: "gamma", ExpectedEffect: "replace beta", Source: runtime.MutationSourceMetadata{Caller: "test", RequestID: "edit-1"}})
+	if turn.Mutation == nil || turn.Mutation.Status != "completed" || turn.Mutation.Name != "edit" || turn.Mutation.ReplacementCount != 1 || turn.Mutation.BytesWritten != len("alpha\ngamma\n") {
+		t.Fatalf("edit view = %+v", turn.Mutation)
+	}
+	if got := readAppTestFile(t, path); got != "alpha\ngamma\n" {
+		t.Fatalf("edited file = %q", got)
+	}
+	assertMutationDecision(t, runner.model.LastMutation.Decision, string(permission.AutonomyWrite), "edit", "notes.txt", true)
+}
+
+func TestWriteToolProposalDeniedDoesNotMutate(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyRead))
+	turn := runner.proposeWriteTool(runtime.MutationToolRequest{Path: "notes.txt", TargetVersion: "missing", Content: "hello\n", ExpectedEffect: "create notes"})
+	if turn.Mutation == nil || turn.Mutation.Status != "denied" || turn.Mutation.ErrorKind != string(runtime.MutationToolErrorPermission) || !strings.Contains(turn.AssistantText, "read autonomy") {
+		t.Fatalf("denied mutation turn = %+v view=%+v", turn, turn.Mutation)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "notes.txt")); !os.IsNotExist(err) {
+		t.Fatalf("denied write created file: %v", err)
+	}
+	assertMutationDecision(t, runner.model.LastMutation.Decision, string(permission.AutonomyRead), "write", "notes.txt", false)
+}
+
+func TestWriteToolProposalVersionMismatchDoesNotMutate(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "original")
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite))
+	turn := runner.proposeWriteTool(runtime.MutationToolRequest{Path: "notes.txt", TargetVersion: "missing", Content: "changed", ExpectedEffect: "replace notes"})
+	if turn.Mutation == nil || turn.Mutation.Status != "failed" || turn.Mutation.ErrorKind != string(runtime.MutationToolErrorTargetVersionMismatch) {
+		t.Fatalf("version mismatch view = %+v", turn.Mutation)
+	}
+	if got := readAppTestFile(t, filepath.Join(workspace, "notes.txt")); got != "original" {
+		t.Fatalf("version mismatch mutated file: %q", got)
+	}
+}
+
+func TestFakeApprovalWriteDecisionRunsExplicitMutationEffect(t *testing.T) {
+	workspace := t.TempDir()
+	configureFakeApprovalWrite("internal/fake-approval-write.txt", "approved from approval\n")
+	t.Cleanup(func() { configureFakeApprovalWrite("", "") })
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite))
+
+	_ = runner.proposeApproval(fakeApprovalWriteProposal())
+	turn := runner.decideApproval(tui.ApprovalDecisionInput{ProposalID: fakeApprovalWriteProposalID, Action: string(runtime.ApprovalActionApprove)})
+
+	if turn.Mutation == nil || turn.Mutation.Name != "write" || turn.Mutation.Status != "completed" || turn.Mutation.Path != "internal/fake-approval-write.txt" {
+		t.Fatalf("approval write turn = %+v mutation=%+v", turn, turn.Mutation)
+	}
+	if turn.ApprovalDecision == nil || turn.ApprovalDecision.ProposalID != fakeApprovalWriteProposalID || turn.ApprovalDecision.Action != string(runtime.ApprovalActionApprove) {
+		t.Fatalf("approval decision view = %+v", turn.ApprovalDecision)
+	}
+	if got := readAppTestFile(t, filepath.Join(workspace, "internal", "fake-approval-write.txt")); got != "approved from approval\n" {
+		t.Fatalf("approval write content = %q", got)
+	}
+	assertMutationDecision(t, runner.model.LastMutation.Decision, string(permission.AutonomyWrite), "write", "internal/fake-approval-write.txt", true)
+}
+
+func TestFakeApprovalWriteDenialDoesNotMutate(t *testing.T) {
+	workspace := t.TempDir()
+	configureFakeApprovalWrite("internal/fake-approval-write.txt", "")
+	t.Cleanup(func() { configureFakeApprovalWrite("", "") })
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyWrite))
+
+	_ = runner.proposeApproval(fakeApprovalWriteProposal())
+	turn := runner.decideApproval(tui.ApprovalDecisionInput{ProposalID: fakeApprovalWriteProposalID, Action: string(runtime.ApprovalActionDeny)})
+
+	if turn.Mutation != nil || turn.ApprovalDecision == nil || turn.ApprovalDecision.Action != string(runtime.ApprovalActionDeny) {
+		t.Fatalf("denied approval write turn = %+v", turn)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "internal", "fake-approval-write.txt")); !os.IsNotExist(err) {
+		t.Fatalf("denied approval write created file: %v", err)
+	}
+}
+
+func assertMutationDecision(t *testing.T, decision runtime.ToolDecision, autonomy string, tool string, target string, allowed bool) {
+	t.Helper()
+	if !decision.Present || decision.Autonomy != autonomy || decision.Source != "autonomy_policy" || decision.Allowed != allowed || decision.Automatic != allowed || decision.OperationKind != string(permission.OperationMutation) || decision.Tool != tool || decision.Target != target || decision.ExpectedEffect == "" {
+		t.Fatalf("mutation decision = %+v", decision)
 	}
 }

@@ -47,6 +47,7 @@ type TranscriptTurn struct {
 	Search             *SearchView
 	Command            *CommandView
 	Fetch              *FetchView
+	Mutation           *MutationView
 	Approval           *ApprovalProposalView
 	ApprovalDecision   *ApprovalDecisionView
 }
@@ -168,6 +169,24 @@ type CommandView struct {
 	ErrorKind       string
 	ErrorMessage    string
 	Decision        *DecisionView
+}
+
+// MutationView is app-injected edit/write presentation data. It is display-only;
+// TUI code must never validate paths or mutate workspace files itself.
+type MutationView struct {
+	Name                  string
+	Status                string
+	Path                  string
+	ExpectedEffect        string
+	PreviousVersion       string
+	NewVersion            string
+	PreviousExists        bool
+	BytesWritten          int
+	ReplacementCount      int
+	ResolvedPathAvailable bool
+	ErrorKind             string
+	ErrorMessage          string
+	Decision              *DecisionView
 }
 
 // FetchView is app-injected network read presentation data. It is display-only;
@@ -426,6 +445,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
 	state.Fetch = cloneFetchView(turn.Fetch)
+	state.Mutation = cloneMutationView(turn.Mutation)
 	state.Approval = cloneApprovalProposalView(turn.Approval)
 	state.ApprovalDecision = cloneApprovalDecisionView(turn.ApprovalDecision)
 	return state
@@ -479,6 +499,15 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
 	clone.Decision = cloneDecisionView(command.Decision)
+	return &clone
+}
+
+func cloneMutationView(mutation *MutationView) *MutationView {
+	if mutation == nil {
+		return nil
+	}
+	clone := *mutation
+	clone.Decision = cloneDecisionView(mutation.Decision)
 	return &clone
 }
 

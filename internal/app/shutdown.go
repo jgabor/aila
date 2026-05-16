@@ -109,6 +109,10 @@ func readDispatchContextWithFetchClient(ctx context.Context, workspacePath strin
 				messages = append(messages, dispatchBashEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			case runtime.FetchToolEffect:
 				messages = append(messages, dispatchFetchEffect(ctx, permission.AutonomyLevel(autonomyLevel), typed, fetchClient))
+			case runtime.EditToolEffect:
+				messages = append(messages, dispatchEditEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			case runtime.WriteToolEffect:
+				messages = append(messages, dispatchWriteEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			default:
 				messages = append(messages, runtime.DispatchContext(ctx, []runtime.Effect{effect})...)
 			}
@@ -382,6 +386,174 @@ func runtimeBashResult(result tools.BashResult, decision runtime.ToolDecision) r
 		Source:   runtime.BashSourceMetadata(result.Source),
 		Decision: decision,
 	}
+}
+
+func dispatchEditEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.EditToolEffect) runtime.Message {
+	initial := permission.NewEditOperation(effect.Request.Path, effect.Request.TargetVersion, mutationDiffPreview(effect.Request.OldText, effect.Request.NewText), effect.Request.ExpectedEffect)
+	initial.RunID = effect.Operation.ID
+	initial.Capability = effect.Request.Source.Caller
+	decisionRecord := permission.DecideRecord(autonomyLevel, initial)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:       tools.EditToolName,
+			RequestedPath:  effect.Request.Path,
+			Status:         "denied",
+			ExpectedEffect: effect.Request.ExpectedEffect,
+			Error: runtime.MutationToolError{
+				Kind:    runtime.MutationToolErrorPermission,
+				Message: decisionRecord.Reason,
+			},
+			Source:   effect.Request.Source,
+			Decision: decision,
+		}}
+	}
+
+	validated, editErr := tools.ValidateEditRequest(workspacePath, tools.EditRequest{
+		Path:           effect.Request.Path,
+		TargetVersion:  effect.Request.TargetVersion,
+		OldText:        effect.Request.OldText,
+		NewText:        effect.Request.NewText,
+		ExpectedEffect: effect.Request.ExpectedEffect,
+		Source:         tools.MutationSourceMetadata(effect.Request.Source),
+	})
+	if editErr.Kind != "" {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:       tools.EditToolName,
+			RequestedPath:  effect.Request.Path,
+			Status:         "failed",
+			ExpectedEffect: effect.Request.ExpectedEffect,
+			Error:          runtime.MutationToolError{Kind: runtime.MutationToolErrorKind(editErr.Kind), Message: editErr.Message},
+			Source:         effect.Request.Source,
+			Decision:       decision,
+		}}
+	}
+
+	recheckOperation := permission.NewEditOperation(validated.WorkspaceRelativePath, validated.TargetVersion, mutationDiffPreview(validated.OldText, validated.NewText), validated.ExpectedEffect)
+	recheckOperation.RunID = effect.Operation.ID
+	recheckOperation.Capability = effect.Request.Source.Caller
+	recheckRecord := permission.DecideRecord(autonomyLevel, recheckOperation)
+	decision = runtimeToolDecision(recheckRecord)
+	if !recheckRecord.Allowed {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:              tools.EditToolName,
+			RequestedPath:         effect.Request.Path,
+			WorkspaceRelativePath: validated.WorkspaceRelativePath,
+			ResolvedPath:          validated.ResolvedPath,
+			ResolvedPathAvailable: true,
+			Status:                "denied",
+			ExpectedEffect:        validated.ExpectedEffect,
+			Error:                 runtime.MutationToolError{Kind: runtime.MutationToolErrorPermission, Message: recheckRecord.Reason},
+			Source:                effect.Request.Source,
+			Decision:              decision,
+		}}
+	}
+
+	result := tools.ExecuteEdit(ctx, validated)
+	return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtimeMutationResult(effect.Request.Path, result, decision)}
+}
+
+func dispatchWriteEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.WriteToolEffect) runtime.Message {
+	initial := permission.NewWriteOperation(effect.Request.Path, effect.Request.TargetVersion, mutationWritePreview(effect.Request.Content), effect.Request.ExpectedEffect)
+	initial.RunID = effect.Operation.ID
+	initial.Capability = effect.Request.Source.Caller
+	decisionRecord := permission.DecideRecord(autonomyLevel, initial)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:       tools.WriteToolName,
+			RequestedPath:  effect.Request.Path,
+			Status:         "denied",
+			ExpectedEffect: effect.Request.ExpectedEffect,
+			Error: runtime.MutationToolError{
+				Kind:    runtime.MutationToolErrorPermission,
+				Message: decisionRecord.Reason,
+			},
+			Source:   effect.Request.Source,
+			Decision: decision,
+		}}
+	}
+
+	validated, writeErr := tools.ValidateWriteRequest(workspacePath, tools.WriteRequest{
+		Path:           effect.Request.Path,
+		TargetVersion:  effect.Request.TargetVersion,
+		Content:        effect.Request.Content,
+		ExpectedEffect: effect.Request.ExpectedEffect,
+		Source:         tools.MutationSourceMetadata(effect.Request.Source),
+	})
+	if writeErr.Kind != "" {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:       tools.WriteToolName,
+			RequestedPath:  effect.Request.Path,
+			Status:         "failed",
+			ExpectedEffect: effect.Request.ExpectedEffect,
+			Error:          runtime.MutationToolError{Kind: runtime.MutationToolErrorKind(writeErr.Kind), Message: writeErr.Message},
+			Source:         effect.Request.Source,
+			Decision:       decision,
+		}}
+	}
+
+	recheckOperation := permission.NewWriteOperation(validated.WorkspaceRelativePath, validated.TargetVersion, mutationWritePreview(validated.Content), validated.ExpectedEffect)
+	recheckOperation.RunID = effect.Operation.ID
+	recheckOperation.Capability = effect.Request.Source.Caller
+	recheckRecord := permission.DecideRecord(autonomyLevel, recheckOperation)
+	decision = runtimeToolDecision(recheckRecord)
+	if !recheckRecord.Allowed {
+		return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtime.MutationToolResult{
+			ToolName:              tools.WriteToolName,
+			RequestedPath:         effect.Request.Path,
+			WorkspaceRelativePath: validated.WorkspaceRelativePath,
+			ResolvedPath:          validated.ResolvedPath,
+			ResolvedPathAvailable: true,
+			Status:                "denied",
+			ExpectedEffect:        validated.ExpectedEffect,
+			Error:                 runtime.MutationToolError{Kind: runtime.MutationToolErrorPermission, Message: recheckRecord.Reason},
+			Source:                effect.Request.Source,
+			Decision:              decision,
+		}}
+	}
+
+	result := tools.ExecuteWrite(ctx, validated)
+	return runtime.MutationToolCompleted{Operation: effect.Operation, Result: runtimeMutationResult(effect.Request.Path, result, decision)}
+}
+
+func runtimeMutationResult(requestedPath string, result tools.MutationResult, decision runtime.ToolDecision) runtime.MutationToolResult {
+	return runtime.MutationToolResult{
+		ToolName:              result.ToolName,
+		RequestedPath:         requestedPath,
+		WorkspaceRelativePath: result.WorkspaceRelativePath,
+		ResolvedPath:          result.ResolvedPath,
+		ResolvedPathAvailable: result.ResolvedPathAvailable,
+		Status:                result.Status,
+		ExpectedEffect:        result.ExpectedEffect,
+		PreviousVersion:       result.PreviousVersion,
+		NewVersion:            result.NewVersion,
+		PreviousExists:        result.PreviousExists,
+		BytesWritten:          result.BytesWritten,
+		ReplacementCount:      result.ReplacementCount,
+		Error: runtime.MutationToolError{
+			Kind:    runtime.MutationToolErrorKind(result.Error.Kind),
+			Message: result.Error.Message,
+		},
+		Source:   runtime.MutationSourceMetadata(result.Source),
+		Decision: decision,
+	}
+}
+
+func mutationDiffPreview(oldText string, newText string) string {
+	oldLine := strings.TrimRight(oldText, "\r\n")
+	newLine := strings.TrimRight(newText, "\r\n")
+	if len(oldLine) > 120 {
+		oldLine = oldLine[:120] + "..."
+	}
+	if len(newLine) > 120 {
+		newLine = newLine[:120] + "..."
+	}
+	return "-" + oldLine + "\n+" + newLine
+}
+
+func mutationWritePreview(content string) string {
+	return fmt.Sprintf("write %d bytes", len([]byte(content)))
 }
 
 func dispatchFetchEffect(ctx context.Context, autonomyLevel permission.AutonomyLevel, effect runtime.FetchToolEffect, fetchClient tools.FetchClient) runtime.Message {

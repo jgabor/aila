@@ -1,0 +1,146 @@
+{
+  "scenario": "mutation-failure",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "mutation tool dispatch",
+    "runtime_result": "edit internal/demo.txt failed: target_version_mismatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "write"
+  },
+  "mutation_tool": {
+    "tool_name": "edit",
+    "status": "failed",
+    "path": "internal/demo.txt",
+    "expected_effect": "replace demo text",
+    "previous_exists": false,
+    "bytes_written": 0,
+    "resolved_path_available": true,
+    "error_kind": "target_version_mismatch",
+    "error_message": "target version mismatch: expected sha256:old",
+    "decision": {
+      "autonomy": "write",
+      "source": "autonomy_policy",
+      "allowed": true,
+      "automatic": true,
+      "approval_required": false,
+      "reason": "write autonomy allows classified operation",
+      "operation_kind": "mutation",
+      "tool": "edit",
+      "target": "internal/demo.txt",
+      "expected_effect": "replace demo text",
+      "reversible": true,
+      "run_id": "run-m27-edit",
+      "capability": "m27-fixture"
+    },
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: mutation tool dispatch",
+        "active: false",
+        "result: edit internal/demo.txt failed: target_version_mismatch",
+        "display-only"
+      ]
+    },
+    {
+      "name": "mutation_tool",
+      "visible": true,
+      "items": [
+        "tool_name: edit",
+        "status: failed",
+        "path: internal/demo.txt",
+        "completed: true",
+        "previous_exists: false",
+        "bytes_written: 0",
+        "expected_effect: replace demo text",
+        "error_kind: target_version_mismatch",
+        "error_message: target version mismatch: expected sha256:old",
+        "decision_source: autonomy_policy",
+        "decision: allowed",
+        "decision_automatic: true",
+        "approval_required: false",
+        "decision_autonomy: write",
+        "operation_kind: mutation",
+        "decision_tool: edit",
+        "decision_target: internal/demo.txt",
+        "decision_expected_effect: replace demo text",
+        "decision_reversible: true",
+        "decision_run_id: run-m27-edit",
+        "decision_capability: m27-fixture",
+        "decision_reason: write autonomy allows classified operation",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

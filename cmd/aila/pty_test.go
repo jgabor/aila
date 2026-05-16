@@ -543,6 +543,59 @@ func TestM25ApprovalDecisionPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestApprovalToWriteMutationPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars,
+		"AILA_FAKE_APPROVAL_WRITE=1",
+		"AILA_FAKE_APPROVAL_WRITE_PATH=internal/fake-approval-write.txt",
+		"AILA_FAKE_APPROVAL_WRITE_CONTENT=approved through pty\n",
+	)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithSizeEnvAndWorkspace(t, 160, 45, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	startup := readUntilAll(t, terminal, []string{
+		"Approval pending:",
+		"proposal id: fake-approval-write-001",
+		"operation kind: mutation",
+		"path: internal/fake-approval-write.txt",
+		"choices: a approve | n deny | d defer",
+	}, 20*time.Second)
+	if strings.Contains(startup, "Mutation result:") {
+		t.Fatalf("approval-to-write mutation startup ran mutation before approval: %q", startup)
+	}
+	if _, err := terminal.Write([]byte("a")); err != nil {
+		t.Fatalf("send M27 approval input: %v", err)
+	}
+
+	_ = readUntilAll(t, terminal, []string{
+		"Runtime idle",
+		"Mutation result:",
+		"tool: write",
+		"status: completed",
+		"path: internal/fake-approval-write.txt",
+		"decision source: autonomy_policy",
+	}, 10*time.Second)
+	if got, err := os.ReadFile(filepath.Join(workspace, "internal", "fake-approval-write.txt")); err != nil || string(got) != "approved through pty\n" {
+		t.Fatalf("approval-to-write target content = %q err=%v", got, err)
+	}
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after approval-to-write mutation: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("approval-to-write mutation PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("approval-to-write mutation PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
 func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

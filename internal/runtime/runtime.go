@@ -73,6 +73,20 @@ type FetchToolProposed struct {
 
 func (FetchToolProposed) runtimeMessage() {}
 
+// EditToolProposed records caller intent to edit a workspace file.
+type EditToolProposed struct {
+	Request MutationToolRequest
+}
+
+func (EditToolProposed) runtimeMessage() {}
+
+// WriteToolProposed records caller intent to write a workspace file.
+type WriteToolProposed struct {
+	Request MutationToolRequest
+}
+
+func (WriteToolProposed) runtimeMessage() {}
+
 // ApprovalProposed records inert risky operation data for user review.
 // Update stores it for display only; it must not emit mutation effects.
 type ApprovalProposed struct {
@@ -185,6 +199,14 @@ type FetchToolCompleted struct {
 
 func (FetchToolCompleted) runtimeMessage() {}
 
+// MutationToolCompleted reports an edit/write effect result.
+type MutationToolCompleted struct {
+	Operation OperationMetadata
+	Result    MutationToolResult
+}
+
+func (MutationToolCompleted) runtimeMessage() {}
+
 // FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
 type FakeInterruptResolved struct {
 	Operation OperationMetadata
@@ -216,6 +238,8 @@ type Model struct {
 	LastBash             BashToolResult
 	ActiveFetch          FetchToolRequest
 	LastFetch            FetchToolResult
+	ActiveMutation       MutationToolRequest
+	LastMutation         MutationToolResult
 	PendingApproval      ApprovalProposal
 	LastApprovalDecision ApprovalDecision
 	AssistantDraft       string
@@ -336,6 +360,30 @@ func (effect FetchToolEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
+// EditToolEffect requests workspace edit execution outside Update.
+type EditToolEffect struct {
+	Operation OperationMetadata
+	Request   MutationToolRequest
+}
+
+func (EditToolEffect) runtimeEffect() {}
+
+func (effect EditToolEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// WriteToolEffect requests workspace write execution outside Update.
+type WriteToolEffect struct {
+	Operation OperationMetadata
+	Request   MutationToolRequest
+}
+
+func (WriteToolEffect) runtimeEffect() {}
+
+func (effect WriteToolEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
 // FakeInterruptEffect requests fake in-memory interruption of active work.
 type FakeInterruptEffect struct {
 	Operation OperationMetadata
@@ -444,6 +492,8 @@ const (
 	OperationGrep     OperationKind = "grep"
 	OperationBash     OperationKind = "bash"
 	OperationFetch    OperationKind = "fetch"
+	OperationEdit     OperationKind = "edit"
+	OperationWrite    OperationKind = "write"
 	OperationApproval OperationKind = "approval"
 )
 
@@ -783,6 +833,79 @@ type FetchToolResult struct {
 }
 
 // ApprovalAction names one user-selectable action for an approval proposal.
+// MutationToolName names one of the fixed file mutation tools.
+type MutationToolName string
+
+const (
+	MutationToolEdit  MutationToolName = "edit"
+	MutationToolWrite MutationToolName = "write"
+)
+
+// MutationToolRequest is the runtime-owned edit/write proposal data.
+// It intentionally mirrors only primitive fields so runtime stays IO-free.
+type MutationToolRequest struct {
+	ToolName       MutationToolName
+	Path           string
+	TargetVersion  string
+	OldText        string
+	NewText        string
+	Content        string
+	ExpectedEffect string
+	Source         MutationSourceMetadata
+}
+
+// MutationSourceMetadata records caller-visible provenance for mutation requests.
+type MutationSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// MutationToolErrorKind is a bounded machine-readable mutation failure category.
+type MutationToolErrorKind string
+
+const (
+	MutationToolErrorNone                  MutationToolErrorKind = "none"
+	MutationToolErrorInvalidPath           MutationToolErrorKind = "invalid_path"
+	MutationToolErrorOutsideWorkspace      MutationToolErrorKind = "outside_workspace"
+	MutationToolErrorReservedPath          MutationToolErrorKind = "reserved_path"
+	MutationToolErrorDirectoryLikePath     MutationToolErrorKind = "directory_like_path"
+	MutationToolErrorInvalidContent        MutationToolErrorKind = "invalid_content"
+	MutationToolErrorMissingFile           MutationToolErrorKind = "missing_file"
+	MutationToolErrorDirectory             MutationToolErrorKind = "directory"
+	MutationToolErrorPermission            MutationToolErrorKind = "permission_denied"
+	MutationToolErrorSymlinkEscape         MutationToolErrorKind = "symlink_escape"
+	MutationToolErrorTargetVersionMismatch MutationToolErrorKind = "target_version_mismatch"
+	MutationToolErrorOldTextMismatch       MutationToolErrorKind = "old_text_mismatch"
+	MutationToolErrorCanceled              MutationToolErrorKind = "canceled"
+	MutationToolErrorExecution             MutationToolErrorKind = "execution_error"
+)
+
+// MutationToolError is safe to surface without leaking host-local paths.
+type MutationToolError struct {
+	Kind    MutationToolErrorKind
+	Message string
+}
+
+// MutationToolResult is the typed runtime message payload returned by edit/write effects.
+type MutationToolResult struct {
+	ToolName              string
+	RequestedPath         string
+	WorkspaceRelativePath string
+	ResolvedPath          string
+	ResolvedPathAvailable bool
+	Status                string
+	ExpectedEffect        string
+	PreviousVersion       string
+	NewVersion            string
+	PreviousExists        bool
+	BytesWritten          int
+	ReplacementCount      int
+	Error                 MutationToolError
+	Source                MutationSourceMetadata
+	Decision              ToolDecision
+}
+
 type ApprovalAction string
 
 const (
@@ -844,6 +967,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.AssistantDraft = ""
 		next.AgentProvider = ""
@@ -862,6 +987,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastRead = ReadToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
@@ -899,6 +1026,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: string(request.ToolName) + " " + searchSubjectLabel(request)})
 		return next, []Effect{SearchToolEffect{Operation: operation, Request: request}}
@@ -920,6 +1049,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "bash " + bashSubjectLabel(request)})
 		return next, []Effect{BashToolEffect{Operation: operation, Request: request}}
@@ -941,9 +1072,57 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = request
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "fetch " + fetchSubjectLabel(request)})
 		return next, []Effect{FetchToolEffect{Operation: operation, Request: request}}
+	case EditToolProposed:
+		request := trimMutationRequest(MutationToolEdit, msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "edit", Text: mutationSubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationEdit, mutationSubjectLabel(request))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = request
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "edit " + mutationSubjectLabel(request)})
+		return next, []Effect{EditToolEffect{Operation: operation, Request: request}}
+	case WriteToolProposed:
+		request := trimMutationRequest(MutationToolWrite, msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "write", Text: mutationSubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationWrite, mutationSubjectLabel(request))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = request
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "write " + mutationSubjectLabel(request)})
+		return next, []Effect{WriteToolEffect{Operation: operation, Request: request}}
 	case ApprovalProposed:
 		proposal := normalizeApprovalProposal(msg.Proposal)
 		operation := nextOperation(&next, OperationApproval, approvalSubjectLabel(proposal))
@@ -960,6 +1139,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.PendingApproval = proposal
 		next.LastApprovalDecision = ApprovalDecision{}
 		next.ActiveOperation = operation
@@ -1052,6 +1233,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
@@ -1066,6 +1249,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
 		return next, nil
@@ -1081,6 +1266,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != ReadToolErrorNone {
@@ -1100,6 +1287,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = BashToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != SearchToolErrorNone {
@@ -1119,6 +1308,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastBash = msg.Result
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != BashToolErrorNone {
@@ -1141,6 +1332,27 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != FetchToolErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
+	case MutationToolCompleted:
+		summary := mutationResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = msg.Result
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != MutationToolErrorNone {
 			kind = "failure"
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
@@ -1171,7 +1383,7 @@ func hasActiveFakeWork(model Model) bool {
 }
 
 func isToolOperation(kind OperationKind) bool {
-	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch
+	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch || kind == OperationEdit || kind == OperationWrite
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -1393,6 +1605,40 @@ func bashResultSummary(result BashToolResult) string {
 		return fmt.Sprintf("bash %s failed: %s: %s", command, result.Error.Kind, message)
 	}
 	return fmt.Sprintf("bash %s: %s exit %d", command, result.Status, result.ExitCode)
+}
+
+func trimMutationRequest(tool MutationToolName, request MutationToolRequest) MutationToolRequest {
+	request.ToolName = tool
+	request.Path = strings.TrimSpace(request.Path)
+	request.TargetVersion = strings.TrimSpace(request.TargetVersion)
+	request.ExpectedEffect = strings.TrimSpace(request.ExpectedEffect)
+	return request
+}
+
+func mutationSubjectLabel(request MutationToolRequest) string {
+	return readPathLabel(request.Path)
+}
+
+func mutationResultSummary(result MutationToolResult) string {
+	path := result.WorkspaceRelativePath
+	if path == "" {
+		path = readPathLabel(result.RequestedPath)
+	}
+	if path == "" {
+		path = "requested path"
+	}
+	tool := result.ToolName
+	if tool == "" {
+		tool = "mutation"
+	}
+	if result.Error.Kind != "" && result.Error.Kind != MutationToolErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("%s %s failed: %s", tool, path, result.Error.Kind)
+		}
+		return fmt.Sprintf("%s %s failed: %s: %s", tool, path, result.Error.Kind, message)
+	}
+	return fmt.Sprintf("%s %s: %s %d bytes", tool, path, result.Status, result.BytesWritten)
 }
 
 func trimFetchRequest(request FetchToolRequest) FetchToolRequest {

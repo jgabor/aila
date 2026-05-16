@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto write
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: write (display-only)                                                                                       |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: mutation tool dispatch                                                                                       |
+| active: false                                                                                                        |
+| result: edit internal/demo.txt failed: target_version_mismatch                                                       |
+|                                                                                                                      |
+| Mutation result:                                                                                                     |
+| path: internal/demo.txt                                                                                              |
+| status: failed                                                                                                       |
+| tool: edit                                                                                                           |
+| completed: true                                                                                                      |
+| error kind: target_version_mismatch                                                                                  |
+| previous exists: false                                                                                               |
+| bytes written: 0                                                                                                     |
+| decision source: autonomy_policy                                                                                     |
+| approval required: false                                                                                             |
+| operation: mutation                                                                                                  |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

@@ -1,0 +1,146 @@
+{
+  "scenario": "mutation-success",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "mutation tool dispatch",
+    "runtime_result": "write internal/demo.txt: completed 12 bytes",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "write"
+  },
+  "mutation_tool": {
+    "tool_name": "write",
+    "status": "completed",
+    "path": "internal/demo.txt",
+    "expected_effect": "create demo file",
+    "previous_version": "missing",
+    "new_version": "sha256:demo-new",
+    "previous_exists": false,
+    "bytes_written": 12,
+    "resolved_path_available": true,
+    "decision": {
+      "autonomy": "write",
+      "source": "autonomy_policy",
+      "allowed": true,
+      "automatic": true,
+      "approval_required": false,
+      "reason": "write autonomy allows classified operation",
+      "operation_kind": "mutation",
+      "tool": "write",
+      "target": "internal/demo.txt",
+      "expected_effect": "create demo file",
+      "reversible": false,
+      "run_id": "run-m27-write",
+      "capability": "m27-fixture"
+    },
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: mutation tool dispatch",
+        "active: false",
+        "result: write internal/demo.txt: completed 12 bytes",
+        "display-only"
+      ]
+    },
+    {
+      "name": "mutation_tool",
+      "visible": true,
+      "items": [
+        "tool_name: write",
+        "status: completed",
+        "path: internal/demo.txt",
+        "completed: true",
+        "previous_exists: false",
+        "bytes_written: 12",
+        "expected_effect: create demo file",
+        "previous_version: missing",
+        "new_version: sha256:demo-new",
+        "decision_source: autonomy_policy",
+        "decision: allowed",
+        "decision_automatic: true",
+        "approval_required: false",
+        "decision_autonomy: write",
+        "operation_kind: mutation",
+        "decision_tool: write",
+        "decision_target: internal/demo.txt",
+        "decision_expected_effect: create demo file",
+        "decision_reversible: false",
+        "decision_run_id: run-m27-write",
+        "decision_capability: m27-fixture",
+        "decision_reason: write autonomy allows classified operation",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}
