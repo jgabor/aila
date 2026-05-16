@@ -28,6 +28,30 @@ func TestReadOperationClassifiesAsSafeReadOnly(t *testing.T) {
 	}
 }
 
+func TestWriteShapedOperationConstructorsPreserveEvidence(t *testing.T) {
+	t.Parallel()
+
+	edit := NewEditOperation("internal/demo.txt", "sha256:old", "-old\n+new", "replace demo contents")
+	if edit.Kind != OperationMutation || edit.Tool != "edit" || edit.TargetPath != "internal/demo.txt" || edit.TargetVersion != "sha256:old" || edit.DiffPreview != "-old\n+new" || edit.ExpectedEffect == "" || !edit.Reversible {
+		t.Fatalf("edit operation = %+v", edit)
+	}
+
+	write := NewWriteOperation("internal/generated.txt", "missing", "+created", "create generated file")
+	if write.Kind != OperationMutation || write.Tool != "write" || write.TargetPath != "internal/generated.txt" || write.TargetVersion != "missing" || write.DiffPreview != "+created" || write.ExpectedEffect == "" || write.Reversible {
+		t.Fatalf("write operation = %+v", write)
+	}
+
+	command := []string{"sh", "-c", "printf updated > internal/demo.txt"}
+	mutatingBash := NewMutatingBashOperation(command, ".", "update demo file")
+	if mutatingBash.Kind != OperationExec || mutatingBash.Tool != "bash" || mutatingBash.WorkingDir != "." || mutatingBash.ExpectedEffect == "" || mutatingBash.Reversible {
+		t.Fatalf("mutating bash operation = %+v", mutatingBash)
+	}
+	command[0] = "mutated"
+	if mutatingBash.Command[0] != "sh" {
+		t.Fatalf("mutating bash command aliases caller slice: %+v", mutatingBash.Command)
+	}
+}
+
 func TestDecideAllowsReadOnlyAutomaticallyAtReadOrHigher(t *testing.T) {
 	t.Parallel()
 
@@ -53,16 +77,69 @@ func TestDecideDoesNotAutoApproveReadsWhenAutonomyOff(t *testing.T) {
 	}
 }
 
-func TestDecideDoesNotClassifyMutationOrExecAsRead(t *testing.T) {
+func TestDecideAutonomyMatrixForWriteShapedOperations(t *testing.T) {
 	t.Parallel()
 
-	for _, operation := range []ProposedOperation{
-		{Kind: OperationMutation, Tool: "edit", TargetPath: "notes.txt", DiffPreview: "-old\n+new"},
-		{Kind: OperationExec, Tool: "bash", Command: []string{"git", "status"}},
+	operations := []ProposedOperation{
+		NewReadOperation("notes.txt"),
+		NewEditOperation("internal/demo.txt", "sha256:old", "-old\n+new", "replace demo contents"),
+		NewWriteOperation("internal/generated.txt", "missing", "+created", "create generated file"),
+		NewMutatingBashOperation([]string{"sh", "-c", "printf updated > internal/demo.txt"}, ".", "update demo file"),
+	}
+	for _, tc := range []struct {
+		level            AutonomyLevel
+		kind             OperationKind
+		allowed          bool
+		automatic        bool
+		approvalRequired bool
+		reason           string
+	}{
+		{level: AutonomyOff, kind: OperationRead, allowed: false, automatic: false, approvalRequired: true, reason: "autonomy off requires approval"},
+		{level: AutonomyOff, kind: OperationMutation, allowed: false, automatic: false, approvalRequired: true, reason: "autonomy off requires approval"},
+		{level: AutonomyOff, kind: OperationExec, allowed: false, automatic: false, approvalRequired: true, reason: "autonomy off requires approval"},
+		{level: AutonomyRead, kind: OperationRead, allowed: true, automatic: true, approvalRequired: false, reason: "safe read-only operation"},
+		{level: AutonomyRead, kind: OperationMutation, allowed: false, automatic: false, approvalRequired: true, reason: "read autonomy requires approval for write-shaped operation"},
+		{level: AutonomyRead, kind: OperationExec, allowed: false, automatic: false, approvalRequired: true, reason: "read autonomy requires approval for write-shaped operation"},
+		{level: AutonomyWrite, kind: OperationRead, allowed: true, automatic: true, approvalRequired: false, reason: "write autonomy allows classified operation"},
+		{level: AutonomyWrite, kind: OperationMutation, allowed: true, automatic: true, approvalRequired: false, reason: "write autonomy allows classified operation"},
+		{level: AutonomyWrite, kind: OperationExec, allowed: true, automatic: true, approvalRequired: false, reason: "write autonomy allows classified operation"},
+		{level: AutonomyYolo, kind: OperationRead, allowed: true, automatic: true, approvalRequired: false, reason: "yolo autonomy grants classified operation"},
+		{level: AutonomyYolo, kind: OperationMutation, allowed: true, automatic: true, approvalRequired: false, reason: "yolo autonomy grants classified operation"},
+		{level: AutonomyYolo, kind: OperationExec, allowed: true, automatic: true, approvalRequired: false, reason: "yolo autonomy grants classified operation"},
 	} {
-		decision := Decide(AutonomyRead, operation)
-		if decision.Allowed || decision.Automatic {
-			t.Fatalf("Decide(read, %#v) = %#v, want denied non-read operation", operation, decision)
+		tc := tc
+		t.Run(string(tc.level)+"/"+string(tc.kind), func(t *testing.T) {
+			t.Parallel()
+
+			for _, operation := range operations {
+				if operation.Kind != tc.kind {
+					continue
+				}
+				decision := Decide(tc.level, operation)
+				if decision.Allowed != tc.allowed || decision.Automatic != tc.automatic || decision.Reason != tc.reason {
+					t.Fatalf("Decide(%q, %#v) = %+v", tc.level, operation, decision)
+				}
+				record := RecordDecision(tc.level, operation, decision)
+				if record.Source != decisionSourceAutonomyPolicy || record.ApprovalRequired != tc.approvalRequired || record.Allowed != tc.allowed || record.Automatic != tc.automatic || record.Reason != tc.reason {
+					t.Fatalf("record = %+v, want allowed=%v automatic=%v approvalRequired=%v", record, tc.allowed, tc.automatic, tc.approvalRequired)
+				}
+			}
+		})
+	}
+}
+
+func TestDecideDeniesUnclassifiedOperationsWithoutApprovalPrompt(t *testing.T) {
+	t.Parallel()
+
+	operation := ProposedOperation{Kind: OperationKind("network_write"), Tool: "future"}
+	for _, level := range []AutonomyLevel{AutonomyOff, AutonomyRead, AutonomyWrite, AutonomyYolo, AutonomyLevel("admin")} {
+		decision := Decide(level, operation)
+		if decision.Allowed || decision.Automatic || decision.Reason != "operation is not classified" {
+			t.Fatalf("Decide(%q, unclassified) = %+v", level, decision)
+		}
+		record := RecordDecision(level, operation, decision)
+		if record.ApprovalRequired {
+			t.Fatalf("unclassified record requested approval: %+v", record)
 		}
 	}
 }
@@ -100,7 +177,7 @@ func TestFetchOperationIsReadOnlyNetworkRead(t *testing.T) {
 	}
 }
 
-func TestDecisionRecordCopiesReadOnlyPolicyEvidence(t *testing.T) {
+func TestDecisionRecordCopiesPolicyEvidence(t *testing.T) {
 	t.Parallel()
 
 	operation := NewBashInspectionOperation([]string{"git", "status", "--short"}, ".", "inspect git working tree status")
@@ -108,7 +185,7 @@ func TestDecisionRecordCopiesReadOnlyPolicyEvidence(t *testing.T) {
 	operation.Capability = "inspect"
 
 	record := DecideRecord(AutonomyRead, operation)
-	if record.Autonomy != AutonomyRead || record.Source != decisionSourceAutonomyPolicy || !record.Allowed || !record.Automatic || record.ApprovalRequired || record.Reason == "" {
+	if record.Autonomy != AutonomyRead || record.Source != decisionSourceAutonomyPolicy || !record.Allowed || !record.Automatic || record.ApprovalRequired || record.Reason == "" || record.ManualAction != "" {
 		t.Fatalf("allowed record = %+v, want automatic read allow evidence", record)
 	}
 	if record.OperationKind != OperationRead || record.Tool != "bash" || record.WorkingDir != "." || record.ExpectedEffect == "" || !record.Reversible || record.RunID != "run-1" || record.Capability != "inspect" {
@@ -132,14 +209,63 @@ func TestDecisionRecordMarksOffReadAsApprovalRequiredWithoutApproving(t *testing
 	}
 }
 
-func TestDecisionRecordDeniesNonReadWithoutApprovalPrompt(t *testing.T) {
+func TestDecisionRecordMarksReadBlockedWriteAsApprovalRequired(t *testing.T) {
 	t.Parallel()
 
-	record := DecideRecord(AutonomyRead, ProposedOperation{Kind: OperationMutation, Tool: "edit", TargetPath: "notes.txt", DiffPreview: "-old\n+new"})
-	if record.Allowed || record.Automatic || record.ApprovalRequired || record.Reason == "" {
-		t.Fatalf("non-read record = %+v, want automatic denial without approval requirement", record)
+	record := DecideRecord(AutonomyRead, NewEditOperation("notes.txt", "sha256:old", "-old\n+new", "replace notes"))
+	if record.Allowed || record.Automatic || !record.ApprovalRequired || record.Reason != "read autonomy requires approval for write-shaped operation" {
+		t.Fatalf("read write record = %+v, want approval-required denial", record)
 	}
-	if record.OperationKind != OperationMutation || record.Tool != "edit" {
-		t.Fatalf("non-read operation evidence = %+v", record)
+	if record.OperationKind != OperationMutation || record.Tool != "edit" || record.TargetPath != "notes.txt" {
+		t.Fatalf("write operation evidence should omit diff body from record fields not modeled here: %+v", record)
+	}
+}
+
+func TestManualDecisionRecordCopiesExactProposalWithoutExecuting(t *testing.T) {
+	t.Parallel()
+
+	operation := NewMutatingBashOperation([]string{"sh", "-c", "printf updated > internal/demo.txt"}, ".", "update demo file")
+	operation.RunID = "run-write"
+	operation.Capability = "write-tool"
+
+	for _, tc := range []struct {
+		action           ManualAction
+		wantAction       ManualAction
+		allowed          bool
+		approvalRequired bool
+		wantReason       string
+	}{
+		{action: ManualActionApprove, wantAction: ManualActionApprove, allowed: true, approvalRequired: false, wantReason: "user approved proposed operation"},
+		{action: ManualActionDeny, wantAction: ManualActionDeny, allowed: false, approvalRequired: false, wantReason: "user denied proposed operation"},
+		{action: ManualActionDefer, wantAction: ManualActionDefer, allowed: false, approvalRequired: true, wantReason: "user deferred proposed operation"},
+		{action: ManualAction("later"), wantAction: ManualActionDefer, allowed: false, approvalRequired: true, wantReason: "user deferred proposed operation"},
+	} {
+		tc := tc
+		t.Run(string(tc.action), func(t *testing.T) {
+			t.Parallel()
+
+			proposal := operation
+			proposal.Command = append([]string(nil), operation.Command...)
+			record := RecordManualDecision(AutonomyRead, proposal, tc.action, "")
+			if record.Source != decisionSourceManualApproval || record.Automatic || record.Allowed != tc.allowed || record.ApprovalRequired != tc.approvalRequired || record.ManualAction != tc.wantAction || record.Reason != tc.wantReason {
+				t.Fatalf("manual record = %+v", record)
+			}
+			if record.Autonomy != AutonomyRead || record.OperationKind != OperationExec || record.Tool != "bash" || record.WorkingDir != "." || record.ExpectedEffect != "update demo file" || record.Reversible || record.RunID != "run-write" || record.Capability != "write-tool" {
+				t.Fatalf("manual record operation evidence = %+v", record)
+			}
+			proposal.Command[0] = "mutated"
+			if record.Command[0] != "sh" {
+				t.Fatalf("manual record command aliases proposal slice: %+v", record.Command)
+			}
+		})
+	}
+}
+
+func TestManualDecisionRecordUsesExplicitReason(t *testing.T) {
+	t.Parallel()
+
+	record := RecordManualDecision(AutonomyRead, NewWriteOperation("notes.txt", "missing", "+new", "create notes"), ManualActionDeny, "user said no")
+	if record.Reason != "user said no" || record.ManualAction != ManualActionDeny || record.Allowed || record.ApprovalRequired {
+		t.Fatalf("manual denial record = %+v", record)
 	}
 }

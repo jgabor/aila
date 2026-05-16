@@ -1,0 +1,31 @@
+{
+  "name": "yolo-permission-decision",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["permission_evaluated", "write_shaped_proposal"],
+  "render_sizes": [
+    {
+      "name": "80x44",
+      "width": 80,
+      "height": 44
+    },
+    {
+      "name": "120x44",
+      "width": 120,
+      "height": 44
+    }
+  ],
+  "render_outputs": {
+    "plain_80x44": "plain-80x44.txt",
+    "ansi_80x44": "ansi-80x44.txt",
+    "semantic_80x44": "semantic-80x44.json",
+    "plain_120x44": "plain-120x44.txt",
+    "ansi_120x44": "ansi-120x44.txt",
+    "semantic_120x44": "semantic-120x44.json"
+  },
+  "notes": [
+    "Milestone 26 write-shaped permission decision fixture.",
+    "Decision state is app-injected policy evidence and does not execute file mutations."
+  ]
+}

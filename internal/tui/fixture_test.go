@@ -3396,3 +3396,165 @@ func TestM25ApprovalKeysEmitDecisionMessagesOnly(t *testing.T) {
 		})
 	}
 }
+
+func m26WritePermissionFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x44", Width: 80, Height: 44}, {Name: "120x44", Width: 120, Height: 44}}
+}
+
+func loadM26WritePermissionDecisionFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	var autonomy string
+	var reason string
+	var runID string
+	switch name {
+	case "write-permission-decision":
+		autonomy = "write"
+		reason = "write autonomy allows classified operation"
+		runID = "run-write-permission"
+	case "yolo-permission-decision":
+		autonomy = "yolo"
+		reason = "yolo autonomy grants classified operation"
+		runID = "run-yolo-permission"
+	default:
+		t.Fatalf("unknown M26 write permission fixture %q", name)
+	}
+
+	state := commandToolState(&CommandView{
+		Name:           "bash",
+		Status:         "proposed",
+		ReadOnly:       false,
+		Argv:           []string{"sh", "-c", "printf updated > internal/demo.txt"},
+		WorkingDir:     ".",
+		CommandFamily:  "shell mutation",
+		ExpectedEffect: "would update internal/demo.txt; not executed in M26",
+		Decision: &DecisionView{
+			Autonomy:         autonomy,
+			Source:           "autonomy_policy",
+			Allowed:          true,
+			Automatic:        true,
+			ApprovalRequired: false,
+			Reason:           reason,
+			OperationKind:    "exec",
+			Name:             "bash",
+			Command:          []string{"sh", "-c", "printf updated > internal/demo.txt"},
+			WorkingDir:       ".",
+			ExpectedEffect:   "would update internal/demo.txt; not executed in M26",
+			Reversible:       false,
+			RunID:            runID,
+			Capability:       "m26-fixture",
+		},
+	})
+	state.Scenario = name
+	state.Autonomy = autonomy
+	state.RuntimeStatus = "permission-evaluated"
+	state.StatusDetail = "write-shaped proposal classified only"
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM26WritePermissionDecisionRenderAndSemantic(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		autonomy string
+		reason   string
+	}{
+		{name: "write-permission-decision", autonomy: "write", reason: "write autonomy allows classified operation"},
+		{name: "yolo-permission-decision", autonomy: "yolo", reason: "yolo autonomy grants classified operation"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := loadM26WritePermissionDecisionFixture(t, tc.name)
+			render := RenderPlain(fixture.State, Size{Width: 120, Height: 44})
+			if !containsAll(render, []string{
+				"Bash command:",
+				"status: proposed",
+				"read-only: false",
+				"command: sh -c printf updated > internal/demo.txt",
+				"completed: false",
+				"expected effect: would update internal/demo.txt; not executed in M26",
+				"decision source: autonomy_policy",
+				"decision: allowed",
+				"decision automatic: true",
+				"approval required: false",
+				"autonomy: " + tc.autonomy,
+				"operation: exec",
+				"decision tool: bash",
+				"decision reason: " + tc.reason,
+			}) {
+				t.Fatalf("write permission render missing evidence:\n%s", render)
+			}
+			if containsAny(render, []string{"exit code:", "stdout:", "stderr:", "mutation executed: true"}) {
+				t.Fatalf("write permission render implies execution:\n%s", render)
+			}
+
+			snapshot := Semantic(fixture.State, Size{Width: 120, Height: 44})
+			if snapshot.Session.Autonomy != tc.autonomy || snapshot.Bash == nil || snapshot.Bash.Decision == nil {
+				t.Fatalf("semantic write permission missing bash decision: %+v", snapshot)
+			}
+			if snapshot.Bash.Completed || snapshot.Bash.Decision.Source != "autonomy_policy" || !snapshot.Bash.Decision.Allowed || !snapshot.Bash.Decision.Automatic || snapshot.Bash.Decision.ApprovalRequired || snapshot.Bash.Decision.Autonomy != tc.autonomy || snapshot.Bash.Decision.OperationKind != "exec" || snapshot.Bash.Decision.Reason != tc.reason {
+				t.Fatalf("semantic write decision = %+v bash=%+v", snapshot.Bash.Decision, snapshot.Bash)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			bashRegion := strings.Join(regions["bash_tool"].Items, "\n")
+			if !containsAll(bashRegion, []string{"status: proposed", "completed: false", "decision_source: autonomy_policy", "decision: allowed", "approval_required: false", "autonomy: " + tc.autonomy, "operation_kind: exec", "display-only"}) {
+				t.Fatalf("write permission semantic region missing evidence: %v", regions["bash_tool"].Items)
+			}
+		})
+	}
+}
+
+func TestM26WritePermissionFixtureSnapshots(t *testing.T) {
+	for _, name := range []string{"write-permission-decision", "yolo-permission-decision"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			fixture := loadM26WritePermissionDecisionFixture(t, name)
+			assertFixtureSizes(t, fixture, m26WritePermissionFixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+				assertTextSnapshot(t, fixture, renderCase.file, got)
+				plain := stripANSI(got)
+				if !containsAll(plain, []string{"Bash command:", "status: proposed", "completed: false", "decision source: autonomy_policy", "approval required: false"}) {
+					t.Fatalf("%s fixture render missing policy evidence:\n%s", name, plain)
+				}
+				if containsAny(plain, []string{"exit code:", "mutation executed: true"}) {
+					t.Fatalf("%s fixture render implies execution:\n%s", name, plain)
+				}
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				got := RenderSemanticJSON(fixture.State, semanticCase.size)
+				assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+				var snapshot SemanticSnapshot
+				if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+					t.Fatalf("unmarshal semantic snapshot: %v", err)
+				}
+				if snapshot.Bash == nil || snapshot.Bash.Decision == nil || snapshot.Bash.Completed || snapshot.Bash.Decision.ApprovalRequired {
+					t.Fatalf("semantic write permission = %+v", snapshot.Bash)
+				}
+			}
+		})
+	}
+}
+
+func TestM26WritePermissionInputsDoNotSwitchAutonomyOrExecute(t *testing.T) {
+	for _, input := range []string{"/autonomy write", "autonomy yolo", "approve write"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Command != nil || state.Approval != nil || state.ApprovalDecision != nil || state.CommandRoute != "" || state.RuntimeStatus != "" || len(state.Transcript) != 0 {
+				t.Fatalf("%q unexpectedly changed visible autonomy or mutation state: %+v", input, state)
+			}
+		})
+	}
+}

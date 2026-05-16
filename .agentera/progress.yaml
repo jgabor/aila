@@ -1,4 +1,49 @@
 cycles:
+  - number: 169
+    timestamp: "2026-05-16 20:52"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M26 by adding pure edit/write/mutating-shell permission constructors, enforcing off/read/write/yolo decisions over read, mutation, and exec classes, recording manual approval decisions against exact proposals, and exposing write/yolo policy evidence in TUI render and semantic fixtures without executing mutations.
+    commit: "pending local commit for M26 write permission classes"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 26; docs/notes/PROMPT.md; ARCHITECTURE.md permission proposal/rules; README autonomy semantics; docs/tui-testing.md autonomy/approval fixture gates; docs/workflow-architecture.md approval flow"
+    discovered: >-
+      M26 can stay pure policy: write autonomy grants classified edit/write/mutating-shell proposals automatically, read/off require approval evidence for write-shaped proposals, yolo records automatic grants, and manual approve/deny/defer records copy exact proposal metadata. Proposed command fixture states needed to preserve decision evidence while remaining completed=false so snapshots do not imply shell execution. No edit/write tool execution, temp-workspace mutation, mutating shell execution, durable approval persistence, history/undo, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, or M27+ behavior was added.
+    verified: >-
+      `go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1` passed. `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. write-permission-decision and yolo-permission-decision 80x44 and 120x44 plain/ANSI/semantic snapshots were generated and reviewed. TestM26WritePermissionInputsDoNotSwitchAutonomyOrExecute documents the PTY-smoke skip boundary for unchanged terminal-visible autonomy switching. Tracked and new-file whitespace checks plus installed Agentera CLI plan/progress validation passed after closeout updates.
+    next: >-
+      Commit the M26 write permission classes slice, then continue with M27: Edit And Write Tools In Temp Workspaces in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M26 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, pure permission policy and evidence records, and no mutation execution/history/undo/M27+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M26 permission policy, TUI render/semantic fixtures, regression tests, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 168
+    timestamp: "2026-05-16 20:09"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 26: Write Permission Classes as the next roadmap milestone, archived the completed M25 plan, and created a new active full plan with five bounded tasks for write-shaped operation constructors, autonomy enforcement, manual decision records, TUI decision evidence, and validation closeout.
+    commit: "N/A: planning artifact before M26 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 26; AGENTS.md; README.md autonomy semantics; ARCHITECTURE.md operation proposal and permission rules; docs/tui-testing.md autonomy/approval fixture gates; docs/workflow-architecture.md approval flow"
+    discovered: >-
+      M26 should remain pure policy and evidence: map edit, write, and mutating shell proposals into permission records, enforce off/read/write/yolo decisions, and expose automatic/manual decision metadata without adding mutation executors. Existing M25 approval UI gives display state, while internal/permission currently only allows read operations automatically and denies mutation/exec without approval semantics. The plan must avoid edit/write tool execution, temp-workspace mutation, durable approval persistence, history/undo, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M27+ behavior.
+    verified: >-
+      Installed Agentera CLI plan/progress state, ROADMAP.md M26 section, ARCHITECTURE.md permission proposal/rules, docs/workflow-architecture.md approval flow, docs/tui-testing.md autonomy/approval fixture requirements, README autonomy table, and current internal/permission plus TUI decision fixtures were reviewed before writing the plan.
+    next: >-
+      Execute M26 Task 1: define write-shaped operation constructors. Do not implement edit/write tool execution, temp-workspace mutation, durable approval records, history/undo, or M27+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M26; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact manual decision record field names should follow the existing DecisionRecord shape and avoid schema churn outside permission/TUI evidence.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m25.yaml archival, and progress evidence for the planning handoff.
   - number: 167
     timestamp: "2026-05-16 20:08"
     type: build

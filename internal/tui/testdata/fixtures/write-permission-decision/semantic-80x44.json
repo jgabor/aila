@@ -1,0 +1,148 @@
+{
+  "scenario": "write-permission-decision",
+  "screen": {
+    "width": 80,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "permission-evaluated",
+    "status_source": "runtime.fixture",
+    "status_detail": "write-shaped proposal classified only",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "write"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "proposed",
+    "read_only": false,
+    "argv": ["sh", "-c", "printf updated > internal/demo.txt"],
+    "working_dir": ".",
+    "command_family": "shell mutation",
+    "expected_effect": "would update internal/demo.txt; not executed in M26",
+    "exit_code": 0,
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "decision": {
+      "autonomy": "write",
+      "source": "autonomy_policy",
+      "allowed": true,
+      "automatic": true,
+      "approval_required": false,
+      "reason": "write autonomy allows classified operation",
+      "operation_kind": "exec",
+      "tool": "bash",
+      "target": "requested path",
+      "command": ["sh", "-c", "printf updated > internal/demo.txt"],
+      "working_dir": ".",
+      "expected_effect": "would update internal/demo.txt; not executed in M26",
+      "reversible": false,
+      "run_id": "run-write-permission",
+      "capability": "m26-fixture"
+    },
+    "completed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: permission-evaluated",
+        "status source: runtime.fixture",
+        "detail: write-shaped proposal classified only",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: proposed",
+        "read_only: false",
+        "command: sh -c printf updated > internal/demo.txt",
+        "working_dir: .",
+        "completed: false",
+        "command_family: shell mutation",
+        "expected_effect: would update internal/demo.txt; not executed in M26",
+        "decision_source: autonomy_policy",
+        "decision: allowed",
+        "decision_automatic: true",
+        "approval_required: false",
+        "decision_autonomy: write",
+        "operation_kind: exec",
+        "decision_tool: bash",
+        "decision_target: requested path",
+        "decision_command: sh -c printf updated > internal/demo.txt",
+        "decision_working_dir: .",
+        "decision_expected_effect: would update internal/demo.txt; not executed in M26",
+        "decision_reversible: false",
+        "decision_run_id: run-write-permission",
+        "decision_capability: m26-fixture",
+        "decision_reason: write autonomy allows classified operation",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

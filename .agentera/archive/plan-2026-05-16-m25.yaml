@@ -1,0 +1,162 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M25-only; mutation execution, final write permission classes, history, undo, and approval persistence
+    deferred
+  title: Milestone 25 Approval UI Without Mutation
+what: Deliver ROADMAP.md Milestone 25 by making risky operation proposals visible and selectable in the TUI before write execution
+  exists. The slice must define generic proposal display data, render approval/denial/defer choices, and emit typed decisions
+  as messages without executing mutations.
+why: M24 made read-only agent turns executable. Before Aila can add write permission classes or mutation tools, users need
+  an unmistakable approval surface that preserves the presentation-only TUI boundary and keeps decisions observable without
+  touching files.
+constraints: 'Execute only Milestone 25. Preserve statechart-MVU: runtime updates remain deterministic, TUI emits messages
+  only, and no approval key may execute filesystem, shell, git, network, state-store, or mutation IO. Represent proposals
+  generically without depending on final write permission classes. Do not add edit/write tool execution, mutation history,
+  undo/replay, durable approval persistence, final write permission class semantics, provider fallback, context compaction,
+  source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, or Milestone 26+
+  scope. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m24.yaml
+source_anchors:
+- ROADMAP.md:1101-1124
+- ARCHITECTURE.md:498-523
+- ARCHITECTURE.md:681-705
+- docs/tui-testing.md:54-74
+- docs/tui-testing.md:102-120
+- docs/tui-testing.md:158-205
+- docs/tui-testing.md:230-258
+- docs/workflow-architecture.md:564-576
+- docs/notes/PROMPT.md:1-39
+verification_commands:
+- go test ./internal/runtime ./internal/tui ./cmd/aila -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/runtime internal/tui cmd/aila
+- git diff --check --no-index /dev/null <each new fixture or source file>
+scope:
+  included:
+  - Generic runtime proposal data for risky operations with operation kind, target, risk summary, preview content, default
+    action, command/path/diff fields, and stable identity.
+  - Runtime/TUI messages for approve, deny, and defer decisions that update deterministic state and record the selected action
+    without executing mutation effects.
+  - Approval-pending TUI fixture, render snapshots, and semantic snapshots showing exact path, command, diff preview, risk/default
+    action, and choices.
+  - Update/keybinding tests proving approval keys emit approve, deny, and defer messages only, plus PTY smoke for fake approval
+    and denial proposals.
+  - Roadmap and Agentera closeout after validation passes.
+  excluded:
+  - Final write permission classes, edit/write tool execution, mutation execution after approval, durable approval persistence,
+    history/undo/replay, live provider calls, provider fallback, context compaction, source indexing, plugins, MCP servers,
+    workflow DSLs, model marketplaces, hosted control planes, or Milestone 26+ behavior.
+  deferred:
+  - Write permission classes, mutation tool implementations, recheck-before-mutation execution, approval records in durable
+    state, history/undo integration, and real provider-initiated write flows.
+design: Add proposal visibility as inert runtime state first. The runtime owns typed pending proposal and decision messages;
+  TUI renders that state and maps approval keys to messages. App/PTY fake proposals can inject the state for smoke coverage,
+  but approval decisions complete as messages without producing tool, store, shell, git, or mutation effects.
+tasks:
+- number: 1
+  name: Define generic approval proposal and decision state
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN a risky operation proposal is represented WHEN runtime tests inspect it THEN operation kind, target, risk summary,
+    preview, default action, path, command, diff preview, and identity are explicit typed data.
+  - GIVEN proposal data is copied into runtime state WHEN callers mutate their original values THEN pending proposal state
+    remains deterministic and isolated.
+  - GIVEN package boundaries are inspected WHEN proposal state exists THEN no final write permission classes or mutation executors
+    are introduced.
+  evidence:
+  - internal/runtime/runtime.go defines generic ApprovalProposal, ApprovalAction, and ApprovalDecision state with operation
+    kind, target, risk summary, preview, default action, path, command, working directory, expected effect, diff preview,
+    identity, and provenance fields.
+  - internal/runtime/runtime_test.go proves proposal state is deterministic, copied away from caller slices, and emits no
+    effects.
+- number: 2
+  name: Emit approval decisions as deterministic messages only
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN an approval, denial, or defer decision is received for the pending proposal WHEN runtime update handles it THEN
+    state records the decision and clears or marks the pending state without emitting mutation effects.
+  - GIVEN a stale or mismatched decision is received WHEN runtime update handles it THEN no mutation effect is emitted and
+    state remains safe and observable.
+  - GIVEN approval decisions are tested repeatedly WHEN Update is called with the same input THEN model and effects are deterministic.
+  evidence:
+  - runtime.Update handles approve, deny, and defer decisions as typed messages only, records LastApprovalDecision, clears
+    pending state for matching decisions, and emits no mutation effects.
+  - internal/runtime/runtime_test.go proves approve/deny/defer decisions are effect-free and stale decisions leave the pending
+    proposal safe and observable.
+- number: 3
+  name: Render approval-pending fixture and snapshots
+  depends_on:
+  - 1
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN approval-pending is rendered at required sizes WHEN snapshot tests run THEN exact path, command, diff preview, risk
+    summary, default action, and approve/deny/defer choices are visible.
+  - GIVEN semantic snapshots are generated WHEN tests inspect them THEN the pending proposal and available decisions are represented
+    as agent-readable structured state.
+  - GIVEN the fixture render is inspected WHEN tests search for mutation execution markers THEN no direct write, shell, git,
+    or store mutation behavior is implied.
+  evidence:
+  - internal/tui/render.go and internal/tui/model.go add app-injected approval proposal display and semantic state without
+    TUI-owned mutation behavior.
+  - internal/tui/testdata/fixtures/approval-pending contains 80x44 and 120x44 plain, ANSI, and semantic snapshots showing
+    exact path, command, diff preview, risk summary, default action, choices, and mutation_executed=false.
+- number: 4
+  name: Add keybinding and PTY smoke coverage without mutation
+  depends_on:
+  - 2
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN the TUI has a pending proposal WHEN approval keys are pressed in update tests THEN approve, deny, and defer application
+    messages are emitted without direct mutation.
+  - GIVEN fake proposal PTY smoke runs WHEN approve and deny paths are exercised THEN the terminal shows the proposal and
+    decision result while leaving the workspace unchanged.
+  - GIVEN PTY smoke exits WHEN cleanup runs THEN sessions are bounded and no real provider credentials or mutation tools are
+    used.
+  evidence:
+  - internal/tui/fixture_test.go proves approval keys a/n/d emit approve, deny, and defer decision callbacks without Bubble
+    Tea commands or direct mutation.
+  - cmd/aila/pty_test.go adds TestM25ApprovalDecisionPTYSmoke covering fake proposal approve and deny paths, visible decision
+    result, clean quit, and unchanged workspace target.
+- number: 5
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: completed
+  acceptance:
+  - GIVEN M25 implementation is complete WHEN targeted runtime/TUI/cmd tests run THEN proposal state, decisions, keybindings,
+    snapshots, and PTY smoke pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M25 as complete and M26
+    as next.
+  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs,
+    fixtures/snapshots, update/keybinding tests, PTY smoke, agentic validation, human visual review decision, architecture
+    checklist, verification commands, and roadmap status.
+  evidence:
+  - 'Validation passed: go test ./internal/runtime ./internal/tui ./internal/app ./cmd/aila -count=1; go test ./internal/...
+    -count=1; mage check.'
+  - Snapshot update/review, approval PTY smoke, tracked/new-file whitespace checks, and installed Agentera CLI plan/progress
+    validation passed after closeout updates.
+complete: 5
+total: 5
+active: false
+complete_plan: true
+overall_acceptance:
+- Risky operation proposals are impossible to miss in the UI and include exact path, command, diff preview, risk summary,
+  and default action.
+- Approval, denial, and defer choices are rendered and tested as message emissions only.
+- No approval path executes mutations, writes files, runs shell/git commands, or depends on final write permission classes.
+- TUI fixtures/snapshots, update/keybinding tests, PTY smoke, targeted tests, and mage check pass before roadmap closeout.
+surprises:
+- Approval decisions can be added as inert runtime/TUI state before final write permission classes without introducing mutation
+  effects.

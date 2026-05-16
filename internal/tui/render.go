@@ -1629,7 +1629,7 @@ func semanticBash(command *CommandView) *SemanticBash {
 	if status == "" {
 		status = "running"
 	}
-	completed := status != "running"
+	completed := status == "completed" || status == "failed"
 	if command.ErrorKind != "" {
 		completed = true
 	}
@@ -1657,8 +1657,6 @@ func semanticBash(command *CommandView) *SemanticBash {
 		Completed:       completed,
 	}
 	if !semantic.Completed {
-		semantic.CommandFamily = ""
-		semantic.ExpectedEffect = ""
 		semantic.ExitCode = 0
 		semantic.StdoutLines = nil
 		semantic.StderrLines = nil
@@ -1667,7 +1665,6 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.DurationMillis = 0
 		semantic.ErrorKind = ""
 		semantic.ErrorMessage = ""
-		semantic.Decision = nil
 	}
 	return semantic
 }

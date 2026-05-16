@@ -1,0 +1,43 @@
+Aila                                                                       80x44
+Stage BUILD | Runtime permission-evaluated | Model placeholder | Utility placeh~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: placeholder                                                   |
+| utility model: placeholder                                                   |
+| autonomy: yolo (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: permission-evaluated                                                 |
+| status source: runtime.fixture                                               |
+| detail: write-shaped proposal classified only                                |
+| active: false                                                                |
+|                                                                              |
+| Bash command:                                                                |
+| tool: bash                                                                   |
+| status: proposed                                                             |
+| read-only: false                                                             |
+| command: sh -c printf updated > internal/demo.txt                            |
+| working dir: .                                                               |
+| completed: false                                                             |
+| command family: shell mutation                                               |
+| expected effect: would update internal/demo.txt; not executed in M26         |
+| decision source: autonomy_policy                                             |
+| decision: allowed                                                            |
+| decision automatic: true                                                     |
+| approval required: false                                                     |
+| autonomy: yolo                                                               |
+| operation: exec                                                              |
+| decision tool: bash                                                          |
+| decision target: requested path                                              |
+| decision command: sh -c printf updated > internal/demo.txt                   |
+| decision working dir: .                                                      |
+| decision expected effect: would update internal/demo.txt; not executed in M~ |
+| decision reversible: false                                                   |
+| decision run id: run-yolo-permission                                         |
+| decision capability: m26-fixture                                             |
+| decision reason: yolo autonomy grants classified operation                   |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
