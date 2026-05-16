@@ -946,3 +946,65 @@ func TestUpdateQueuesBashToolProposalWhileActive(t *testing.T) {
 		t.Fatalf("queued bash model=%+v effects=%v", updated, effects)
 	}
 }
+
+func TestUpdateHandlesFetchToolProposalDeterministically(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusIdle}
+	request := FetchToolRequest{URL: " https://example.com/docs ", MaxPreviewBytes: 256, TimeoutMillis: 1000, Source: FetchSourceMetadata{Caller: "test", RequestID: "fetch-1"}}
+
+	firstModel, firstEffects := Update(model, FetchToolProposed{Request: request})
+	secondModel, secondEffects := Update(model, FetchToolProposed{Request: request})
+
+	if firstModel.Status != StatusActive || firstModel.ActiveOperation.Kind != OperationFetch || firstModel.ActiveFetch.URL != "https://example.com/docs" || len(firstEffects) != 1 {
+		t.Fatalf("first fetch proposal model=%+v effects=%v", firstModel, firstEffects)
+	}
+	if firstModel.NextOperation != secondModel.NextOperation || firstModel.ActiveOperation.ID != secondModel.ActiveOperation.ID || len(secondEffects) != 1 {
+		t.Fatalf("fetch proposal not deterministic: first=%+v second=%+v", firstModel, secondModel)
+	}
+	effect, ok := firstEffects[0].(FetchToolEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want FetchToolEffect", firstEffects[0])
+	}
+	if effect.Request.URL != "https://example.com/docs" || effect.Operation.Subject != "https://example.com/docs" {
+		t.Fatalf("fetch effect = %+v", effect)
+	}
+}
+
+func TestUpdateHandlesFetchToolResultMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-fetch", Kind: OperationFetch, Subject: "https://example.com/docs", Source: "test"}
+	model := Model{Status: StatusActive, ActiveOperation: operation, ActiveFetch: FetchToolRequest{URL: "https://example.com/docs"}}
+	result := FetchToolResult{ToolName: "fetch", RequestedURL: "https://example.com/docs", EffectiveURL: "https://example.com/docs", Method: "GET", ExpectedEffect: "read remote content through bounded fetch", Status: "completed", HTTPStatusCode: 200, HTTPStatus: "200 OK", ContentType: "text/plain", PreviewText: "hello", Error: FetchToolError{Kind: FetchToolErrorNone}}
+
+	completed, effects := Update(model, FetchToolCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 || completed.Status != StatusIdle || completed.LastFetch.EffectiveURL != "https://example.com/docs" || completed.ActiveFetch.URL != "" || completed.ActiveOperation.ID != "" {
+		t.Fatalf("completed fetch model=%+v effects=%v", completed, effects)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got.Kind != "result" || !strings.Contains(got.Text, "completed 200") {
+		t.Fatalf("completed fetch transcript = %+v", got)
+	}
+
+	failure := result
+	failure.Error = FetchToolError{Kind: FetchToolErrorHTTPStatus, Message: "remote returned 404 Not Found"}
+	failure.Status = "http_error"
+	failure.HTTPStatusCode = 404
+	failed, effects := Update(model, FetchToolCompleted{Operation: operation, Result: failure})
+	if len(effects) != 0 || failed.Status != StatusIdle || failed.LastFetch.Error.Kind != FetchToolErrorHTTPStatus {
+		t.Fatalf("failed fetch model=%+v effects=%v", failed, effects)
+	}
+	if got := failed.Transcript[len(failed.Transcript)-1]; got.Kind != "failure" || !strings.Contains(got.Text, "http_status") {
+		t.Fatalf("failed fetch transcript = %+v", got)
+	}
+}
+
+func TestUpdateQueuesFetchToolProposalWhileActive(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusActive, ActiveOperation: OperationMetadata{Kind: OperationPrompt}}
+	updated, effects := Update(model, FetchToolProposed{Request: FetchToolRequest{URL: "https://example.com/docs"}})
+	if len(effects) != 0 || len(updated.Queued) != 1 || updated.Queued[0].Kind != "fetch" || updated.Queued[0].Text != "https://example.com/docs" {
+		t.Fatalf("queued fetch model=%+v effects=%v", updated, effects)
+	}
+}

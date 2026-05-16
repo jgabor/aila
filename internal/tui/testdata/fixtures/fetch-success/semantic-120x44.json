@@ -1,0 +1,132 @@
+{
+  "scenario": "fetch-success",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "fetch tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "fetch_tool": {
+    "tool_name": "fetch",
+    "status": "completed",
+    "read_only": true,
+    "url": "https://example.com/docs",
+    "method": "GET",
+    "expected_effect": "read remote content through bounded fetch",
+    "http_status_code": 200,
+    "http_status": "200 OK",
+    "content_type": "text/plain; charset=utf-8",
+    "preview_lines": [
+      "# Aila docs",
+      "Remote context preview with [redacted] and [path-redacted]"
+    ],
+    "preview_truncated": true,
+    "omitted_bytes_known": true,
+    "omitted_bytes": 42,
+    "truncation_marker": "preview_truncated",
+    "duration_millis": 17,
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: fetch tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "fetch_tool",
+      "visible": true,
+      "items": [
+        "tool_name: fetch",
+        "status: completed",
+        "read_only: true",
+        "url: https://example.com/docs",
+        "method: GET",
+        "completed: true",
+        "expected_effect: read remote content through bounded fetch",
+        "http_status_code: 200",
+        "http_status: 200 OK",
+        "content_type: text/plain; charset=utf-8",
+        "preview_line: # Aila docs",
+        "preview_line: Remote context preview with [redacted] and [path-redacted]",
+        "preview_truncated: true",
+        "omitted_bytes_known: true",
+        "omitted_bytes: 42",
+        "truncation_marker: preview_truncated",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

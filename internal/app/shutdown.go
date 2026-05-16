@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -74,7 +75,15 @@ func newInputRunnerWithReadContext(ctx context.Context, workspacePath string, au
 	return newInputRunnerWithDispatch(readDispatchContext(ctx, workspacePath, autonomyLevel))
 }
 
+func newInputRunnerWithReadContextAndFetchClient(ctx context.Context, workspacePath string, autonomyLevel string, fetchClient tools.FetchClient) *inputRunner {
+	return newInputRunnerWithDispatch(readDispatchContextWithFetchClient(ctx, workspacePath, autonomyLevel, fetchClient))
+}
+
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {
+	return readDispatchContextWithFetchClient(ctx, workspacePath, autonomyLevel, http.DefaultClient)
+}
+
+func readDispatchContextWithFetchClient(ctx context.Context, workspacePath string, autonomyLevel string, fetchClient tools.FetchClient) runtimeDispatchFunc {
 	return func(effects []runtime.Effect) []runtime.Message {
 		if len(effects) == 0 {
 			return nil
@@ -92,6 +101,8 @@ func readDispatchContext(ctx context.Context, workspacePath string, autonomyLeve
 				messages = append(messages, dispatchSearchEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			case runtime.BashToolEffect:
 				messages = append(messages, dispatchBashEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			case runtime.FetchToolEffect:
+				messages = append(messages, dispatchFetchEffect(ctx, permission.AutonomyLevel(autonomyLevel), typed, fetchClient))
 			default:
 				messages = append(messages, runtime.DispatchContext(ctx, []runtime.Effect{effect})...)
 			}
@@ -353,6 +364,80 @@ func runtimeBashResult(result tools.BashResult) runtime.BashToolResult {
 			Message: result.Error.Message,
 		},
 		Source: runtime.BashSourceMetadata(result.Source),
+	}
+}
+
+func dispatchFetchEffect(ctx context.Context, autonomyLevel permission.AutonomyLevel, effect runtime.FetchToolEffect, fetchClient tools.FetchClient) runtime.Message {
+	validated, fetchErr := tools.ValidateFetchRequest(tools.FetchRequest{
+		URL:             effect.Request.URL,
+		Method:          effect.Request.Method,
+		MaxPreviewBytes: effect.Request.MaxPreviewBytes,
+		TimeoutMillis:   effect.Request.TimeoutMillis,
+		Source:          tools.FetchSourceMetadata(effect.Request.Source),
+	})
+	if fetchErr.Kind != "" {
+		return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtimeFetchFailure(effect.Request, fetchErr)}
+	}
+
+	operation := permission.NewFetchOperation(validated.EffectiveURL)
+	decision := permission.Decide(autonomyLevel, operation)
+	if !decision.Allowed {
+		return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtime.FetchToolResult{
+			ToolName:       tools.FetchToolName,
+			RequestedURL:   effect.Request.URL,
+			EffectiveURL:   validated.EffectiveURL,
+			Method:         validated.EffectiveMethod,
+			ExpectedEffect: validated.ExpectedEffect,
+			Status:         "denied",
+			Error: runtime.FetchToolError{
+				Kind:    runtime.FetchToolErrorPermission,
+				Message: decision.Reason,
+			},
+			Source: effect.Request.Source,
+		}}
+	}
+
+	return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtimeFetchResult(tools.ExecuteFetchWithClient(ctx, validated, fetchClient))}
+}
+
+func runtimeFetchFailure(request runtime.FetchToolRequest, err tools.FetchError) runtime.FetchToolResult {
+	return runtime.FetchToolResult{
+		ToolName:     tools.FetchToolName,
+		RequestedURL: request.URL,
+		Status:       "failed",
+		Error: runtime.FetchToolError{
+			Kind:    runtime.FetchToolErrorKind(err.Kind),
+			Message: err.Message,
+		},
+		Source: request.Source,
+	}
+}
+
+func runtimeFetchResult(result tools.FetchResult) runtime.FetchToolResult {
+	return runtime.FetchToolResult{
+		ToolName:       result.ToolName,
+		RequestedURL:   result.RequestedURL,
+		EffectiveURL:   result.EffectiveURL,
+		Method:         result.Method,
+		ExpectedEffect: result.ExpectedEffect,
+		Status:         result.Status,
+		HTTPStatusCode: result.HTTPStatusCode,
+		HTTPStatus:     result.HTTPStatus,
+		ContentType:    result.ContentType,
+		PreviewText:    result.PreviewText,
+		Truncation: runtime.FetchToolTruncation{
+			PreviewBytesLimit: result.Truncation.PreviewBytesLimit,
+			PreviewTruncated:  result.Truncation.PreviewTruncated,
+			OmittedBytesKnown: result.Truncation.OmittedBytesKnown,
+			OmittedBytes:      result.Truncation.OmittedBytes,
+			Marker:            result.Truncation.Marker,
+		},
+		DurationMillis: result.DurationMillis,
+		Error: runtime.FetchToolError{
+			Kind:    runtime.FetchToolErrorKind(result.Error.Kind),
+			Message: result.Error.Message,
+		},
+		Source: runtime.FetchSourceMetadata(result.Source),
 	}
 }
 

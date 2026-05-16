@@ -1,0 +1,111 @@
+{
+  "scenario": "fetch-tool-running",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "active",
+    "status_source": "runtime.dispatch",
+    "status_detail": "fetch tool dispatch",
+    "active": true,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "fetch_tool": {
+    "tool_name": "fetch",
+    "status": "running",
+    "read_only": true,
+    "url": "https://example.com/docs",
+    "method": "GET",
+    "preview_truncated": false,
+    "omitted_bytes_known": false,
+    "completed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: active",
+        "status source: runtime.dispatch",
+        "detail: fetch tool dispatch",
+        "active: true",
+        "display-only"
+      ]
+    },
+    {
+      "name": "fetch_tool",
+      "visible": true,
+      "items": [
+        "tool_name: fetch",
+        "status: running",
+        "read_only: true",
+        "url: https://example.com/docs",
+        "method: GET",
+        "completed: false",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

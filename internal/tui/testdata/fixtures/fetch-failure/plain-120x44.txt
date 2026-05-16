@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: fetch tool dispatch                                                                                          |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Fetch result:                                                                                                        |
+| tool: fetch                                                                                                          |
+| status: http_error                                                                                                   |
+| read-only: true                                                                                                      |
+| url: https://example.com/missing                                                                                     |
+| method: GET                                                                                                          |
+| completed: true                                                                                                      |
+| expected effect: read remote content through bounded fetch                                                           |
+| remote status: 404                                                                                                   |
+| remote status text: 404 Not Found                                                                                    |
+| content type: text/plain                                                                                             |
+| preview:                                                                                                             |
+| | not found from [path-redacted]                                                                                     |
+| preview truncated: false                                                                                             |
+| omitted bytes: 0                                                                                                     |
+| error kind: http_status                                                                                              |
+| error message: remote returned 404 Not Found [redacted]                                                              |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

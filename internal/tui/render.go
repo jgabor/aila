@@ -39,6 +39,7 @@ type ViewState struct {
 	Read               *ReadView
 	Search             *SearchView
 	Command            *CommandView
+	Fetch              *FetchView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -166,6 +167,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
 	items = append(items, commandLines(state.Command)...)
+	items = append(items, fetchLines(state.Fetch)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
@@ -355,6 +357,57 @@ func commandLines(command *CommandView) []string {
 			"  stdout truncated: "+boolLabel(semantic.StdoutTruncated),
 			"  stderr truncated: "+boolLabel(semantic.StderrTruncated),
 		)
+	}
+	if semantic.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.ErrorMessage)
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func fetchLines(fetch *FetchView) []string {
+	if fetch == nil {
+		return nil
+	}
+	semantic := semanticFetch(fetch)
+	lines := []string{
+		"  Fetch result:",
+		"  tool: " + semantic.Name,
+		"  status: " + semantic.Status,
+		"  read-only: " + boolLabel(semantic.ReadOnly),
+		"  url: " + semantic.URL,
+		"  method: " + semantic.Method,
+		"  completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.Completed && semantic.HTTPStatusCode > 0 {
+		lines = append(lines, fmt.Sprintf("  remote status: %d", semantic.HTTPStatusCode))
+	}
+	if semantic.HTTPStatus != "" {
+		lines = append(lines, "  remote status text: "+semantic.HTTPStatus)
+	}
+	if semantic.ContentType != "" {
+		lines = append(lines, "  content type: "+semantic.ContentType)
+	}
+	if len(semantic.PreviewLines) > 0 {
+		lines = append(lines, "  preview:")
+		for _, line := range semantic.PreviewLines {
+			lines = append(lines, "  | "+line)
+		}
+	}
+	if semantic.Completed {
+		lines = append(lines, "  preview truncated: "+boolLabel(semantic.PreviewTruncated))
+		if semantic.OmittedBytesKnown {
+			lines = append(lines, fmt.Sprintf("  omitted bytes: %d", semantic.OmittedBytes))
+		}
+	}
+	if semantic.TruncationMarker != "" {
+		lines = append(lines, "  truncation marker: "+semantic.TruncationMarker)
 	}
 	if semantic.ErrorKind != "" {
 		lines = append(lines, "  error kind: "+semantic.ErrorKind)
@@ -581,6 +634,7 @@ type SemanticSnapshot struct {
 	Read        *SemanticRead        `json:"read_tool,omitempty"`
 	Search      *SemanticSearch      `json:"search_tool,omitempty"`
 	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
+	Fetch       *SemanticFetch       `json:"fetch_tool,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
 }
@@ -654,6 +708,28 @@ type SemanticBash struct {
 	ErrorKind       string   `json:"error_kind,omitempty"`
 	ErrorMessage    string   `json:"error_message,omitempty"`
 	Completed       bool     `json:"completed"`
+}
+
+// SemanticFetch describes injected read-only network state for snapshots.
+type SemanticFetch struct {
+	Name              string   `json:"tool_name"`
+	Status            string   `json:"status"`
+	ReadOnly          bool     `json:"read_only"`
+	URL               string   `json:"url"`
+	Method            string   `json:"method"`
+	ExpectedEffect    string   `json:"expected_effect,omitempty"`
+	HTTPStatusCode    int      `json:"http_status_code,omitempty"`
+	HTTPStatus        string   `json:"http_status,omitempty"`
+	ContentType       string   `json:"content_type,omitempty"`
+	PreviewLines      []string `json:"preview_lines,omitempty"`
+	PreviewTruncated  bool     `json:"preview_truncated"`
+	OmittedBytesKnown bool     `json:"omitted_bytes_known"`
+	OmittedBytes      int64    `json:"omitted_bytes,omitempty"`
+	TruncationMarker  string   `json:"truncation_marker,omitempty"`
+	DurationMillis    int64    `json:"duration_millis,omitempty"`
+	ErrorKind         string   `json:"error_kind,omitempty"`
+	ErrorMessage      string   `json:"error_message,omitempty"`
+	Completed         bool     `json:"completed"`
 }
 
 // SemanticMemory describes app-injected resumed current-session memory.
@@ -800,6 +876,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Command != nil {
 		regions = append(regions, SemanticRegion{Name: "bash_tool", Visible: true, Items: semanticBashItems(state.Command)})
 	}
+	if state.Fetch != nil {
+		regions = append(regions, SemanticRegion{Name: "fetch_tool", Visible: true, Items: semanticFetchItems(state.Fetch)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -873,6 +952,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Read:        semanticRead(state.Read),
 		Search:      semanticSearch(state.Search),
 		Bash:        semanticBash(state.Command),
+		Fetch:       semanticFetch(state.Fetch),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -1316,6 +1396,113 @@ func semanticBash(command *CommandView) *SemanticBash {
 	return semantic
 }
 
+func semanticFetchItems(fetch *FetchView) []string {
+	semantic := semanticFetch(fetch)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"tool_name: " + semantic.Name,
+		"status: " + semantic.Status,
+		"read_only: " + boolLabel(semantic.ReadOnly),
+		"url: " + semantic.URL,
+		"method: " + semantic.Method,
+		"completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.ExpectedEffect != "" {
+		items = append(items, "expected_effect: "+semantic.ExpectedEffect)
+	}
+	if semantic.Completed && semantic.HTTPStatusCode > 0 {
+		items = append(items, fmt.Sprintf("http_status_code: %d", semantic.HTTPStatusCode))
+	}
+	if semantic.HTTPStatus != "" {
+		items = append(items, "http_status: "+semantic.HTTPStatus)
+	}
+	if semantic.ContentType != "" {
+		items = append(items, "content_type: "+semantic.ContentType)
+	}
+	for _, line := range semantic.PreviewLines {
+		items = append(items, "preview_line: "+line)
+	}
+	if semantic.Completed {
+		items = append(items,
+			"preview_truncated: "+boolLabel(semantic.PreviewTruncated),
+			"omitted_bytes_known: "+boolLabel(semantic.OmittedBytesKnown),
+		)
+		if semantic.OmittedBytesKnown {
+			items = append(items, fmt.Sprintf("omitted_bytes: %d", semantic.OmittedBytes))
+		}
+	}
+	if semantic.TruncationMarker != "" {
+		items = append(items, "truncation_marker: "+semantic.TruncationMarker)
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticFetch(fetch *FetchView) *SemanticFetch {
+	if fetch == nil {
+		return nil
+	}
+	status := safeText(fetch.Status)
+	if status == "" {
+		status = "running"
+	}
+	completed := status != "running"
+	if fetch.ErrorKind != "" {
+		completed = true
+	}
+	name := safeText(fetch.Name)
+	if name == "" {
+		name = "fetch"
+	}
+	method := safeText(fetch.Method)
+	if method == "" {
+		method = "GET"
+	}
+	semantic := &SemanticFetch{
+		Name:              name,
+		Status:            status,
+		ReadOnly:          fetch.ReadOnly,
+		URL:               safeFetchURL(fetch.URL),
+		Method:            method,
+		ExpectedEffect:    safeText(fetch.ExpectedEffect),
+		HTTPStatusCode:    fetch.HTTPStatusCode,
+		HTTPStatus:        safeText(fetch.HTTPStatus),
+		ContentType:       safeText(fetch.ContentType),
+		PreviewLines:      safeFetchPreviewLines(fetch.PreviewLines),
+		PreviewTruncated:  fetch.PreviewTruncated,
+		OmittedBytesKnown: fetch.OmittedBytesKnown,
+		OmittedBytes:      fetch.OmittedBytes,
+		TruncationMarker:  safeText(fetch.TruncationMarker),
+		DurationMillis:    fetch.DurationMillis,
+		ErrorKind:         safeText(fetch.ErrorKind),
+		ErrorMessage:      safeText(fetch.ErrorMessage),
+		Completed:         completed,
+	}
+	if !semantic.Completed {
+		semantic.ExpectedEffect = ""
+		semantic.HTTPStatusCode = 0
+		semantic.HTTPStatus = ""
+		semantic.ContentType = ""
+		semantic.PreviewLines = nil
+		semantic.PreviewTruncated = false
+		semantic.OmittedBytesKnown = false
+		semantic.OmittedBytes = 0
+		semantic.TruncationMarker = ""
+		semantic.DurationMillis = 0
+		semantic.ErrorKind = ""
+		semantic.ErrorMessage = ""
+	}
+	return semantic
+}
+
 func safeCommandOutputLines(lines []string) []string {
 	if len(lines) == 0 {
 		return nil
@@ -1370,6 +1557,34 @@ func safeCommandPath(value string) string {
 		return "."
 	}
 	return safeReadTargetPath(value)
+}
+
+func safeFetchURL(value string) string {
+	value = stripTerminalControls(strings.TrimSpace(value))
+	value = secretLikeText.ReplaceAllString(value, "[redacted]")
+	if value == "" || strings.ContainsAny(value, " \t\n\r|;&`$<>") || strings.Contains(value, "@") || strings.HasPrefix(value, "file:") || strings.HasPrefix(value, "~") || strings.HasPrefix(value, "$HOME") || strings.HasPrefix(value, "${HOME}") || strings.HasPrefix(value, "$XDG_") || strings.HasPrefix(value, "${XDG_") {
+		return "requested url"
+	}
+	if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
+		return "requested url"
+	}
+	return limitTextBytes(value, maxDisplayTextBytes)
+}
+
+func safeFetchPreviewLines(lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	const maxPreviewLines = 12
+	limit := len(lines)
+	if limit > maxPreviewLines {
+		limit = maxPreviewLines
+	}
+	items := make([]string, 0, limit)
+	for _, line := range lines[:limit] {
+		items = append(items, safeCommandOutputLine(line))
+	}
+	return items
 }
 
 func semanticReadLineRange(lineRange ReadLineRangeView) SemanticReadLineRange {

@@ -9,6 +9,7 @@ func TestReadOperationClassifiesAsSafeReadOnly(t *testing.T) {
 		NewReadOperation("notes.txt"),
 		NewFindOperation("**/*.go"),
 		NewGrepOperation("TODO", "**/*.go"),
+		NewFetchOperation("https://example.com/docs"),
 	} {
 		operation := operation
 		t.Run(operation.Tool, func(t *testing.T) {
@@ -30,7 +31,7 @@ func TestReadOperationClassifiesAsSafeReadOnly(t *testing.T) {
 func TestDecideAllowsReadOnlyAutomaticallyAtReadOrHigher(t *testing.T) {
 	t.Parallel()
 
-	operations := []ProposedOperation{NewReadOperation("notes.txt"), NewFindOperation("**/*.go"), NewGrepOperation("TODO", "**/*.go")}
+	operations := []ProposedOperation{NewReadOperation("notes.txt"), NewFindOperation("**/*.go"), NewGrepOperation("TODO", "**/*.go"), NewFetchOperation("https://example.com/docs")}
 	for _, level := range []AutonomyLevel{AutonomyRead, AutonomyWrite, AutonomyYolo} {
 		for _, operation := range operations {
 			decision := Decide(level, operation)
@@ -44,7 +45,7 @@ func TestDecideAllowsReadOnlyAutomaticallyAtReadOrHigher(t *testing.T) {
 func TestDecideDoesNotAutoApproveReadsWhenAutonomyOff(t *testing.T) {
 	t.Parallel()
 
-	for _, operation := range []ProposedOperation{NewReadOperation("notes.txt"), NewFindOperation("*.go"), NewGrepOperation("TODO", "*.go")} {
+	for _, operation := range []ProposedOperation{NewReadOperation("notes.txt"), NewFindOperation("*.go"), NewGrepOperation("TODO", "*.go"), NewFetchOperation("https://example.com/docs")} {
 		decision := Decide(AutonomyOff, operation)
 		if decision.Allowed || decision.Automatic || decision.Reason == "" {
 			t.Fatalf("Decide(off, %#v) = %#v, want denied pending approval", operation, decision)
@@ -72,6 +73,24 @@ func TestBashInspectionOperationIsReadOnly(t *testing.T) {
 	operation := NewBashInspectionOperation([]string{"git", "status", "--short"}, ".", "inspect git working tree status")
 	if operation.Kind != OperationRead || operation.Tool != "bash" || operation.WorkingDir != "." || operation.ExpectedEffect == "" || !operation.Reversible {
 		t.Fatalf("bash inspection operation = %+v", operation)
+	}
+	if got := Decide(AutonomyRead, operation); !got.Allowed || !got.Automatic {
+		t.Fatalf("read autonomy decision = %+v, want allowed", got)
+	}
+	if got := Decide(AutonomyOff, operation); got.Allowed || got.Automatic {
+		t.Fatalf("off autonomy decision = %+v, want denied", got)
+	}
+}
+
+func TestFetchOperationIsReadOnlyNetworkRead(t *testing.T) {
+	t.Parallel()
+
+	operation := NewFetchOperation("https://example.com/docs")
+	if operation.Kind != OperationRead || operation.Tool != "fetch" || operation.TargetPath != "https://example.com/docs" || operation.ExpectedEffect == "" || !operation.Reversible {
+		t.Fatalf("fetch operation = %+v", operation)
+	}
+	if len(operation.Command) != 0 || operation.WorkingDir != "" || operation.DiffPreview != "" || operation.TargetVersion != "" {
+		t.Fatalf("fetch operation reused mutation or shell fields: %+v", operation)
 	}
 	if got := Decide(AutonomyRead, operation); !got.Allowed || !got.Automatic {
 		t.Fatalf("read autonomy decision = %+v, want allowed", got)

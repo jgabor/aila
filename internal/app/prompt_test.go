@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"go/parser"
 	"go/token"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -676,5 +679,118 @@ func writeAppTestFile(t *testing.T, root string, rel string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+type appFakeFetchClient struct {
+	response *http.Response
+	err      error
+}
+
+func (client appFakeFetchClient) Do(*http.Request) (*http.Response, error) {
+	return client.response, client.err
+}
+
+func TestFetchToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	client := appFakeFetchClient{response: &http.Response{
+		StatusCode:    200,
+		Status:        "200 OK",
+		Header:        http.Header{"Content-Type": []string{"text/plain"}},
+		Body:          io.NopCloser(strings.NewReader("hello from docs")),
+		ContentLength: int64(len("hello from docs")),
+	}}
+	runner := newInputRunnerWithReadContextAndFetchClient(context.Background(), workspace, "read", client)
+
+	turn := runner.proposeFetchTool(runtime.FetchToolRequest{URL: "https://example.com/docs", MaxPreviewBytes: 64, Source: runtime.FetchSourceMetadata{Caller: "test", RequestID: "fetch-1"}})
+
+	if turn.UserText != "" || !strings.Contains(turn.AssistantText, "fetch https://example.com/docs: completed 200") {
+		t.Fatalf("fetch turn = %+v, want completed fetch result", turn)
+	}
+	if turn.Fetch == nil || turn.Fetch.Status != "completed" || !turn.Fetch.ReadOnly || turn.Fetch.URL != "https://example.com/docs" || turn.Fetch.HTTPStatusCode != 200 || !reflect.DeepEqual(turn.Fetch.PreviewLines, []string{"hello from docs"}) {
+		t.Fatalf("fetch view = %+v, want completed fetch presentation state", turn.Fetch)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive || turn.StatusDetail != "fetch tool dispatch" {
+		t.Fatalf("fetch runtime state = %+v, want idle after explicit fetch effect", turn)
+	}
+	if got := runner.model.LastFetch; got.ToolName != "fetch" || got.EffectiveURL != "https://example.com/docs" || got.Error.Kind != runtime.FetchToolErrorNone {
+		t.Fatalf("last fetch = %#v, want successful fetch result", got)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("fetch tool created durable state err=%v", err)
+	}
+}
+
+func TestFetchToolProposalCanSurfaceRunningPresentation(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+
+	turn := runner.proposeFetchTool(runtime.FetchToolRequest{URL: "https://example.com/docs", Method: "GET"})
+
+	if turn.Fetch == nil || turn.Fetch.Status != "running" || !turn.Fetch.ReadOnly || turn.Fetch.URL != "https://example.com/docs" || turn.Fetch.Method != "GET" {
+		t.Fatalf("running fetch view = %+v, want active injected fetch presentation state", turn.Fetch)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusActive) || !turn.RuntimeActive || turn.StatusDetail != "fetch tool dispatch" {
+		t.Fatalf("running fetch runtime turn = %+v, want active fetch dispatch detail", turn)
+	}
+}
+
+func TestFetchToolProposalSurfacesValidationFailureWithoutHiddenRetry(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContextAndFetchClient(context.Background(), workspace, "read", appFakeFetchClient{})
+
+	turn := runner.proposeFetchTool(runtime.FetchToolRequest{URL: "file:///etc/passwd"})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("fetch failure runtime state = turn %+v model %#v, want idle without retry", turn, runner.model)
+	}
+	if got := runner.model.LastFetch.Error; got.Kind != runtime.FetchToolErrorInvalidURL {
+		t.Fatalf("last fetch error = %#v, want invalid url failure", got)
+	}
+	if strings.Contains(turn.AssistantText, "/etc/passwd") || strings.Contains(turn.AssistantText, workspace) {
+		t.Fatalf("fetch failure leaked unsafe path context: %q", turn.AssistantText)
+	}
+	if got := len(runner.model.Transcript); got != 2 {
+		t.Fatalf("transcript entries = %d, want proposal plus one result without hidden retry", got)
+	}
+}
+
+func TestFetchToolProposalDeniedWhenAutonomyOff(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContextAndFetchClient(context.Background(), workspace, "off", appFakeFetchClient{})
+
+	turn := runner.proposeFetchTool(runtime.FetchToolRequest{URL: "https://example.com/docs"})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("denied fetch runtime state = turn %+v model %#v", turn, runner.model)
+	}
+	if runner.model.LastFetch.Error.Kind != runtime.FetchToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
+		t.Fatalf("denied fetch result = %#v assistant=%q", runner.model.LastFetch, turn.AssistantText)
+	}
+}
+
+func TestFetchToolProposalSurfacesNetworkFailureWithoutProviderFallback(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContextAndFetchClient(context.Background(), workspace, "read", appFakeFetchClient{err: errors.New("network boom")})
+
+	turn := runner.proposeFetchTool(runtime.FetchToolRequest{URL: "https://example.com/docs"})
+
+	if got := runner.model.LastFetch.Error; got.Kind != runtime.FetchToolErrorExecution || strings.Contains(got.Message, "network boom") {
+		t.Fatalf("network fetch error = %#v", got)
+	}
+	if !strings.Contains(turn.AssistantText, "fetch https://example.com/docs failed: execution_error") || strings.Contains(strings.ToLower(turn.AssistantText), "provider") {
+		t.Fatalf("network fetch assistant = %q", turn.AssistantText)
+	}
+	if len(runner.model.Diagnostics) != 0 {
+		t.Fatalf("network fetch diagnostics = %#v, want no workflow or recovery mutation", runner.model.Diagnostics)
 	}
 }

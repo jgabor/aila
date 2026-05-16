@@ -63,6 +63,14 @@ func (runner *inputRunner) proposeBashTool(request runtime.BashToolRequest) tui.
 	return turn
 }
 
+func (runner *inputRunner) proposeFetchTool(request runtime.FetchToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.FetchToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.RuntimeDiagnostic{Diagnostic: signalShutdownDiagnostic(err)})
@@ -86,6 +94,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)
+	turn.Fetch = fetchView(runner.model)
 	if turn.Read != nil {
 		turn.StatusDetail = "read tool dispatch"
 	}
@@ -94,6 +103,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Command != nil {
 		turn.StatusDetail = "bash tool dispatch"
+	}
+	if turn.Fetch != nil {
+		turn.StatusDetail = "fetch tool dispatch"
 	}
 }
 
@@ -294,6 +306,60 @@ func commandView(model runtime.Model) *tui.CommandView {
 		ErrorKind:       string(model.LastBash.Error.Kind),
 		ErrorMessage:    model.LastBash.Error.Message,
 	}
+}
+
+func fetchView(model runtime.Model) *tui.FetchView {
+	if model.ActiveOperation.Kind == runtime.OperationFetch && model.Status == runtime.StatusActive {
+		request := model.ActiveFetch
+		return &tui.FetchView{
+			Name:     "fetch",
+			Status:   "running",
+			ReadOnly: true,
+			URL:      request.URL,
+			Method:   defaultString(request.Method, "GET"),
+		}
+	}
+	if model.LastFetch.ToolName == "" && model.LastFetch.RequestedURL == "" && model.LastFetch.EffectiveURL == "" {
+		return nil
+	}
+	status := defaultString(model.LastFetch.Status, "completed")
+	if model.LastFetch.Error.Kind != "" && model.LastFetch.Error.Kind != runtime.FetchToolErrorNone {
+		status = "failed"
+		if model.LastFetch.Status != "" {
+			status = model.LastFetch.Status
+		}
+	}
+	url := model.LastFetch.EffectiveURL
+	if url == "" {
+		url = model.LastFetch.RequestedURL
+	}
+	return &tui.FetchView{
+		Name:              defaultString(model.LastFetch.ToolName, "fetch"),
+		Status:            status,
+		ReadOnly:          true,
+		URL:               url,
+		Method:            defaultString(model.LastFetch.Method, "GET"),
+		ExpectedEffect:    model.LastFetch.ExpectedEffect,
+		HTTPStatusCode:    model.LastFetch.HTTPStatusCode,
+		HTTPStatus:        model.LastFetch.HTTPStatus,
+		ContentType:       model.LastFetch.ContentType,
+		PreviewLines:      fetchPreviewLines(model.LastFetch.PreviewText),
+		PreviewTruncated:  model.LastFetch.Truncation.PreviewTruncated,
+		OmittedBytesKnown: model.LastFetch.Truncation.OmittedBytesKnown,
+		OmittedBytes:      model.LastFetch.Truncation.OmittedBytes,
+		TruncationMarker:  model.LastFetch.Truncation.Marker,
+		DurationMillis:    model.LastFetch.DurationMillis,
+		ErrorKind:         string(model.LastFetch.Error.Kind),
+		ErrorMessage:      model.LastFetch.Error.Message,
+	}
+}
+
+func fetchPreviewLines(preview string) []string {
+	preview = strings.TrimRight(preview, "\n")
+	if preview == "" {
+		return nil
+	}
+	return strings.Split(preview, "\n")
 }
 
 func commandOutputLines(output string) []string {

@@ -34,6 +34,7 @@ type TranscriptTurn struct {
 	Read          *ReadView
 	Search        *SearchView
 	Command       *CommandView
+	Fetch         *FetchView
 }
 
 // ReadView is app-injected read presentation data. It is display-only;
@@ -105,6 +106,28 @@ type CommandView struct {
 	DurationMillis  int64
 	ErrorKind       string
 	ErrorMessage    string
+}
+
+// FetchView is app-injected network read presentation data. It is display-only;
+// TUI code must never contact the network itself.
+type FetchView struct {
+	Name              string
+	Status            string
+	ReadOnly          bool
+	URL               string
+	Method            string
+	ExpectedEffect    string
+	HTTPStatusCode    int
+	HTTPStatus        string
+	ContentType       string
+	PreviewLines      []string
+	PreviewTruncated  bool
+	OmittedBytesKnown bool
+	OmittedBytes      int64
+	TruncationMarker  string
+	DurationMillis    int64
+	ErrorKind         string
+	ErrorMessage      string
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -324,6 +347,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
+	state.Fetch = cloneFetchView(turn.Fetch)
 	return state
 }
 
@@ -353,6 +377,15 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.Argv = append([]string(nil), command.Argv...)
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
+	return &clone
+}
+
+func cloneFetchView(fetch *FetchView) *FetchView {
+	if fetch == nil {
+		return nil
+	}
+	clone := *fetch
+	clone.PreviewLines = append([]string(nil), fetch.PreviewLines...)
 	return &clone
 }
 

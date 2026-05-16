@@ -90,6 +90,17 @@ func NewBashInspectionOperation(command []string, workingDir string, expectedEff
 	}
 }
 
+// NewFetchOperation classifies the built-in fetch tool as a read-only network operation.
+func NewFetchOperation(targetURL string) ProposedOperation {
+	return ProposedOperation{
+		Kind:           OperationRead,
+		Tool:           "fetch",
+		TargetPath:     targetURL,
+		ExpectedEffect: "bounded remote content preview",
+		Reversible:     true,
+	}
+}
+
 // Decide applies the current autonomy level without executing or approving work.
 func Decide(level AutonomyLevel, operation ProposedOperation) Decision {
 	switch level {

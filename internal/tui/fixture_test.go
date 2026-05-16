@@ -482,7 +482,7 @@ func TestM18ReadToolCompletedRenderAndSemantic(t *testing.T) {
 		LineLimitHit:     true,
 		TruncationMarker: "[preview truncated]",
 	})
-	render := RenderPlain(state, Size{Width: 120, Height: 34})
+	render := RenderPlain(state, Size{Width: 120, Height: 44})
 	if !containsAll(render, []string{
 		"Read tool:",
 		"status: completed",
@@ -503,7 +503,7 @@ func TestM18ReadToolCompletedRenderAndSemantic(t *testing.T) {
 	}
 	assertNoReadLeak(t, render)
 
-	snapshot := Semantic(state, Size{Width: 120, Height: 34})
+	snapshot := Semantic(state, Size{Width: 120, Height: 44})
 	if snapshot.Read == nil || snapshot.Read.Path != "internal/tui/read_result.go" || !snapshot.Read.Completed || !snapshot.Read.PreviewTruncated || !snapshot.Read.LineLimitHit {
 		t.Fatalf("completed read semantic = %+v, want completed read metadata", snapshot.Read)
 	}
@@ -513,7 +513,7 @@ func TestM18ReadToolCompletedRenderAndSemantic(t *testing.T) {
 	if !sameStringSet(snapshot.Read.PreviewLines, []string{"2: beta", "3: [redacted]", "4: cache [path-redacted]"}) {
 		t.Fatalf("completed read preview lines = %v", snapshot.Read.PreviewLines)
 	}
-	semantic := RenderSemanticJSON(state, Size{Width: 120, Height: 34})
+	semantic := RenderSemanticJSON(state, Size{Width: 120, Height: 44})
 	assertNoReadLeak(t, semantic)
 }
 
@@ -857,7 +857,7 @@ func TestM19SearchRenderAndSemantic(t *testing.T) {
 			t.Parallel()
 
 			state := loadSearchFixture(t, tc.name).State
-			render := RenderPlain(state, Size{Width: 120, Height: 34})
+			render := RenderPlain(state, Size{Width: 120, Height: 44})
 			if !containsAll(render, tc.wantRender) {
 				t.Fatalf("%s render missing search evidence %v:\n%s", tc.name, tc.wantRender, render)
 			}
@@ -866,7 +866,7 @@ func TestM19SearchRenderAndSemantic(t *testing.T) {
 			}
 			assertNoReadLeak(t, render)
 
-			snapshot := Semantic(state, Size{Width: 120, Height: 34})
+			snapshot := Semantic(state, Size{Width: 120, Height: 44})
 			if snapshot.Search == nil || !snapshot.Search.ReadOnly || snapshot.Search.Completed != tc.completed {
 				t.Fatalf("search semantic = %+v, want read-only completed=%v", snapshot.Search, tc.completed)
 			}
@@ -875,7 +875,7 @@ func TestM19SearchRenderAndSemantic(t *testing.T) {
 			if !containsAll(searchRegion, []string{"read_only: true", "app-owned", "display-only"}) {
 				t.Fatalf("search semantic region = %v", regions["search_tool"].Items)
 			}
-			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 34}))
+			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 44}))
 		})
 	}
 }
@@ -1066,7 +1066,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 			t.Parallel()
 
 			state := loadCommandToolFixture(t, tc.name).State
-			render := RenderPlain(state, Size{Width: 120, Height: 34})
+			render := RenderPlain(state, Size{Width: 120, Height: 44})
 			if !containsAll(render, tc.wantRender) {
 				t.Fatalf("%s render missing command evidence %v:\n%s", tc.name, tc.wantRender, render)
 			}
@@ -1075,7 +1075,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 			}
 			assertNoReadLeak(t, render)
 
-			snapshot := Semantic(state, Size{Width: 120, Height: 34})
+			snapshot := Semantic(state, Size{Width: 120, Height: 44})
 			if snapshot.Bash == nil || !snapshot.Bash.ReadOnly || snapshot.Bash.Completed != tc.completed {
 				t.Fatalf("bash semantic = %+v, want read-only completed=%v", snapshot.Bash, tc.completed)
 			}
@@ -1084,7 +1084,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 			if !containsAll(commandRegion, []string{"read_only: true", "app-owned", "display-only"}) {
 				t.Fatalf("bash semantic region = %v", regions["bash_tool"].Items)
 			}
-			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 34}))
+			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 44}))
 		})
 	}
 }
@@ -2697,4 +2697,237 @@ func TestStaticModelQuitPath(t *testing.T) {
 	if updated.(Model).Quitting() {
 		t.Fatal("Esc should not mark the static model as quitting")
 	}
+}
+
+func loadFetchToolFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	var state ViewState
+	switch name {
+	case "fetch-tool-running":
+		state = fetchToolState(&FetchView{
+			Name:     "fetch",
+			Status:   "running",
+			ReadOnly: true,
+			URL:      "https://example.com/docs",
+			Method:   "GET",
+		})
+	case "fetch-success":
+		state = fetchToolState(&FetchView{
+			Name:              "fetch",
+			Status:            "completed",
+			ReadOnly:          true,
+			URL:               "https://example.com/docs",
+			Method:            "GET",
+			ExpectedEffect:    "read remote content through bounded fetch",
+			HTTPStatusCode:    200,
+			HTTPStatus:        "200 OK",
+			ContentType:       "text/plain; charset=utf-8",
+			PreviewLines:      []string{"# Aila docs", "Remote context preview with token=secret-value and /home/jgabor/.config/aila/config.toml"},
+			PreviewTruncated:  true,
+			OmittedBytesKnown: true,
+			OmittedBytes:      42,
+			TruncationMarker:  "preview_truncated",
+			DurationMillis:    17,
+		})
+	case "fetch-failure":
+		state = fetchToolState(&FetchView{
+			Name:              "fetch",
+			Status:            "http_error",
+			ReadOnly:          true,
+			URL:               "https://example.com/missing",
+			Method:            "GET",
+			ExpectedEffect:    "read remote content through bounded fetch",
+			HTTPStatusCode:    404,
+			HTTPStatus:        "404 Not Found",
+			ContentType:       "text/plain",
+			PreviewLines:      []string{"not found from /home/jgabor/git/aila/.aila/project.toml"},
+			PreviewTruncated:  false,
+			OmittedBytesKnown: true,
+			OmittedBytes:      0,
+			DurationMillis:    11,
+			ErrorKind:         "http_status",
+			ErrorMessage:      "remote returned 404 Not Found token=secret-value",
+		})
+	default:
+		t.Fatalf("unknown fetch fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM21FetchRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name           string
+		wantRender     []string
+		forbiddenPlain []string
+		completed      bool
+	}{
+		{
+			name: "fetch-tool-running",
+			wantRender: []string{
+				"Fetch result:",
+				"tool: fetch",
+				"status: running",
+				"read-only: true",
+				"url: https://example.com/docs",
+				"method: GET",
+				"completed: false",
+			},
+			forbiddenPlain: []string{"remote status:", "preview:", "error kind:", "completed: true"},
+		},
+		{
+			name: "fetch-success",
+			wantRender: []string{
+				"Fetch result:",
+				"status: completed",
+				"read-only: true",
+				"url: https://example.com/docs",
+				"expected effect: read remote content through bounded fetch",
+				"remote status: 200",
+				"content type: text/plain; charset=utf-8",
+				"# Aila docs",
+				"[redacted]",
+				"preview truncated: true",
+				"omitted bytes: 42",
+				"truncation marker: preview_truncated",
+			},
+			completed: true,
+		},
+		{
+			name: "fetch-failure",
+			wantRender: []string{
+				"Fetch result:",
+				"status: http_error",
+				"read-only: true",
+				"url: https://example.com/missing",
+				"remote status: 404",
+				"remote status text: 404 Not Found",
+				"[path-redacted]",
+				"error kind: http_status",
+				"error message: remote returned 404 Not Found [redacted]",
+			},
+			completed: true,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			state := loadFetchToolFixture(t, tc.name).State
+			render := RenderPlain(state, Size{Width: 120, Height: 44})
+			if !containsAll(render, tc.wantRender) {
+				t.Fatalf("%s render missing fetch evidence %v:\n%s", tc.name, tc.wantRender, render)
+			}
+			if containsAny(render, tc.forbiddenPlain) {
+				t.Fatalf("%s render implies wrong fetch state:\n%s", tc.name, render)
+			}
+			assertNoReadLeak(t, render)
+
+			snapshot := Semantic(state, Size{Width: 120, Height: 44})
+			if snapshot.Fetch == nil || !snapshot.Fetch.ReadOnly || snapshot.Fetch.Completed != tc.completed {
+				t.Fatalf("fetch semantic = %+v, want read-only completed=%v", snapshot.Fetch, tc.completed)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			fetchRegion := strings.Join(regions["fetch_tool"].Items, "\n")
+			if !containsAll(fetchRegion, []string{"read_only: true", "app-owned", "display-only"}) {
+				t.Fatalf("fetch semantic region = %v", regions["fetch_tool"].Items)
+			}
+			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 44}))
+		})
+	}
+}
+
+func TestM21FetchFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"fetch-tool-running", "fetch-success", "fetch-failure"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadFetchToolFixture(t, name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("fetch fixture metadata = %+v", fixture)
+			}
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, []string{"Fetch result:", "read-only: true"}) {
+						t.Fatalf("%s fixture render missing fetch evidence:\n%s", name, plain)
+					}
+					assertNoReadLeak(t, plain)
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoReadLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Fetch == nil || !snapshot.Fetch.ReadOnly {
+						t.Fatalf("semantic fetch = %+v", snapshot.Fetch)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestM21FetchPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"/fetch https://example.com", "fetch https://example.com", "curl https://example.com"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Fetch != nil || state.Read != nil || state.Search != nil || state.Command != nil || state.CommandRoute != "" || state.SurfaceTitle != "" || state.RuntimeStatus != "" {
+				t.Fatalf("%q unexpectedly invoked visible fetch state: %+v", input, state)
+			}
+		})
+	}
+}
+
+func fetchToolState(fetch *FetchView) ViewState {
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.RuntimeStatus = "idle"
+	if fetch != nil && fetch.Status == "running" {
+		state.RuntimeStatus = "active"
+		state.RuntimeActive = true
+	}
+	state.StatusSource = "runtime.dispatch"
+	state.StatusDetail = "fetch tool dispatch"
+	state.Autonomy = "read"
+	state.Fetch = fetch
+	return state
 }

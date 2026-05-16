@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: fetch tool dispatch                                                                                          |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Fetch result:                                                                                                        |
+| tool: fetch                                                                                                          |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| url: https://example.com/docs                                                                                        |
+| method: GET                                                                                                          |
+| completed: true                                                                                                      |
+| expected effect: read remote content through bounded fetch                                                           |
+| remote status: 200                                                                                                   |
+| remote status text: 200 OK                                                                                           |
+| content type: text/plain; charset=utf-8                                                                              |
+| preview:                                                                                                             |
+| | # Aila docs                                                                                                        |
+| | Remote context preview with [redacted] and [path-redacted]                                                         |
+| preview truncated: true                                                                                              |
+| omitted bytes: 42                                                                                                    |
+| truncation marker: preview_truncated                                                                                 |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

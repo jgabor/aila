@@ -1,0 +1,43 @@
+[1mAila                                                                                                              120x44[0m
+[2mStage IDLE | Runtime active | Model placeholder | Utility placeholder | Auto read                                       [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: active                                                                                                       |
+| status source: runtime.dispatch                                                                                      |
+| detail: fetch tool dispatch                                                                                          |
+| active: true                                                                                                         |
+|                                                                                                                      |
+| Fetch result:                                                                                                        |
+| tool: fetch                                                                                                          |
+| status: running                                                                                                      |
+| read-only: true                                                                                                      |
+| url: https://example.com/docs                                                                                        |
+| method: GET                                                                                                          |
+| completed: false                                                                                                     |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

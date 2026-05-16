@@ -64,6 +64,14 @@ type BashToolProposed struct {
 
 func (BashToolProposed) runtimeMessage() {}
 
+// FetchToolProposed records caller intent to fetch remote content.
+// Update turns it into an effect; app-owned dispatch performs validation and IO.
+type FetchToolProposed struct {
+	Request FetchToolRequest
+}
+
+func (FetchToolProposed) runtimeMessage() {}
+
 // InterruptRequested records user intent to stop the current fake operation.
 type InterruptRequested struct {
 	Reason string
@@ -111,6 +119,14 @@ type BashToolCompleted struct {
 
 func (BashToolCompleted) runtimeMessage() {}
 
+// FetchToolCompleted reports a network read effect result.
+type FetchToolCompleted struct {
+	Operation OperationMetadata
+	Result    FetchToolResult
+}
+
+func (FetchToolCompleted) runtimeMessage() {}
+
 // FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
 type FakeInterruptResolved struct {
 	Operation OperationMetadata
@@ -140,6 +156,8 @@ type Model struct {
 	LastSearch      SearchToolResult
 	ActiveBash      BashToolRequest
 	LastBash        BashToolResult
+	ActiveFetch     FetchToolRequest
+	LastFetch       FetchToolResult
 	NextOperation   int
 	ActiveOperation OperationMetadata
 	Diagnostics     []diagnostic.Diagnostic
@@ -221,6 +239,18 @@ type BashToolEffect struct {
 func (BashToolEffect) runtimeEffect() {}
 
 func (effect BashToolEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// FetchToolEffect requests remote read execution outside Update.
+type FetchToolEffect struct {
+	Operation OperationMetadata
+	Request   FetchToolRequest
+}
+
+func (FetchToolEffect) runtimeEffect() {}
+
+func (effect FetchToolEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -331,6 +361,7 @@ const (
 	OperationFind    OperationKind = "find"
 	OperationGrep    OperationKind = "grep"
 	OperationBash    OperationKind = "bash"
+	OperationFetch   OperationKind = "fetch"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -577,6 +608,73 @@ type BashToolResult struct {
 	Source                   BashSourceMetadata
 }
 
+// FetchToolRequest is the runtime-owned fetch proposal data.
+// It intentionally mirrors only primitive request fields so runtime stays IO-free.
+type FetchToolRequest struct {
+	URL             string
+	Method          string
+	MaxPreviewBytes int
+	TimeoutMillis   int
+	Source          FetchSourceMetadata
+}
+
+// FetchSourceMetadata records caller-visible provenance for fetch requests.
+type FetchSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// FetchToolErrorKind is a bounded machine-readable fetch failure category.
+type FetchToolErrorKind string
+
+const (
+	FetchToolErrorNone              FetchToolErrorKind = "none"
+	FetchToolErrorInvalidURL        FetchToolErrorKind = "invalid_url"
+	FetchToolErrorUnsupportedScheme FetchToolErrorKind = "unsupported_scheme"
+	FetchToolErrorInvalidMethod     FetchToolErrorKind = "invalid_method"
+	FetchToolErrorInvalidRange      FetchToolErrorKind = "invalid_range"
+	FetchToolErrorPermission        FetchToolErrorKind = "permission_denied"
+	FetchToolErrorHTTPStatus        FetchToolErrorKind = "http_status"
+	FetchToolErrorCanceled          FetchToolErrorKind = "canceled"
+	FetchToolErrorTimeout           FetchToolErrorKind = "timeout"
+	FetchToolErrorContent           FetchToolErrorKind = "content_error"
+	FetchToolErrorExecution         FetchToolErrorKind = "execution_error"
+)
+
+// FetchToolError is safe to surface without leaking host-local paths.
+type FetchToolError struct {
+	Kind    FetchToolErrorKind
+	Message string
+}
+
+// FetchToolTruncation records bounded network body omission metadata.
+type FetchToolTruncation struct {
+	PreviewBytesLimit int
+	PreviewTruncated  bool
+	OmittedBytesKnown bool
+	OmittedBytes      int64
+	Marker            string
+}
+
+// FetchToolResult is the typed runtime message payload returned by fetch effects.
+type FetchToolResult struct {
+	ToolName       string
+	RequestedURL   string
+	EffectiveURL   string
+	Method         string
+	ExpectedEffect string
+	Status         string
+	HTTPStatusCode int
+	HTTPStatus     string
+	ContentType    string
+	PreviewText    string
+	Truncation     FetchToolTruncation
+	DurationMillis int64
+	Error          FetchToolError
+	Source         FetchSourceMetadata
+}
+
 // Update applies one runtime message and returns the next model plus typed
 // effects for an external interpreter.
 func Update(model Model, message Message) (Model, []Effect) {
@@ -598,6 +696,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = ""
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
@@ -608,6 +708,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastCommand = msg.Name
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
@@ -643,6 +745,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: string(request.ToolName) + " " + searchSubjectLabel(request)})
 		return next, []Effect{SearchToolEffect{Operation: operation, Request: request}}
@@ -662,9 +766,32 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = request
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "bash " + bashSubjectLabel(request)})
 		return next, []Effect{BashToolEffect{Operation: operation, Request: request}}
+	case FetchToolProposed:
+		request := trimFetchRequest(msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "fetch", Text: fetchSubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationFetch, fetchSubjectLabel(request))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = request
+		next.LastFetch = FetchToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "fetch " + fetchSubjectLabel(request)})
+		return next, []Effect{FetchToolEffect{Operation: operation, Request: request}}
 	case InterruptRequested:
 		if !hasActiveFakeWork(next) {
 			return next, nil
@@ -686,6 +813,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
@@ -698,6 +827,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
 		return next, nil
@@ -711,6 +842,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != ReadToolErrorNone {
@@ -728,6 +861,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = msg.Result
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != SearchToolErrorNone {
@@ -745,9 +880,30 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastSearch = SearchToolResult{}
 		next.ActiveBash = BashToolRequest{}
 		next.LastBash = msg.Result
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != BashToolErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
+	case FetchToolCompleted:
+		summary := fetchResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = msg.Result
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != FetchToolErrorNone {
 			kind = "failure"
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
@@ -778,7 +934,7 @@ func hasActiveFakeWork(model Model) bool {
 }
 
 func isToolOperation(kind OperationKind) bool {
-	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash
+	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -934,6 +1090,45 @@ func bashResultSummary(result BashToolResult) string {
 		return fmt.Sprintf("bash %s failed: %s: %s", command, result.Error.Kind, message)
 	}
 	return fmt.Sprintf("bash %s: %s exit %d", command, result.Status, result.ExitCode)
+}
+
+func trimFetchRequest(request FetchToolRequest) FetchToolRequest {
+	request.URL = strings.TrimSpace(request.URL)
+	request.Method = strings.TrimSpace(request.Method)
+	return request
+}
+
+func fetchSubjectLabel(request FetchToolRequest) string {
+	return fetchURLLabel(request.URL)
+}
+
+func fetchResultSummary(result FetchToolResult) string {
+	url := fetchURLLabel(result.EffectiveURL)
+	if url == "requested url" {
+		url = fetchURLLabel(result.RequestedURL)
+	}
+	if result.Error.Kind != "" && result.Error.Kind != FetchToolErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("fetch %s failed: %s", url, result.Error.Kind)
+		}
+		return fmt.Sprintf("fetch %s failed: %s: %s", url, result.Error.Kind, message)
+	}
+	if result.HTTPStatusCode > 0 {
+		return fmt.Sprintf("fetch %s: %s %d", url, result.Status, result.HTTPStatusCode)
+	}
+	return fmt.Sprintf("fetch %s: %s", url, result.Status)
+}
+
+func fetchURLLabel(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" || strings.ContainsAny(rawURL, " \t\n\r|;&`$<>") || strings.Contains(rawURL, "..") {
+		return "requested url"
+	}
+	if strings.Contains(rawURL, "@") || strings.HasPrefix(rawURL, "file:") || strings.HasPrefix(rawURL, "~") || strings.HasPrefix(rawURL, "$HOME") || strings.HasPrefix(rawURL, "${HOME}") || strings.HasPrefix(rawURL, "$XDG_") || strings.HasPrefix(rawURL, "${XDG_") {
+		return "requested url"
+	}
+	return rawURL
 }
 
 func readPathLabel(path string) string {
