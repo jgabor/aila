@@ -52,6 +52,32 @@ func NewReadOperation(targetPath string) ProposedOperation {
 	}
 }
 
+// NewFindOperation classifies the built-in find tool as read-only discovery.
+func NewFindOperation(pattern string) ProposedOperation {
+	return ProposedOperation{
+		Kind:           OperationRead,
+		Tool:           "find",
+		TargetPath:     pattern,
+		ExpectedEffect: "bounded workspace file discovery",
+		Reversible:     true,
+	}
+}
+
+// NewGrepOperation classifies the built-in grep tool as read-only content search.
+func NewGrepOperation(query string, includePattern string) ProposedOperation {
+	target := query
+	if includePattern != "" {
+		target += " in " + includePattern
+	}
+	return ProposedOperation{
+		Kind:           OperationRead,
+		Tool:           "grep",
+		TargetPath:     target,
+		ExpectedEffect: "bounded workspace content search",
+		Reversible:     true,
+	}
+}
+
 // Decide applies the current autonomy level without executing or approving work.
 func Decide(level AutonomyLevel, operation ProposedOperation) Decision {
 	switch level {

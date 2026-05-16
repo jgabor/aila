@@ -1,0 +1,116 @@
+{
+  "scenario": "file-search-result",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "search tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "search_tool": {
+    "tool_name": "find",
+    "status": "completed",
+    "read_only": true,
+    "pattern": "internal/**/*.go",
+    "matches": [
+      {
+        "path": "internal/app/prompt.go"
+      },
+      {
+        "path": "internal/tools/search.go"
+      }
+    ],
+    "omitted_results": 3,
+    "preview_truncated": false,
+    "result_limit_hit": true,
+    "truncation_markers": "result_limit_hit",
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: search tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "search_tool",
+      "visible": true,
+      "items": [
+        "tool_name: find",
+        "status: completed",
+        "read_only: true",
+        "completed: true",
+        "pattern: internal/**/*.go",
+        "match: internal/app/prompt.go",
+        "match: internal/tools/search.go",
+        "omitted_results: 3",
+        "omitted_files: 0",
+        "preview_truncated: false",
+        "result_limit_hit: true",
+        "truncation_markers: result_limit_hit",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

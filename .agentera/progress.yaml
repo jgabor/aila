@@ -6715,6 +6715,79 @@ cycles:
         Commit timing and whether to archive/clear the completed plan are user-owned; no commit was requested.
       scope: >-
         ROADMAP.md closeout, final validation, Agentera plan/progress synchronization, and final handoff evidence.
+  - number: 154
+    timestamp: "2026-05-16 12:20"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 19: Find And Grep Tools as the next roadmap milestone, archived the completed M18 plan, and
+      created a new active full plan with six bounded tasks for contracts, find execution, grep execution,
+      app/runtime/permission wiring, TUI rendering, and validation closeout.
+    commit: "N/A: user did not request a git commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 19; AGENTS.md; README.md; ARCHITECTURE.md; docs/tui-testing.md; docs/workflow-architecture.md; .agentera/vision.yaml; agentera hej --format json --capability-context planera"
+    discovered: >-
+      Active milestone was none and ROADMAP.md Next milestone was M19. The completed M18 read tool already provides the
+      narrow read-only effect seam that M19 should extend. Plan scope must avoid shelling out to rg, adding source
+      indexing, or opening bash/fetch/edit/write/mutation/history/undo/replay/context-compaction/plugin/MCP/M20+ paths.
+      Decision context is unavailable because `.agentera/decisions.yaml` is absent, so no historical decisions were
+      inferred.
+    verified: >-
+      Planera startup state loaded through the installed Agentera CLI; `docs/notes/PROMPT.md`, the top of `ROADMAP.md`,
+      the M19 roadmap section, `AGENTS.md`, `README.md`, `ARCHITECTURE.md`, `docs/tui-testing.md`,
+      `docs/workflow-architecture.md`, `.agentera/vision.yaml`, current read-tool source, runtime/app read dispatch,
+      permission classification, and TUI read presentation seams were reviewed before writing the plan.
+    next: >-
+      Execute M19 Task 1 only when implementation starts: define bounded find and grep contracts. Do not implement bash,
+      fetch, edit/write, source indexing, context compaction, plugins, MCP, or M20+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md without starting implementation.
+      constraints: >-
+        Plan only M19; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first
+        Agentera artifact access, and no commit or push.
+      unknowns: >-
+        Exact internal result type names and whether M19 exposes an interactive search command are implementation-owned;
+        PTY smoke must run only if that visible command path exists.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m18.yaml archival, and progress evidence for
+        the planning handoff.
+  - number: 155
+    timestamp: "2026-05-16 13:04"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M19 by implementing bounded read-only find and grep tool contracts/executors, runtime/app/permission
+      search effect wiring, injected TUI search presentation, deterministic fixtures/snapshots, and ROADMAP.md closeout.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 19; docs/notes/PROMPT.md; ARCHITECTURE.md explicit-effect and TUI boundary rules; docs/tui-testing.md fixture/snapshot gate"
+    discovered: >-
+      M19 could reuse the M18 read-only effect seam without adding a generic tool framework or shelling out to rg. The
+      first `mage check` run exceeded the two-minute tool timeout without output, so validation was rerun with a longer
+      bounded timeout. A lint failure found an unused search helper; it was removed before final validation. No visible
+      interactive search command path exists in M19, so PTY smoke is explicitly skipped and covered by
+      TestM19SearchPTYSmokeDecision. No bash, fetch, edit/write, mutation history, undo/replay, context compaction, stale
+      checks, source indexing, provider fallback, plugin, MCP, workflow DSL, marketplace, or M20+ behavior was added.
+    verified: >-
+      `go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.
+      `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities after the
+      unused helper fix. `git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/tools
+      internal/runtime internal/app internal/permission internal/tui` passed. Explicit `git diff --check --no-index
+      /dev/null <file>` checks passed for `.agentera/archive/plan-2026-05-16-m18.yaml`, `internal/tools/search.go`,
+      `internal/tools/search_test.go`, and all new M19 search fixture files. Installed Agentera CLI plan/progress
+      validation passed after this metadata write.
+    next: >-
+      M19 is complete and M20: Safe Bash Inspection is next. Do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Execute the active M19 plan through Orkestrera after user approval and close the roadmap slice only after
+        validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, read-only search classification,
+        and no commit or push without explicit request.
+      unknowns: >-
+        Commit timing is user-owned; no commit was requested.
+      scope: >-
+        M19 implementation, fixtures/snapshots, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -6732,3 +6805,4 @@ archive:
   - .agentera/archive/plan-2026-05-16-m15a.yaml
   - .agentera/archive/plan-2026-05-16-m16.yaml
   - .agentera/archive/plan-2026-05-16-m17.yaml
+  - .agentera/archive/plan-2026-05-16-m18.yaml

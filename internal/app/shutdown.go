@@ -85,12 +85,14 @@ func readDispatchContext(ctx context.Context, workspacePath string, autonomyLeve
 
 		messages := make([]runtime.Message, 0, len(effects))
 		for _, effect := range effects {
-			readEffect, ok := effect.(runtime.ReadToolEffect)
-			if !ok {
+			switch typed := effect.(type) {
+			case runtime.ReadToolEffect:
+				messages = append(messages, dispatchReadEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			case runtime.SearchToolEffect:
+				messages = append(messages, dispatchSearchEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			default:
 				messages = append(messages, runtime.DispatchContext(ctx, []runtime.Effect{effect})...)
-				continue
 			}
-			messages = append(messages, dispatchReadEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), readEffect))
 		}
 		return messages
 	}
@@ -172,6 +174,101 @@ func runtimeReadResult(requestedPath string, result tools.ReadResult) runtime.Re
 			RequestID:   result.Source.RequestID,
 			Description: result.Source.Description,
 		},
+	}
+}
+
+func dispatchSearchEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.SearchToolEffect) runtime.Message {
+	operation := searchOperation(effect.Request)
+	decision := permission.Decide(autonomyLevel, operation)
+	if !decision.Allowed {
+		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtime.SearchToolResult{
+			ToolName: string(effect.Request.ToolName),
+			Pattern:  effect.Request.Pattern,
+			Query:    effect.Request.Query,
+			Error: runtime.SearchToolError{
+				Kind:    runtime.SearchToolErrorPermission,
+				Message: decision.Reason,
+			},
+			Source: effect.Request.Source,
+		}}
+	}
+
+	if effect.Request.ToolName == runtime.SearchToolGrep {
+		validated, searchErr := tools.ValidateGrepRequest(workspacePath, tools.GrepRequest{
+			Query:           effect.Request.Query,
+			Regex:           effect.Request.Regex,
+			IncludePattern:  effect.Request.IncludePattern,
+			MaxResults:      effect.Request.MaxResults,
+			MaxPreviewBytes: effect.Request.MaxPreviewBytes,
+			Source:          tools.SearchSourceMetadata(effect.Request.Source),
+		})
+		if searchErr.Kind != "" {
+			return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr)}
+		}
+		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteGrep(ctx, validated))}
+	}
+
+	validated, searchErr := tools.ValidateFindRequest(workspacePath, tools.FindRequest{
+		Pattern:         effect.Request.Pattern,
+		MaxResults:      effect.Request.MaxResults,
+		MaxPreviewBytes: effect.Request.MaxPreviewBytes,
+		Source:          tools.SearchSourceMetadata(effect.Request.Source),
+	})
+	if searchErr.Kind != "" {
+		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr)}
+	}
+	return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteFind(ctx, validated))}
+}
+
+func searchOperation(request runtime.SearchToolRequest) permission.ProposedOperation {
+	if request.ToolName == runtime.SearchToolGrep {
+		return permission.NewGrepOperation(request.Query, request.IncludePattern)
+	}
+	return permission.NewFindOperation(request.Pattern)
+}
+
+func runtimeSearchFailure(request runtime.SearchToolRequest, err tools.SearchError) runtime.SearchToolResult {
+	return runtime.SearchToolResult{
+		ToolName:       string(request.ToolName),
+		Pattern:        request.Pattern,
+		Query:          request.Query,
+		Regex:          request.Regex,
+		IncludePattern: request.IncludePattern,
+		Error: runtime.SearchToolError{
+			Kind:    runtime.SearchToolErrorKind(err.Kind),
+			Message: err.Message,
+		},
+		Source: request.Source,
+	}
+}
+
+func runtimeSearchResult(result tools.SearchResult) runtime.SearchToolResult {
+	matches := make([]runtime.SearchToolMatch, 0, len(result.Matches))
+	for _, match := range result.Matches {
+		matches = append(matches, runtime.SearchToolMatch{Path: match.Path, LineNumber: match.LineNumber, PreviewText: match.PreviewText})
+	}
+	return runtime.SearchToolResult{
+		ToolName:       result.ToolName,
+		Pattern:        result.Pattern,
+		Query:          result.Query,
+		Regex:          result.Regex,
+		IncludePattern: result.IncludePattern,
+		Matches:        matches,
+		Truncation: runtime.SearchToolTruncation{
+			MaxResults:        result.Truncation.MaxResults,
+			MaxPreviewBytes:   result.Truncation.MaxPreviewBytes,
+			OmittedResults:    result.Truncation.OmittedResults,
+			OmittedFiles:      result.Truncation.OmittedFiles,
+			PreviewTruncated:  result.Truncation.PreviewTruncated,
+			ResultLimitHit:    result.Truncation.ResultLimitHit,
+			FileSkipCount:     result.Truncation.FileSkipCount,
+			TruncationMarkers: result.Truncation.TruncationMarkers,
+		},
+		Error: runtime.SearchToolError{
+			Kind:    runtime.SearchToolErrorKind(result.Error.Kind),
+			Message: result.Error.Message,
+		},
+		Source: runtime.SearchSourceMetadata(result.Source),
 	}
 }
 

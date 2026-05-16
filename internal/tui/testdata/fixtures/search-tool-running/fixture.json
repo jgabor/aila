@@ -1,0 +1,17 @@
+{
+  "name": "search-tool-running",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["build", "runtime_active", "search_tool_running"],
+  "render_sizes": [{ "name": "100x30", "width": 100, "height": 30 }],
+  "render_outputs": {
+    "plain_100x30": "plain-100x30.txt",
+    "ansi_100x30": "ansi-100x30.txt",
+    "semantic_100x30": "semantic-100x30.json"
+  },
+  "notes": [
+    "M19 running grep fixture; state is injected by tests and checked in as plain, ANSI, and semantic evidence.",
+    "The fixture must not contain completed matches or omitted-result metadata."
+  ]
+}

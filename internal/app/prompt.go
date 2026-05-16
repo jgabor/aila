@@ -47,6 +47,14 @@ func (runner *inputRunner) proposeReadTool(request runtime.ReadToolRequest) tui.
 	return turn
 }
 
+func (runner *inputRunner) proposeSearchTool(request runtime.SearchToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.SearchToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.RuntimeDiagnostic{Diagnostic: signalShutdownDiagnostic(err)})
@@ -68,8 +76,12 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.QueuedText = queuedText(runner.model.Queued)
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
 	turn.Read = readView(runner.model)
+	turn.Search = searchView(runner.model)
 	if turn.Read != nil {
 		turn.StatusDetail = "read tool dispatch"
+	}
+	if turn.Search != nil {
+		turn.StatusDetail = "search tool dispatch"
 	}
 }
 
@@ -183,6 +195,56 @@ func readPreviewLines(preview string) []string {
 		return nil
 	}
 	return strings.Split(preview, "\n")
+}
+
+func searchView(model runtime.Model) *tui.SearchView {
+	if (model.ActiveOperation.Kind == runtime.OperationFind || model.ActiveOperation.Kind == runtime.OperationGrep) && model.Status == runtime.StatusActive {
+		request := model.ActiveSearch
+		return &tui.SearchView{
+			Name:           string(request.ToolName),
+			Status:         "running",
+			ReadOnly:       true,
+			Pattern:        request.Pattern,
+			Query:          request.Query,
+			Regex:          request.Regex,
+			IncludePattern: request.IncludePattern,
+		}
+	}
+	if model.LastSearch.ToolName == "" && model.LastSearch.Pattern == "" && model.LastSearch.Query == "" {
+		return nil
+	}
+	status := "completed"
+	if model.LastSearch.Error.Kind != "" && model.LastSearch.Error.Kind != runtime.SearchToolErrorNone {
+		status = "failed"
+	}
+	return &tui.SearchView{
+		Name:              defaultString(model.LastSearch.ToolName, "search"),
+		Status:            status,
+		ReadOnly:          true,
+		Pattern:           model.LastSearch.Pattern,
+		Query:             model.LastSearch.Query,
+		Regex:             model.LastSearch.Regex,
+		IncludePattern:    model.LastSearch.IncludePattern,
+		Matches:           searchMatchViews(model.LastSearch.Matches),
+		OmittedResults:    model.LastSearch.Truncation.OmittedResults,
+		OmittedFiles:      model.LastSearch.Truncation.OmittedFiles,
+		PreviewTruncated:  model.LastSearch.Truncation.PreviewTruncated,
+		ResultLimitHit:    model.LastSearch.Truncation.ResultLimitHit,
+		TruncationMarkers: model.LastSearch.Truncation.TruncationMarkers,
+		ErrorKind:         string(model.LastSearch.Error.Kind),
+		ErrorMessage:      model.LastSearch.Error.Message,
+	}
+}
+
+func searchMatchViews(matches []runtime.SearchToolMatch) []tui.SearchMatchView {
+	if len(matches) == 0 {
+		return nil
+	}
+	views := make([]tui.SearchMatchView, 0, len(matches))
+	for _, match := range matches {
+		views = append(views, tui.SearchMatchView{Path: match.Path, LineNumber: match.LineNumber, PreviewText: match.PreviewText})
+	}
+	return views
 }
 
 func defaultString(value string, fallback string) string {

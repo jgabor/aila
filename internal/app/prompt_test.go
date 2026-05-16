@@ -217,6 +217,90 @@ func TestReadToolProposalDeniedWhenAutonomyOff(t *testing.T) {
 	}
 }
 
+func TestSearchToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	if err := os.Mkdir(filepath.Join(workspace, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "src", "app.go"), []byte("alpha\nneedle here\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "read")
+
+	turn := runner.proposeSearchTool(runtime.SearchToolRequest{ToolName: runtime.SearchToolGrep, Query: "needle", IncludePattern: "**/*.go", Source: runtime.SearchSourceMetadata{Caller: "test", RequestID: "grep-1"}})
+
+	if turn.UserText != "" || !strings.Contains(turn.AssistantText, "grep needle in **/*.go: 1 matches") || !strings.Contains(turn.AssistantText, "src/app.go:2: needle here") {
+		t.Fatalf("search turn = %+v, want completed grep result with exact path and line", turn)
+	}
+	if turn.Search == nil || turn.Search.Status != "completed" || !turn.Search.ReadOnly || turn.Search.Name != "grep" || turn.Search.Query != "needle" || len(turn.Search.Matches) != 1 || turn.Search.Matches[0].Path != "src/app.go" || turn.Search.Matches[0].LineNumber != 2 {
+		t.Fatalf("search view = %+v, want completed search presentation state", turn.Search)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive {
+		t.Fatalf("search runtime state = %+v, want idle after explicit search effect", turn)
+	}
+	if got := runner.model.LastSearch; got.ToolName != "grep" || len(got.Matches) != 1 || got.Error.Kind != runtime.SearchToolErrorNone {
+		t.Fatalf("last search = %#v, want successful search result", got)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("search tool created durable state err=%v", err)
+	}
+}
+
+func TestSearchToolProposalCanSurfaceRunningSearchPresentation(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+
+	turn := runner.proposeSearchTool(runtime.SearchToolRequest{ToolName: runtime.SearchToolFind, Pattern: "**/*.go", MaxResults: 10})
+
+	if turn.Search == nil || turn.Search.Status != "running" || !turn.Search.ReadOnly || turn.Search.Name != "find" || turn.Search.Pattern != "**/*.go" || turn.Search.OmittedResults != 0 || len(turn.Search.Matches) != 0 {
+		t.Fatalf("running search view = %+v, want active injected search presentation state", turn.Search)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusActive) || !turn.RuntimeActive || turn.StatusDetail != "search tool dispatch" {
+		t.Fatalf("running search runtime turn = %+v, want active search dispatch detail", turn)
+	}
+}
+
+func TestSearchToolProposalSurfacesValidationFailureWithoutHiddenRetry(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "read")
+
+	turn := runner.proposeSearchTool(runtime.SearchToolRequest{ToolName: runtime.SearchToolGrep, Query: "[", Regex: true})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("search failure runtime state = turn %+v model %#v, want idle without retry", turn, runner.model)
+	}
+	if got := runner.model.LastSearch.Error; got.Kind != runtime.SearchToolErrorInvalidQuery || !strings.Contains(got.Message, "regex") {
+		t.Fatalf("last search error = %#v, want bounded invalid query failure", got)
+	}
+	if strings.Contains(turn.AssistantText, workspace) {
+		t.Fatalf("search failure leaked workspace path: %q", turn.AssistantText)
+	}
+	if got := len(runner.model.Transcript); got != 2 {
+		t.Fatalf("transcript entries = %d, want proposal plus one result without hidden retry", got)
+	}
+}
+
+func TestSearchToolProposalDeniedWhenAutonomyOff(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "off")
+
+	turn := runner.proposeSearchTool(runtime.SearchToolRequest{ToolName: runtime.SearchToolFind, Pattern: "*.go"})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("denied search runtime state = turn %+v model %#v", turn, runner.model)
+	}
+	if runner.model.LastSearch.Error.Kind != runtime.SearchToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
+		t.Fatalf("denied search result = %#v assistant=%q", runner.model.LastSearch, turn.AssistantText)
+	}
+}
+
 func TestInterruptRequestRoutesTypedRuntimeMessageWhileFakeWorkActive(t *testing.T) {
 	t.Parallel()
 

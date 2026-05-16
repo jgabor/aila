@@ -143,6 +143,40 @@ func TestUpdateHandlesReadToolProposalDeterministically(t *testing.T) {
 	assertOperationMetadata(t, effect.Metadata(), firstModel.ActiveOperation)
 }
 
+func TestUpdateHandlesSearchToolProposalDeterministically(t *testing.T) {
+	t.Parallel()
+
+	request := SearchToolRequest{ToolName: SearchToolGrep, Query: "TODO", IncludePattern: "**/*.go", MaxResults: 4, MaxPreviewBytes: 128, Source: SearchSourceMetadata{Caller: "test", RequestID: "grep-1"}}
+	model := Model{Status: StatusIdle, NextOperation: 4}
+	firstModel, firstEffects := Update(model, SearchToolProposed{Request: request})
+	secondModel, secondEffects := Update(model, SearchToolProposed{Request: request})
+
+	if !reflect.DeepEqual(firstModel, secondModel) {
+		t.Fatalf("Update is not deterministic for search proposal model:\nfirst:  %#v\nsecond: %#v", firstModel, secondModel)
+	}
+	if !reflect.DeepEqual(firstEffects, secondEffects) {
+		t.Fatalf("Update is not deterministic for search proposal effects:\nfirst:  %#v\nsecond: %#v", firstEffects, secondEffects)
+	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{ID: "op-5", Kind: OperationGrep, Subject: "TODO in **/*.go", Source: "user"})
+	if got := firstModel.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "tool", Text: "grep TODO in **/*.go"}}) {
+		t.Fatalf("Transcript = %#v", got)
+	}
+	if !reflect.DeepEqual(firstModel.ActiveSearch, request) {
+		t.Fatalf("ActiveSearch = %#v, want %#v", firstModel.ActiveSearch, request)
+	}
+	if len(firstEffects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(firstEffects))
+	}
+	effect, ok := firstEffects[0].(SearchToolEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want SearchToolEffect", firstEffects[0])
+	}
+	if !reflect.DeepEqual(effect.Request, request) {
+		t.Fatalf("search request = %#v, want %#v", effect.Request, request)
+	}
+	assertOperationMetadata(t, effect.Metadata(), firstModel.ActiveOperation)
+}
+
 func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 	t.Parallel()
 
@@ -232,6 +266,44 @@ func TestUpdateHandlesReadToolResultMessages(t *testing.T) {
 		t.Fatalf("failed Status = %q, want %q", failed.Status, StatusIdle)
 	}
 	if got := failed.Transcript[len(failed.Transcript)-1]; got.Kind != "failure" || !strings.Contains(got.Text, "missing_file") {
+		t.Fatalf("failure transcript = %#v", got)
+	}
+}
+
+func TestUpdateHandlesSearchToolResultMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-3", Kind: OperationGrep, Subject: "TODO", Source: "user"}
+	model := Model{Status: StatusActive, NextOperation: 3, Transcript: []TranscriptEntry{{Kind: "tool", Text: "grep TODO"}}}
+	result := SearchToolResult{
+		ToolName: "grep",
+		Query:    "TODO",
+		Matches:  []SearchToolMatch{{Path: "notes.txt", LineNumber: 2, PreviewText: "TODO here"}},
+		Error:    SearchToolError{Kind: SearchToolErrorNone},
+	}
+
+	completed, effects := Update(model, SearchToolCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if completed.Status != StatusIdle || completed.LastSearch.ToolName != "grep" || len(completed.LastSearch.Matches) != 1 {
+		t.Fatalf("completed search model = %#v", completed)
+	}
+	if !strings.Contains(completed.Result, "grep TODO: 1 matches") || !strings.Contains(completed.Result, "notes.txt:2: TODO here") {
+		t.Fatalf("Result = %q, want bounded search summary with line refs", completed.Result)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got.Kind != "result" || got.Text != completed.Result {
+		t.Fatalf("last transcript = %#v", got)
+	}
+
+	failure := result
+	failure.Error = SearchToolError{Kind: SearchToolErrorInvalidQuery, Message: "regex query is invalid"}
+	failure.Matches = nil
+	failed, effects := Update(model, SearchToolCompleted{Operation: operation, Result: failure})
+	if len(effects) != 0 || failed.Status != StatusIdle {
+		t.Fatalf("failed model/effects = %#v %#v", failed, effects)
+	}
+	if got := failed.Transcript[len(failed.Transcript)-1]; got.Kind != "failure" || !strings.Contains(got.Text, "invalid_query") {
 		t.Fatalf("failure transcript = %#v", got)
 	}
 }
@@ -348,6 +420,25 @@ func TestUpdateQueuesReadProposalWhileWorkIsActive(t *testing.T) {
 	}
 	if !reflect.DeepEqual(updated.Transcript, model.Transcript) || updated.ActiveOperation != operation {
 		t.Fatalf("active read mutated unexpectedly: %#v", updated)
+	}
+}
+
+func TestUpdateQueuesSearchProposalWhileWorkIsActive(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationFind, Subject: "active", Source: "user"}
+	model := Model{Status: StatusActive, ActiveOperation: operation, Transcript: []TranscriptEntry{{Kind: "tool", Text: "find active"}}}
+
+	updated, effects := Update(model, SearchToolProposed{Request: SearchToolRequest{ToolName: SearchToolFind, Pattern: "queued/*.go"}})
+
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want queued search no-op", len(effects))
+	}
+	if got, want := updated.Queued, []QueuedEntry{{Kind: "find", Text: "queued/*.go"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Queued = %#v, want %#v", got, want)
+	}
+	if !reflect.DeepEqual(updated.Transcript, model.Transcript) || updated.ActiveOperation != operation {
+		t.Fatalf("active search mutated unexpectedly: %#v", updated)
 	}
 }
 

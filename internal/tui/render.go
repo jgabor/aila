@@ -37,6 +37,7 @@ type ViewState struct {
 	QueuedCount        int
 	QueuedText         []string
 	Read               *ReadView
+	Search             *SearchView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -162,6 +163,7 @@ func contentItems(state ViewState) []string {
 	}
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, readLines(state.Read)...)
+	items = append(items, searchLines(state.Search)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
@@ -246,6 +248,60 @@ func readLines(read *ReadView) []string {
 	)
 	if semantic.TruncationMarker != "" {
 		lines = append(lines, "  truncation marker: "+semantic.TruncationMarker)
+	}
+	if semantic.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.ErrorMessage)
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func searchLines(search *SearchView) []string {
+	if search == nil {
+		return nil
+	}
+	semantic := semanticSearch(search)
+	lines := []string{
+		"  Search tool:",
+		"  tool: " + semantic.Name,
+		"  status: " + semantic.Status,
+		"  read-only: " + boolLabel(semantic.ReadOnly),
+		"  completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.Pattern != "" {
+		lines = append(lines, "  pattern: "+semantic.Pattern)
+	}
+	if semantic.Query != "" {
+		lines = append(lines, "  query: "+semantic.Query)
+	}
+	if semantic.IncludePattern != "" {
+		lines = append(lines, "  include: "+semantic.IncludePattern)
+	}
+	if len(semantic.Matches) > 0 {
+		lines = append(lines, "  matches:")
+		for _, match := range semantic.Matches {
+			line := match.Path
+			if match.LineNumber > 0 {
+				line = fmt.Sprintf("%s:%d: %s", match.Path, match.LineNumber, match.PreviewText)
+			}
+			lines = append(lines, "  | "+line)
+		}
+	}
+	if !semantic.Completed {
+		lines = append(lines, "")
+		return lines
+	}
+	lines = append(lines,
+		fmt.Sprintf("  omitted results: %d", semantic.OmittedResults),
+		fmt.Sprintf("  omitted files: %d", semantic.OmittedFiles),
+		"  preview truncated: "+boolLabel(semantic.PreviewTruncated),
+		"  result limit hit: "+boolLabel(semantic.ResultLimitHit),
+	)
+	if semantic.TruncationMarkers != "" {
+		lines = append(lines, "  truncation marker: "+semantic.TruncationMarkers)
 	}
 	if semantic.ErrorKind != "" {
 		lines = append(lines, "  error kind: "+semantic.ErrorKind)
@@ -470,6 +526,7 @@ type SemanticSnapshot struct {
 	Command     *SemanticCommand     `json:"command,omitempty"`
 	History     *SemanticHistory     `json:"history,omitempty"`
 	Read        *SemanticRead        `json:"read_tool,omitempty"`
+	Search      *SemanticSearch      `json:"search_tool,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
 }
@@ -496,6 +553,33 @@ type SemanticReadLineRange struct {
 	StartLine int `json:"start_line,omitempty"`
 	EndLine   int `json:"end_line,omitempty"`
 	Limit     int `json:"limit,omitempty"`
+}
+
+// SemanticSearch describes injected read-only find/grep state for snapshots.
+type SemanticSearch struct {
+	Name              string                `json:"tool_name"`
+	Status            string                `json:"status"`
+	ReadOnly          bool                  `json:"read_only"`
+	Pattern           string                `json:"pattern,omitempty"`
+	Query             string                `json:"query,omitempty"`
+	Regex             bool                  `json:"regex,omitempty"`
+	IncludePattern    string                `json:"include_pattern,omitempty"`
+	Matches           []SemanticSearchMatch `json:"matches,omitempty"`
+	OmittedResults    int                   `json:"omitted_results,omitempty"`
+	OmittedFiles      int                   `json:"omitted_files,omitempty"`
+	PreviewTruncated  bool                  `json:"preview_truncated"`
+	ResultLimitHit    bool                  `json:"result_limit_hit"`
+	TruncationMarkers string                `json:"truncation_markers,omitempty"`
+	ErrorKind         string                `json:"error_kind,omitempty"`
+	ErrorMessage      string                `json:"error_message,omitempty"`
+	Completed         bool                  `json:"completed"`
+}
+
+// SemanticSearchMatch records one machine-readable find or grep match.
+type SemanticSearchMatch struct {
+	Path        string `json:"path"`
+	LineNumber  int    `json:"line_number,omitempty"`
+	PreviewText string `json:"preview_text,omitempty"`
 }
 
 // SemanticMemory describes app-injected resumed current-session memory.
@@ -636,6 +720,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Read != nil {
 		regions = append(regions, SemanticRegion{Name: "read_tool", Visible: true, Items: semanticReadItems(state.Read)})
 	}
+	if state.Search != nil {
+		regions = append(regions, SemanticRegion{Name: "search_tool", Visible: true, Items: semanticSearchItems(state.Search)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -707,6 +794,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Command:     command,
 		History:     semanticHistory(state),
 		Read:        semanticRead(state.Read),
+		Search:      semanticSearch(state.Search),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -944,6 +1032,119 @@ func semanticRead(read *ReadView) *SemanticRead {
 	return semantic
 }
 
+func semanticSearchItems(search *SearchView) []string {
+	semantic := semanticSearch(search)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"tool_name: " + semantic.Name,
+		"status: " + semantic.Status,
+		"read_only: " + boolLabel(semantic.ReadOnly),
+		"completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.Pattern != "" {
+		items = append(items, "pattern: "+semantic.Pattern)
+	}
+	if semantic.Query != "" {
+		items = append(items, "query: "+semantic.Query)
+	}
+	if semantic.IncludePattern != "" {
+		items = append(items, "include_pattern: "+semantic.IncludePattern)
+	}
+	for _, match := range semantic.Matches {
+		if match.LineNumber > 0 {
+			items = append(items, fmt.Sprintf("match: %s:%d: %s", match.Path, match.LineNumber, match.PreviewText))
+		} else {
+			items = append(items, "match: "+match.Path)
+		}
+	}
+	if !semantic.Completed {
+		items = append(items, "app-owned", "display-only")
+		return items
+	}
+	items = append(items,
+		fmt.Sprintf("omitted_results: %d", semantic.OmittedResults),
+		fmt.Sprintf("omitted_files: %d", semantic.OmittedFiles),
+		"preview_truncated: "+boolLabel(semantic.PreviewTruncated),
+		"result_limit_hit: "+boolLabel(semantic.ResultLimitHit),
+	)
+	if semantic.TruncationMarkers != "" {
+		items = append(items, "truncation_markers: "+semantic.TruncationMarkers)
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticSearch(search *SearchView) *SemanticSearch {
+	if search == nil {
+		return nil
+	}
+	status := safeText(search.Status)
+	if status == "" {
+		status = "running"
+	}
+	completed := status != "running"
+	if search.ErrorKind != "" {
+		completed = true
+	}
+	name := safeText(search.Name)
+	if name == "" {
+		name = "search"
+	}
+	semantic := &SemanticSearch{
+		Name:              name,
+		Status:            status,
+		ReadOnly:          search.ReadOnly,
+		Pattern:           safeSearchTarget(search.Pattern),
+		Query:             safeText(search.Query),
+		Regex:             search.Regex,
+		IncludePattern:    safeSearchTarget(search.IncludePattern),
+		Matches:           semanticSearchMatches(search.Matches),
+		OmittedResults:    search.OmittedResults,
+		OmittedFiles:      search.OmittedFiles,
+		PreviewTruncated:  search.PreviewTruncated,
+		ResultLimitHit:    search.ResultLimitHit,
+		TruncationMarkers: safeText(search.TruncationMarkers),
+		ErrorKind:         safeText(search.ErrorKind),
+		ErrorMessage:      safeText(search.ErrorMessage),
+		Completed:         completed,
+	}
+	if !semantic.Completed {
+		semantic.Matches = nil
+		semantic.OmittedResults = 0
+		semantic.OmittedFiles = 0
+		semantic.PreviewTruncated = false
+		semantic.ResultLimitHit = false
+		semantic.TruncationMarkers = ""
+		semantic.ErrorKind = ""
+		semantic.ErrorMessage = ""
+	}
+	return semantic
+}
+
+func semanticSearchMatches(matches []SearchMatchView) []SemanticSearchMatch {
+	if len(matches) == 0 {
+		return nil
+	}
+	const maxMatches = 12
+	limit := len(matches)
+	if limit > maxMatches {
+		limit = maxMatches
+	}
+	items := make([]SemanticSearchMatch, 0, limit)
+	for _, match := range matches[:limit] {
+		items = append(items, SemanticSearchMatch{Path: safeSearchTarget(match.Path), LineNumber: match.LineNumber, PreviewText: safeText(match.PreviewText)})
+	}
+	return items
+}
+
 func semanticReadLineRange(lineRange ReadLineRangeView) SemanticReadLineRange {
 	return SemanticReadLineRange(lineRange)
 }
@@ -1040,6 +1241,13 @@ func safeReadTargetPath(value string) string {
 		return "[path-redacted]"
 	}
 	return limitTextBytes(value, maxDisplayTextBytes)
+}
+
+func safeSearchTarget(value string) string {
+	if value == "" {
+		return ""
+	}
+	return safeReadTargetPath(value)
 }
 
 func semanticFocus(state ViewState) string {
@@ -1343,6 +1551,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.QueuedCount > 0 {
 		items = append(items, semanticQueueItems(state)...)
+	}
+	if state.Search != nil {
+		items = append(items, semanticSearchItems(state.Search)...)
 	}
 	items = append(items, "git: "+state.FooterGit, "context: "+state.FooterContext)
 	return items

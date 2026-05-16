@@ -1,0 +1,33 @@
+Aila                                                                                                              120x34
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: search tool dispatch                                                                                         |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Search tool:                                                                                                         |
+| tool: find                                                                                                           |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| completed: true                                                                                                      |
+| pattern: internal/**/*.go                                                                                            |
+| matches:                                                                                                             |
+| | internal/app/prompt.go                                                                                             |
+| | internal/tools/search.go                                                                                           |
+| omitted results: 3                                                                                                   |
+| omitted files: 0                                                                                                     |
+| preview truncated: false                                                                                             |
+| result limit hit: true                                                                                               |
+| truncation marker: result_limit_hit                                                                                  |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

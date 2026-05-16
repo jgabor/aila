@@ -32,6 +32,7 @@ type TranscriptTurn struct {
 	QueuedText    []string
 	Diagnostics   []DiagnosticView
 	Read          *ReadView
+	Search        *SearchView
 }
 
 // ReadView is app-injected read presentation data. It is display-only;
@@ -56,6 +57,33 @@ type ReadLineRangeView struct {
 	StartLine int
 	EndLine   int
 	Limit     int
+}
+
+// SearchView is app-injected find/grep presentation data. It is display-only;
+// TUI code must never walk directories, read files, or evaluate queries itself.
+type SearchView struct {
+	Name              string
+	Status            string
+	ReadOnly          bool
+	Pattern           string
+	Query             string
+	Regex             bool
+	IncludePattern    string
+	Matches           []SearchMatchView
+	OmittedResults    int
+	OmittedFiles      int
+	PreviewTruncated  bool
+	ResultLimitHit    bool
+	TruncationMarkers string
+	ErrorKind         string
+	ErrorMessage      string
+}
+
+// SearchMatchView records one injected find or grep match.
+type SearchMatchView struct {
+	Path        string
+	LineNumber  int
+	PreviewText string
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -273,6 +301,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.QueuedText = append([]string(nil), turn.QueuedText...)
 	state.Diagnostics = mergeDiagnosticViews(state.Diagnostics, turn.Diagnostics)
 	state.Read = cloneReadView(turn.Read)
+	state.Search = cloneSearchView(turn.Search)
 	return state
 }
 
@@ -282,6 +311,15 @@ func cloneReadView(read *ReadView) *ReadView {
 	}
 	clone := *read
 	clone.PreviewLines = append([]string(nil), read.PreviewLines...)
+	return &clone
+}
+
+func cloneSearchView(search *SearchView) *SearchView {
+	if search == nil {
+		return nil
+	}
+	clone := *search
+	clone.Matches = append([]SearchMatchView(nil), search.Matches...)
 	return &clone
 }
 

@@ -749,6 +749,229 @@ func TestM18ReadFixturesAreCheckedIn(t *testing.T) {
 	}
 }
 
+func loadSearchFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	var state ViewState
+	switch name {
+	case "file-search-result":
+		state = searchToolState(&SearchView{
+			Name:              "find",
+			Status:            "completed",
+			ReadOnly:          true,
+			Pattern:           "internal/**/*.go",
+			Matches:           []SearchMatchView{{Path: "internal/app/prompt.go"}, {Path: "internal/tools/search.go"}},
+			OmittedResults:    3,
+			ResultLimitHit:    true,
+			TruncationMarkers: "result_limit_hit",
+		})
+	case "content-search-result":
+		state = searchToolState(&SearchView{
+			Name:              "grep",
+			Status:            "completed",
+			ReadOnly:          true,
+			Query:             "needle token=secret-value",
+			IncludePattern:    "internal/**/*.go",
+			Matches:           []SearchMatchView{{Path: "internal/app/prompt.go", LineNumber: 42, PreviewText: "needle found"}, {Path: "internal/tools/search.go", LineNumber: 99, PreviewText: "token=secret-value /home/jgabor/git/aila/.aila/project.toml"}},
+			OmittedResults:    2,
+			OmittedFiles:      1,
+			PreviewTruncated:  true,
+			ResultLimitHit:    true,
+			TruncationMarkers: "preview_truncated,result_limit_hit,files_omitted",
+		})
+	case "search-tool-running":
+		state = searchToolState(&SearchView{
+			Name:           "grep",
+			Status:         "running",
+			ReadOnly:       true,
+			Query:          "TODO",
+			IncludePattern: "internal/**/*.go",
+		})
+	default:
+		t.Fatalf("unknown search fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM19SearchRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name           string
+		wantRender     []string
+		forbiddenPlain []string
+		completed      bool
+	}{
+		{
+			name: "file-search-result",
+			wantRender: []string{
+				"Search tool:",
+				"tool: find",
+				"status: completed",
+				"read-only: true",
+				"completed: true",
+				"pattern: internal/**/*.go",
+				"internal/app/prompt.go",
+				"internal/tools/search.go",
+				"omitted results: 3",
+				"result limit hit: true",
+				"truncation marker: result_limit_hit",
+			},
+			completed: true,
+		},
+		{
+			name: "content-search-result",
+			wantRender: []string{
+				"Search tool:",
+				"tool: grep",
+				"status: completed",
+				"read-only: true",
+				"completed: true",
+				"query: needle [redacted]",
+				"include: internal/**/*.go",
+				"internal/app/prompt.go:42: needle found",
+				"internal/tools/search.go:99: [redacted] [path-redacted]",
+				"omitted results: 2",
+				"omitted files: 1",
+				"preview truncated: true",
+			},
+			completed: true,
+		},
+		{
+			name: "search-tool-running",
+			wantRender: []string{
+				"Search tool:",
+				"tool: grep",
+				"status: running",
+				"read-only: true",
+				"completed: false",
+				"query: TODO",
+				"include: internal/**/*.go",
+			},
+			forbiddenPlain: []string{"matches:", "omitted results:", "error kind:", "completed: true"},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			state := loadSearchFixture(t, tc.name).State
+			render := RenderPlain(state, Size{Width: 120, Height: 34})
+			if !containsAll(render, tc.wantRender) {
+				t.Fatalf("%s render missing search evidence %v:\n%s", tc.name, tc.wantRender, render)
+			}
+			if containsAny(render, tc.forbiddenPlain) {
+				t.Fatalf("%s render implies wrong search state:\n%s", tc.name, render)
+			}
+			assertNoReadLeak(t, render)
+
+			snapshot := Semantic(state, Size{Width: 120, Height: 34})
+			if snapshot.Search == nil || !snapshot.Search.ReadOnly || snapshot.Search.Completed != tc.completed {
+				t.Fatalf("search semantic = %+v, want read-only completed=%v", snapshot.Search, tc.completed)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			searchRegion := strings.Join(regions["search_tool"].Items, "\n")
+			if !containsAll(searchRegion, []string{"read_only: true", "app-owned", "display-only"}) {
+				t.Fatalf("search semantic region = %v", regions["search_tool"].Items)
+			}
+			assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 34}))
+		})
+	}
+}
+
+func TestM19SearchFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"file-search-result", "content-search-result", "search-tool-running"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadSearchFixture(t, name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("search fixture metadata = %+v", fixture)
+			}
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, []string{"Search tool:", "read-only: true"}) {
+						t.Fatalf("%s fixture render missing search evidence:\n%s", name, plain)
+					}
+					assertNoReadLeak(t, plain)
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoReadLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Search == nil || !snapshot.Search.ReadOnly {
+						t.Fatalf("semantic search = %+v", snapshot.Search)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestM19SearchPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"/find", "/grep TODO", "find internal/**/*.go", "grep TODO internal/**/*.go"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Search != nil || state.Read != nil || state.CommandRoute != "" || state.SurfaceTitle != "" || state.RuntimeStatus != "" {
+				t.Fatalf("%q unexpectedly invoked visible search state: %+v", input, state)
+			}
+		})
+	}
+}
+
+func searchToolState(searchTool *SearchView) ViewState {
+	state := IdleEmptyState()
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = "search-tool"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "search tool dispatch"
+	state.RuntimeActive = searchTool != nil && searchTool.Status == "running"
+	if state.RuntimeActive {
+		state.RuntimeStatus = "active"
+	}
+	state.Search = searchTool
+	return state
+}
+
 func readToolState(readTool *ReadView) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "BUILD"

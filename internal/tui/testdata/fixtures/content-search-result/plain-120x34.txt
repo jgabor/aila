@@ -1,0 +1,33 @@
+Aila                                                                                                              120x34
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: search tool dispatch                                                                                         |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Search tool:                                                                                                         |
+| tool: grep                                                                                                           |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| completed: true                                                                                                      |
+| query: needle [redacted]                                                                                             |
+| include: internal/**/*.go                                                                                            |
+| matches:                                                                                                             |
+| | internal/app/prompt.go:42: needle found                                                                            |
+| | internal/tools/search.go:99: [redacted] [path-redacted]                                                            |
+| omitted results: 2                                                                                                   |
+| omitted files: 1                                                                                                     |
+| preview truncated: true                                                                                              |
+| result limit hit: true                                                                                               |
+| truncation marker: preview_truncated,result_limit_hit,files_omitted                                                  |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

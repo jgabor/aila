@@ -48,6 +48,14 @@ type ReadToolProposed struct {
 
 func (ReadToolProposed) runtimeMessage() {}
 
+// SearchToolProposed records caller intent to discover files or search content.
+// Update turns it into an effect; app-owned dispatch performs validation and IO.
+type SearchToolProposed struct {
+	Request SearchToolRequest
+}
+
+func (SearchToolProposed) runtimeMessage() {}
+
 // InterruptRequested records user intent to stop the current fake operation.
 type InterruptRequested struct {
 	Reason string
@@ -79,6 +87,14 @@ type ReadToolCompleted struct {
 
 func (ReadToolCompleted) runtimeMessage() {}
 
+// SearchToolCompleted reports a find or grep effect result.
+type SearchToolCompleted struct {
+	Operation OperationMetadata
+	Result    SearchToolResult
+}
+
+func (SearchToolCompleted) runtimeMessage() {}
+
 // FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
 type FakeInterruptResolved struct {
 	Operation OperationMetadata
@@ -104,6 +120,8 @@ type Model struct {
 	LastCommand     string
 	ActiveRead      ReadToolRequest
 	LastRead        ReadToolResult
+	ActiveSearch    SearchToolRequest
+	LastSearch      SearchToolResult
 	NextOperation   int
 	ActiveOperation OperationMetadata
 	Diagnostics     []diagnostic.Diagnostic
@@ -161,6 +179,18 @@ type ReadToolEffect struct {
 func (ReadToolEffect) runtimeEffect() {}
 
 func (effect ReadToolEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// SearchToolEffect requests read-only workspace discovery or content search outside Update.
+type SearchToolEffect struct {
+	Operation OperationMetadata
+	Request   SearchToolRequest
+}
+
+func (SearchToolEffect) runtimeEffect() {}
+
+func (effect SearchToolEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -268,6 +298,8 @@ const (
 	OperationPrompt  OperationKind = "prompt"
 	OperationCommand OperationKind = "command"
 	OperationRead    OperationKind = "read"
+	OperationFind    OperationKind = "find"
+	OperationGrep    OperationKind = "grep"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -367,6 +399,89 @@ type ReadToolResult struct {
 	Source                ReadSourceMetadata
 }
 
+// SearchToolName names one of the fixed read-only search tools.
+type SearchToolName string
+
+const (
+	SearchToolFind SearchToolName = "find"
+	SearchToolGrep SearchToolName = "grep"
+)
+
+// SearchToolRequest is the runtime-owned find/grep proposal data.
+// It intentionally mirrors only primitive request fields so runtime stays filesystem-free.
+type SearchToolRequest struct {
+	ToolName        SearchToolName
+	Pattern         string
+	Query           string
+	Regex           bool
+	IncludePattern  string
+	MaxResults      int
+	MaxPreviewBytes int
+	Source          SearchSourceMetadata
+}
+
+// SearchSourceMetadata records caller-visible provenance for search requests.
+type SearchSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// SearchToolErrorKind is a bounded machine-readable search failure category.
+type SearchToolErrorKind string
+
+const (
+	SearchToolErrorNone             SearchToolErrorKind = "none"
+	SearchToolErrorInvalidPath      SearchToolErrorKind = "invalid_path"
+	SearchToolErrorOutsideWorkspace SearchToolErrorKind = "outside_workspace"
+	SearchToolErrorReservedPath     SearchToolErrorKind = "reserved_path"
+	SearchToolErrorInvalidPattern   SearchToolErrorKind = "invalid_pattern"
+	SearchToolErrorInvalidQuery     SearchToolErrorKind = "invalid_query"
+	SearchToolErrorInvalidRange     SearchToolErrorKind = "invalid_range"
+	SearchToolErrorPermission       SearchToolErrorKind = "permission_denied"
+	SearchToolErrorSymlinkEscape    SearchToolErrorKind = "symlink_escape"
+	SearchToolErrorCanceled         SearchToolErrorKind = "canceled"
+	SearchToolErrorExecution        SearchToolErrorKind = "execution_error"
+)
+
+// SearchToolError is safe to surface without leaking host-local paths.
+type SearchToolError struct {
+	Kind    SearchToolErrorKind
+	Message string
+}
+
+// SearchToolMatch records one find or grep match for runtime and presentation.
+type SearchToolMatch struct {
+	Path        string
+	LineNumber  int
+	PreviewText string
+}
+
+// SearchToolTruncation records bounded search omission and truncation metadata.
+type SearchToolTruncation struct {
+	MaxResults        int
+	MaxPreviewBytes   int
+	OmittedResults    int
+	OmittedFiles      int
+	PreviewTruncated  bool
+	ResultLimitHit    bool
+	FileSkipCount     int
+	TruncationMarkers string
+}
+
+// SearchToolResult is the typed runtime message payload returned by find/grep effects.
+type SearchToolResult struct {
+	ToolName       string
+	Pattern        string
+	Query          string
+	Regex          bool
+	IncludePattern string
+	Matches        []SearchToolMatch
+	Truncation     SearchToolTruncation
+	Error          SearchToolError
+	Source         SearchSourceMetadata
+}
+
 // Update applies one runtime message and returns the next model plus typed
 // effects for an external interpreter.
 func Update(model Model, message Message) (Model, []Effect) {
@@ -417,6 +532,23 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "read " + readPathLabel(request.Path)})
 		return next, []Effect{ReadToolEffect{Operation: operation, Request: request}}
+	case SearchToolProposed:
+		request := trimSearchRequest(msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: string(request.ToolName), Text: searchSubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, operationKindForSearch(request.ToolName), searchSubjectLabel(request))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = request
+		next.LastSearch = SearchToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: string(request.ToolName) + " " + searchSubjectLabel(request)})
+		return next, []Effect{SearchToolEffect{Operation: operation, Request: request}}
 	case InterruptRequested:
 		if !hasActiveFakeWork(next) {
 			return next, nil
@@ -434,6 +566,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = msg.Result
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
@@ -442,6 +576,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = msg.Failure.Message
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
 		return next, nil
@@ -451,9 +587,26 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = summary
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = msg.Result
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != ReadToolErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
+	case SearchToolCompleted:
+		summary := searchResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = msg.Result
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != SearchToolErrorNone {
 			kind = "failure"
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
@@ -480,7 +633,11 @@ func hasActiveWork(status Status) bool {
 }
 
 func hasActiveFakeWork(model Model) bool {
-	return hasActiveWork(model.Status) && model.ActiveOperation.Kind != OperationRead
+	return hasActiveWork(model.Status) && !isToolOperation(model.ActiveOperation.Kind)
+}
+
+func isToolOperation(kind OperationKind) bool {
+	return kind == OperationRead || kind == OperationFind || kind == OperationGrep
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -533,6 +690,68 @@ func readResultSummary(result ReadToolResult) string {
 		return fmt.Sprintf("read %s:%d-%d\n%s", path, result.EffectiveRange.StartLine, result.EffectiveRange.EndLine, strings.TrimRight(result.PreviewText, "\n"))
 	}
 	return "read " + path + ": no matching lines"
+}
+
+func trimSearchRequest(request SearchToolRequest) SearchToolRequest {
+	request.Pattern = strings.TrimSpace(request.Pattern)
+	request.Query = strings.TrimSpace(request.Query)
+	request.IncludePattern = strings.TrimSpace(request.IncludePattern)
+	return request
+}
+
+func operationKindForSearch(tool SearchToolName) OperationKind {
+	if tool == SearchToolGrep {
+		return OperationGrep
+	}
+	return OperationFind
+}
+
+func searchSubjectLabel(request SearchToolRequest) string {
+	subject := request.Pattern
+	if request.ToolName == SearchToolGrep {
+		subject = request.Query
+		if request.IncludePattern != "" {
+			subject += " in " + request.IncludePattern
+		}
+	}
+	return readPathLabel(subject)
+}
+
+func searchResultSummary(result SearchToolResult) string {
+	subject := result.Pattern
+	if result.ToolName == string(SearchToolGrep) {
+		subject = result.Query
+		if result.IncludePattern != "" {
+			subject += " in " + result.IncludePattern
+		}
+	}
+	subject = readPathLabel(subject)
+	if subject == "" {
+		subject = "request"
+	}
+	if result.Error.Kind != "" && result.Error.Kind != SearchToolErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("%s %s failed: %s", result.ToolName, subject, result.Error.Kind)
+		}
+		return fmt.Sprintf("%s %s failed: %s: %s", result.ToolName, subject, result.Error.Kind, message)
+	}
+	if len(result.Matches) == 0 {
+		return fmt.Sprintf("%s %s: no matches", result.ToolName, subject)
+	}
+	parts := make([]string, 0, len(result.Matches)+1)
+	parts = append(parts, fmt.Sprintf("%s %s: %d matches", result.ToolName, subject, len(result.Matches)))
+	for _, match := range result.Matches {
+		if match.LineNumber > 0 {
+			parts = append(parts, fmt.Sprintf("%s:%d: %s", match.Path, match.LineNumber, match.PreviewText))
+		} else {
+			parts = append(parts, match.Path)
+		}
+	}
+	if result.Truncation.OmittedResults > 0 {
+		parts = append(parts, fmt.Sprintf("omitted results: %d", result.Truncation.OmittedResults))
+	}
+	return strings.Join(parts, "\n")
 }
 
 func readPathLabel(path string) string {
