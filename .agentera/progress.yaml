@@ -4956,6 +4956,210 @@ cycles:
       scope: >-
         final targeted validation, full mage check, lint-only cleanup, ROADMAP M15A closeout update,
         Agentera progress/plan synchronization, and final handoff evidence only.
+  - number: 108
+    timestamp: "2026-05-16 03:09"
+    type: docs
+    phase: plan
+    what: >-
+      Ran Planera for the next roadmap milestone after committing M15A. Archived the completed
+      M15A plan to `.agentera/archive/plan-2026-05-16-m15a.yaml` and wrote an active full
+      `.agentera/plan.yaml` for Milestone 16 Session Snapshot Resume. The plan decomposes the
+      current session snapshot contract, safe snapshot read/write behavior, explicit app/state
+      persistence effects, continue startup resume, idle-with-memory TUI evidence, terminal resume
+      smoke, and final freshness closeout.
+    commit: "7805ce2 add diagnostics recovery boundary; M16 plan not committed"
+    inspiration: "ROADMAP.md:708-728; ARCHITECTURE.md:529-607; README.md:35-48; docs/tui-testing.md:60-79"
+    discovered: >-
+      The adversarial critic found the first M16 draft risked violating MVU by allowing incidental
+      app-side snapshot writes, underspecified how `continue`, `--continue`, and `-c` replace the
+      current stub path, made the snapshot contract broader than visible M16 state, blurred latest
+      versus current snapshot semantics, missed data bounds/redaction, and lacked a source model for
+      blockers and concerns. The written plan defines `.aila/sessions/current.json` as the M16 latest
+      contract, requires explicit persistence command/effect results, limits blocker/concern fields to
+      current visible display data, and defers event logs/history/context compaction to later milestones.
+      Initial verification also exposed that YAML list items beginning with backticks are rejected by the
+      Agentera parser; the active plan now uses folded scalar list items for those command/fixture labels.
+    verified: >-
+      `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera lint --artifact
+      .agentera/plan.yaml` completed with the known advisory `abstraction creep: no concrete anchor`;
+      the plan includes concrete anchors such as ROADMAP.md:708-728, ARCHITECTURE.md:529-607,
+      ARCHITECTURE.md:916-923, README.md:35-48, docs/tui-testing.md:60-79, and explicit validation
+      commands, so this advisory was treated as non-blocking. After the folded-scalar correction, `uv run
+      /home/jgabor/.local/share/agentera/app/scripts/agentera plan --format json` reported 7 pending M16
+      tasks with Task 1 dependency-ready. `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-16-m15a.yaml` passed.
+    next: >-
+      Start Orkestrera on the active M16 plan. Dependency-ready task is Task 1, Define current
+      session snapshot contract. Do not implement M16 beyond the selected task, do not commit or push
+      unless separately requested, and keep `.agentera/session.yaml` plus local `.aila/` state
+      uncommitted unless the user decides otherwise.
+    context:
+      intent: >-
+        Convert the completed M15A roadmap handoff into an executable M16 plan before orchestration
+        begins.
+      constraints: >-
+        Plan only M16. Do not add M17 event logs/history view, context compaction, stale checks, real
+        provider/tool history, approval persistence, mutation history, undo, provider fallback,
+        permission policy changes, plugins, MCP, workflow DSL, or M18+ behavior. Do not push or commit
+        the M16 plan unless requested.
+      unknowns: >-
+        Whether local untracked `.aila/` project state should be committed later; it remains excluded
+        from this M16 planning change for now.
+      scope: >-
+        Planera artifact archival, active M16 plan writing, adversarial review response, lint/diff-check
+        evidence, and Agentera progress evidence only.
+  - number: 109
+    timestamp: "2026-05-16 03:18"
+    type: test
+    phase: build
+    what: >-
+      Executed M16 Task 1 by defining the pure current session snapshot contract in internal/state.
+      The contract derives `.aila/sessions/current.json` from the workspace-owned store layout with
+      provenance, declares the M16 schema fields for current visible fake session memory, validates
+      bounded strings and schema version, rejects escaped or non-current snapshot paths, and extends
+      state package boundary tests against deferred behavior.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md:708-728; ARCHITECTURE.md:529-607"
+    discovered: >-
+      Task 1 could remain contract-only: no snapshot file read/write, app/runtime persistence effects,
+      continue startup, TUI resume wiring, idle-with-memory fixtures, PTY smoke, final mage check, or
+      plan status transition was needed. The existing worktree already had uncommitted M16 planning
+      artifacts and local `.agentera/session.yaml` plus `.aila/` state; those remain uncommitted local
+      state and `.agentera/plan.yaml` Task 1 remains pending for Orkestrera/Inspektera evaluation.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/state -run 'Session|Snapshot|Boundary' -count=1` passed.
+      `git diff --check -- internal/state .agentera/progress.yaml .agentera/plan.yaml
+      .agentera/archive/plan-2026-05-16-m15a.yaml` passed. No commit or push was performed.
+    next: >-
+      Have Inspektera evaluate M16 Task 1, then let Orkestrera decide whether to mark Task 1 complete
+      and select the next dependency-ready M16 task.
+    context:
+      intent: >-
+        Establish the current session snapshot path and schema contract before any M16 read/write or
+        resume behavior is implemented.
+      constraints: >-
+        Execute only M16 Task 1. Do not implement snapshot persistence, app effects, continue startup,
+        TUI filesystem ownership, idle-with-memory fixtures, PTY resume smoke, final mage check,
+        Agentera closeout, event replay, context compaction, history browsing, provider/tool history,
+        undo, plugins, MCP, workflow DSL behavior, or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/state session snapshot contract/types/tests, state package boundary guard expansion,
+        targeted validation, and Agentera progress evidence only.
+  - number: 110
+    timestamp: "2026-05-16 03:23"
+    type: fix
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 1. The first audit found a real path-safety gap:
+      a requested path containing parent traversal could escape and re-enter `.aila/sessions/current.json`
+      after normalization. The state validator now rejects parent traversal before cleaning paths, and
+      the regression test covers the re-entering traversal case.
+    commit: "N/A: user did not request a git commit"
+    inspiration: "Inspektera M16 Task 1 audit finding on internal/state/session_snapshot.go path validation"
+    discovered: >-
+      The contract implementation was otherwise correctly limited to internal/state schema/path tests,
+      but exact-path validation must reject syntactically escaped requests before comparing cleaned paths.
+      No Task 2 read/write behavior, app effects, continue startup, TUI fixtures, PTY smoke, event replay,
+      history browsing, context compaction, provider/tool history, undo, plugins, MCP, or workflow DSL
+      behavior was introduced.
+    verified: >-
+      Initial Inspektera returned FAIL on acceptance criterion 3. After the fix, `mage fmt` passed,
+      `go test ./internal/state -run 'Session|Snapshot|Boundary' -count=1` passed, `go test
+      ./internal/state -count=1` passed, `git diff --check -- internal/state .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-16-m15a.yaml` passed, and Inspektera re-audit
+      returned PASS with no findings.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M16 task: Task 2, Read and write current
+      snapshot safely. Keep M16 work uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record the Task 1 audit/fix/verification outcome and synchronize the active plan after independent
+        evaluation passed.
+      constraints: >-
+        Mark only Task 1 complete. Do not implement Task 2, continue startup, TUI evidence, PTY smoke,
+        final mage check, ROADMAP closeout, commits, pushes, or any M17+ behavior during this validation
+        step.
+      unknowns: "none"
+      scope: >-
+        internal/state path-validation hardening, regression validation, Inspektera PASS evidence, and
+        Agentera plan/progress synchronization for Task 1 only.
+  - number: 111
+    timestamp: "2026-05-16 03:28"
+    type: feat
+    phase: build
+    what: >-
+      Executed M16 Task 2 by adding state-owned current session snapshot read/write APIs for
+      `.aila/sessions/current.json`. Missing snapshots now report typed no-memory state, valid snapshots
+      round-trip through schema-versioned bounded data, invalid reads return passive recovery diagnostics
+      without repair, and writes validate path ownership, redact visible fields, create only the sessions
+      directory, and atomically replace the final snapshot without leftover temp files.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md:708-728; ARCHITECTURE.md:529-607"
+    discovered: >-
+      The Task 1 contract could stay entirely in internal/state for Task 2 IO. During implementation,
+      targeted tests exposed two safety details: partial JSON with missing required fields must be rejected
+      instead of decoding to Go zero values, and authorization bearer text needs explicit snapshot-field
+      redaction. `.agentera/plan.yaml` Task 2 remains pending for Orkestrera/Inspektera evaluation.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/state -run 'Session|Snapshot|Boundary' -count=1` passed.
+      `go test ./internal/state -count=1` passed. `git diff --check -- internal/state
+      .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-16-m15a.yaml` passed.
+      No commit or push was performed.
+    next: >-
+      Have Inspektera evaluate M16 Task 2, then let Orkestrera decide whether to mark Task 2 complete
+      and select the next dependency-ready M16 task.
+    context:
+      intent: >-
+        Add safe current-session snapshot read/write behavior after the pure path/schema contract and
+        before any app/runtime persistence or continue-startup wiring.
+      constraints: >-
+        Execute only M16 Task 2. Do not implement Task 3 app/runtime persistence effects, Task 4 continue
+        startup, TUI filesystem ownership, idle-with-memory fixtures, PTY smoke, final mage check,
+        ROADMAP closeout, commits, pushes, event replay, context compaction, history browsing,
+        provider/tool history, undo, plugins, MCP, workflow DSL behavior, or M17+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/state current snapshot IO APIs/tests and Agentera progress evidence only.
+  - number: 112
+    timestamp: "2026-05-16 03:33"
+    type: fix
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M16 Task 2 after hardening snapshot IO. The first audit found
+      that a preexisting `.aila/sessions` symlink could redirect temp and final snapshot writes outside
+      the project store. The read/write path now rejects symlinked store/session components and final
+      snapshot symlinks, and tests also reject nested partial or null snapshot fields that would otherwise
+      decode to Go zero values.
+    commit: "N/A: user did not request a git commit"
+    inspiration: "Inspektera M16 Task 2 audit finding on symlinked session directory ownership"
+    discovered: >-
+      Safe snapshot IO needs syntactic path checks and filesystem component checks. The Task 2 APIs remain
+      confined to internal/state and do not introduce app/runtime persistence effects, continue startup,
+      TUI fixtures, PTY smoke, event replay, context compaction, history browsing, provider/tool history,
+      undo, plugins, MCP, workflow DSL behavior, or M17+ behavior.
+    verified: >-
+      Initial Inspektera returned FAIL on acceptance criteria 4 and 5. After the fix, `mage fmt` passed,
+      `go test ./internal/state -run 'Session|Snapshot|Boundary' -count=1` passed, `go test
+      ./internal/state -count=1` passed, `git diff --check -- internal/state .agentera/progress.yaml
+      .agentera/plan.yaml .agentera/archive/plan-2026-05-16-m15a.yaml` passed, and Inspektera re-audit
+      returned PASS with no findings.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M16 tasks: Task 3, Persist fake session snapshots
+      through explicit effects, and Task 4, Resume current snapshot through continue startup. Keep M16 work
+      uncommitted unless the user explicitly requests a commit.
+    context:
+      intent: >-
+        Record the Task 2 audit/fix/verification outcome and synchronize the active plan after independent
+        evaluation passed.
+      constraints: >-
+        Mark only Task 2 complete. Do not implement Task 3 effects, Task 4 continue startup, Task 5 TUI
+        evidence, Task 6 PTY smoke, final mage check, ROADMAP closeout, commits, pushes, or any M17+
+        behavior during this validation step.
+      unknowns: "none"
+      scope: >-
+        internal/state snapshot IO hardening, nested partial-field validation, symlink escape regression
+        coverage, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 2 only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -4970,3 +5174,4 @@ archive:
   - .agentera/archive/plan-2026-05-15-m13.yaml
   - .agentera/archive/plan-2026-05-15-m14.yaml
   - .agentera/archive/plan-2026-05-15-m15.yaml
+  - .agentera/archive/plan-2026-05-16-m15a.yaml

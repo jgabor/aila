@@ -1,178 +1,199 @@
 header:
   level: full
-  created: 2026-05-15
-  status: complete
-  reviewed: 2026-05-15
-  critic_issues: "10 found, 8 addressed, 2 reframed"
-  title: Milestone 15A Diagnostics And State Recovery Boundary
+  created: 2026-05-16
+  status: active
+  reviewed: 2026-05-16
+  critic_issues: "7 found, 6 addressed, 1 reframed"
+  title: Milestone 16 Session Snapshot Resume
 what: >-
-  Deliver ROADMAP.md:650-686 Milestone 15A by making startup, runtime failure,
-  cancellation, signal shutdown, and project-state corruption failures explicit and
-  inspectable. Aila should emit bounded, typed diagnostics with recovery guidance,
-  surface degraded or recovery-needed state in existing status/startup surfaces, and
-  shut down through observable cancellation paths rather than raw crashes or silent
-  state loss.
+  Deliver ROADMAP.md:708-728 Milestone 16 by saving the current fake session to
+  `.aila/` and resuming it through `continue`, `--continue`, and `-c` without
+  hardcoded TUI memory. Aila should persist and restore visible fake chat, queued
+  input, diagnostics, blockers, concerns, and status context that exist at this
+  point through a narrow state/app boundary.
 why: >-
-  M15 created durable `.aila/` state. Before sessions, replay, context compaction,
-  mutations, or real recovery commands depend on that state, Aila needs a reliable
-  diagnostic boundary that preserves user trust: failures should say what happened,
-  what artifact or subsystem is affected, whether user action is needed, and what
-  action is safe next without executing destructive repair automatically.
+  M15 gave Aila durable project state and M15A made failure modes explicit. The
+  next trust boundary is proving Aila can remember a fake session across process
+  starts before event replay, history browsing, context compaction, real tool
+  history, or model run history exist.
 constraints: >-
-  Execute only Milestone 15A after the M15 closeout commit. Preserve the
-  statechart-MVU rule that updates decide and effects do. Keep the TUI
-  presentation-only and path-safe. Recovery actions in this milestone are visible
-  recommendations, not destructive repair execution. Do not add session resume,
-  event replay, context compaction, stale checks, mutation history, undo execution,
-  automated retry policy, provider fallback, provider selection changes, permission
-  policy changes, plugin/MCP/workflow DSL behavior, or Milestone 16+ behavior. Do
-  not push. Do not commit M15A work unless the user separately requests it.
-previous_plan_archived: .agentera/archive/plan-2026-05-15-m15.yaml
+  Execute only Milestone 16 after the M15A closeout commit. Preserve the
+  statechart-MVU rule that updates decide and effects do. Session persistence
+  must be requested through explicit app-owned persistence commands/effects and
+  recorded results; deterministic runtime updates and TUI rendering must not
+  perform filesystem IO. Keep the TUI presentation-only and path-safe. Do not add
+  event replay, session selection/history browsing, context compaction, stale
+  checks, real provider/tool history, approval persistence, mutation history,
+  undo execution, provider fallback, permission policy changes, plugins, MCP,
+  workflow DSL behavior, or Milestone 17+ behavior. Do not push. Do not commit
+  M16 work unless the user separately requests it.
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m15a.yaml
 source_anchors:
-  - ROADMAP.md:650-686
-  - docs/notes/PROMPT.md
-  - AGENTS.md
+  - ROADMAP.md:708-728
   - ARCHITECTURE.md:529-607
-  - ARCHITECTURE.md:781-821
-  - ARCHITECTURE.md:858-879
+  - ARCHITECTURE.md:916-923
+  - README.md:35-48
   - README.md:123-127
-  - docs/workflow-architecture.md:337-404
-  - docs/tui-testing.md
+  - docs/tui-testing.md:60-79
+  - docs/workflow-architecture.md:343-384
+  - docs/notes/PROMPT.md
 verification_commands:
-  - go test ./internal/state ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+  - go test ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
   - mage check
 scope:
   included:
-    - Typed diagnostic and recovery-action vocabulary for startup, state, runtime, effect, provider-shaped, permission-shaped, cancellation, and signal-shutdown failures.
-    - Corrupt, partial, and version-mismatched `.aila/project.toml` detection that surfaces recovery-needed state without overwriting existing project state.
-    - Bounded debug output for startup and non-interactive command diagnostics.
-    - Runtime/effect panic and cancellation reporting through typed messages or effect results, not direct phase mutation.
-    - SIGINT/SIGTERM graceful shutdown with observable cancellation and a bounded checkpoint or diagnostic when project state is available.
-    - TUI render/semantic evidence for diagnostic-ready, corrupt-state, and graceful-shutdown states.
-    - PTY smoke for shutdown or interrupt-triggered clean termination when terminal behavior changes.
+    - Current fake session snapshot contract under `.aila/sessions/current.json`.
+    - Safe read/write behavior for the current snapshot with schema/version checks,
+      bounds, redaction, and no-overwrite recovery diagnostics.
+    - App-owned persistence requests/results for fake prompt, queue, interrupt,
+      cancellation, diagnostic, and visible status state.
+    - >-
+      `aila continue`, `aila --continue`, and `aila -c` interactive resume from the
+      current fake session snapshot.
+    - >-
+      `idle-with-memory` render and semantic evidence for resumed memory, queued input,
+      diagnostics, blockers, concerns, and visible chat state where present.
+    - Bounded terminal/process smoke proving resume uses stored state in a temp
+      workspace without HOME or source-tree project-state pollution.
   excluded:
-    - Session snapshot resume, event replay, resumable run history, context compaction, stale checks, or context-builder behavior.
-    - Destructive recovery execution, automated repair, provider fallback, provider selection changes, automated retry policy, or permission policy changes.
-    - Undo execution, mutation history, edit records, approval persistence, real tool/provider/shell cancellation semantics beyond current fake/runtime paths.
-    - Dynamic plugins, MCP servers, workflow DSLs, model marketplaces, or hosted control planes.
+    - Event replay, append-only event logs, history browsing, session selection UI,
+      resumable run history, context compaction, stale checks, or context-builder
+      behavior.
+    - Real model/provider/tool history, shell/tool execution history, approval
+      persistence, edit records, mutation history, undo execution, provider
+      fallback, provider selection changes, or permission policy changes.
+    - Dynamic plugins, MCP servers, workflow DSLs, model marketplaces, hosted
+      control planes, or Milestone 17+ behavior.
   deferred:
-    - Milestone 16 session snapshot resume and user-facing continuation memory.
-    - Later recovery commands that execute repair after mutation history and explicit approvals exist.
-    - Full provider failure handling once the provider gateway is connected to real run execution.
+    - Event logs and history view for Milestone 17.
+    - Context compaction and stale-source behavior for later context milestones.
+    - Real provider/tool/session replay after fake snapshots prove the state seam.
 design: >-
-  Treat diagnostics as typed product state, not logging side effects. State opening,
-  runtime/effect execution, command handling, and signal handling may recommend
-  diagnostics; deterministic app/runtime updates decide how those diagnostics affect
-  visible state. Recovery actions are bounded labels such as inspect, manual repair,
-  ignore for this run, or reinitialize with confirmation needed; M15A must not execute
-  destructive repair. Debug output is a structured, bounded view of the same diagnostic
-  records. The TUI receives diagnostic display data and semantic fields only, and never
-  imports state or recovery packages to inspect the filesystem itself.
+  Treat `.aila/sessions/current.json` as the M16 "latest" contract: one current
+  fake session snapshot, not a session index or history browser. The snapshot is
+  the durable source for current fake runtime/display memory: schema version,
+  session id, status source/detail, active flag, runtime status/result, transcript
+  turns, queued entries, diagnostics, blockers, and concerns. State owns snapshot
+  file layout, schema validation, bounds, redaction, atomic writes, and recovery
+  diagnostics. App/runtime code decides when snapshot persistence is requested and
+  consumes typed persistence results; TUI receives injected resumed display and
+  semantic fields only. Recovery states remain recommendations and never execute
+  destructive repair.
 tasks:
   - number: 1
-    name: Define diagnostic and recovery contract
+    name: Define current session snapshot contract
     depends_on: []
-    status: complete
+    status: completed
     acceptance:
-      - GIVEN a diagnostic is produced WHEN it is inspected THEN category, source, severity, bounded message, affected logical artifact, recovery action, and user-input-needed are represented without incidental absolute paths or secrets.
-      - GIVEN provider-error or permission-decision diagnostics are represented WHEN validation checks scope THEN they are passive records only and do not change provider selection, retry/fallback behavior, approval flow, or permission policy.
-      - GIVEN a recovery action is surfaced WHEN it is inspected THEN it describes a safe next step such as inspect, manual repair, ignore for this run, or reinitialize-with-confirmation-needed without executing that action.
-      - GIVEN package boundary tests inspect the contract WHEN validation runs THEN diagnostics do not introduce model calls, command execution, workflow phase mutation, TUI filesystem ownership, plugins, or MCP behavior.
+      - GIVEN a workspace path WHEN the current session snapshot location is described THEN `.aila/sessions/current.json` is derived through internal/state, with provenance, and not from HOME, XDG, Agentera, or TUI state.
+      - GIVEN the M16 snapshot schema is inspected WHEN tests validate it THEN it includes schema version, session id, runtime status/source/detail/result, active flag, transcript turns, queued entries, diagnostics, blockers, concerns, and bounded string fields needed by current UI state.
+      - GIVEN unsafe or escaped session paths are requested WHEN validation runs THEN state rejects them instead of returning hardcoded or escaped filesystem paths.
+      - GIVEN package boundary tests inspect the contract WHEN validation runs THEN session snapshots do not introduce event replay, context compaction, history browsing, provider/tool history, undo, TUI filesystem ownership, plugins, or MCP behavior.
     evidence:
-      - Progress cycle 96 records the pure internal/diagnostic contract, bounded redacted diagnostic messages, affected logical artifact and user-input-needed fields, passive provider-error and permission-decision records, recovery recommendation labels, boundary tests, `mage fmt`, targeted diagnostic tests, and `git diff --check` evidence.
-      - Inspektera evaluation passed all Task 1 acceptance criteria, reran `go test ./internal/... -run Diagnostic -count=1` and `git diff --check -- internal/diagnostic .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml`, and found no Task 2+ scope creep.
+      - >-
+        Added `internal/state/session_snapshot.go` with the pure current snapshot path/provenance
+        contract, schema types, schema version, runtime status/source/detail/result fields,
+        active flag, transcript turns, queued entries, diagnostics, blockers, concerns, and bounded
+        string validation.
+      - >-
+        Added state tests proving workspace-derived `.aila/sessions/current.json`, independence from
+        HOME/XDG/Agentera/TUI state, required schema JSON fields, unsupported-version and oversized
+        string rejection, exact path validation, and escaped/re-entering traversal rejection.
+      - >-
+        Extended state boundary tests against runtime/presentation ownership and deferred M17+ or
+        out-of-scope behaviors, including event replay, context compaction, history browsing,
+        provider/tool history, undo, plugins, MCP, and workflow DSL behavior.
+      - >-
+        Inspektera first found a traversal-normalization gap, the validator was fixed to reject
+        parent traversal before cleaning, and re-audit returned PASS with no findings.
+      - >-
+        Verified with `mage fmt`, `go test ./internal/state -run 'Session|Snapshot|Boundary'
+        -count=1`, `go test ./internal/state -count=1`, and `git diff --check -- internal/state
+        .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-16-m15a.yaml`.
   - number: 2
-    name: Detect unsafe project metadata as recovery state
+    name: Read and write current snapshot safely
     depends_on: [1]
-    status: complete
+    status: completed
     acceptance:
-      - GIVEN valid project metadata exists WHEN the store opens THEN metadata is preserved and no recovery diagnostic is emitted.
-      - GIVEN the store is missing WHEN startup opens it THEN normal M15 initialization still succeeds without a recovery diagnostic.
-      - GIVEN `.aila/project.toml` is corrupt, partial, or version-mismatched WHEN the store opens THEN Aila surfaces typed degraded or recovery-needed state instead of silently trusting it.
-      - GIVEN corrupt metadata is detected WHEN validation inspects the filesystem THEN existing metadata, unrelated artifacts, indexes, diagnostic records, checkpoints, or backups are not overwritten.
-      - GIVEN state tests run WHEN validation completes THEN valid, missing, corrupt, partial, version-mismatch, and no-overwrite cases have regression-sensitive coverage.
+      - GIVEN no current snapshot exists WHEN it is read THEN state reports no memory without treating it as a failure.
+      - GIVEN a valid current snapshot exists WHEN it is read and written THEN visible fake session fields round-trip through bounded, redacted, schema-versioned data.
+      - GIVEN corrupt, partial, oversized, or version-mismatched snapshot data exists WHEN it is read THEN state returns a typed recovery diagnostic without overwriting `current.json` or unrelated store data.
+      - GIVEN a snapshot write is requested WHEN validation inspects the filesystem THEN the write is owned, atomic, path-safe, and leaves no partial final content or temporary file behind.
+      - GIVEN state tests run WHEN validation completes THEN missing, valid, corrupt JSON, partial, oversized, version-mismatch, redaction, atomic write, and no-overwrite cases each have regression-sensitive coverage.
     evidence:
-      - Progress cycles 97 and 98 record `OpenProjectStoreWithStatus`, `Store.OpenStatus`, metadata schema validation, passive recovery diagnostics, app startup propagation of recovery-needed state, malformed TOML-shaped metadata rejection, no-overwrite guarantees, `mage fmt`, targeted state/app/diagnostic tests, and relevant `git diff --check` evidence.
-      - Initial Inspektera evaluation found startup propagation and malformed TOML coverage gaps; the retry fixed both. Re-evaluation passed all Task 2 acceptance criteria, reran `go test ./internal/state ./internal/app ./internal/diagnostic -count=1` and `git diff --check -- internal/state internal/app .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml`, and found no Task 3+ scope creep.
+      - >-
+        Added state-owned `Store.ReadCurrentSessionSnapshot` and `Store.WriteCurrentSessionSnapshot`
+        APIs for `.aila/sessions/current.json`; missing files return typed no-memory state, valid
+        snapshots load as schema-versioned current memory, and invalid reads return passive recovery
+        diagnostics without overwriting existing data.
+      - >-
+        Snapshot writes validate the store-derived path, redact secret-like visible fields before
+        persistence, reject invalid/oversized contracts before replacing existing content, create only
+        the needed `sessions` directory, and use the existing atomic replace helper without leaving
+        temp files.
+      - >-
+        Tests cover missing snapshots, valid redacted round-trip behavior, corrupt JSON, top-level and
+        nested partial/null data, unknown fields, version mismatch, oversized files/contracts,
+        no-overwrite behavior, atomic final content, and temp cleanup.
+      - >-
+        Inspektera first found a symlinked `.aila/sessions` ownership gap; read/write now reject
+        symlinked store/session components and final snapshot symlinks before filesystem IO can escape
+        the project store, with regression coverage.
+      - >-
+        Verified with `mage fmt`, `go test ./internal/state -run 'Session|Snapshot|Boundary'
+        -count=1`, `go test ./internal/state -count=1`, `git diff --check -- internal/state
+        .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-16-m15a.yaml`,
+        and Inspektera re-audit PASS.
   - number: 3
-    name: Surface bounded debug diagnostics
-    depends_on: [1, 2]
-    status: complete
+    name: Persist fake session snapshots through explicit effects
+    depends_on: [2]
+    status: pending
     acceptance:
-      - GIVEN startup diagnostics exist WHEN normal startup or status output renders THEN the visible state is bounded, path-safe, and actionable without requiring debug mode.
-      - GIVEN debug output is requested for startup or a non-interactive command WHEN diagnostics exist THEN structured output includes severity, source, recovery action, affected artifact, user-input-needed, and bounded message within documented count and byte limits.
-      - GIVEN debug output is requested WHEN no diagnostics exist THEN the command reports an empty diagnostic set without changing normal exit behavior.
-      - GIVEN diagnostics contain path-like or secret-like content WHEN output is rendered THEN incidental absolute paths and credentials are redacted unless the field is explicitly user-facing.
-      - GIVEN the first diagnostic semantic fixture or status contract is inspected WHEN this task completes THEN later TUI fixtures inherit stable field names instead of inventing a separate schema.
-    evidence:
-      - Progress cycles 99 and 100 record app-owned diagnostic display fields, stable semantic diagnostic field names, bounded structured `--debug` output with count/byte limits, empty diagnostic set behavior, path and credential redaction hardening, `mage fmt`, targeted diagnostic/app/TUI/cmd tests, and relevant `git diff --check` evidence.
-      - Initial Inspektera evaluation found only credential redaction coverage too narrow; the retry added coverage for authorization bearer, colon-separated password, whitespace-separated token, apiKey/apikey variants, and URL embedded credentials. Re-evaluation passed all Task 3 acceptance criteria and found no Task 4+ scope creep.
+      - GIVEN fake runtime/app state changes WHEN snapshot persistence is needed THEN app emits an explicit persistence command or effect and receives a typed result message rather than writing from deterministic update or TUI code.
+      - GIVEN fake prompt/response, queued input, interrupting/canceled state, diagnostics, blockers, concerns, and visible status context exist WHEN persistence runs THEN the current snapshot captures the visible data that exists at this point.
+      - GIVEN snapshot persistence fails WHEN app handles the result THEN a bounded diagnostic is surfaced without direct workflow phase mutation or destructive recovery execution.
+      - GIVEN existing prompt, queue, interrupt, diagnostics, status, help, and quit paths run WHEN persistence support exists THEN their behavior remains stable except for intentional snapshot metadata.
   - number: 4
-    name: Record runtime failures and cancellations as messages
-    depends_on: [1, 3]
-    status: complete
+    name: Resume current snapshot through continue startup
+    depends_on: [2]
+    status: pending
     acceptance:
-      - GIVEN a supervised runtime or effect worker panics WHEN recovery is possible THEN the panic is converted into a typed runtime message or effect result with diagnostic data.
-      - GIVEN panic recovery emits a diagnostic WHEN validation inspects state changes THEN the recovery wrapper does not write project state directly and does not mutate workflow phase directly.
-      - GIVEN a context cancellation reaches runtime or effect work WHEN it is handled THEN cancellation is recorded as a typed diagnostic message rather than disappearing or becoming a raw error string.
-      - GIVEN existing active, queued, interrupting, canceled, idle, help, status, and quit paths run WHEN diagnostic handling exists THEN their behavior remains stable except for intentional diagnostic metadata.
-    evidence:
-      - Progress cycle 101 records typed runtime diagnostic messages for panic and cancellation, app-level supervised runtime/dispatch recovery, TUI diagnostic merge behavior, stability coverage for active/queued/interrupting/canceled/idle/status/help/quit paths, `mage fmt`, targeted runtime/app/TUI/cmd/diagnostic tests, and relevant `git diff --check` evidence.
-      - Inspektera evaluation passed all Task 4 acceptance criteria, reran `go test ./internal/runtime ./internal/app ./internal/tui ./cmd/aila ./internal/diagnostic -count=1` and `git diff --check -- internal/runtime internal/app internal/tui cmd/aila internal/diagnostic .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml`, and found no Task 5+ scope creep.
+      - GIVEN a valid current snapshot exists WHEN `aila continue`, `aila --continue`, or `aila -c` runs THEN Aila starts the interactive TUI with resumed fake memory loaded through app-owned startup wiring.
+      - GIVEN no current snapshot exists WHEN continue startup runs THEN Aila falls back to normal idle startup without a raw failure or hardcoded memory.
+      - GIVEN the current snapshot is invalid WHEN continue startup runs THEN Aila surfaces a path-safe recovery diagnostic without overwriting the snapshot.
+      - GIVEN resume state reaches the TUI WHEN tests inspect package boundaries THEN the TUI consumes injected display and semantic fields only and does not import or call internal/state.
+      - GIVEN continue support exists WHEN validation checks scope THEN no session index, history browser, event replay, context compaction, or Milestone 17 behavior is introduced.
   - number: 5
-    name: Handle signal-triggered graceful shutdown
-    depends_on: [2, 4]
-    status: complete
+    name: Render idle-with-memory evidence
+    depends_on: [3, 4]
+    status: pending
     acceptance:
-      - GIVEN SIGINT or SIGTERM is received WHEN Aila is idle THEN shutdown is bounded, clean, and visible as a diagnostic or status outcome without a raw crash.
-      - GIVEN SIGINT or SIGTERM is received WHEN fake work is active THEN active contexts are canceled through the existing app/runtime path and cancellation is recorded as a diagnostic message.
-      - GIVEN project state is available during shutdown WHEN a checkpoint or shutdown diagnostic is recorded THEN it is bounded, path-safe, and does not create session resume, event replay, context compaction, or undo behavior.
-      - GIVEN project state is unavailable or degraded during shutdown WHEN validation inspects output THEN Aila still exits cleanly and reports recovery-needed state without overwriting corrupt metadata.
-    evidence:
-      - Progress cycles 102 and 103 record signal-derived root context cancellation, shutdown diagnostics, active fake-work cancellation through existing app/runtime paths, bounded/path-safe shutdown diagnostic collection, degraded store-open diagnostic propagation, `mage fmt`, targeted app/cmd/runtime/state/diagnostic tests, and relevant `git diff --check` evidence.
-      - Initial Inspektera evaluation found degraded/unavailable store state was not included in shutdown diagnostics; the retry attached typed diagnostics for that path. Re-evaluation passed all Task 5 acceptance criteria and found no Task 6+ scope creep.
+      - GIVEN resumed memory is injected into the TUI WHEN the `idle-with-memory` fixture renders THEN resumed chat, queued messages, diagnostics, blockers, concerns, and status context that exist are visible without hardcoded TUI state.
+      - GIVEN semantic snapshots are inspected WHEN resumed memory is present THEN memory source, session id, resumed transcript turns, queued count, blockers, concerns, and diagnostics are machine-readable and path-safe.
+      - GIVEN snapshot data contains terminal escape or secret-like text WHEN render and semantic evidence is produced THEN output is bounded and redacted without leaking control sequences or credentials.
+      - GIVEN queue, interrupt, store-status, and diagnostic fixtures render WHEN memory support exists THEN their existing evidence remains stable except for intentional memory metadata.
   - number: 6
-    name: Render diagnostic and recovery states
-    depends_on: [3, 4, 5]
-    status: complete
+    name: Prove terminal resume smoke
+    depends_on: [4, 5]
+    status: pending
     acceptance:
-      - GIVEN diagnostic-ready state is injected into the TUI WHEN fixtures render THEN severity, source, recovery action, and user-input-needed are visible without the TUI owning diagnostics or storage.
-      - GIVEN corrupt-state recovery is injected WHEN fixtures render THEN affected artifact and safe recovery guidance are visible without incidental filesystem paths or secrets.
-      - GIVEN graceful-shutdown state is injected WHEN fixtures render THEN shutdown/cancellation outcome is visible without implying session resume, replay, undo, provider fallback, or destructive repair.
-      - GIVEN semantic snapshots are inspected WHEN diagnostics are present THEN diagnostic severity, recovery action, affected artifact, and user-input-needed are machine-readable and path-safe.
-      - GIVEN queue, interrupt, and store-status fixtures render WHEN diagnostic support exists THEN their existing evidence remains stable except for intentional diagnostic metadata.
-    evidence:
-      - Progress cycle 104 records diagnostic-ready, corrupt-state-recovery, and graceful-shutdown TUI fixtures with 80x24 plain/ANSI/semantic snapshots, path/secret leak assertions, queue/interrupt/store-status stability checks, snapshot generation/verification, targeted TUI tests, broader app/runtime/state/diagnostic/cmd tests, and relevant `git diff --check` evidence.
-      - Inspektera evaluation passed all Task 6 acceptance criteria, reran `go test ./internal/tui -count=1`, `go test ./internal/app ./internal/runtime ./internal/state ./internal/diagnostic ./cmd/aila -count=1`, and `git diff --check -- internal/tui internal/app internal/runtime internal/state internal/diagnostic cmd/aila .agentera/progress.yaml .agentera/plan.yaml .agentera/archive/plan-2026-05-15-m15.yaml`, and found no Task 7+ scope creep.
+      - GIVEN a temp workspace records a fake session snapshot WHEN a bounded terminal/process smoke restarts with `continue` or `--continue` THEN resumed memory is visible and comes from `.aila/sessions/current.json`.
+      - GIVEN terminal output is inspected WHEN resume completes THEN session id, resumed transcript, queued input, blockers or concerns where present, and diagnostics are visible without leaking temp workspace, HOME, `.aila`, config, or credential paths.
+      - GIVEN cleanup completes WHEN the smoke exits THEN only expected temp workspace project state and config files exist, with no HOME `.aila`, source-tree `.aila`, or unrelated durable state created or modified.
+      - GIVEN no current snapshot exists WHEN non-interactive or interactive continue smoke runs THEN Aila remains bounded and exits or idles through the documented no-memory path.
   - number: 7
-    name: Prove terminal diagnostics and shutdown smoke
-    depends_on: [5, 6]
-    status: complete
-    acceptance:
-      - GIVEN Aila starts in a temp workspace WHEN a bounded PTY shutdown smoke sends SIGTERM or an interrupt-triggered shutdown signal THEN Aila exits cleanly through the diagnostic shutdown path.
-      - GIVEN PTY output is inspected WHEN shutdown completes THEN diagnostic or shutdown status is visible without leaking temp workspace, HOME, `.aila`, config, or credential paths.
-      - GIVEN cleanup completes WHEN the smoke exits THEN only expected temp workspace project state and config files exist, with no HOME `.aila`, source-tree `.aila`, or unrelated durable state.
-      - GIVEN debug-mode non-interactive smoke runs WHEN diagnostics are requested THEN output is bounded, structured, and redacted.
-    evidence:
-      - Progress cycles 105 and 106 record bounded SIGTERM PTY shutdown smoke, complete post-exit output leak checks, temp workspace store assertions, HOME/source/repo `.aila` no-mutation snapshots, bounded structured redacted `--debug` smoke, `mage fmt`, targeted cmd/app/TUI/diagnostic tests, and relevant `git diff --check` evidence.
-      - Initial Inspektera evaluation found shutdown output and source-tree `.aila` mutation checks under-proven; the retry fixed both. Re-evaluation passed all Task 7 acceptance criteria and found no Task 8 scope creep.
-  - number: 8
     name: Plan-level freshness checkpoint
-    depends_on: [1, 2, 3, 4, 5, 6, 7]
-    status: complete
+    depends_on: [1, 2, 3, 4, 5, 6]
+    status: pending
     acceptance:
-      - GIVEN Milestone 15A implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
-      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 15A Slice Completion Template records state recovery tests, runtime failure/cancellation tests, debug diagnostics, TUI diagnostics fixtures and snapshots, PTY shutdown smoke, and architecture checklist evidence.
-      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no M15A commit is created unless separately requested.
+      - GIVEN Milestone 16 implementation and validation are complete WHEN targeted tests and mage check run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 16 Slice Completion Template records session snapshot state tests, continue/resume tests, idle-with-memory fixtures and snapshots, PTY resume smoke, validation, and architecture checklist evidence.
+      - GIVEN closeout metadata is needed WHEN Agentera artifacts are updated THEN progress and plan status are synchronized with the implementation outcome and no M16 commit is created unless separately requested.
       - GIVEN the final response is produced WHEN the user reviews it THEN it includes the completed Slice Completion Template required by docs/notes/PROMPT.md.
-    evidence:
-      - Progress cycle 107 records final targeted state/runtime/app/TUI/cmd validation, full `mage check`, lint-only cleanup, ROADMAP M15A closeout, completed M15A Slice Completion Template, `git diff --check`, and no commit/push.
-      - Final validation passed after removing unused helper wrappers from internal/app/prompt.go; Milestone 16 is now the next roadmap milestone.
 overall_acceptance:
-  - GIVEN startup, state, runtime, effect, cancellation, or signal-shutdown failures occur WHEN Aila reports status THEN diagnostics are typed, bounded, path-safe, and include recovery guidance.
-  - GIVEN `.aila/project.toml` is corrupt, partial, or version-mismatched WHEN Aila opens project state THEN it surfaces recovery-needed state without overwriting existing project data.
-  - GIVEN debug diagnostics are requested WHEN startup or non-interactive commands run THEN structured output exposes diagnostic severity, recovery action, affected artifact, and user-input-needed within bounded redacted output.
-  - GIVEN runtime panic, cancellation, or signal shutdown is validated WHEN tests inspect messages THEN recorded diagnostics appear without direct workflow phase mutation or hidden state writes from recovery wrappers.
-  - GIVEN the milestone is validated WHEN documented gates run THEN state tests, runtime tests, TUI fixtures/snapshots, PTY smoke, targeted tests, and mage check support closeout.
+  - GIVEN fake session activity exists WHEN persistence runs THEN `.aila/sessions/current.json` becomes the durable source of current fake memory through an explicit app/state boundary.
+  - GIVEN Aila is started with continue WHEN a current snapshot exists THEN visible chat, queued input, diagnostics, blockers, and concerns that exist are resumed from store data rather than hardcoded TUI state.
+  - GIVEN snapshot data is missing, corrupt, oversized, or version-mismatched WHEN Aila reads it THEN diagnostics are bounded, path-safe, and non-destructive.
+  - GIVEN milestone validation runs WHEN documented gates complete THEN state tests, app/continue tests, TUI idle-with-memory snapshots, PTY resume smoke, targeted tests, and mage check support closeout.
 surprises:
-  - The adversarial review forced the plan to split diagnostic vocabulary from transport, make signal-handling dependencies explicit, bound debug output, define non-destructive recovery actions, and keep provider/permission diagnostics passive.
+  - The adversarial review clarified that `current.json` must be explicitly defined as the M16 "latest" contract, snapshot persistence must be an explicit effect/result path rather than app-side incidental IO, and blocker/concern fields must be limited to current visible display data instead of inventing workflow behavior.
