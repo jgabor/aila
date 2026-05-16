@@ -75,6 +75,22 @@ func (runner *inputRunner) proposeFetchTool(request runtime.FetchToolRequest) tu
 	return turn
 }
 
+func (runner *inputRunner) proposeApproval(proposal runtime.ApprovalProposal) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.ApprovalProposed{Proposal: proposal})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
+func (runner *inputRunner) decideApproval(decision tui.ApprovalDecisionInput) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.ApprovalDecisionSelected{ProposalID: decision.ProposalID, Action: runtime.ApprovalAction(decision.Action)})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.RuntimeDiagnostic{Diagnostic: signalShutdownDiagnostic(err)})
@@ -90,7 +106,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.RuntimeStatus = string(runner.model.Status)
 	turn.StatusSource = "runtime.dispatch"
 	turn.StatusDetail = "fake in-memory runtime loop"
-	turn.RuntimeActive = runner.model.Status == runtime.StatusActive || runner.model.Status == runtime.StatusCanceling
+	turn.RuntimeActive = runner.model.Status == runtime.StatusActive || runner.model.Status == runtime.StatusApprovalPending || runner.model.Status == runtime.StatusCanceling
 	turn.RuntimeResult = runner.model.Result
 	if runner.model.AssistantDraft != "" && turn.AssistantText == "" {
 		turn.AssistantText = runner.model.AssistantDraft
@@ -104,6 +120,8 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)
 	turn.Fetch = fetchView(runner.model)
+	turn.Approval = approvalView(runner.model.PendingApproval)
+	turn.ApprovalDecision = approvalDecisionView(runner.model.LastApprovalDecision)
 	if turn.Read != nil {
 		turn.StatusDetail = "read tool dispatch"
 	}
@@ -115,6 +133,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Fetch != nil {
 		turn.StatusDetail = "fetch tool dispatch"
+	}
+	if turn.Approval != nil {
+		turn.StatusDetail = "approval pending"
 	}
 }
 
@@ -174,6 +195,35 @@ func transcriptTurn(entries []runtime.TranscriptEntry) tui.TranscriptTurn {
 		}
 	}
 	return turn
+}
+
+func approvalView(proposal runtime.ApprovalProposal) *tui.ApprovalProposalView {
+	if proposal.ID == "" && proposal.Target == "" && proposal.Path == "" && len(proposal.Command) == 0 {
+		return nil
+	}
+	return &tui.ApprovalProposalView{
+		ID:             proposal.ID,
+		OperationKind:  proposal.OperationKind,
+		Target:         proposal.Target,
+		RiskSummary:    proposal.RiskSummary,
+		PreviewLines:   append([]string(nil), proposal.Preview...),
+		DefaultAction:  string(proposal.DefaultAction),
+		Path:           proposal.Path,
+		Command:        append([]string(nil), proposal.Command...),
+		WorkingDir:     proposal.WorkingDir,
+		ExpectedEffect: proposal.ExpectedEffect,
+		DiffPreview:    append([]string(nil), proposal.DiffPreview...),
+		Reversible:     proposal.Reversible,
+		RunID:          proposal.RunID,
+		Capability:     proposal.Capability,
+	}
+}
+
+func approvalDecisionView(decision runtime.ApprovalDecision) *tui.ApprovalDecisionView {
+	if decision.ProposalID == "" && decision.Action == "" {
+		return nil
+	}
+	return &tui.ApprovalDecisionView{ProposalID: decision.ProposalID, Action: string(decision.Action), Stale: decision.Stale}
 }
 
 func readView(model runtime.Model) *tui.ReadView {
@@ -411,4 +461,23 @@ func defaultString(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func fakeApprovalProposal() runtime.ApprovalProposal {
+	return runtime.ApprovalProposal{
+		ID:             "fake-approval-001",
+		OperationKind:  "file_mutation",
+		Target:         "internal/demo.txt",
+		RiskSummary:    "Would update a workspace file if mutation execution existed.",
+		Preview:        []string{"write requested by fake PTY proposal", "default is deny until write classes exist"},
+		DefaultAction:  runtime.ApprovalActionDeny,
+		Path:           "internal/demo.txt",
+		Command:        []string{"write", "internal/demo.txt"},
+		WorkingDir:     ".",
+		ExpectedEffect: "preview only; no mutation execution in M25",
+		DiffPreview:    []string{"--- internal/demo.txt", "+++ internal/demo.txt", "@@", "-old", "+new"},
+		Reversible:     true,
+		RunID:          "run-fake-approval",
+		Capability:     "m25-fixture",
+	}
 }

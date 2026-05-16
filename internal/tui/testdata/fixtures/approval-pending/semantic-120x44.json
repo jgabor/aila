@@ -1,0 +1,159 @@
+{
+  "scenario": "approval-pending",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "approval-pending",
+    "status_source": "runtime.fixture",
+    "status_detail": "approval pending",
+    "runtime_result": "approval pending: internal/demo.txt",
+    "active": true,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-readonly",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "approval": {
+    "id": "fake-approval-001",
+    "operation_kind": "file_mutation",
+    "target": "internal/demo.txt",
+    "risk_summary": "Would update a workspace file if mutation execution existed.",
+    "preview_lines": [
+      "write requested by fake proposal",
+      "default is deny until write classes exist"
+    ],
+    "default_action": "deny",
+    "path": "internal/demo.txt",
+    "command": ["write", "internal/demo.txt"],
+    "working_dir": ".",
+    "expected_effect": "preview only; no mutation execution in M25",
+    "diff_preview": [
+      "--- internal/demo.txt",
+      "+++ internal/demo.txt",
+      "@@",
+      "-old",
+      "+new"
+    ],
+    "reversible": true,
+    "run_id": "run-fake-approval",
+    "capability": "m25-fixture",
+    "mutation_executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-readonly",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-readonly",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: approval-pending",
+        "status source: runtime.fixture",
+        "detail: approval pending",
+        "active: true",
+        "result: approval pending: internal/demo.txt",
+        "display-only"
+      ]
+    },
+    {
+      "name": "approval",
+      "visible": true,
+      "items": [
+        "proposal_id: fake-approval-001",
+        "operation_kind: file_mutation",
+        "target: internal/demo.txt",
+        "risk_summary: Would update a workspace file if mutation execution existed.",
+        "default_action: deny",
+        "mutation_executed: false",
+        "path: internal/demo.txt",
+        "command: write internal/demo.txt",
+        "working_dir: .",
+        "expected_effect: preview only; no mutation execution in M25",
+        "preview_line: write requested by fake proposal",
+        "preview_line: default is deny until write classes exist",
+        "diff_preview_line: --- internal/demo.txt",
+        "diff_preview_line: +++ internal/demo.txt",
+        "diff_preview_line: @@",
+        "diff_preview_line: -old",
+        "diff_preview_line: +new",
+        "choice: approve input=a",
+        "choice: deny input=n",
+        "choice: defer input=d",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "approve proposal",
+      "input": "a",
+      "presentation_only": true
+    },
+    {
+      "name": "deny proposal",
+      "input": "n",
+      "default": true,
+      "presentation_only": true
+    },
+    {
+      "name": "defer proposal",
+      "input": "d",
+      "presentation_only": true
+    }
+  ]
+}

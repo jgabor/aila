@@ -1115,3 +1115,84 @@ func TestUpdateHandlesAgentTurnFailure(t *testing.T) {
 		t.Fatalf("failure transcript = %+v", got)
 	}
 }
+
+func TestUpdateHandlesApprovalProposalWithoutEffects(t *testing.T) {
+	t.Parallel()
+
+	proposal := ApprovalProposal{
+		ID:             "approval-1",
+		OperationKind:  "file_mutation",
+		Target:         "internal/demo.txt",
+		RiskSummary:    "would change a workspace file",
+		Preview:        []string{"write preview"},
+		DefaultAction:  ApprovalActionDeny,
+		Path:           "internal/demo.txt",
+		Command:        []string{"write", "internal/demo.txt"},
+		WorkingDir:     ".",
+		ExpectedEffect: "preview only",
+		DiffPreview:    []string{"-old", "+new"},
+		Reversible:     true,
+		RunID:          "run-approval",
+		Capability:     "test",
+	}
+	model := Model{Status: StatusIdle, NextOperation: 2}
+	firstModel, firstEffects := Update(model, ApprovalProposed{Proposal: proposal})
+	secondModel, secondEffects := Update(model, ApprovalProposed{Proposal: proposal})
+
+	if !reflect.DeepEqual(firstModel, secondModel) {
+		t.Fatalf("approval proposal model not deterministic:\nfirst: %#v\nsecond:%#v", firstModel, secondModel)
+	}
+	if len(firstEffects) != 0 || len(secondEffects) != 0 {
+		t.Fatalf("approval proposal effects = %v %v, want none", firstEffects, secondEffects)
+	}
+	if firstModel.Status != StatusApprovalPending || !reflect.DeepEqual(firstModel.PendingApproval, proposal) {
+		t.Fatalf("approval state = %+v, want pending proposal %+v", firstModel, proposal)
+	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{ID: "op-3", Kind: OperationApproval, Subject: "internal/demo.txt", Source: "user"})
+
+	proposal.Preview[0] = "mutated"
+	proposal.Command[0] = "mutated"
+	proposal.DiffPreview[0] = "mutated"
+	if firstModel.PendingApproval.Preview[0] != "write preview" || firstModel.PendingApproval.Command[0] != "write" || firstModel.PendingApproval.DiffPreview[0] != "-old" {
+		t.Fatalf("pending approval reused caller slices: %+v", firstModel.PendingApproval)
+	}
+}
+
+func TestUpdateHandlesApprovalDecisionsAsMessagesOnly(t *testing.T) {
+	t.Parallel()
+
+	proposal := ApprovalProposal{ID: "approval-1", OperationKind: "file_mutation", Target: "internal/demo.txt", DefaultAction: ApprovalActionDeny}
+	pending, effects := Update(Model{Status: StatusIdle}, ApprovalProposed{Proposal: proposal})
+	if len(effects) != 0 {
+		t.Fatalf("proposal effects = %v", effects)
+	}
+
+	for _, action := range []ApprovalAction{ApprovalActionApprove, ApprovalActionDeny, ApprovalActionDefer} {
+		action := action
+		t.Run(string(action), func(t *testing.T) {
+			updated, effects := Update(pending, ApprovalDecisionSelected{ProposalID: proposal.ID, Action: action})
+			if len(effects) != 0 {
+				t.Fatalf("approval decision effects = %v, want none", effects)
+			}
+			if updated.Status != StatusIdle || updated.PendingApproval.ID != "" || updated.LastApprovalDecision.Action != action || updated.LastApprovalDecision.Stale {
+				t.Fatalf("approval decision state = %+v", updated)
+			}
+			if !strings.Contains(updated.Result, "approval "+string(action)) || !strings.Contains(updated.Result, "internal/demo.txt") {
+				t.Fatalf("approval result = %q", updated.Result)
+			}
+		})
+	}
+}
+
+func TestUpdateIgnoresStaleApprovalDecisionWithoutMutationEffects(t *testing.T) {
+	t.Parallel()
+
+	pending, _ := Update(Model{Status: StatusIdle}, ApprovalProposed{Proposal: ApprovalProposal{ID: "approval-1", Target: "internal/demo.txt"}})
+	updated, effects := Update(pending, ApprovalDecisionSelected{ProposalID: "approval-other", Action: ApprovalActionApprove})
+	if len(effects) != 0 {
+		t.Fatalf("stale approval effects = %v, want none", effects)
+	}
+	if updated.Status != StatusApprovalPending || updated.PendingApproval.ID != "approval-1" || !updated.LastApprovalDecision.Stale {
+		t.Fatalf("stale approval state = %+v", updated)
+	}
+}

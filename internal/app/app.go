@@ -40,6 +40,9 @@ func run(ctx context.Context, input io.Reader, output io.Writer, resumeCurrent b
 	}
 
 	runner := newInputRunnerForEnvironment(ctx, workspace, state.Autonomy)
+	if os.Getenv("AILA_FAKE_APPROVAL_PROPOSAL") == "1" {
+		state = tui.ApplyTranscriptTurn(state, runner.proposeApproval(fakeApprovalProposal()))
+	}
 	controller := newController(ctx, workspace, state, runner)
 	return runProgramWithShutdown(ctx, input, output, state, controller)
 }

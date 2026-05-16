@@ -3,89 +3,129 @@ header:
   created: '2026-05-16'
   status: completed
   reviewed: '2026-05-16'
-  critic_issues: completed as M24-only; live provider calls, mutations, approvals, and M25+ deferred
-  title: Milestone 24 go-agent Read-Only Turn
-what: Deliver ROADMAP.md Milestone 24 by wiring a real go-agent-backed runner behind Aila's internal adapter, while keeping fake runner tests as the default verification path. The slice must prove a bounded read-only model/tool turn, typed provider failures, and TUI-visible streaming/tool/error states without giving go-agent ownership of workflow, prompts, permissions, state, or UI.
-why: M23 established deterministic provider-style event mapping. M24 makes that adapter executable through a real runner boundary and a fake default runner so Aila can progress from inert fake prompt effects toward read-only agent work while preserving the statechart-MVU and explicit effect architecture.
-constraints: 'Execute only Milestone 24. Preserve statechart-MVU: runtime updates remain deterministic, app/internal/agent own runner orchestration, read-only tool requests pass through existing permission/tool effects, and TUI consumes injected display state only. Keep fake runner tests as the default verification path. Do not add write/edit tools, approval UI, mutation history, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, or Milestone 25+ scope. Do not perform live provider calls in automated tests. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-16-m23.yaml
+  critic_issues: completed as M25-only; mutation execution, final write permission classes, history, undo, and approval persistence
+    deferred
+  title: Milestone 25 Approval UI Without Mutation
+what: Deliver ROADMAP.md Milestone 25 by making risky operation proposals visible and selectable in the TUI before write execution
+  exists. The slice must define generic proposal display data, render approval/denial/defer choices, and emit typed decisions
+  as messages without executing mutations.
+why: M24 made read-only agent turns executable. Before Aila can add write permission classes or mutation tools, users need
+  an unmistakable approval surface that preserves the presentation-only TUI boundary and keeps decisions observable without
+  touching files.
+constraints: 'Execute only Milestone 25. Preserve statechart-MVU: runtime updates remain deterministic, TUI emits messages
+  only, and no approval key may execute filesystem, shell, git, network, state-store, or mutation IO. Represent proposals
+  generically without depending on final write permission classes. Do not add edit/write tool execution, mutation history,
+  undo/replay, durable approval persistence, final write permission class semantics, provider fallback, context compaction,
+  source indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, or Milestone 26+
+  scope. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m24.yaml
 source_anchors:
-- ROADMAP.md:1047-1079
-- README.md:181-188
-- ARCHITECTURE.md:451-523
-- ARCHITECTURE.md:871-906
-- docs/tui-testing.md:52-83
-- docs/tui-testing.md:126-228
-- docs/workflow-architecture.md:457-475
+- ROADMAP.md:1101-1124
+- ARCHITECTURE.md:498-523
+- ARCHITECTURE.md:681-705
+- docs/tui-testing.md:54-74
+- docs/tui-testing.md:102-120
+- docs/tui-testing.md:158-205
+- docs/tui-testing.md:230-258
+- docs/workflow-architecture.md:564-576
 - docs/notes/PROMPT.md:1-39
 verification_commands:
-- go test ./internal/agent ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./internal/runtime ./internal/tui ./cmd/aila -count=1
 - go test ./internal/... -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml go.mod go.sum internal/agent internal/runtime internal/app internal/tui cmd/aila
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/runtime internal/tui cmd/aila
 - git diff --check --no-index /dev/null <each new fixture or source file>
 scope:
   included:
-  - Aila-owned agent runner request/result boundary in internal/agent, with a real go-agent-backed adapter where source APIs allow and fake runner tests remaining the default.
-  - Event mapping from runner streams into M23 runtime messages, including assistant deltas, read-only tool requests, completion, provider/auth failures, rate limits, timeouts, unavailable models, and stream errors.
-  - App/runtime orchestration for a bounded read-only turn where provider-requested read-only tools go through existing permission and tool effect paths rather than bypassing Aila.
-  - TUI fixtures and snapshots for build-active streaming/read-only tool activity plus provider-auth-failed, provider-timeout, rate-limited, and model-unavailable failure states at 80x24 and 120x32.
-  - PTY smoke for prompt submission, streaming, provider failure display, and clean cancellation using fake/default runner behavior.
+  - Generic runtime proposal data for risky operations with operation kind, target, risk summary, preview content, default
+    action, command/path/diff fields, and stable identity.
+  - Runtime/TUI messages for approve, deny, and defer decisions that update deterministic state and record the selected action
+    without executing mutation effects.
+  - Approval-pending TUI fixture, render snapshots, and semantic snapshots showing exact path, command, diff preview, risk/default
+    action, and choices.
+  - Update/keybinding tests proving approval keys emit approve, deny, and defer messages only, plus PTY smoke for fake approval
+    and denial proposals.
+  - Roadmap and Agentera closeout after validation passes.
   excluded:
-  - Live provider calls in automated tests, write/edit/mutation tools, approval UI, mutation history, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control planes, or Milestone 25+ behavior.
+  - Final write permission classes, edit/write tool execution, mutation execution after approval, durable approval persistence,
+    history/undo/replay, live provider calls, provider fallback, context compaction, source indexing, plugins, MCP servers,
+    workflow DSLs, model marketplaces, hosted control planes, or Milestone 26+ behavior.
   deferred:
-  - Approval UI, mutation tools, durable mutation history, source context/staleness work, context compaction, and broader provider/tool loop behavior beyond the bounded read-only turn.
-design: Keep internal/agent as the provider/runtime seam. The runner returns bounded M23-style events; app orchestration feeds those events into runtime and routes read-only tool requests through existing runtime proposal/effect/permission dispatch. Runtime records typed state and never performs IO. TUI continues to render injected transcript/tool/provider/error state without importing provider clients or owning agent decisions.
+  - Write permission classes, mutation tool implementations, recheck-before-mutation execution, approval records in durable
+    state, history/undo integration, and real provider-initiated write flows.
+design: Add proposal visibility as inert runtime state first. The runtime owns typed pending proposal and decision messages;
+  TUI renders that state and maps approval keys to messages. App/PTY fake proposals can inject the state for smoke coverage,
+  but approval decisions complete as messages without producing tool, store, shell, git, or mutation effects.
 tasks:
 - number: 1
-  name: Define executable runner boundary and default fake read-only runner
+  name: Define generic approval proposal and decision state
   depends_on: []
   status: completed
   acceptance:
-  - GIVEN a read-only agent request is constructed WHEN internal/agent tests inspect it THEN provider, model, prompt, operation metadata, tool allowlist, and bounds are explicit and no workflow/state/TUI ownership leaks into the runner.
-  - GIVEN fake runner events are streamed WHEN tests execute the default path THEN assistant deltas, read-only tool requests, completion, and typed provider failures are deterministic and bounded.
-  - GIVEN package boundaries are inspected WHEN the runner boundary exists THEN no live provider call is required for default tests and no plugin, MCP, hosted control-plane, marketplace, write/edit, or approval behavior is introduced.
+  - GIVEN a risky operation proposal is represented WHEN runtime tests inspect it THEN operation kind, target, risk summary,
+    preview, default action, path, command, diff preview, and identity are explicit typed data.
+  - GIVEN proposal data is copied into runtime state WHEN callers mutate their original values THEN pending proposal state
+    remains deterministic and isolated.
+  - GIVEN package boundaries are inspected WHEN proposal state exists THEN no final write permission classes or mutation executors
+    are introduced.
   evidence:
-  - internal/agent/runner.go defines the Aila-owned Runner and RunRequest boundary plus DefaultFakeReadOnlyRunner without live provider IO.
-  - internal/agent/runner_test.go proves deterministic fake read-only assistant/tool/completion streams and typed provider failures.
+  - internal/runtime/runtime.go defines generic ApprovalProposal, ApprovalAction, and ApprovalDecision state with operation
+    kind, target, risk summary, preview, default action, path, command, working directory, expected effect, diff preview,
+    identity, and provenance fields.
+  - internal/runtime/runtime_test.go proves proposal state is deterministic, copied away from caller slices, and emits no
+    effects.
 - number: 2
-  name: Wire real go-agent adapter without ceding ownership
+  name: Emit approval decisions as deterministic messages only
   depends_on:
   - 1
   status: completed
   acceptance:
-  - GIVEN go-agent source APIs are available WHEN the adapter is compiled THEN Aila owns request construction, prompts, permissions, state, workflow, and UI while go-agent is confined to model/tool-loop execution behind internal/agent.
-  - GIVEN go-agent emits text, read-only tool, completion, and error states WHEN adapter mapping runs THEN M23 runtime messages are produced through the same event mapping path as fake runner tests.
-  - GIVEN provider/auth failures, rate limits, timeouts, unavailable models, or stream errors occur WHEN mapped THEN typed bounded runtime failures are emitted without provider fallback or destructive recovery.
+  - GIVEN an approval, denial, or defer decision is received for the pending proposal WHEN runtime update handles it THEN
+    state records the decision and clears or marks the pending state without emitting mutation effects.
+  - GIVEN a stale or mismatched decision is received WHEN runtime update handles it THEN no mutation effect is emitted and
+    state remains safe and observable.
+  - GIVEN approval decisions are tested repeatedly WHEN Update is called with the same input THEN model and effects are deterministic.
   evidence:
-  - internal/agent/runner.go wraps github.com/jgabor/go-agent Runner.Stream and maps go-agent text, tool-call, stop, and error events into the M23 Event contract.
-  - internal/agent/runner_test.go proves real go-agent runner mapping with a scripted model and read tool, plus provider-auth failure classification.
+  - runtime.Update handles approve, deny, and defer decisions as typed messages only, records LastApprovalDecision, clears
+    pending state for matching decisions, and emits no mutation effects.
+  - internal/runtime/runtime_test.go proves approve/deny/defer decisions are effect-free and stale decisions leave the pending
+    proposal safe and observable.
 - number: 3
-  name: Route read-only tool requests through permission and effects
+  name: Render approval-pending fixture and snapshots
   depends_on:
   - 1
   - 2
   status: completed
   acceptance:
-  - GIVEN a runner requests an allowed read/search/bash/fetch read-only tool WHEN app orchestration handles it THEN the request is converted to the matching runtime proposal/effect and existing permission/tool dispatch decides and executes it.
-  - GIVEN a runner requests a mutation, unknown tool, malformed read-only request, or denied read-only operation WHEN orchestration handles it THEN no mutation or approval UI is created and the failure is recorded as typed bounded provider/tool state.
-  - GIVEN a tool result is observed WHEN the turn continues or completes THEN final assistant output and tool activity remain visible without bypassing runtime or permission boundaries.
+  - GIVEN approval-pending is rendered at required sizes WHEN snapshot tests run THEN exact path, command, diff preview, risk
+    summary, default action, and approve/deny/defer choices are visible.
+  - GIVEN semantic snapshots are generated WHEN tests inspect them THEN the pending proposal and available decisions are represented
+    as agent-readable structured state.
+  - GIVEN the fixture render is inspected WHEN tests search for mutation execution markers THEN no direct write, shell, git,
+    or store mutation behavior is implied.
   evidence:
-  - internal/app/agent_prompt.go routes fake/default agent tool requests through existing read dispatch effects and permission decisions before returning injected TUI read state.
-  - internal/app/prompt_test.go proves read-only agent prompt dispatch uses permission/effect metadata and denies provider failures as typed diagnostics without mutations or approvals.
+  - internal/tui/render.go and internal/tui/model.go add app-injected approval proposal display and semantic state without
+    TUI-owned mutation behavior.
+  - internal/tui/testdata/fixtures/approval-pending contains 80x44 and 120x44 plain, ANSI, and semantic snapshots showing
+    exact path, command, diff preview, risk summary, default action, choices, and mutation_executed=false.
 - number: 4
-  name: Add TUI fixtures and PTY smoke for active/failure states
+  name: Add keybinding and PTY smoke coverage without mutation
   depends_on:
-  - 1
+  - 2
   - 3
   status: completed
   acceptance:
-  - GIVEN build-active is rendered at 80x24 and 120x32 WHEN snapshots are generated THEN streaming output, active model, active read-only tool activity, incomplete state, and eventual final response are visible and semantic.
-  - GIVEN provider-auth-failed, provider-timeout, rate-limited, and model-unavailable fixtures are rendered at 80x24 and 120x32 WHEN snapshots are generated THEN typed provider error code/message/retryability/degraded state are visible and bounded.
-  - GIVEN PTY smoke runs WHEN prompt submission, streaming/fake runner output, provider failure display, and clean cancellation are exercised THEN terminal behavior is bounded, deterministic, and cleaned up.
+  - GIVEN the TUI has a pending proposal WHEN approval keys are pressed in update tests THEN approve, deny, and defer application
+    messages are emitted without direct mutation.
+  - GIVEN fake proposal PTY smoke runs WHEN approve and deny paths are exercised THEN the terminal shows the proposal and
+    decision result while leaving the workspace unchanged.
+  - GIVEN PTY smoke exits WHEN cleanup runs THEN sessions are bounded and no real provider credentials or mutation tools are
+    used.
   evidence:
-  - internal/tui/fixture_test.go adds build-active and provider failure fixtures at 80x24 and 120x32 with render and semantic assertions.
-  - cmd/aila/pty_test.go adds M24 read-only turn and provider-failure PTY smoke paths with bounded env opt-in and clean quit.
+  - internal/tui/fixture_test.go proves approval keys a/n/d emit approve, deny, and defer decision callbacks without Bubble
+    Tea commands or direct mutation.
+  - cmd/aila/pty_test.go adds TestM25ApprovalDecisionPTYSmoke covering fake proposal approve and deny paths, visible decision
+    result, clean quit, and unchanged workspace target.
 - number: 5
   name: Prove validation gates and roadmap closeout
   depends_on:
@@ -95,20 +135,28 @@ tasks:
   - 4
   status: completed
   acceptance:
-  - GIVEN M24 implementation is complete WHEN targeted agent/runtime/app/TUI/cmd tests run THEN read-only runner orchestration, failure mapping, fixtures, and PTY smoke pass.
-  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M24 as complete and M25 as next.
-  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs, fixtures/snapshots, update/keybinding tests, PTY smoke, agentic validation, human visual review decision, architecture checklist, verification commands, and roadmap status.
+  - GIVEN M25 implementation is complete WHEN targeted runtime/TUI/cmd tests run THEN proposal state, decisions, keybindings,
+    snapshots, and PTY smoke pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M25 as complete and M26
+    as next.
+  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs,
+    fixtures/snapshots, update/keybinding tests, PTY smoke, agentic validation, human visual review decision, architecture
+    checklist, verification commands, and roadmap status.
   evidence:
-  - "Validation passed: go test ./internal/agent ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1; go test ./internal/... -count=1; mage check."
-  - Whitespace and Agentera validations passed after ROADMAP.md and artifact closeout updates.
+  - 'Validation passed: go test ./internal/runtime ./internal/tui ./internal/app ./cmd/aila -count=1; go test ./internal/...
+    -count=1; mage check.'
+  - Snapshot update/review, approval PTY smoke, tracked/new-file whitespace checks, and installed Agentera CLI plan/progress
+    validation passed after closeout updates.
 complete: 5
 total: 5
 active: false
 complete_plan: true
 overall_acceptance:
-- Aila has an executable read-only agent turn path through internal/agent with fake runner tests as the default verification route and a real go-agent adapter boundary present.
-- Runner stream events map into runtime messages through the M23 event adapter and provider failures are typed, bounded, and visible.
-- Read-only tool requests go through existing permission and explicit tool effects; mutations and approvals remain out of scope.
-- TUI fixtures/snapshots and PTY smoke prove active streaming/tool/error states at required sizes.
+- Risky operation proposals are impossible to miss in the UI and include exact path, command, diff preview, risk summary,
+  and default action.
+- Approval, denial, and defer choices are rendered and tested as message emissions only.
+- No approval path executes mutations, writes files, runs shell/git commands, or depends on final write permission classes.
+- TUI fixtures/snapshots, update/keybinding tests, PTY smoke, targeted tests, and mage check pass before roadmap closeout.
 surprises:
-- The real go-agent runner can be compiled and tested with a scripted model while the visible app path stays fake-runner-first and live-provider-free.
+- Approval decisions can be added as inert runtime/TUI state before final write permission classes without introducing mutation
+  effects.

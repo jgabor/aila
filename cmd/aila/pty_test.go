@@ -482,6 +482,67 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestM25ApprovalDecisionPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	for _, tc := range []struct {
+		name   string
+		input  string
+		result string
+	}{
+		{name: "approve", input: "a", result: "approval approve: internal/demo.txt"},
+		{name: "deny", input: "n", result: "approval deny: internal/demo.txt"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			env := newAilaPTYEnv(t)
+			env.vars = append(env.vars, "AILA_FAKE_APPROVAL_PROPOSAL=1")
+			ctx, cancel, terminal, wait, workspace := startAilaPTYWithSizeEnvAndWorkspace(t, 160, 45, env.vars)
+			defer cancel()
+			defer func() { _ = terminal.Close() }()
+
+			startup := readUntilAll(t, terminal, []string{
+				"Approval pending:",
+				"proposal id: fake-approval-001",
+				"path: internal/demo.txt",
+				"command: write internal/demo.txt",
+				"choices: a approve | n deny | d defer",
+				"mutation executed: false",
+			}, 20*time.Second)
+			if strings.Contains(startup, "mutation executed: true") {
+				t.Fatalf("M25 approval startup implied mutation execution: %q", startup)
+			}
+			if _, err := terminal.Write([]byte(tc.input)); err != nil {
+				t.Fatalf("send M25 approval input: %v", err)
+			}
+
+			output := readUntilAll(t, terminal, []string{
+				"Runtime idle",
+				tc.result,
+			}, 10*time.Second)
+			if strings.Contains(output, "mutation executed: true") {
+				t.Fatalf("M25 approval decision implied mutation execution: %q", output)
+			}
+			if _, err := os.Stat(filepath.Join(workspace, "internal", "demo.txt")); !os.IsNotExist(err) {
+				t.Fatalf("approval PTY wrote fake target, err=%v", err)
+			}
+			if _, err := terminal.Write([]byte("q")); err != nil {
+				t.Fatalf("send q after M25 approval: %v", err)
+			}
+			select {
+			case err := <-wait:
+				if err != nil {
+					t.Fatalf("M25 approval PTY quit returned error: %v", err)
+				}
+			case <-ctx.Done():
+				t.Fatalf("M25 approval PTY did not quit cleanly: %v", ctx.Err())
+			}
+		})
+	}
+}
+
 func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

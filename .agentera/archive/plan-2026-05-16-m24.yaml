@@ -1,0 +1,114 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M24-only; live provider calls, mutations, approvals, and M25+ deferred
+  title: Milestone 24 go-agent Read-Only Turn
+what: Deliver ROADMAP.md Milestone 24 by wiring a real go-agent-backed runner behind Aila's internal adapter, while keeping fake runner tests as the default verification path. The slice must prove a bounded read-only model/tool turn, typed provider failures, and TUI-visible streaming/tool/error states without giving go-agent ownership of workflow, prompts, permissions, state, or UI.
+why: M23 established deterministic provider-style event mapping. M24 makes that adapter executable through a real runner boundary and a fake default runner so Aila can progress from inert fake prompt effects toward read-only agent work while preserving the statechart-MVU and explicit effect architecture.
+constraints: 'Execute only Milestone 24. Preserve statechart-MVU: runtime updates remain deterministic, app/internal/agent own runner orchestration, read-only tool requests pass through existing permission/tool effects, and TUI consumes injected display state only. Keep fake runner tests as the default verification path. Do not add write/edit tools, approval UI, mutation history, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, or Milestone 25+ scope. Do not perform live provider calls in automated tests. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m23.yaml
+source_anchors:
+- ROADMAP.md:1047-1079
+- README.md:181-188
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:871-906
+- docs/tui-testing.md:52-83
+- docs/tui-testing.md:126-228
+- docs/workflow-architecture.md:457-475
+- docs/notes/PROMPT.md:1-39
+verification_commands:
+- go test ./internal/agent ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml go.mod go.sum internal/agent internal/runtime internal/app internal/tui cmd/aila
+- git diff --check --no-index /dev/null <each new fixture or source file>
+scope:
+  included:
+  - Aila-owned agent runner request/result boundary in internal/agent, with a real go-agent-backed adapter where source APIs allow and fake runner tests remaining the default.
+  - Event mapping from runner streams into M23 runtime messages, including assistant deltas, read-only tool requests, completion, provider/auth failures, rate limits, timeouts, unavailable models, and stream errors.
+  - App/runtime orchestration for a bounded read-only turn where provider-requested read-only tools go through existing permission and tool effect paths rather than bypassing Aila.
+  - TUI fixtures and snapshots for build-active streaming/read-only tool activity plus provider-auth-failed, provider-timeout, rate-limited, and model-unavailable failure states at 80x24 and 120x32.
+  - PTY smoke for prompt submission, streaming, provider failure display, and clean cancellation using fake/default runner behavior.
+  excluded:
+  - Live provider calls in automated tests, write/edit/mutation tools, approval UI, mutation history, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control planes, or Milestone 25+ behavior.
+  deferred:
+  - Approval UI, mutation tools, durable mutation history, source context/staleness work, context compaction, and broader provider/tool loop behavior beyond the bounded read-only turn.
+design: Keep internal/agent as the provider/runtime seam. The runner returns bounded M23-style events; app orchestration feeds those events into runtime and routes read-only tool requests through existing runtime proposal/effect/permission dispatch. Runtime records typed state and never performs IO. TUI continues to render injected transcript/tool/provider/error state without importing provider clients or owning agent decisions.
+tasks:
+- number: 1
+  name: Define executable runner boundary and default fake read-only runner
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN a read-only agent request is constructed WHEN internal/agent tests inspect it THEN provider, model, prompt, operation metadata, tool allowlist, and bounds are explicit and no workflow/state/TUI ownership leaks into the runner.
+  - GIVEN fake runner events are streamed WHEN tests execute the default path THEN assistant deltas, read-only tool requests, completion, and typed provider failures are deterministic and bounded.
+  - GIVEN package boundaries are inspected WHEN the runner boundary exists THEN no live provider call is required for default tests and no plugin, MCP, hosted control-plane, marketplace, write/edit, or approval behavior is introduced.
+  evidence:
+  - internal/agent/runner.go defines the Aila-owned Runner and RunRequest boundary plus DefaultFakeReadOnlyRunner without live provider IO.
+  - internal/agent/runner_test.go proves deterministic fake read-only assistant/tool/completion streams and typed provider failures.
+- number: 2
+  name: Wire real go-agent adapter without ceding ownership
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN go-agent source APIs are available WHEN the adapter is compiled THEN Aila owns request construction, prompts, permissions, state, workflow, and UI while go-agent is confined to model/tool-loop execution behind internal/agent.
+  - GIVEN go-agent emits text, read-only tool, completion, and error states WHEN adapter mapping runs THEN M23 runtime messages are produced through the same event mapping path as fake runner tests.
+  - GIVEN provider/auth failures, rate limits, timeouts, unavailable models, or stream errors occur WHEN mapped THEN typed bounded runtime failures are emitted without provider fallback or destructive recovery.
+  evidence:
+  - internal/agent/runner.go wraps github.com/jgabor/go-agent Runner.Stream and maps go-agent text, tool-call, stop, and error events into the M23 Event contract.
+  - internal/agent/runner_test.go proves real go-agent runner mapping with a scripted model and read tool, plus provider-auth failure classification.
+- number: 3
+  name: Route read-only tool requests through permission and effects
+  depends_on:
+  - 1
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN a runner requests an allowed read/search/bash/fetch read-only tool WHEN app orchestration handles it THEN the request is converted to the matching runtime proposal/effect and existing permission/tool dispatch decides and executes it.
+  - GIVEN a runner requests a mutation, unknown tool, malformed read-only request, or denied read-only operation WHEN orchestration handles it THEN no mutation or approval UI is created and the failure is recorded as typed bounded provider/tool state.
+  - GIVEN a tool result is observed WHEN the turn continues or completes THEN final assistant output and tool activity remain visible without bypassing runtime or permission boundaries.
+  evidence:
+  - internal/app/agent_prompt.go routes fake/default agent tool requests through existing read dispatch effects and permission decisions before returning injected TUI read state.
+  - internal/app/prompt_test.go proves read-only agent prompt dispatch uses permission/effect metadata and denies provider failures as typed diagnostics without mutations or approvals.
+- number: 4
+  name: Add TUI fixtures and PTY smoke for active/failure states
+  depends_on:
+  - 1
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN build-active is rendered at 80x24 and 120x32 WHEN snapshots are generated THEN streaming output, active model, active read-only tool activity, incomplete state, and eventual final response are visible and semantic.
+  - GIVEN provider-auth-failed, provider-timeout, rate-limited, and model-unavailable fixtures are rendered at 80x24 and 120x32 WHEN snapshots are generated THEN typed provider error code/message/retryability/degraded state are visible and bounded.
+  - GIVEN PTY smoke runs WHEN prompt submission, streaming/fake runner output, provider failure display, and clean cancellation are exercised THEN terminal behavior is bounded, deterministic, and cleaned up.
+  evidence:
+  - internal/tui/fixture_test.go adds build-active and provider failure fixtures at 80x24 and 120x32 with render and semantic assertions.
+  - cmd/aila/pty_test.go adds M24 read-only turn and provider-failure PTY smoke paths with bounded env opt-in and clean quit.
+- number: 5
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: completed
+  acceptance:
+  - GIVEN M24 implementation is complete WHEN targeted agent/runtime/app/TUI/cmd tests run THEN read-only runner orchestration, failure mapping, fixtures, and PTY smoke pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M24 as complete and M25 as next.
+  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs, fixtures/snapshots, update/keybinding tests, PTY smoke, agentic validation, human visual review decision, architecture checklist, verification commands, and roadmap status.
+  evidence:
+  - "Validation passed: go test ./internal/agent ./internal/runtime ./internal/app ./internal/tui ./cmd/aila -count=1; go test ./internal/... -count=1; mage check."
+  - Whitespace and Agentera validations passed after ROADMAP.md and artifact closeout updates.
+complete: 5
+total: 5
+active: false
+complete_plan: true
+overall_acceptance:
+- Aila has an executable read-only agent turn path through internal/agent with fake runner tests as the default verification route and a real go-agent adapter boundary present.
+- Runner stream events map into runtime messages through the M23 event adapter and provider failures are typed, bounded, and visible.
+- Read-only tool requests go through existing permission and explicit tool effects; mutations and approvals remain out of scope.
+- TUI fixtures/snapshots and PTY smoke prove active streaming/tool/error states at required sizes.
+surprises:
+- The real go-agent runner can be compiled and tested with a scripted model while the visible app path stays fake-runner-first and live-provider-free.

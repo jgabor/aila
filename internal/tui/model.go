@@ -19,6 +19,15 @@ type CommandRouteFunc func(policy.CommandRecommendation, ViewState) ViewState
 // InterruptRequestFunc routes user interrupt intent to the application layer.
 type InterruptRequestFunc func(reason string) TranscriptTurn
 
+// ApprovalDecisionFunc routes approval choices to the application layer.
+type ApprovalDecisionFunc func(decision ApprovalDecisionInput) TranscriptTurn
+
+// ApprovalDecisionInput is the presentation-selected approval action.
+type ApprovalDecisionInput struct {
+	ProposalID string
+	Action     string
+}
+
 // TranscriptTurn is the presentation data for one submitted prompt and response.
 type TranscriptTurn struct {
 	UserText           string
@@ -38,6 +47,34 @@ type TranscriptTurn struct {
 	Search             *SearchView
 	Command            *CommandView
 	Fetch              *FetchView
+	Approval           *ApprovalProposalView
+	ApprovalDecision   *ApprovalDecisionView
+}
+
+// ApprovalProposalView is app-injected risky operation review data. It is
+// display-only; TUI code must never execute the proposed operation.
+type ApprovalProposalView struct {
+	ID             string
+	OperationKind  string
+	Target         string
+	RiskSummary    string
+	PreviewLines   []string
+	DefaultAction  string
+	Path           string
+	Command        []string
+	WorkingDir     string
+	ExpectedEffect string
+	DiffPreview    []string
+	Reversible     bool
+	RunID          string
+	Capability     string
+}
+
+// ApprovalDecisionView is app-injected decision state for display.
+type ApprovalDecisionView struct {
+	ProposalID string
+	Action     string
+	Stale      bool
 }
 
 // ReadView is app-injected read presentation data. It is display-only;
@@ -187,6 +224,7 @@ type Model struct {
 	submitPrompt PromptSubmitFunc
 	routeCommand CommandRouteFunc
 	interrupt    InterruptRequestFunc
+	approval     ApprovalDecisionFunc
 	commandChord bool
 	quitting     bool
 }
@@ -218,6 +256,11 @@ func NewModelWithStateSizePromptSubmitAndCommandRoute(state ViewState, size Size
 
 // NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt creates a shell model with app-owned callbacks.
 func NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) Model {
+	return NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state, size, submitPrompt, routeCommand, interrupt, nil)
+}
+
+// NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval creates a shell model with app-owned approval routing.
+func NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc) Model {
 	size = normalizeSize(size)
 	return Model{
 		state:        state,
@@ -226,6 +269,7 @@ func NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state ViewState, 
 		submitPrompt: submitPrompt,
 		routeCommand: routeCommand,
 		interrupt:    interrupt,
+		approval:     approval,
 	}
 }
 
@@ -256,6 +300,11 @@ func NewProgramWithStatePromptSubmitCommandRouteAndInterrupt(input io.Reader, ou
 
 // NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt constructs a Bubble Tea program canceled by an app-owned context.
 func NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx context.Context, input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc) *tea.Program {
+	return NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval(ctx, input, output, state, submitPrompt, routeCommand, interrupt, nil)
+}
+
+// NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval constructs a Bubble Tea program with approval routing.
+func NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval(ctx context.Context, input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc) *tea.Program {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -267,7 +316,7 @@ func NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx context.
 	if output != nil {
 		options = append(options, tea.WithOutput(output))
 	}
-	return tea.NewProgram(NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand, interrupt), options...)
+	return tea.NewProgram(NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand, interrupt, approval), options...)
 }
 
 // Init has no startup effect for the static shell.
@@ -296,6 +345,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.PromptInput == "" && msg.String() == "q" {
 			m.quitting = true
 			return m, tea.Quit
+		}
+		if m.state.Approval != nil {
+			return m, m.handleApprovalKey(msg)
 		}
 		if m.historyFocused() {
 			return m.handleHistoryKey(msg), nil
@@ -374,7 +426,28 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
 	state.Fetch = cloneFetchView(turn.Fetch)
+	state.Approval = cloneApprovalProposalView(turn.Approval)
+	state.ApprovalDecision = cloneApprovalDecisionView(turn.ApprovalDecision)
 	return state
+}
+
+func cloneApprovalProposalView(approval *ApprovalProposalView) *ApprovalProposalView {
+	if approval == nil {
+		return nil
+	}
+	clone := *approval
+	clone.PreviewLines = append([]string(nil), approval.PreviewLines...)
+	clone.Command = append([]string(nil), approval.Command...)
+	clone.DiffPreview = append([]string(nil), approval.DiffPreview...)
+	return &clone
+}
+
+func cloneApprovalDecisionView(decision *ApprovalDecisionView) *ApprovalDecisionView {
+	if decision == nil {
+		return nil
+	}
+	clone := *decision
+	return &clone
 }
 
 func cloneReadView(read *ReadView) *ReadView {
@@ -448,6 +521,33 @@ func hasDiagnosticView(diagnostics []DiagnosticView, diagnostic DiagnosticView) 
 		}
 	}
 	return false
+}
+
+func (m *Model) handleApprovalKey(msg tea.KeyMsg) tea.Cmd {
+	action := approvalActionForKey(msg)
+	if action == "" || m.approval == nil || m.state.Approval == nil {
+		return nil
+	}
+	turn := m.approval(ApprovalDecisionInput{ProposalID: m.state.Approval.ID, Action: action})
+	m.state = ApplyTranscriptTurn(m.state, turn)
+	return nil
+}
+
+func approvalActionForKey(msg tea.KeyMsg) string {
+	key := msg.String()
+	if msg.Type == tea.KeyRunes {
+		key = string(msg.Runes)
+	}
+	switch strings.ToLower(key) {
+	case "a":
+		return "approve"
+	case "n":
+		return "deny"
+	case "d":
+		return "defer"
+	default:
+		return ""
+	}
 }
 
 func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {

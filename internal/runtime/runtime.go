@@ -13,10 +13,11 @@ import (
 type Status string
 
 const (
-	StatusIdle      Status = "idle"
-	StatusActive    Status = "active"
-	StatusCanceling Status = "canceling"
-	StatusCanceled  Status = "canceled"
+	StatusIdle            Status = "idle"
+	StatusActive          Status = "active"
+	StatusApprovalPending Status = "approval-pending"
+	StatusCanceling       Status = "canceling"
+	StatusCanceled        Status = "canceled"
 )
 
 // Message is an input to the deterministic runtime update function.
@@ -71,6 +72,24 @@ type FetchToolProposed struct {
 }
 
 func (FetchToolProposed) runtimeMessage() {}
+
+// ApprovalProposed records inert risky operation data for user review.
+// Update stores it for display only; it must not emit mutation effects.
+type ApprovalProposed struct {
+	Proposal ApprovalProposal
+}
+
+func (ApprovalProposed) runtimeMessage() {}
+
+// ApprovalDecisionSelected records the user-selected approval action.
+// The decision is typed state only in M25 and never executes mutations.
+type ApprovalDecisionSelected struct {
+	ProposalID string
+	Action     ApprovalAction
+	Reason     string
+}
+
+func (ApprovalDecisionSelected) runtimeMessage() {}
 
 // InterruptRequested records user intent to stop the current fake operation.
 type InterruptRequested struct {
@@ -197,6 +216,8 @@ type Model struct {
 	LastBash             BashToolResult
 	ActiveFetch          FetchToolRequest
 	LastFetch            FetchToolResult
+	PendingApproval      ApprovalProposal
+	LastApprovalDecision ApprovalDecision
 	AssistantDraft       string
 	AgentProvider        string
 	AgentModel           string
@@ -416,13 +437,14 @@ func CancellationMessage(source diagnostic.Source, err error) RuntimeDiagnostic 
 type OperationKind string
 
 const (
-	OperationPrompt  OperationKind = "prompt"
-	OperationCommand OperationKind = "command"
-	OperationRead    OperationKind = "read"
-	OperationFind    OperationKind = "find"
-	OperationGrep    OperationKind = "grep"
-	OperationBash    OperationKind = "bash"
-	OperationFetch   OperationKind = "fetch"
+	OperationPrompt   OperationKind = "prompt"
+	OperationCommand  OperationKind = "command"
+	OperationRead     OperationKind = "read"
+	OperationFind     OperationKind = "find"
+	OperationGrep     OperationKind = "grep"
+	OperationBash     OperationKind = "bash"
+	OperationFetch    OperationKind = "fetch"
+	OperationApproval OperationKind = "approval"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -760,6 +782,43 @@ type FetchToolResult struct {
 	Decision       ToolDecision
 }
 
+// ApprovalAction names one user-selectable action for an approval proposal.
+type ApprovalAction string
+
+const (
+	ApprovalActionApprove ApprovalAction = "approve"
+	ApprovalActionDeny    ApprovalAction = "deny"
+	ApprovalActionDefer   ApprovalAction = "defer"
+)
+
+// ApprovalProposal is generic, inert risky-operation display data. It does not
+// imply final write permission classes or contain an executable mutation.
+type ApprovalProposal struct {
+	ID             string
+	OperationKind  string
+	Target         string
+	RiskSummary    string
+	Preview        []string
+	DefaultAction  ApprovalAction
+	Path           string
+	Command        []string
+	WorkingDir     string
+	ExpectedEffect string
+	DiffPreview    []string
+	Reversible     bool
+	RunID          string
+	Capability     string
+}
+
+// ApprovalDecision records the selected action for a proposal without executing
+// the proposed operation.
+type ApprovalDecision struct {
+	ProposalID string
+	Action     ApprovalAction
+	Reason     string
+	Stale      bool
+}
+
 // Update applies one runtime message and returns the next model plus typed
 // effects for an external interpreter.
 func Update(model Model, message Message) (Model, []Effect) {
@@ -767,6 +826,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 	next.Transcript = append([]TranscriptEntry(nil), model.Transcript...)
 	next.Queued = append([]QueuedEntry(nil), model.Queued...)
 	next.Diagnostics = append([]diagnostic.Diagnostic(nil), model.Diagnostics...)
+	next.PendingApproval = cloneApprovalProposal(model.PendingApproval)
+	next.LastApprovalDecision = model.LastApprovalDecision
 
 	switch msg := message.(type) {
 	case PromptSubmitted:
@@ -883,6 +944,46 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "fetch " + fetchSubjectLabel(request)})
 		return next, []Effect{FetchToolEffect{Operation: operation, Request: request}}
+	case ApprovalProposed:
+		proposal := normalizeApprovalProposal(msg.Proposal)
+		operation := nextOperation(&next, OperationApproval, approvalSubjectLabel(proposal))
+		if proposal.ID == "" {
+			proposal.ID = operation.ID
+		}
+		next.Status = StatusApprovalPending
+		next.Result = "approval pending: " + approvalSubjectLabel(proposal)
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.PendingApproval = proposal
+		next.LastApprovalDecision = ApprovalDecision{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "approval_pending", Text: next.Result})
+		return next, nil
+	case ApprovalDecisionSelected:
+		decision := ApprovalDecision{ProposalID: strings.TrimSpace(msg.ProposalID), Action: normalizeApprovalAction(msg.Action), Reason: strings.TrimSpace(msg.Reason)}
+		if decision.ProposalID == "" {
+			decision.ProposalID = next.PendingApproval.ID
+		}
+		if next.PendingApproval.ID == "" || decision.ProposalID != next.PendingApproval.ID {
+			decision.Stale = true
+			next.LastApprovalDecision = decision
+			next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "approval_stale", Text: "approval decision ignored: stale proposal"})
+			return next, nil
+		}
+		result := "approval " + string(decision.Action) + ": " + approvalSubjectLabel(next.PendingApproval)
+		next.Status = StatusIdle
+		next.Result = result
+		next.LastApprovalDecision = decision
+		next.PendingApproval = ApprovalProposal{}
+		next.ActiveOperation = OperationMetadata{}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "approval_" + string(decision.Action), Text: result})
+		return next, nil
 	case InterruptRequested:
 		if !hasActiveFakeWork(next) {
 			return next, nil
@@ -1062,11 +1163,11 @@ func Update(model Model, message Message) (Model, []Effect) {
 }
 
 func hasActiveWork(status Status) bool {
-	return status == StatusActive || status == StatusCanceling
+	return status == StatusActive || status == StatusApprovalPending || status == StatusCanceling
 }
 
 func hasActiveFakeWork(model Model) bool {
-	return hasActiveWork(model.Status) && !isToolOperation(model.ActiveOperation.Kind)
+	return (model.Status == StatusActive || model.Status == StatusCanceling) && !isToolOperation(model.ActiveOperation.Kind)
 }
 
 func isToolOperation(kind OperationKind) bool {
@@ -1100,6 +1201,65 @@ func operationID(number int) string {
 	}
 
 	return prefix + string(digits)
+}
+
+func cloneApprovalProposal(proposal ApprovalProposal) ApprovalProposal {
+	clone := proposal
+	clone.Preview = append([]string(nil), proposal.Preview...)
+	clone.Command = append([]string(nil), proposal.Command...)
+	clone.DiffPreview = append([]string(nil), proposal.DiffPreview...)
+	return clone
+}
+
+func normalizeApprovalProposal(proposal ApprovalProposal) ApprovalProposal {
+	proposal = cloneApprovalProposal(proposal)
+	proposal.ID = strings.TrimSpace(proposal.ID)
+	proposal.OperationKind = strings.TrimSpace(proposal.OperationKind)
+	proposal.Target = strings.TrimSpace(proposal.Target)
+	proposal.RiskSummary = strings.TrimSpace(proposal.RiskSummary)
+	proposal.Path = strings.TrimSpace(proposal.Path)
+	proposal.WorkingDir = strings.TrimSpace(proposal.WorkingDir)
+	proposal.ExpectedEffect = strings.TrimSpace(proposal.ExpectedEffect)
+	proposal.RunID = strings.TrimSpace(proposal.RunID)
+	proposal.Capability = strings.TrimSpace(proposal.Capability)
+	proposal.DefaultAction = normalizeApprovalAction(proposal.DefaultAction)
+	if proposal.DefaultAction == "" {
+		proposal.DefaultAction = ApprovalActionDeny
+	}
+	for index, line := range proposal.Preview {
+		proposal.Preview[index] = strings.TrimRight(line, "\r\n")
+	}
+	for index, line := range proposal.DiffPreview {
+		proposal.DiffPreview[index] = strings.TrimRight(line, "\r\n")
+	}
+	trimmed := make([]string, 0, len(proposal.Command))
+	for _, arg := range proposal.Command {
+		trimmed = append(trimmed, strings.TrimSpace(arg))
+	}
+	proposal.Command = trimmed
+	return proposal
+}
+
+func normalizeApprovalAction(action ApprovalAction) ApprovalAction {
+	switch ApprovalAction(strings.TrimSpace(string(action))) {
+	case ApprovalActionApprove:
+		return ApprovalActionApprove
+	case ApprovalActionDeny:
+		return ApprovalActionDeny
+	case ApprovalActionDefer:
+		return ApprovalActionDefer
+	default:
+		return ApprovalActionDefer
+	}
+}
+
+func approvalSubjectLabel(proposal ApprovalProposal) string {
+	for _, value := range []string{proposal.Target, proposal.Path, strings.Join(proposal.Command, " "), proposal.OperationKind} {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return "risky operation"
 }
 
 func agentToolRequestSummary(request AgentToolRequest) string {

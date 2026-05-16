@@ -3296,3 +3296,103 @@ func TestM23StreamingPTYSmokeDecision(t *testing.T) {
 		t.Fatalf("streaming input unexpectedly invoked visible state: %+v", state)
 	}
 }
+
+func m25ApprovalFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x44", Width: 80, Height: 44}, {Name: "120x44", Width: 120, Height: 44}}
+}
+
+func loadM25ApprovalPendingFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = "approval-pending"
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.PrimaryModel = "fake/fake-readonly"
+	state.Autonomy = "read"
+	state.RuntimeStatus = "approval-pending"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "approval pending"
+	state.RuntimeActive = true
+	state.RuntimeResult = "approval pending: internal/demo.txt"
+	state.Approval = &ApprovalProposalView{
+		ID:             "fake-approval-001",
+		OperationKind:  "file_mutation",
+		Target:         "internal/demo.txt",
+		RiskSummary:    "Would update a workspace file if mutation execution existed.",
+		PreviewLines:   []string{"write requested by fake proposal", "default is deny until write classes exist"},
+		DefaultAction:  "deny",
+		Path:           "internal/demo.txt",
+		Command:        []string{"write", "internal/demo.txt"},
+		WorkingDir:     ".",
+		ExpectedEffect: "preview only; no mutation execution in M25",
+		DiffPreview:    []string{"--- internal/demo.txt", "+++ internal/demo.txt", "@@", "-old", "+new"},
+		Reversible:     true,
+		RunID:          "run-fake-approval",
+		Capability:     "m25-fixture",
+	}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM25ApprovalPendingFixtureSnapshots(t *testing.T) {
+	fixture := loadM25ApprovalPendingFixture(t)
+	assertFixtureSizes(t, fixture, m25ApprovalFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		if !containsAll(plain, []string{"Approval pending:", "proposal id: fake-approval-001", "operation kind: file_mutation", "target: internal/demo.txt", "path: internal/demo.txt", "command: write internal/demo.txt", "diff preview:", "-old", "+new", "default action: deny", "choices: a approve | n deny | d defer", "mutation executed: false"}) {
+			t.Fatalf("approval fixture render missing evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Approval == nil || snapshot.Approval.Path != "internal/demo.txt" || strings.Join(snapshot.Approval.Command, " ") != "write internal/demo.txt" || snapshot.Approval.DefaultAction != "deny" || snapshot.Approval.MutationExecuted {
+			t.Fatalf("approval semantic = %+v", snapshot.Approval)
+		}
+		regions := semanticRegionsByName(t, snapshot)
+		approval := strings.Join(regions["approval"].Items, "\n")
+		if !containsAll(approval, []string{"proposal_id: fake-approval-001", "diff_preview_line: -old", "diff_preview_line: +new", "choice: approve input=a", "choice: deny input=n", "choice: defer input=d", "display-only"}) {
+			t.Fatalf("approval semantic region = %v", regions["approval"].Items)
+		}
+	}
+}
+
+func TestM25ApprovalKeysEmitDecisionMessagesOnly(t *testing.T) {
+	for _, tc := range []struct {
+		key    string
+		action string
+	}{
+		{key: "a", action: "approve"},
+		{key: "n", action: "deny"},
+		{key: "d", action: "defer"},
+	} {
+		tc := tc
+		t.Run(tc.action, func(t *testing.T) {
+			state := IdleEmptyState()
+			state.Approval = &ApprovalProposalView{ID: "approval-1", Target: "internal/demo.txt", DefaultAction: "deny"}
+			var decisions []ApprovalDecisionInput
+			model := NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state, Size{Width: 80, Height: 44}, nil, nil, nil, func(decision ApprovalDecisionInput) TranscriptTurn {
+				decisions = append(decisions, decision)
+				return TranscriptTurn{RuntimeStatus: "idle", RuntimeResult: "approval " + decision.Action + ": internal/demo.txt", ApprovalDecision: &ApprovalDecisionView{ProposalID: decision.ProposalID, Action: decision.Action}}
+			})
+
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tc.key)})
+			if cmd != nil {
+				t.Fatal("approval key emitted Bubble Tea command")
+			}
+			got := updated.(Model)
+			if len(decisions) != 1 || decisions[0].ProposalID != "approval-1" || decisions[0].Action != tc.action {
+				t.Fatalf("approval decisions = %+v", decisions)
+			}
+			if got.state.RuntimeResult != "approval "+tc.action+": internal/demo.txt" || got.state.Approval != nil {
+				t.Fatalf("approval key state = %+v", got.state)
+			}
+		})
+	}
+}

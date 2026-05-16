@@ -38,6 +38,8 @@ type ViewState struct {
 	QueuedText         []string
 	Read               *ReadView
 	Search             *SearchView
+	Approval           *ApprovalProposalView
+	ApprovalDecision   *ApprovalDecisionView
 	Command            *CommandView
 	Fetch              *FetchView
 	PrimaryModel       string
@@ -167,6 +169,7 @@ func contentItems(state ViewState) []string {
 	if state.SurfaceTitle == "agent evidence" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 		items = append(items, chatLines(state.Transcript)...)
+		items = append(items, approvalLines(state.Approval)...)
 		items = append(items, readLines(state.Read)...)
 		items = append(items, searchLines(state.Search)...)
 		items = append(items, commandLines(state.Command)...)
@@ -179,6 +182,7 @@ func contentItems(state ViewState) []string {
 	if state.SurfaceTitle != "" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 	}
+	items = append(items, approvalLines(state.Approval)...)
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
 	items = append(items, commandLines(state.Command)...)
@@ -235,6 +239,51 @@ func runtimeStatusLines(state ViewState) []string {
 	}
 	lines = append(lines, interruptStatusLines(state)...)
 	lines = append(lines, "")
+	return lines
+}
+
+func approvalLines(approval *ApprovalProposalView) []string {
+	if approval == nil {
+		return nil
+	}
+	semantic := semanticApproval(approval)
+	lines := []string{
+		"  Approval pending:",
+		"  proposal id: " + semantic.ID,
+		"  operation kind: " + semantic.OperationKind,
+		"  target: " + semantic.Target,
+		"  risk: " + semantic.RiskSummary,
+		"  default action: " + semantic.DefaultAction,
+	}
+	if semantic.Path != "" {
+		lines = append(lines, "  path: "+semantic.Path)
+	}
+	if len(semantic.Command) > 0 {
+		lines = append(lines, "  command: "+strings.Join(semantic.Command, " "))
+	}
+	if semantic.WorkingDir != "" {
+		lines = append(lines, "  working dir: "+semantic.WorkingDir)
+	}
+	if semantic.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.ExpectedEffect)
+	}
+	if len(semantic.PreviewLines) > 0 {
+		lines = append(lines, "  preview:")
+		for _, line := range semantic.PreviewLines {
+			lines = append(lines, "    "+line)
+		}
+	}
+	if len(semantic.DiffPreview) > 0 {
+		lines = append(lines, "  diff preview:")
+		for _, line := range semantic.DiffPreview {
+			lines = append(lines, "    "+line)
+		}
+	}
+	lines = append(lines,
+		"  choices: a approve | n deny | d defer",
+		"  mutation executed: false",
+		"",
+	)
 	return lines
 }
 
@@ -701,8 +750,28 @@ type SemanticSnapshot struct {
 	Search      *SemanticSearch      `json:"search_tool,omitempty"`
 	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
 	Fetch       *SemanticFetch       `json:"fetch_tool,omitempty"`
+	Approval    *SemanticApproval    `json:"approval,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
+}
+
+// SemanticApproval describes app-injected risky-operation review state.
+type SemanticApproval struct {
+	ID               string   `json:"id"`
+	OperationKind    string   `json:"operation_kind"`
+	Target           string   `json:"target"`
+	RiskSummary      string   `json:"risk_summary"`
+	PreviewLines     []string `json:"preview_lines,omitempty"`
+	DefaultAction    string   `json:"default_action"`
+	Path             string   `json:"path,omitempty"`
+	Command          []string `json:"command,omitempty"`
+	WorkingDir       string   `json:"working_dir,omitempty"`
+	ExpectedEffect   string   `json:"expected_effect,omitempty"`
+	DiffPreview      []string `json:"diff_preview,omitempty"`
+	Reversible       bool     `json:"reversible"`
+	RunID            string   `json:"run_id,omitempty"`
+	Capability       string   `json:"capability,omitempty"`
+	MutationExecuted bool     `json:"mutation_executed"`
 }
 
 // SemanticRead describes injected read-only state for snapshots.
@@ -956,6 +1025,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
+	if state.Approval != nil {
+		regions = append(regions, SemanticRegion{Name: "approval", Visible: true, Items: semanticApprovalItems(state.Approval)})
+	}
 	if state.Read != nil {
 		regions = append(regions, SemanticRegion{Name: "read_tool", Visible: true, Items: semanticReadItems(state.Read)})
 	}
@@ -998,6 +1070,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		regions = append(regions, SemanticRegion{Name: "right_rail", Visible: true, Items: rightRailSemanticItems(state)})
 	}
 	actions := []SemanticAction{{Name: "quit", Input: "q"}}
+	if state.Approval != nil {
+		actions = append(actions, approvalActions(state.Approval)...)
+	}
 	if state.QueuedCount > 0 {
 		actions = append(actions, SemanticAction{
 			Name:             "queue_after_current_turn",
@@ -1042,6 +1117,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Search:      semanticSearch(state.Search),
 		Bash:        semanticBash(state.Command),
 		Fetch:       semanticFetch(state.Fetch),
+		Approval:    semanticApproval(state.Approval),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -1215,6 +1291,88 @@ func semanticRuntimeStatusItems(state ViewState) []string {
 	items = append(items, interruptStatusLines(state)...)
 	items = append(items, "display-only")
 	return items
+}
+
+func semanticApprovalItems(approval *ApprovalProposalView) []string {
+	semantic := semanticApproval(approval)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"proposal_id: " + semantic.ID,
+		"operation_kind: " + semantic.OperationKind,
+		"target: " + semantic.Target,
+		"risk_summary: " + semantic.RiskSummary,
+		"default_action: " + semantic.DefaultAction,
+		"mutation_executed: false",
+	}
+	if semantic.Path != "" {
+		items = append(items, "path: "+semantic.Path)
+	}
+	if len(semantic.Command) > 0 {
+		items = append(items, "command: "+strings.Join(semantic.Command, " "))
+	}
+	if semantic.WorkingDir != "" {
+		items = append(items, "working_dir: "+semantic.WorkingDir)
+	}
+	if semantic.ExpectedEffect != "" {
+		items = append(items, "expected_effect: "+semantic.ExpectedEffect)
+	}
+	for _, line := range semantic.PreviewLines {
+		items = append(items, "preview_line: "+line)
+	}
+	for _, line := range semantic.DiffPreview {
+		items = append(items, "diff_preview_line: "+line)
+	}
+	items = append(items, "choice: approve input=a", "choice: deny input=n", "choice: defer input=d", "app-owned", "display-only")
+	return items
+}
+
+func semanticApproval(approval *ApprovalProposalView) *SemanticApproval {
+	if approval == nil {
+		return nil
+	}
+	defaultAction := safeText(approval.DefaultAction)
+	if defaultAction == "" {
+		defaultAction = "deny"
+	}
+	operationKind := safeText(approval.OperationKind)
+	if operationKind == "" {
+		operationKind = "risky"
+	}
+	target := safeText(approval.Target)
+	if target == "" {
+		target = safeText(approval.Path)
+	}
+	return &SemanticApproval{
+		ID:               safeText(approval.ID),
+		OperationKind:    operationKind,
+		Target:           target,
+		RiskSummary:      safeText(approval.RiskSummary),
+		PreviewLines:     safePreviewLines(approval.PreviewLines),
+		DefaultAction:    defaultAction,
+		Path:             safeText(approval.Path),
+		Command:          safeTextSlice(approval.Command),
+		WorkingDir:       safeText(approval.WorkingDir),
+		ExpectedEffect:   safeText(approval.ExpectedEffect),
+		DiffPreview:      safePreviewLines(approval.DiffPreview),
+		Reversible:       approval.Reversible,
+		RunID:            safeText(approval.RunID),
+		Capability:       safeText(approval.Capability),
+		MutationExecuted: false,
+	}
+}
+
+func approvalActions(approval *ApprovalProposalView) []SemanticAction {
+	defaultAction := approval.DefaultAction
+	if defaultAction == "" {
+		defaultAction = "deny"
+	}
+	return []SemanticAction{
+		{Name: "approve proposal", Input: "a", Default: defaultAction == "approve", PresentationOnly: true, Executed: false},
+		{Name: "deny proposal", Input: "n", Default: defaultAction == "deny", PresentationOnly: true, Executed: false},
+		{Name: "defer proposal", Input: "d", Default: defaultAction == "defer", PresentationOnly: true, Executed: false},
+	}
 }
 
 func semanticReadItems(read *ReadView) []string {

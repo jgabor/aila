@@ -92,6 +92,12 @@ func (controller *sessionController) requestShutdown(err error) tui.TranscriptTu
 	return controller.persistCurrentSnapshot(turn)
 }
 
+func (controller *sessionController) decideApproval(decision tui.ApprovalDecisionInput) tui.TranscriptTurn {
+	turn := controller.runner.decideApproval(decision)
+	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	return controller.persistCurrentSnapshot(turn)
+}
+
 func (controller *sessionController) routeCommand(recommendation policy.CommandRecommendation, view tui.ViewState) tui.ViewState {
 	visibleView := view
 	controller.view = view
@@ -135,7 +141,7 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	turn.RuntimeStatus = string(model.Status)
 	turn.StatusSource = "runtime.dispatch"
 	turn.StatusDetail = "fake in-memory runtime loop"
-	turn.RuntimeActive = model.Status == runtime.StatusActive || model.Status == runtime.StatusCanceling
+	turn.RuntimeActive = model.Status == runtime.StatusActive || model.Status == runtime.StatusApprovalPending || model.Status == runtime.StatusCanceling
 	turn.RuntimeResult = model.Result
 	turn.QueuedCount = len(model.Queued)
 	turn.QueuedText = queuedText(model.Queued)

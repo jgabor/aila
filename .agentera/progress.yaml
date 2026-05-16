@@ -1,4 +1,49 @@
 cycles:
+  - number: 167
+    timestamp: "2026-05-16 20:08"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M25 by adding inert approval proposal and decision state, rendering approval-pending TUI evidence with exact path, command, diff preview, default action, and approve/deny/defer choices, wiring approval keys to message-only callbacks, and adding fake proposal PTY smoke for approval and denial without mutation.
+    commit: "pending local commit for M25 approval UI without mutation"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 25; docs/notes/PROMPT.md; ARCHITECTURE.md operation proposal and TUI boundaries; docs/tui-testing.md approval-pending fixture/update/snapshot/PTY gates; docs/workflow-architecture.md permission approval flow"
+    discovered: >-
+      M25 can keep approval as inert state: runtime stores generic proposal data and decision messages, app maps it to display state, and TUI key handling emits callbacks only. The fake PTY proposal proves approve and deny paths are visible while the workspace target is not created. No final write permission classes, edit/write tool execution, durable approval persistence, history/undo, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, or M26+ behavior was added.
+    verified: >-
+      `go test ./internal/runtime ./internal/tui ./internal/app ./cmd/aila -count=1` passed. `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. Approval-pending 80x44 and 120x44 plain/ANSI/semantic snapshots were generated and reviewed. TestM25ApprovalDecisionPTYSmoke covers approve and deny with clean quit and no fake target write. Tracked and new-file whitespace checks plus installed Agentera CLI plan/progress validation passed after closeout updates.
+    next: >-
+      Commit the M25 approval UI without mutation slice, then continue with M26: Write Permission Classes in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M25 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, message-only approval decisions, and no write-class/mutation/history/undo/M26+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M25 runtime/app/TUI/cmd approval proposal state, fixtures/snapshots, key tests, PTY smoke, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 166
+    timestamp: "2026-05-16 19:48"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 25: Approval UI Without Mutation as the next roadmap milestone, archived the completed M24 plan, and created a new active full plan with five bounded tasks for inert proposal data, message-only approval decisions, approval-pending fixtures/snapshots, keybinding and PTY coverage, and validation closeout.
+    commit: "N/A: planning artifact before M25 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 25; AGENTS.md; ARCHITECTURE.md permission proposal rules; docs/tui-testing.md approval-pending fixture and PTY gate; docs/workflow-architecture.md approval flow"
+    discovered: >-
+      M25 is a visibility and input slice, not a mutation slice. It should add generic risky proposal data and approval/deny/defer message paths without final write permission classes or mutation execution. Existing permission docs already name exact proposal fields, and TUI testing docs already require approval-pending fixture, semantic snapshots, update/keybinding tests, and PTY smoke. The plan must avoid edit/write tools, durable approval persistence, history/undo, provider fallback, context compaction, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M26+ behavior.
+    verified: >-
+      Installed Agentera CLI plan/progress state, docs/notes/PROMPT.md, ROADMAP.md M25 section, ARCHITECTURE.md operation proposal and TUI boundaries, docs/tui-testing.md approval fixture/update/snapshot/PTY requirements, and docs/workflow-architecture.md permission approval flow were reviewed before writing the plan.
+    next: >-
+      Execute M25 Task 1: define generic approval proposal and decision state. Do not implement write permission classes, mutation execution, durable approval records, history/undo, or M26+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M25; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact placement of proposal types should follow current runtime/TUI seams during implementation; approval keys should reuse existing input patterns where available.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m24.yaml archival, and progress evidence for the planning handoff.
   - number: 165
     timestamp: "2026-05-16 19:42"
     type: build
