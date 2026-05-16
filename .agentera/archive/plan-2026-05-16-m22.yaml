@@ -1,0 +1,108 @@
+header:
+  level: full
+  created: 2026-05-16
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M22-only; approval prompts, write classes, mutations, provider/model event mapping, and M23+ deferred
+  title: Milestone 22 Permission Model For Read-Only Work
+what: Deliver ROADMAP.md Milestone 22 by making Aila's read-only autonomy decisions explicit, recorded, and visible before mutation-capable tools arrive. Aila must enforce `off` versus `read` for the existing read-only operation classes, preserve exact decision metadata on tool results, and expose current autonomy, decision source, and at least one blocked read-only decision through deterministic TUI state.
+why: M18 through M21 established read, find, grep, safe bash inspection, and fetch as explicit read-only effects. M22 turns the permission seam from hidden dispatch checks into recorded product state so later write/edit/mutation slices can build on an observable autonomy contract instead of retrofitting decision evidence.
+constraints: 'Execute only Milestone 22. Preserve statechart-MVU: deterministic updates may receive typed decision metadata but must not perform IO, approve work, or mutate workflow phase. Enforce `off` and `read` for existing read-only operation classes and record decisions for read-only operations in runtime/app/TUI-visible result state. Keep approval prompts, write classes, mutation approval persistence, edit/write tools, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugin, MCP, workflow DSL, marketplace, hosted control plane, and Milestone 23+ behavior out of scope. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m21.yaml
+source_anchors:
+- ROADMAP.md:943-960
+- ROADMAP.md:275-312
+- README.md:181-188
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:901-906
+- docs/tui-testing.md:52-83
+- docs/tui-testing.md:126-228
+- docs/workflow-architecture.md:457-475
+- docs/workflow-architecture.md:558-576
+- docs/notes/PROMPT.md:1-39
+verification_commands:
+- go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/permission internal/runtime internal/app internal/tui
+- git diff --check --no-index /dev/null <each new permission/autonomy fixture file>
+scope:
+  included:
+  - Permission decision metadata that records autonomy level, decision source, allow/deny, automatic/manual status, reason, operation kind, tool, target, expected effect, and approval-required state for read-only operations.
+  - Read-only decision enforcement for existing read, find, grep, safe bash inspection, and fetch operation classes at `off`, `read`, `write`, and `yolo` without adding write approval behavior.
+  - Runtime/app result mapping that carries permission decisions for completed and blocked read-only operations without executing denied effects, retrying, or mutating workflow phase.
+  - TUI semantic and rendered state exposing current autonomy, decision source, and at least one blocked read-only decision through status or failure presentation.
+  - Autonomy/blocked-read fixtures with plain, ANSI, and semantic snapshots; PTY smoke only if M22 changes visible interactive autonomy behavior.
+  excluded:
+  - Approval prompts, approval persistence, write/edit tools, mutation classes, mutation-capable bash, undo/redo, replay, durable approval logs, provider fallback, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, marketplaces, hosted control planes, or Milestone 23+ behavior.
+  deferred:
+  - Write/edit permission classes and approval prompts for later mutation milestones.
+  - Durable approval records, mutation history, undo/replay, context compaction, stale checks, and source indexing until their roadmap slices.
+design: Extend `internal/permission` with a serializable read-only decision record rather than adding prompts or write classes. App dispatch already owns classification and calls `permission.Decide`; M22 should convert each read-only decision into typed runtime result metadata before either executing or returning a denied result. Runtime should store the last decision with tool results while staying IO-free. TUI should consume injected decision metadata and semantic fields; it must not classify operations, call permission APIs, or infer approvals.
+tasks:
+- number: 1
+  name: Define read-only decision record contracts
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN read-only permission operations are classified WHEN tests inspect records THEN autonomy level, decision source, allowed, automatic, approval_required, reason, operation kind, tool, target, command, working directory, expected effect, reversible, and capability/run identifiers are explicit and bounded.
+  - GIVEN non-read operations or unknown autonomy levels are evaluated WHEN tests inspect decisions THEN they remain denied automatically without adding approval prompts or write-class behavior.
+  - GIVEN package boundaries are inspected WHEN contracts exist THEN M22 does not introduce edit/write tools, approval persistence, undo/replay, provider fallback, plugins, MCP, workflow DSLs, or Milestone 23+ behavior.
+  evidence:
+  - internal/permission/operation.go defines DecisionRecord and DecideRecord with autonomy, source, allow/deny, automatic, approval_required, reason, operation kind, tool, target, command, working directory, expected effect, reversible, run ID, and capability evidence.
+  - internal/permission/operation_test.go proves allowed read records, autonomy-off read denials, copied command metadata, and non-read denials without adding approval prompts or write classes.
+- number: 2
+  name: Record decisions in runtime and app tool results
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN read, find, grep, bash inspection, and fetch effects dispatch WHEN autonomy allows them THEN result metadata records an allowed automatic read-only decision with decision source and operation details.
+  - GIVEN autonomy is `off` WHEN read-only effects dispatch THEN no tool executor runs, bounded permission-denied results are returned, and result metadata records a blocked read-only decision requiring approval.
+  - GIVEN validation fails before a decision is possible WHEN dispatch maps the result THEN the failure remains bounded and does not fabricate a permission allow record.
+  - GIVEN runtime handles tool completion messages WHEN tests inspect the model THEN the last read/search/bash/fetch result retains decision metadata without workflow phase mutation.
+  evidence:
+  - internal/runtime/runtime.go adds ToolDecision metadata to read/search/bash/fetch result payloads, and runtime tests prove last read/search/bash/fetch results retain decision metadata without workflow phase mutation.
+  - internal/app/shutdown.go maps permission DecisionRecord evidence into runtime results for allowed and denied read/search/bash/fetch dispatch; validation failures before bash/fetch decisions do not fabricate allow records.
+  - internal/app/prompt_test.go proves read/search/bash/fetch allowed decisions, autonomy-off denied decisions, and invalid fetch failure without decision metadata.
+- number: 3
+  name: Expose autonomy and blocked decisions in TUI state
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN a blocked read-only decision is injected WHEN the TUI renders THEN autonomy level, decision source, denied status, approval-required state, reason, tool, and target are visible through status or failed tool presentation.
+  - GIVEN semantic snapshots are inspected WHEN decision state is present THEN current autonomy, decision source, allow/deny, automatic/manual, approval_required, operation kind, tool, target, expected effect, and reason are machine-readable.
+  - GIVEN existing autonomy display fixture already exists WHEN M22 lands THEN it is retained or updated to expose the new decision semantics without implying selectable approval behavior.
+  - GIVEN decision data contains terminal controls, credential-like text, HOME/config paths, `.aila`, `.agentera`, or outside-workspace paths WHEN render and semantic evidence is produced THEN output is bounded and redacted.
+  evidence:
+  - internal/tui/model.go and internal/tui/render.go add app-injected decision presentation and semantic fields while keeping TUI classification-free and render boundary tests free of forbidden ownership markers.
+  - internal/tui/fixture_test.go and blocked-read-decision snapshots expose session autonomy, decision source, denied state, automatic=false, approval_required=true, operation kind, tool, target, expected effect, reversible, and reason with redaction.
+- number: 4
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN an autonomy display fixture exists WHEN snapshots are checked THEN plain, ANSI, and semantic outputs expose current autonomy and decision source.
+  - GIVEN at least one blocked read-only decision fixture exists WHEN snapshots are checked THEN plain, ANSI, and semantic outputs expose blocked read-only decision metadata through status or tool-failed state.
+  - GIVEN no visible autonomy interaction changes in M22 WHEN closeout evidence is prepared THEN PTY smoke is explicitly documented as skipped by the roadmap gate rather than silently omitted.
+  - GIVEN Milestone 22 implementation and validation are complete WHEN targeted tests, full `go test ./internal/...`, `mage check`, and `git diff --check` run THEN they pass without bypassing configured gates.
+  - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 22 Slice Completion Template records permission tests, app/runtime decision metadata tests, TUI fixtures/snapshots, PTY smoke decision, validation, architecture checklist evidence, roadmap status, and commit readiness.
+  evidence:
+  - Existing autonomy-display fixture remains checked and blocked-read-decision plain/ANSI/semantic snapshots were added for the blocked read-only decision gate.
+  - TestM22DecisionPTYSmokeDecision documents PTY smoke skipped because no visible autonomy interaction, approval prompt, or command path was added.
+  - 'Validation passed: go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui -count=1; go test ./internal/... -count=1; mage check.'
+complete: 4
+total: 4
+active: false
+complete_plan: true
+overall_acceptance:
+- GIVEN read-only operations are dispatched WHEN autonomy is `read`, `write`, or `yolo` THEN they are allowed automatically and the decision is recorded in result metadata.
+- GIVEN read-only operations are dispatched WHEN autonomy is `off` THEN they are blocked without executor IO and the denied decision is recorded as approval-required without adding approval prompts.
+- GIVEN decision state reaches TUI snapshots WHEN rendered THEN current autonomy, decision source, blocked/allowed state, operation metadata, and reason are visible and machine-readable.
+- GIVEN milestone validation runs WHEN documented gates complete THEN permission tests, runtime/app decision metadata tests, autonomy/blocked-decision fixtures, optional PTY smoke decision, targeted tests, full `go test ./internal/...`, and `mage check` support closeout.
+surprises:
+- Existing permission code already enforces off/read for read-only operations; M22's value is making the decisions recorded and observable, not adding approval UX or mutation policy.

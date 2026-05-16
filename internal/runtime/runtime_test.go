@@ -1071,3 +1071,47 @@ func TestUpdateRetainsToolDecisionMetadata(t *testing.T) {
 		t.Fatalf("completed fetch model=%+v effects=%v", fetchCompleted, effects)
 	}
 }
+
+func TestUpdateHandlesAgentStreamMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-agent", Kind: OperationPrompt, Subject: "explain", Source: "agent-test"}
+	model := Model{Status: StatusActive, ActiveOperation: operation, Transcript: []TranscriptEntry{{Kind: "prompt", Text: "explain"}}}
+
+	updated, effects := Update(model, AgentAssistantDelta{Operation: operation, Provider: "fake", Model: "fake-model", Sequence: 1, Text: "Hello "})
+	if len(effects) != 0 || updated.Status != StatusActive || updated.AssistantDraft != "Hello " || updated.Result != "Hello " || updated.AgentProvider != "fake" || updated.AgentModel != "fake-model" {
+		t.Fatalf("delta model=%+v effects=%v", updated, effects)
+	}
+	updated, effects = Update(updated, AgentAssistantDelta{Operation: operation, Provider: "fake", Model: "fake-model", Sequence: 2, Text: "world"})
+	if len(effects) != 0 || updated.AssistantDraft != "Hello world" || updated.Transcript[len(updated.Transcript)-1] != (TranscriptEntry{Kind: "assistant_delta", Text: "world"}) {
+		t.Fatalf("second delta model=%+v effects=%v", updated, effects)
+	}
+
+	request := AgentToolRequest{ID: "call-1", Name: "read", Arguments: []AgentToolArgument{{Name: "path", Value: "README.md"}}, Provider: "fake", Model: "fake-model", Sequence: 3}
+	updated, effects = Update(updated, AgentToolRequested{Operation: operation, Request: request})
+	if len(effects) != 0 || updated.Status != StatusActive || !reflect.DeepEqual(updated.LastAgentToolRequest, request) || updated.LastRead.ToolName != "" || updated.ActiveRead.Path != "" {
+		t.Fatalf("tool request model=%+v effects=%v", updated, effects)
+	}
+
+	completed, effects := Update(updated, AgentTurnCompleted{Operation: operation, Provider: "fake", Model: "fake-model", FinishReason: "stop"})
+	if len(effects) != 0 || completed.Status != StatusIdle || completed.Result != "Hello world" || completed.AgentFinishReason != "stop" || completed.ActiveOperation.ID != "" {
+		t.Fatalf("completed model=%+v effects=%v", completed, effects)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got != (TranscriptEntry{Kind: "result", Text: "Hello world"}) {
+		t.Fatalf("completion transcript = %+v", got)
+	}
+}
+
+func TestUpdateHandlesAgentTurnFailure(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-agent", Kind: OperationPrompt, Subject: "explain", Source: "agent-test"}
+	failure := FailureMetadata{Code: "rate_limited", Message: "provider is rate limited", Retryable: true}
+	updated, effects := Update(Model{Status: StatusActive, ActiveOperation: operation}, AgentTurnFailed{Operation: operation, Provider: "fake", Model: "fake-model", Failure: failure})
+	if len(effects) != 0 || updated.Status != StatusIdle || updated.Result != failure.Message || updated.ActiveOperation.ID != "" || updated.AgentProvider != "fake" || updated.AgentModel != "fake-model" {
+		t.Fatalf("failed model=%+v effects=%v", updated, effects)
+	}
+	if got := updated.Transcript[len(updated.Transcript)-1]; got.Kind != "failure" || got.Text != failure.Message {
+		t.Fatalf("failure transcript = %+v", got)
+	}
+}

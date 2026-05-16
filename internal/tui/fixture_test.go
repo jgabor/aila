@@ -3080,3 +3080,107 @@ func TestM22DecisionPTYSmokeDecision(t *testing.T) {
 		})
 	}
 }
+
+func loadStreamingAssistantFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Scenario = "streaming-assistant"
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.RuntimeStatus = "active"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "agent event adapter"
+	state.RuntimeActive = true
+	state.Transcript = []TranscriptTurn{{
+		UserText:           "explain streaming",
+		AssistantText:      "Streaming partial answer token=secret-value from /home/jgabor/.config/aila/config.toml",
+		AssistantStreaming: true,
+		AssistantSource:    "fake-provider",
+		AssistantModel:     "fake-model",
+	}}
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM23StreamingAssistantRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadStreamingAssistantFixture(t)
+	render := RenderPlain(fixture.State, Size{Width: 120, Height: 44})
+	wantRender := []string{
+		"Runtime active",
+		"assistant streaming: Streaming partial answer [redacted] from [path-redacted]",
+		"assistant status: incomplete",
+		"assistant source: fake-provider fake-model",
+	}
+	if !containsAll(render, wantRender) {
+		t.Fatalf("streaming render missing evidence %v:\n%s", wantRender, render)
+	}
+	if containsAny(render, []string{"token=secret-value", "/home/jgabor", "completed answer"}) {
+		t.Fatalf("streaming render leaked or claimed completion:\n%s", render)
+	}
+
+	snapshot := Semantic(fixture.State, Size{Width: 120, Height: 44})
+	if !snapshot.Session.Active || snapshot.Session.RuntimeStatus != "active" {
+		t.Fatalf("streaming session = %+v", snapshot.Session)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	chat := strings.Join(regions["chat"].Items, "\n")
+	if !containsAll(chat, []string{"assistant_streaming: true", "assistant_incomplete: true", "assistant: Streaming partial answer [redacted] from [path-redacted]", "assistant_source: fake-provider", "assistant_model: fake-model"}) {
+		t.Fatalf("streaming semantic chat = %v", regions["chat"].Items)
+	}
+	assertNoReadLeak(t, RenderSemanticJSON(fixture.State, Size{Width: 120, Height: 44}))
+}
+
+func TestM23StreamingAssistantFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadStreamingAssistantFixture(t)
+	if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+		t.Fatalf("streaming fixture metadata = %+v", fixture)
+	}
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			plain := stripANSI(got)
+			if !containsAll(plain, []string{"assistant streaming:", "assistant status: incomplete"}) {
+				t.Fatalf("streaming fixture render missing evidence:\n%s", plain)
+			}
+			assertNoReadLeak(t, plain)
+		})
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			assertNoReadLeak(t, got)
+		})
+	}
+}
+
+func TestM23StreamingPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+	for _, r := range "/stream fake" {
+		updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		if cmd != nil {
+			t.Fatalf("typing emitted command")
+		}
+		model = updated.(Model)
+	}
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("submitting emitted command")
+	}
+	if state := updated.(Model).state; state.RuntimeStatus != "" || len(state.Transcript) != 0 {
+		t.Fatalf("streaming input unexpectedly invoked visible state: %+v", state)
+	}
+}

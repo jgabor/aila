@@ -79,6 +79,45 @@ type InterruptRequested struct {
 
 func (InterruptRequested) runtimeMessage() {}
 
+// AgentAssistantDelta records one provider-style assistant text delta.
+type AgentAssistantDelta struct {
+	Operation OperationMetadata
+	Provider  string
+	Model     string
+	Sequence  int
+	Text      string
+}
+
+func (AgentAssistantDelta) runtimeMessage() {}
+
+// AgentToolRequested records provider-requested tool metadata without execution.
+type AgentToolRequested struct {
+	Operation OperationMetadata
+	Request   AgentToolRequest
+}
+
+func (AgentToolRequested) runtimeMessage() {}
+
+// AgentTurnCompleted records provider-style turn completion metadata.
+type AgentTurnCompleted struct {
+	Operation    OperationMetadata
+	Provider     string
+	Model        string
+	FinishReason string
+}
+
+func (AgentTurnCompleted) runtimeMessage() {}
+
+// AgentTurnFailed records a bounded provider-style turn failure.
+type AgentTurnFailed struct {
+	Operation OperationMetadata
+	Provider  string
+	Model     string
+	Failure   FailureMetadata
+}
+
+func (AgentTurnFailed) runtimeMessage() {}
+
 // FakeEffectCompleted reports a deterministic in-memory fake effect result.
 type FakeEffectCompleted struct {
 	Operation OperationMetadata
@@ -145,22 +184,43 @@ func (RuntimeDiagnostic) runtimeMessage() {}
 
 // Model is runtime-owned state for the current fake interaction surface.
 type Model struct {
-	Status          Status
-	Transcript      []TranscriptEntry
-	Queued          []QueuedEntry
-	Result          string
-	LastCommand     string
-	ActiveRead      ReadToolRequest
-	LastRead        ReadToolResult
-	ActiveSearch    SearchToolRequest
-	LastSearch      SearchToolResult
-	ActiveBash      BashToolRequest
-	LastBash        BashToolResult
-	ActiveFetch     FetchToolRequest
-	LastFetch       FetchToolResult
-	NextOperation   int
-	ActiveOperation OperationMetadata
-	Diagnostics     []diagnostic.Diagnostic
+	Status               Status
+	Transcript           []TranscriptEntry
+	Queued               []QueuedEntry
+	Result               string
+	LastCommand          string
+	ActiveRead           ReadToolRequest
+	LastRead             ReadToolResult
+	ActiveSearch         SearchToolRequest
+	LastSearch           SearchToolResult
+	ActiveBash           BashToolRequest
+	LastBash             BashToolResult
+	ActiveFetch          FetchToolRequest
+	LastFetch            FetchToolResult
+	AssistantDraft       string
+	AgentProvider        string
+	AgentModel           string
+	LastAgentToolRequest AgentToolRequest
+	AgentFinishReason    string
+	NextOperation        int
+	ActiveOperation      OperationMetadata
+	Diagnostics          []diagnostic.Diagnostic
+}
+
+// AgentToolArgument records one provider-supplied tool argument.
+type AgentToolArgument struct {
+	Name  string
+	Value string
+}
+
+// AgentToolRequest records provider-requested tool metadata without execution.
+type AgentToolRequest struct {
+	ID        string
+	Name      string
+	Arguments []AgentToolArgument
+	Provider  string
+	Model     string
+	Sequence  int
 }
 
 // QueuedEntry is a user message queued while fake work is active.
@@ -723,6 +783,11 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveFetch = FetchToolRequest{}
 		next.LastFetch = FetchToolResult{}
 		next.ActiveOperation = operation
+		next.AssistantDraft = ""
+		next.AgentProvider = ""
+		next.AgentModel = ""
+		next.LastAgentToolRequest = AgentToolRequest{}
+		next.AgentFinishReason = ""
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
 	case CommandSelected:
@@ -828,6 +893,49 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "interrupting", Text: cancel.Reason})
 		return next, []Effect{FakeInterruptEffect{Operation: operation, Cancel: cancel}}
+	case AgentAssistantDelta:
+		next.Status = StatusActive
+		if next.ActiveOperation.ID == "" {
+			next.ActiveOperation = msg.Operation
+		}
+		next.AssistantDraft += msg.Text
+		next.AgentProvider = msg.Provider
+		next.AgentModel = msg.Model
+		next.Result = next.AssistantDraft
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "assistant_delta", Text: msg.Text})
+		return next, nil
+	case AgentToolRequested:
+		next.Status = StatusActive
+		if next.ActiveOperation.ID == "" {
+			next.ActiveOperation = msg.Operation
+		}
+		next.LastAgentToolRequest = msg.Request
+		next.AgentProvider = msg.Request.Provider
+		next.AgentModel = msg.Request.Model
+		next.Result = "tool request: " + msg.Request.Name
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool_request", Text: agentToolRequestSummary(msg.Request)})
+		return next, nil
+	case AgentTurnCompleted:
+		next.Status = StatusIdle
+		next.AgentProvider = msg.Provider
+		next.AgentModel = msg.Model
+		next.AgentFinishReason = msg.FinishReason
+		result := strings.TrimSpace(next.AssistantDraft)
+		if result == "" {
+			result = "agent turn completed"
+		}
+		next.Result = result
+		next.ActiveOperation = OperationMetadata{}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: result})
+		return next, nil
+	case AgentTurnFailed:
+		next.Status = StatusIdle
+		next.Result = msg.Failure.Message
+		next.AgentProvider = msg.Provider
+		next.AgentModel = msg.Model
+		next.ActiveOperation = OperationMetadata{}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
+		return next, nil
 	case FakeEffectCompleted:
 		next.Status = StatusIdle
 		next.Result = msg.Result
@@ -988,6 +1096,13 @@ func operationID(number int) string {
 	}
 
 	return prefix + string(digits)
+}
+
+func agentToolRequestSummary(request AgentToolRequest) string {
+	if request.ID == "" {
+		return "tool request " + request.Name
+	}
+	return "tool request " + request.Name + " " + request.ID
 }
 
 func readResultSummary(result ReadToolResult) string {

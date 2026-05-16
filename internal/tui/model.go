@@ -21,20 +21,23 @@ type InterruptRequestFunc func(reason string) TranscriptTurn
 
 // TranscriptTurn is the presentation data for one submitted prompt and response.
 type TranscriptTurn struct {
-	UserText      string
-	AssistantText string
-	RuntimeStatus string
-	StatusSource  string
-	StatusDetail  string
-	RuntimeActive bool
-	RuntimeResult string
-	QueuedCount   int
-	QueuedText    []string
-	Diagnostics   []DiagnosticView
-	Read          *ReadView
-	Search        *SearchView
-	Command       *CommandView
-	Fetch         *FetchView
+	UserText           string
+	AssistantText      string
+	AssistantStreaming bool
+	AssistantSource    string
+	AssistantModel     string
+	RuntimeStatus      string
+	StatusSource       string
+	StatusDetail       string
+	RuntimeActive      bool
+	RuntimeResult      string
+	QueuedCount        int
+	QueuedText         []string
+	Diagnostics        []DiagnosticView
+	Read               *ReadView
+	Search             *SearchView
+	Command            *CommandView
+	Fetch              *FetchView
 }
 
 // ReadView is app-injected read presentation data. It is display-only;

@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage BUILD | Runtime active | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: active                                                                                                       |
+| status source: runtime.fixture                                                                                       |
+| detail: agent event adapter                                                                                          |
+| active: true                                                                                                         |
+|                                                                                                                      |
+| user: explain streaming                                                                                              |
+| assistant streaming: Streaming partial answer [redacted] from [path-redacted]                                        |
+| assistant status: incomplete                                                                                         |
+| assistant source: fake-provider fake-model                                                                           |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

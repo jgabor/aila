@@ -1,0 +1,31 @@
+{
+  "name": "streaming-assistant",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["runtime_active", "assistant_streaming"],
+  "render_sizes": [
+    {
+      "name": "120x44",
+      "width": 120,
+      "height": 44
+    },
+    {
+      "name": "160x45",
+      "width": 160,
+      "height": 45
+    }
+  ],
+  "render_outputs": {
+    "plain_120x44": "plain-120x44.txt",
+    "ansi_120x44": "ansi-120x44.txt",
+    "semantic_120x44": "semantic-120x44.json",
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_160x45": "semantic-160x45.json"
+  },
+  "notes": [
+    "Milestone 23 streaming assistant fixture.",
+    "Streaming state is injected presentation evidence and does not add real provider execution."
+  ]
+}

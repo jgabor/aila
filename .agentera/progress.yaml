@@ -1,4 +1,49 @@
 cycles:
+  - number: 163
+    timestamp: "2026-05-16 20:35"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M23 by adding bounded fake provider event contracts, mapping assistant deltas, tool requests, provider errors, and completion into typed runtime messages, recording runtime streaming/tool-request state without tool execution, adding streaming assistant TUI presentation and fixtures, and updating ROADMAP.md closeout.
+    commit: "pending local commit for M23 fake provider event adapter"
+    inspiration: ".agentera/plan.yaml tasks 1-4; ROADMAP.md Milestone 23; docs/notes/PROMPT.md; ARCHITECTURE.md statechart-MVU and agent adapter boundaries; docs/tui-testing.md fixture/snapshot gate"
+    discovered: >-
+      M23 can stay adapter-only: fake provider streams map into runtime messages without replacing the existing fake prompt effect or starting real go-agent execution. Provider tool requests are metadata only and deliberately do not dispatch read/search/bash/fetch effects. No real provider calls, go-agent runner execution, credential checks, tool execution from provider requests, approval prompts, write classes, context compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, or M24+ behavior was added.
+    verified: >-
+      `go test ./internal/agent ./internal/runtime ./internal/tui -count=1` passed. `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. `git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/agent internal/runtime internal/tui` passed. Explicit `git diff --check --no-index /dev/null <file>` checks passed for `.agentera/archive/plan-2026-05-16-m22.yaml`, `internal/agent/events.go`, `internal/agent/events_test.go`, and all new streaming-assistant fixture files. Installed Agentera CLI plan/progress validation passed after this metadata write.
+    next: >-
+      Commit the M23 fake provider event adapter slice, then continue with M24: go-agent Read-Only Turn in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M23 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, fake-provider-only adapter scope, and no real provider/go-agent/tool-execution/M24+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M23 implementation, fake stream adapter/runtime/TUI streaming metadata, fixtures/snapshots, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 162
+    timestamp: "2026-05-16 20:18"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 23: Agent Event Adapter With Fake Provider as the next roadmap milestone, archived the completed M22 plan, and created a new active full plan with four bounded tasks for agent event contracts, runtime mapping, TUI streaming assistant evidence, and validation closeout.
+    commit: "N/A: planning artifact before M23 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 23; AGENTS.md; README.md; ARCHITECTURE.md; docs/tui-testing.md; docs/workflow-architecture.md"
+    discovered: >-
+      M23 should remain adapter-only: map fake provider-style assistant deltas, tool requests, errors, and completion events into typed runtime messages before real go-agent execution arrives in M24. Existing runtime fake prompt effects remain separate, and TUI streaming evidence can be injected as presentation state without provider imports or live terminal streaming changes. The plan must avoid real provider calls, go-agent runner execution, credential flows, tool execution from provider requests, approval prompts, write classes, context compaction, stale checks, source indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, and M24+ behavior.
+    verified: >-
+      ROADMAP.md M23 section, AGENTS.md, README.md, ARCHITECTURE.md, docs/tui-testing.md, docs/workflow-architecture.md, current internal/agent readiness boundaries, runtime message/update seams, and TUI transcript/render seams were reviewed before writing the plan.
+    next: >-
+      Execute M23 Task 1: define bounded agent event and fake stream contracts. Do not implement real provider calls, go-agent runner execution, tool execution, approval prompts, write classes, or M24+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M23; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact runtime message field names and whether streaming transcript state should live on turns or session state are implementation-owned; PTY smoke must run only if visible terminal streaming behavior changes.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m22.yaml archival, progress evidence for the planning handoff, and archive index sync.
   - number: 161
     timestamp: "2026-05-16 20:05"
     type: build

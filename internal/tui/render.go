@@ -1053,7 +1053,17 @@ func chatLines(transcript []TranscriptTurn) []string {
 			lines = append(lines, "  user: "+safeText(turn.UserText))
 		}
 		if turn.AssistantText != "" {
-			lines = append(lines, "  assistant: "+safeText(turn.AssistantText))
+			label := "assistant"
+			if turn.AssistantStreaming {
+				label = "assistant streaming"
+			}
+			lines = append(lines, "  "+label+": "+safeText(turn.AssistantText))
+			if turn.AssistantStreaming {
+				lines = append(lines, "  assistant status: incomplete")
+			}
+			if turn.AssistantSource != "" || turn.AssistantModel != "" {
+				lines = append(lines, "  assistant source: "+safeText(turn.AssistantSource)+" "+safeText(turn.AssistantModel))
+			}
 		}
 	}
 	return lines
@@ -1069,7 +1079,17 @@ func semanticChatItems(transcript []TranscriptTurn) []string {
 			items = append(items, "user: "+safeText(turn.UserText))
 		}
 		if turn.AssistantText != "" {
-			items = append(items, "assistant: "+safeText(turn.AssistantText))
+			if turn.AssistantStreaming {
+				items = append(items, "assistant_streaming: true", "assistant_incomplete: true", "assistant: "+safeText(turn.AssistantText))
+			} else {
+				items = append(items, "assistant: "+safeText(turn.AssistantText))
+			}
+			if turn.AssistantSource != "" {
+				items = append(items, "assistant_source: "+safeText(turn.AssistantSource))
+			}
+			if turn.AssistantModel != "" {
+				items = append(items, "assistant_model: "+safeText(turn.AssistantModel))
+			}
 		}
 	}
 	return items
