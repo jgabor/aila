@@ -134,6 +134,46 @@ func TestExecuteEditMismatchDoesNotMutate(t *testing.T) {
 	}
 }
 
+func TestExecuteDeleteCreatedFileRemovesExactVersionAndCapturesRedoContent(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "notes.txt")
+	writeTestFile(t, path, "approved write")
+	_, version, err := mutationFileVersion(path)
+	if err.Kind != "" {
+		t.Fatalf("version error = %+v", err)
+	}
+	request := validateDeleteForTest(t, root, DeleteCreatedFileRequest{Path: "notes.txt", TargetVersion: version, ExpectedEffect: "undo created file"})
+
+	result := ExecuteDeleteCreatedFile(context.Background(), request)
+
+	if result.Error.Kind != "" || result.Status != "completed" || result.ToolName != RecoveryToolName || result.WorkspaceRelativePath != "notes.txt" || result.PreviousVersion != version || result.NewVersion != MissingFileVersion || !result.PreviousExists || result.DeletedContent != "approved write" {
+		t.Fatalf("delete result = %+v, want completed exact-version recovery", result)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("deleted file still exists: %v", err)
+	}
+}
+
+func TestExecuteDeleteCreatedFileVersionMismatchDoesNotMutate(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "notes.txt")
+	writeTestFile(t, path, "original")
+	request := validateDeleteForTest(t, root, DeleteCreatedFileRequest{Path: "notes.txt", TargetVersion: "sha256:stale", ExpectedEffect: "undo created file"})
+
+	result := ExecuteDeleteCreatedFile(context.Background(), request)
+
+	if result.Error.Kind != MutationErrorTargetVersionMismatch || result.Status != "failed" || result.DeletedContent != "" {
+		t.Fatalf("delete result = %+v, want version mismatch without redo content", result)
+	}
+	if got := readMutationFile(t, path); got != "original" {
+		t.Fatalf("file mutated on mismatch: %q", got)
+	}
+}
+
 func TestExecuteMutationRejectsSymlinkEscape(t *testing.T) {
 	t.Parallel()
 
@@ -191,6 +231,15 @@ func validateWriteForTest(t *testing.T, root string, request WriteRequest) Valid
 	validated, err := ValidateWriteRequest(root, request)
 	if err.Kind != "" {
 		t.Fatalf("ValidateWriteRequest() error = %+v", err)
+	}
+	return validated
+}
+
+func validateDeleteForTest(t *testing.T, root string, request DeleteCreatedFileRequest) ValidatedDeleteCreatedFileRequest {
+	t.Helper()
+	validated, err := ValidateDeleteCreatedFileRequest(root, request)
+	if err.Kind != "" {
+		t.Fatalf("ValidateDeleteCreatedFileRequest() error = %+v", err)
 	}
 	return validated
 }

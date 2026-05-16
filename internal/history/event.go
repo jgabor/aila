@@ -9,16 +9,17 @@ import (
 )
 
 const (
-	FakeEventSchemaVersion = 1
-	EventIDMaxBytes        = 128
-	RunIDMaxBytes          = 128
-	SessionIDMaxBytes      = 128
-	SourceMaxBytes         = 64
-	ProvenanceMaxBytes     = 256
-	DisplayTextMaxBytes    = 512
-	MutationFieldMaxBytes  = 256
-	MutationPathMaxBytes   = 256
-	MutationMaxPaths       = 8
+	FakeEventSchemaVersion  = 1
+	EventIDMaxBytes         = 128
+	RunIDMaxBytes           = 128
+	SessionIDMaxBytes       = 128
+	SourceMaxBytes          = 64
+	ProvenanceMaxBytes      = 256
+	DisplayTextMaxBytes     = 512
+	MutationFieldMaxBytes   = 256
+	MutationPathMaxBytes    = 256
+	MutationMaxPaths        = 8
+	RecoveryContentMaxBytes = 2048
 )
 
 var ErrInvalidFakeEvent = errors.New("fake history event contract is invalid")
@@ -32,6 +33,7 @@ const (
 	EventKindCommand  EventKind = "command"
 	EventKindRuntime  EventKind = "runtime"
 	EventKindMutation EventKind = "mutation"
+	EventKindRecovery EventKind = "recovery"
 )
 
 // FakeEvent is a bounded, display-safe record of fake activity.
@@ -46,6 +48,7 @@ type FakeEvent struct {
 	DisplayText   string          `json:"display_text"`
 	Mutation      *MutationRecord `json:"mutation,omitempty"`
 	Undo          *UndoMetadata   `json:"undo,omitempty"`
+	Recovery      *RecoveryRecord `json:"recovery,omitempty"`
 }
 
 // MutationRecord describes one inspected edit/write result.
@@ -81,9 +84,28 @@ type UndoMetadata struct {
 	Reason          string   `json:"reason,omitempty"`
 }
 
+// RecoveryRecord describes one app-owned undo or redo command result.
+type RecoveryRecord struct {
+	Command            string   `json:"command"`
+	Status             string   `json:"status"`
+	TargetEventID      string   `json:"target_event_id,omitempty"`
+	Action             string   `json:"action"`
+	Paths              []string `json:"paths,omitempty"`
+	PreviousVersion    string   `json:"previous_version,omitempty"`
+	NewVersion         string   `json:"new_version,omitempty"`
+	RedoAvailable      bool     `json:"redo_available"`
+	RedoAction         string   `json:"redo_action,omitempty"`
+	RedoContent        string   `json:"redo_content,omitempty"`
+	Reason             string   `json:"reason,omitempty"`
+	ErrorKind          string   `json:"error_kind,omitempty"`
+	ErrorMessage       string   `json:"error_message,omitempty"`
+	DecisionRunID      string   `json:"decision_run_id,omitempty"`
+	DecisionCapability string   `json:"decision_capability,omitempty"`
+}
+
 // EventKinds returns the stable, closed event-kind set in display order.
 func EventKinds() []EventKind {
-	return []EventKind{EventKindPrompt, EventKindResponse, EventKindCommand, EventKindRuntime, EventKindMutation}
+	return []EventKind{EventKindPrompt, EventKindResponse, EventKindCommand, EventKindRuntime, EventKindMutation, EventKindRecovery}
 }
 
 // NormalizeFakeEvent validates an event and returns bounded display-safe text.
@@ -115,6 +137,9 @@ func NormalizeFakeEvent(event FakeEvent) (FakeEvent, error) {
 		return FakeEvent{}, fmt.Errorf("%w: display_text is empty", ErrInvalidFakeEvent)
 	}
 	if event.Kind == EventKindMutation {
+		if event.Recovery != nil {
+			return FakeEvent{}, fmt.Errorf("%w: mutation event has recovery metadata", ErrInvalidFakeEvent)
+		}
 		mutation, err := normalizeMutationRecord(event.Mutation)
 		if err != nil {
 			return FakeEvent{}, err
@@ -127,8 +152,22 @@ func NormalizeFakeEvent(event FakeEvent) (FakeEvent, error) {
 		event.Undo = &undo
 		return event, nil
 	}
+	if event.Kind == EventKindRecovery {
+		if event.Mutation != nil || event.Undo != nil {
+			return FakeEvent{}, fmt.Errorf("%w: recovery event has mutation metadata", ErrInvalidFakeEvent)
+		}
+		recovery, err := normalizeRecoveryRecord(event.Recovery)
+		if err != nil {
+			return FakeEvent{}, err
+		}
+		event.Recovery = &recovery
+		return event, nil
+	}
 	if event.Mutation != nil || event.Undo != nil {
 		return FakeEvent{}, fmt.Errorf("%w: non-mutation event has mutation metadata", ErrInvalidFakeEvent)
+	}
+	if event.Recovery != nil {
+		return FakeEvent{}, fmt.Errorf("%w: non-recovery event has recovery metadata", ErrInvalidFakeEvent)
 	}
 	return event, nil
 }
@@ -225,6 +264,77 @@ func normalizeUndoMetadata(metadata *UndoMetadata) (UndoMetadata, error) {
 	return normalized, nil
 }
 
+func normalizeRecoveryRecord(record *RecoveryRecord) (RecoveryRecord, error) {
+	if record == nil {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery record is required", ErrInvalidFakeEvent)
+	}
+	var normalized RecoveryRecord
+	var err error
+	if normalized.Command, err = normalizeRequiredField("recovery.command", record.Command, SourceMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.Command != "undo" && normalized.Command != "redo" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.command must be undo or redo", ErrInvalidFakeEvent)
+	}
+	if normalized.Status, err = normalizeRequiredField("recovery.status", record.Status, SourceMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.Status != "completed" && normalized.Status != "failed" && normalized.Status != "unsupported" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.status is invalid", ErrInvalidFakeEvent)
+	}
+	if normalized.TargetEventID, err = normalizeOptionalField("recovery.target_event_id", record.TargetEventID, EventIDMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.Status != "unsupported" && normalized.TargetEventID == "" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.target_event_id is required", ErrInvalidFakeEvent)
+	}
+	if normalized.Action, err = normalizeRequiredField("recovery.action", record.Action, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	pathsRequired := normalized.Status != "unsupported"
+	if normalized.Paths, err = normalizePathList("recovery.paths", record.Paths, pathsRequired); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.PreviousVersion, err = normalizeOptionalField("recovery.previous_version", record.PreviousVersion, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.NewVersion, err = normalizeOptionalField("recovery.new_version", record.NewVersion, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	normalized.RedoAvailable = record.RedoAvailable
+	if normalized.RedoAction, err = normalizeOptionalField("recovery.redo_action", record.RedoAction, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.RedoContent, err = normalizeOptionalField("recovery.redo_content", record.RedoContent, RecoveryContentMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if record.RedoAvailable && normalized.RedoAction == "" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.redo_action is required when redo is available", ErrInvalidFakeEvent)
+	}
+	if record.RedoAvailable && normalized.RedoAction == "restore_created_file" && normalized.RedoContent == "" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.redo_content is required for restore_created_file", ErrInvalidFakeEvent)
+	}
+	if normalized.Reason, err = normalizeOptionalField("recovery.reason", record.Reason, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.Status != "completed" && normalized.Reason == "" && record.ErrorMessage == "" {
+		return RecoveryRecord{}, fmt.Errorf("%w: recovery.reason is required when recovery is not completed", ErrInvalidFakeEvent)
+	}
+	if normalized.ErrorKind, err = normalizeOptionalField("recovery.error_kind", record.ErrorKind, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.ErrorMessage, err = normalizeOptionalField("recovery.error_message", record.ErrorMessage, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.DecisionRunID, err = normalizeOptionalField("recovery.decision_run_id", record.DecisionRunID, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	if normalized.DecisionCapability, err = normalizeOptionalField("recovery.decision_capability", record.DecisionCapability, MutationFieldMaxBytes); err != nil {
+		return RecoveryRecord{}, err
+	}
+	return normalized, nil
+}
+
 func normalizeRequiredField(field string, value string, maxBytes int) (string, error) {
 	normalized := boundedText(redactSecrets(stripTerminalControls(value)), maxBytes)
 	if err := requiredBoundedString(field, normalized, maxBytes); err != nil {
@@ -278,7 +388,7 @@ func normalizeRequiredPath(field string, path string) (string, error) {
 
 func unsafeHistoryPath(path string) bool {
 	path = strings.TrimSpace(path)
-	if path == "." || strings.HasPrefix(path, "/") || strings.HasPrefix(path, "~") || strings.HasPrefix(path, "\\\\") || strings.Contains(path, ":\\") || strings.Contains(path, "$HOME") || strings.Contains(path, "${HOME}") || strings.Contains(strings.ToUpper(path), "XDG_") {
+	if path == "." || strings.HasPrefix(path, "/") || strings.HasPrefix(path, "~") || strings.HasPrefix(path, "\\") || strings.Contains(path, ":\\") || strings.Contains(path, "$HOME") || strings.Contains(path, "${HOME}") || strings.Contains(strings.ToUpper(path), "XDG_") {
 		return true
 	}
 	for _, part := range strings.Split(path, "/") {

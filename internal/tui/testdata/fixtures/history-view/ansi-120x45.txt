@@ -7,33 +7,33 @@
 | command route: history                                                                                               |
 | route source: policy.command                                                                                         |
 | read-only: true                                                                                                      |
-| entries: 6                                                                                                           |
-| selected: 6                                                                                                          |
+| entries: 8                                                                                                           |
+| selected: 8                                                                                                          |
 | undo enabled: true                                                                                                   |
 |   run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history                           |
 |   run-fake-017 session-fake-alpha evt-fake-002 response response summary: fake answer for history                    |
 |   run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only                        |
 |   run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event                        |
 |   run-fake-017 session-fake-alpha evt-fake-005 diagnostic credential [redacted] path [path-redacted] control         |
-| > run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt                                    |
-| selected event id: evt-fake-006                                                                                      |
+|   run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt                                    |
+|   run-fake-017 session-fake-alpha evt-fake-007 recovery undo completed delete_created_file notes.txt                 |
+| > run-fake-017 session-fake-alpha evt-fake-008 recovery redo completed restore_created_file notes.txt                |
+| selected event id: evt-fake-008                                                                                      |
 | selected run id: run-fake-017                                                                                        |
 | selected session id: session-fake-alpha                                                                              |
-| selected kind: mutation                                                                                              |
-| selected source: mutation.tool                                                                                       |
-| selected provenance: mutation.result                                                                                 |
-| selected text: mutation write completed notes.txt approval fake-approval-write-001 undo delete_created_file          |
-| selected mutation tool: write                                                                                        |
-| selected mutation status: completed                                                                                  |
-| selected command source: approval-write                                                                              |
-| selected changed paths: notes.txt                                                                                    |
-| selected approval id: fake-approval-write-001                                                                        |
-| selected approval action: approve                                                                                    |
-| selected expected effect: create fake approval write target through explicit mutation effect                         |
+| selected kind: recovery                                                                                              |
+| selected source: recovery.command                                                                                    |
+| selected provenance: recovery.redo                                                                                   |
+| selected text: recovery redo completed notes.txt target evt-fake-006                                                 |
+| selected recovery command: redo                                                                                      |
+| selected recovery status: completed                                                                                  |
+| selected recovery target event id: evt-fake-006                                                                      |
+| selected recovery action: restore_created_file                                                                       |
+| selected recovery paths: notes.txt                                                                                   |
+| selected redo available: false                                                                                       |
 | selected previous version: missing                                                                                   |
-| selected new version: sha256:fixture-new-version                                                                     |
-| selected undo available: true                                                                                        |
-| selected undo action: delete_created_file                                                                            |
+| selected new version: sha256:fixture-redone-version                                                                  |
+|                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |

@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	EditToolName  = "edit"
-	WriteToolName = "write"
+	EditToolName     = "edit"
+	WriteToolName    = "write"
+	RecoveryToolName = "recovery"
 
 	MissingFileVersion = "missing"
 )
@@ -61,6 +62,14 @@ type ValidatedEditRequest struct {
 	Source                   MutationSourceMetadata
 }
 
+// DeleteCreatedFileRequest is the caller-facing recovery delete contract before validation.
+type DeleteCreatedFileRequest struct {
+	Path           string
+	TargetVersion  string
+	ExpectedEffect string
+	Source         MutationSourceMetadata
+}
+
 // ValidatedWriteRequest is safe, normalized, and ready for later execution.
 type ValidatedWriteRequest struct {
 	ToolName                 string
@@ -73,6 +82,25 @@ type ValidatedWriteRequest struct {
 	Content                  string
 	ExpectedEffect           string
 	Source                   MutationSourceMetadata
+}
+
+// ValidatedDeleteCreatedFileRequest is safe, normalized, and ready for recovery deletion.
+type ValidatedDeleteCreatedFileRequest struct {
+	ToolName                 string
+	RequestedPath            string
+	WorkspaceRoot            string
+	WorkspaceRelativePath    string
+	ResolvedPath             string
+	RequestedPathWasAbsolute bool
+	TargetVersion            string
+	ExpectedEffect           string
+	Source                   MutationSourceMetadata
+}
+
+// DeleteCreatedFileResult returns a recovery delete result plus bounded redo content.
+type DeleteCreatedFileResult struct {
+	MutationResult
+	DeletedContent string
 }
 
 // MutationErrorKind is a bounded machine-readable mutation failure category.
@@ -163,6 +191,29 @@ func ValidateWriteRequest(workspaceRoot string, request WriteRequest) (Validated
 	}, MutationError{}
 }
 
+// ValidateDeleteCreatedFileRequest applies defaults and rejects paths unsafe for recovery deletion.
+func ValidateDeleteCreatedFileRequest(workspaceRoot string, request DeleteCreatedFileRequest) (ValidatedDeleteCreatedFileRequest, MutationError) {
+	path, err := validateMutationPath(workspaceRoot, request.Path)
+	if err.Kind != "" {
+		return ValidatedDeleteCreatedFileRequest{}, err
+	}
+	targetVersion := strings.TrimSpace(request.TargetVersion)
+	if targetVersion == "" || targetVersion == MissingFileVersion {
+		return ValidatedDeleteCreatedFileRequest{}, mutationError(MutationErrorTargetVersionMismatch, "delete recovery requires an existing target version")
+	}
+	return ValidatedDeleteCreatedFileRequest{
+		ToolName:                 RecoveryToolName,
+		RequestedPath:            request.Path,
+		WorkspaceRoot:            path.workspaceRoot,
+		WorkspaceRelativePath:    path.workspaceRelativePath,
+		ResolvedPath:             path.resolvedPath,
+		RequestedPathWasAbsolute: path.requestedPathWasAbsolute,
+		TargetVersion:            targetVersion,
+		ExpectedEffect:           strings.TrimSpace(request.ExpectedEffect),
+		Source:                   request.Source,
+	}, MutationError{}
+}
+
 // ExecuteWrite writes a validated workspace file through the tool/effect path.
 func ExecuteWrite(ctx context.Context, request ValidatedWriteRequest) MutationResult {
 	if err := ctx.Err(); err != nil {
@@ -203,6 +254,55 @@ func ExecuteWrite(ctx context.Context, request ValidatedWriteRequest) MutationRe
 		PreviousExists:        previousExists,
 		BytesWritten:          len([]byte(request.Content)),
 		Source:                request.Source,
+	}
+}
+
+// ExecuteDeleteCreatedFile deletes an exact-version file through the recovery effect path.
+func ExecuteDeleteCreatedFile(ctx context.Context, request ValidatedDeleteCreatedFileRequest) DeleteCreatedFileResult {
+	if err := ctx.Err(); err != nil {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, request.ResolvedPath, request.ExpectedEffect, request.Source, mutationExecutionError(err))}
+	}
+	resolvedPath, err := resolveMutationTarget(request.WorkspaceRoot, request.ResolvedPath)
+	if err.Kind != "" {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, request.ResolvedPath, request.ExpectedEffect, request.Source, err)}
+	}
+	request.ResolvedPath = resolvedPath
+
+	previousExists, previousVersion, versionErr := mutationFileVersion(resolvedPath)
+	if versionErr.Kind != "" {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, versionErr)}
+	}
+	if !previousExists {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, mutationError(MutationErrorMissingFile, "file does not exist"))}
+	}
+	if mismatch := checkTargetVersion(request.TargetVersion, previousVersion); mismatch.Kind != "" {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, mismatch)}
+	}
+	content, readErr := os.ReadFile(resolvedPath)
+	if readErr != nil {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, mutationExecutionError(readErr))}
+	}
+	if err := os.Remove(resolvedPath); err != nil {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, mutationExecutionError(err))}
+	}
+	_, newVersion, versionErr := mutationFileVersion(resolvedPath)
+	if versionErr.Kind != "" {
+		return DeleteCreatedFileResult{MutationResult: NewMutationFailure(request.ToolName, request.WorkspaceRelativePath, resolvedPath, request.ExpectedEffect, request.Source, versionErr)}
+	}
+	return DeleteCreatedFileResult{
+		MutationResult: MutationResult{
+			ToolName:              request.ToolName,
+			WorkspaceRelativePath: request.WorkspaceRelativePath,
+			ResolvedPath:          resolvedPath,
+			ResolvedPathAvailable: true,
+			Status:                "completed",
+			ExpectedEffect:        request.ExpectedEffect,
+			PreviousVersion:       previousVersion,
+			NewVersion:            newVersion,
+			PreviousExists:        true,
+			Source:                request.Source,
+		},
+		DeletedContent: string(content),
 	}
 }
 

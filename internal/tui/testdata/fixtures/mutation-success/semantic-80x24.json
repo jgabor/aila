@@ -44,8 +44,8 @@
       "target": "internal/demo.txt",
       "expected_effect": "create demo file",
       "reversible": false,
-      "run_id": "run-m27-write",
-      "capability": "m27-fixture"
+      "run_id": "run-write-fixture",
+      "capability": "mutation-fixture"
     },
     "completed": true
   },
@@ -119,8 +119,8 @@
         "decision_target: internal/demo.txt",
         "decision_expected_effect: create demo file",
         "decision_reversible: false",
-        "decision_run_id: run-m27-write",
-        "decision_capability: m27-fixture",
+        "decision_run_id: run-write-fixture",
+        "decision_capability: mutation-fixture",
         "decision_reason: write autonomy allows classified operation",
         "app-owned",
         "display-only"

@@ -362,6 +362,30 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 		t.Fatalf("status policy route mismatch: slash=%+v shortcut=%+v", statusSlash, statusShortcut)
 	}
 
+	undoSlash, ok := policy.RecommendSlashCommand("/undo")
+	if !ok {
+		t.Fatal("/undo did not match")
+	}
+	undoShortcut, ok := policy.RecommendShortcut("ctrl+x", "u")
+	if !ok {
+		t.Fatal("ctrl+x u did not match")
+	}
+	if undoSlash.Route != undoShortcut.Route || undoSlash.Route != policy.CommandRouteUndo {
+		t.Fatalf("undo policy route mismatch: slash=%+v shortcut=%+v", undoSlash, undoShortcut)
+	}
+
+	redoSlash, ok := policy.RecommendSlashCommand("/redo")
+	if !ok {
+		t.Fatal("/redo did not match")
+	}
+	redoShortcut, ok := policy.RecommendShortcut("ctrl+x", "r")
+	if !ok {
+		t.Fatal("ctrl+x r did not match")
+	}
+	if redoSlash.Route != redoShortcut.Route || redoSlash.Route != policy.CommandRouteRedo {
+		t.Fatalf("redo policy route mismatch: slash=%+v shortcut=%+v", redoSlash, redoShortcut)
+	}
+
 	quitSlash, ok := policy.RecommendSlashCommand("/quit")
 	if !ok {
 		t.Fatal("/quit did not match")
@@ -429,6 +453,24 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 	}
 	if diffSlashModel.state.SurfaceTitle != "diff" || diffShortcutModel.state.SurfaceTitle != "diff" || !diffSlashModel.state.DiffFocus || !diffShortcutModel.state.DiffFocus {
 		t.Fatalf("diff surface mismatch: slash=%+v shortcut=%+v", diffSlashModel.state, diffShortcutModel.state)
+	}
+
+	undoSlashModel, undoSlashCmd := routeSlashCommandForParity(t, "/undo")
+	undoShortcutModel, undoShortcutCmd := routeShortcutForParity(t, "u")
+	if undoSlashCmd != nil || undoShortcutCmd != nil {
+		t.Fatal("undo parity routes should not emit Bubble Tea commands")
+	}
+	if undoSlashModel.state.CommandRoute != undoShortcutModel.state.CommandRoute || undoSlashModel.state.RouteSource != undoShortcutModel.state.RouteSource {
+		t.Fatalf("undo TUI route mismatch: slash=%+v shortcut=%+v", undoSlashModel.state, undoShortcutModel.state)
+	}
+
+	redoSlashModel, redoSlashCmd := routeSlashCommandForParity(t, "/redo")
+	redoShortcutModel, redoShortcutCmd := routeShortcutForParity(t, "r")
+	if redoSlashCmd != nil || redoShortcutCmd != nil {
+		t.Fatal("redo parity routes should not emit Bubble Tea commands")
+	}
+	if redoSlashModel.state.CommandRoute != redoShortcutModel.state.CommandRoute || redoSlashModel.state.RouteSource != redoShortcutModel.state.RouteSource {
+		t.Fatalf("redo TUI route mismatch: slash=%+v shortcut=%+v", redoSlashModel.state, redoShortcutModel.state)
 	}
 
 	quitSlashModel, quitSlashCmd := routeSlashCommandForParity(t, "/quit")
@@ -519,11 +561,11 @@ func TestStatusCommandShowsStableDeterministicPlaceholderSurface(t *testing.T) {
 	}
 }
 
-func TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder(t *testing.T) {
+func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T) {
 	t.Parallel()
 
 	renderHelp := func() string {
-		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, nil, nil)
+		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 120, Height: 32}, nil, nil)
 		updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/help")})
 		if cmd != nil {
 			t.Fatal("typing help must not emit a Bubble Tea command")
@@ -547,10 +589,14 @@ func TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder(t *testing.T) {
 		"/status - Show deterministic placeholder status.",
 		"/help - Show this deterministic placeholder help.",
 		"/diff - Review current changes.",
+		"/undo - Undo the latest supported mutation.",
+		"/redo - Redo the latest supported recovery.",
 		"/quit - Quit Aila.",
 		"shortcuts:",
 		"ctrl+x s - Show deterministic placeholder status.",
 		"ctrl+x d - Review current changes.",
+		"ctrl+x u - Undo the latest supported mutation.",
+		"ctrl+x r - Redo the latest supported recovery.",
 		"ctrl+x q - Quit Aila.",
 	} {
 		if !strings.Contains(first, item) {
@@ -559,13 +605,17 @@ func TestHelpCommandShowsOnlyM5CommandsAndShortcutsInStableOrder(t *testing.T) {
 	}
 	assertOrdered(t, first, "/status - Show deterministic placeholder status.", "/help - Show this deterministic placeholder help.")
 	assertOrdered(t, first, "/help - Show this deterministic placeholder help.", "/diff - Review current changes.")
-	assertOrdered(t, first, "/diff - Review current changes.", "/quit - Quit Aila.")
+	assertOrdered(t, first, "/diff - Review current changes.", "/undo - Undo the latest supported mutation.")
+	assertOrdered(t, first, "/undo - Undo the latest supported mutation.", "/redo - Redo the latest supported recovery.")
+	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
 	assertOrdered(t, first, "ctrl+x s - Show deterministic placeholder status.", "ctrl+x d - Review current changes.")
-	assertOrdered(t, first, "ctrl+x d - Review current changes.", "ctrl+x q - Quit Aila.")
+	assertOrdered(t, first, "ctrl+x d - Review current changes.", "ctrl+x u - Undo the latest supported mutation.")
+	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
+	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/new", "/clear", "/continue", "/review", "/history", "/undo", "/redo", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
-		"ctrl+x n", "ctrl+x c", "ctrl+x i", "ctrl+x h", "ctrl+x u", "ctrl+x r", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
+		"/new", "/clear", "/continue", "/review", "/history", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
+		"ctrl+x n", "ctrl+x c", "ctrl+x i", "ctrl+x h", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {

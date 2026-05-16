@@ -356,7 +356,7 @@ func TestHistoryViewPTYSmoke(t *testing.T) {
 		"selected text: user asked for fake history",
 	}, 10*time.Second)
 	assertNoHistorySmokeLeaks(t, output, env, workspace)
-	for _, forbidden := range []string{"redo", "replay", "token=", "Authorization:", "history-smoke-secret"} {
+	for _, forbidden := range []string{"replay", "token=", "Authorization:", "history-smoke-secret"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("history PTY output exposed forbidden marker %q: %q", forbidden, output)
 		}
@@ -422,7 +422,7 @@ func TestHistoryEmptyPTYSmoke(t *testing.T) {
 		"no fake history events recorded yet",
 	}, 10*time.Second)
 	assertNoHistorySmokeLeaks(t, output, env, workspace)
-	for _, forbidden := range []string{"entries:", "selected event id:", "undo", "redo", "replay"} {
+	for _, forbidden := range []string{"entries:", "selected event id:", "replay"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("empty history PTY output exposed forbidden marker %q: %q", forbidden, output)
 		}
@@ -482,7 +482,7 @@ func TestDiffViewPTYSmoke(t *testing.T) {
 		"+ new value",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, output, env, workspace)
-	for _, forbidden := range []string{"undo", "redo", "replay", "Mutation result:", "Approval pending:", "provider review"} {
+	for _, forbidden := range []string{"replay", "Mutation result:", "Approval pending:", "provider review"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("diff PTY output exposed forbidden marker %q: %q", forbidden, output)
 		}
@@ -673,6 +673,86 @@ func TestApprovalToWriteMutationPTYSmoke(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatalf("approval-to-write mutation PTY did not quit cleanly: %v", ctx.Err())
 	}
+}
+
+func TestUndoRedoRecoveryPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars,
+		"AILA_FAKE_APPROVAL_WRITE=1",
+		"AILA_FAKE_APPROVAL_WRITE_PATH=notes.txt",
+		"AILA_FAKE_APPROVAL_WRITE_CONTENT=approved through pty",
+	)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithSizeEnvAndWorkspace(t, 160, 45, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Approval pending:",
+		"proposal id: fake-approval-write-001",
+		"operation kind: mutation",
+		"path: notes.txt",
+		"choices: a approve | n deny | d defer",
+	}, 20*time.Second)
+	if _, err := terminal.Write([]byte("a")); err != nil {
+		t.Fatalf("send approval input before undo/redo smoke: %v", err)
+	}
+
+	readUntilAll(t, terminal, []string{
+		"Runtime idle",
+		"Mutation result:",
+		"tool: write",
+		"status: completed",
+		"path: notes.txt",
+	}, 10*time.Second)
+	assertFileContent(t, filepath.Join(workspace, "notes.txt"), "approved through pty")
+
+	if _, err := terminal.Write([]byte("/undo\r")); err != nil {
+		t.Fatalf("send /undo command input: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Recovery result:",
+		"command: undo",
+		"status: completed",
+		"action: delete_created_file",
+		"paths: notes.txt",
+		"redo available: true",
+		"redo action: restore_created_file",
+		"decision source: autonomy_policy",
+	}, 10*time.Second)
+	if _, err := os.Stat(filepath.Join(workspace, "notes.txt")); !os.IsNotExist(err) {
+		t.Fatalf("undo recovery target still exists or stat failed unexpectedly: %v", err)
+	}
+
+	if _, err := terminal.Write([]byte("/redo\r")); err != nil {
+		t.Fatalf("send /redo command input: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"command: redo",
+		"status: completed",
+		"action: restore_created_file",
+		"redo available: false",
+		"decision source: autonomy_policy",
+		"decision tool: redo",
+	}, 10*time.Second)
+	assertFileContent(t, filepath.Join(workspace, "notes.txt"), "approved through pty")
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after undo/redo recovery smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("undo/redo recovery PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("undo/redo recovery PTY did not quit cleanly: %v", ctx.Err())
+	}
+
+	assertUndoRedoRecoveryHistory(t, workspace)
 }
 
 func TestM24AgentReadOnlyTurnPTYSmoke(t *testing.T) {
@@ -1439,6 +1519,38 @@ func assertFileContent(t *testing.T, path string, want string) {
 	}
 	if string(content) != want {
 		t.Fatalf("content of %q = %q, want %q", path, content, want)
+	}
+}
+
+func assertUndoRedoRecoveryHistory(t *testing.T, workspace string) {
+	t.Helper()
+
+	content, err := os.ReadFile(filepath.Join(workspace, ".aila", "history", "fake-events.jsonl"))
+	if err != nil {
+		t.Fatalf("read undo/redo recovery history JSONL: %v", err)
+	}
+	encoded := string(content)
+	for _, marker := range []string{
+		`"kind":"mutation"`,
+		`"kind":"command"`,
+		`"kind":"recovery"`,
+		`"command":"undo"`,
+		`"command":"redo"`,
+		`"target_event_id":"current-1"`,
+		`"action":"delete_created_file"`,
+		`"action":"restore_created_file"`,
+		`"redo_available":true`,
+		`"redo_available":false`,
+		`"redo_content":"approved through pty"`,
+	} {
+		if !strings.Contains(encoded, marker) {
+			t.Fatalf("undo/redo recovery history missing marker %q: %s", marker, encoded)
+		}
+	}
+	for _, leaked := range []string{workspace, "/tmp", "/home/", "token=", "Authorization:"} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("undo/redo recovery history leaked marker %q: %s", leaked, encoded)
+		}
 	}
 }
 

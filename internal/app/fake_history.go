@@ -134,6 +134,7 @@ func historyDisplayItems(events []history.FakeEvent) []tui.HistoryItem {
 			DisplayText: event.DisplayText,
 			Mutation:    historyMutationItem(event.Mutation),
 			Undo:        historyUndoItem(event.Undo),
+			Recovery:    historyRecoveryItem(event.Recovery),
 		})
 	}
 	return items
@@ -163,6 +164,28 @@ func historyMutationItem(record *history.MutationRecord) *tui.HistoryMutationIte
 		ErrorMessage:          record.ErrorMessage,
 		DecisionRunID:         record.DecisionRunID,
 		DecisionCapability:    record.DecisionCapability,
+	}
+}
+
+func historyRecoveryItem(record *history.RecoveryRecord) *tui.HistoryRecoveryItem {
+	if record == nil {
+		return nil
+	}
+	return &tui.HistoryRecoveryItem{
+		Command:            record.Command,
+		Status:             record.Status,
+		TargetEventID:      record.TargetEventID,
+		Action:             record.Action,
+		Paths:              append([]string(nil), record.Paths...),
+		PreviousVersion:    record.PreviousVersion,
+		NewVersion:         record.NewVersion,
+		RedoAvailable:      record.RedoAvailable,
+		RedoAction:         record.RedoAction,
+		Reason:             record.Reason,
+		ErrorKind:          record.ErrorKind,
+		ErrorMessage:       record.ErrorMessage,
+		DecisionRunID:      record.DecisionRunID,
+		DecisionCapability: record.DecisionCapability,
 	}
 }
 
@@ -255,7 +278,7 @@ func (controller *sessionController) persistMutationHistory(turn tui.TranscriptT
 	record := mutationHistoryRecord(result, turn.ApprovalDecision)
 	undo := mutationUndoMetadata(record)
 	display := mutationHistoryDisplay(record, undo)
-	return controller.persistHistoryStructuredEvent(history.EventKindMutation, "mutation.result", "mutation.tool", display, record, undo)
+	return controller.persistHistoryStructuredEvent(history.EventKindMutation, "mutation.result", "mutation.tool", display, record, undo, nil)
 }
 
 func mutationHistoryRecord(result runtime.MutationToolResult, approval *tui.ApprovalDecisionView) *history.MutationRecord {
@@ -366,10 +389,10 @@ func mutationHistoryPath(path string) string {
 }
 
 func (controller *sessionController) persistHistoryEvent(kind history.EventKind, provenance string, source string, displayText string) []tui.DiagnosticView {
-	return controller.persistHistoryStructuredEvent(kind, provenance, source, displayText, nil, nil)
+	return controller.persistHistoryStructuredEvent(kind, provenance, source, displayText, nil, nil, nil)
 }
 
-func (controller *sessionController) persistHistoryStructuredEvent(kind history.EventKind, provenance string, source string, displayText string, mutation *history.MutationRecord, undo *history.UndoMetadata) []tui.DiagnosticView {
+func (controller *sessionController) persistHistoryStructuredEvent(kind history.EventKind, provenance string, source string, displayText string, mutation *history.MutationRecord, undo *history.UndoMetadata, recovery *history.RecoveryRecord) []tui.DiagnosticView {
 	if controller.persistHistory == nil || displayText == "" {
 		return nil
 	}
@@ -385,6 +408,7 @@ func (controller *sessionController) persistHistoryStructuredEvent(kind history.
 		DisplayText:   displayText,
 		Mutation:      mutation,
 		Undo:          undo,
+		Recovery:      recovery,
 	}})
 	return diagnosticViews(result.Diagnostics)
 }

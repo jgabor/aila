@@ -1,4 +1,122 @@
 cycles:
+  - number: 181
+    timestamp: "2026-05-16 23:39"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M30 by delivering closed undo/redo command routes, bounded recovery records, app-owned supported create-file undo and safe redo execution, TUI recovery/history rendering, PTY smoke, ROADMAP closeout, and Agentera artifact validation.
+    commit: "pending local commit for M30 undo and redo commands"
+    inspiration: ".agentera/plan.yaml task 5; ROADMAP.md Milestone 30; docs/notes/PROMPT.md; README.md undo/redo command promises; ARCHITECTURE.md explicit effect, permission, history, and TUI boundaries"
+    discovered: >-
+      M30 can safely support the first recovery shape without broad rewind: /undo selects an undoable create-file mutation, deletes only the exact-version target through a guarded recovery effect, and records redo metadata only when deleted content remains safe after history normalization. /redo restores only from that bounded recorded undo result. Older PTY leak assertions needed narrowing because undo/redo are now legitimate visible command labels.
+    verified: >-
+      mage fmt passed. go test ./cmd/aila -run 'TestUndoRedoRecoveryPTYSmoke|TestApprovalToWriteMutationPTYSmoke|TestHistoryViewPTYSmoke|TestHistoryEmptyPTYSmoke|TestDiffViewPTYSmoke' -count=1 passed. go test ./internal/tools ./internal/permission ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1 passed. go test ./internal/... -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities. rg -n 'TestM(27|28|29|30)|func TestM(27|28|29|30)|run-m27|m27-fixture' internal cmd returned no matches.
+    next: >-
+      Commit the M30 undo and redo commands slice, then continue with M31: Non-Interactive Read-Only Run in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: Execute the active M30 plan through Orkestrera and close the roadmap slice only after command, recovery, rendering, PTY, and full validation passed.
+      constraints: TUI remains presentation-only; recovery supports exact-version create-file undo and safe-content redo only; unsupported, stale, and denied recovery remains bounded and auditable; no provider review, conversation rewind, broad edit/overwrite restoration, non-interactive run behavior, or M31+ behavior was added.
+      unknowns: "none"
+      scope: internal/policy undo/redo routing, internal/history recovery contract, internal/state JSONL recovery round trip, internal/tools recovery delete effect, internal/permission recovery classification, internal/app recovery execution/history persistence, internal/tui recovery rendering/snapshots, cmd/aila PTY smoke, ROADMAP closeout, and Agentera plan/progress closeout.
+  - number: 180
+    timestamp: "2026-05-16 23:59"
+    type: build
+    phase: build
+    what: >-
+      Completed M30 Task 4 by rendering undoable, undone, and redone history states plus a recovery-result surface with machine-readable semantic snapshots.
+    commit: "N/A: implementation in progress before M30 commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 30 TUI validation gate; docs/tui-testing.md render and semantic snapshot requirements"
+    discovered: >-
+      The history fixture now tells the behavior story directly: a mutation is undoable, a following undo is redoable, and a following redo is selected with redo unavailable. Recovery result rendering works best as app-injected RecoveryView data and a semantic recovery region, while history remains a read-only app-injected list.
+    verified: >-
+      mage fmt passed. go test ./internal/tui -run 'TestRecoveryResult|TestHistoryView|TestDiffView|TestCommandFixtureSet' -count=1 passed. go test ./internal/tui -count=1 passed. go test ./internal/tools ./internal/permission ./internal/history ./internal/state ./internal/app -count=1 passed. rg -n 'TestM(27|28|29|30)|func TestM(27|28|29|30)|run-m27|m27-fixture' internal cmd returned no matches.
+    next: >-
+      Execute M30 Task 5: add PTY undo/redo smoke, run closeout validation, update ROADMAP.md, validate Agentera artifacts, and commit the milestone.
+    context:
+      intent: Make recovery behavior visible and semantically inspectable without moving history or recovery execution into TUI ownership.
+      constraints: TUI remains presentation-only; snapshots avoid machine-specific home paths; no provider review, conversation rewind, broad edit/overwrite restoration, non-interactive run behavior, or M31+ behavior was added.
+      unknowns: "none"
+      scope: internal/tui RecoveryView rendering/semantic state, history recovery item rendering/semantic state, history-view snapshots, recovery-result snapshots, and behavior-based touched fixture identifiers.
+  - number: 179
+    timestamp: "2026-05-16 23:46"
+    type: build
+    phase: build
+    what: >-
+      Completed M30 Task 3 by implementing app-owned supported undo/redo execution with explicit recovery effects, permission checks, target-version guards, and bounded recovery history results.
+    commit: "N/A: implementation in progress before M30 commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 30; M29 mutation undo metadata; ARCHITECTURE.md explicit effect and permission boundaries"
+    discovered: >-
+      The safe first recovery shape is create-file undo only: /undo deletes an exact-version created file and records redo metadata only when the deleted content survives history normalization unchanged. /redo restores only from a completed undo with safe redo content and otherwise records unsupported or failed results. Stale targets and read-level autonomy do not mutate files.
+    verified: >-
+      mage fmt passed. go test ./internal/tools ./internal/permission ./internal/app ./internal/tui -count=1 passed, covering recovery delete effects, recovery operation classification, supported undo, supported redo, unsupported no-op, stale target failure, and permission-denied no-mutation behavior.
+    next: >-
+      Execute M30 Task 4: render undoable, undone, and redone states in history and recovery result semantic/display snapshots.
+    context:
+      intent: Turn M29 undo metadata into guarded user-facing recovery behavior without widening into arbitrary edit restoration.
+      constraints: TUI remains presentation-only; recovery supports exact-version create-file undo and safe-content redo only; no provider review, conversation rewind, broad edit/overwrite restoration, non-interactive run behavior, or M31+ behavior was added.
+      unknowns: "none"
+      scope: internal/tools recovery delete effect, internal/permission recovery classification, internal/app recovery selection/execution/history persistence, and initial app-injected recovery view data.
+  - number: 178
+    timestamp: "2026-05-16 23:31"
+    type: build
+    phase: build
+    what: >-
+      Completed M30 Task 2 by extending the fake history contract with bounded recovery records for app-owned undo/redo results and adding state JSONL round-trip coverage.
+    commit: "N/A: implementation in progress before M30 commit"
+    inspiration: ".agentera/plan.yaml task 2; ROADMAP.md Milestone 30; ARCHITECTURE.md history/state boundaries; docs/workflow-architecture.md mutation history flow"
+    discovered: >-
+      Recovery can share the existing fake history append/read contract without introducing a second store. Recovery records need enough metadata for audited target selection and redo eligibility, but unsafe paths, missing targets, missing redo restore content, and cross-kind metadata must be rejected before append. The history package boundary can now legitimately mention redo, so the old forbidden boundary token was removed.
+    verified: >-
+      mage fmt passed. go test ./internal/history ./internal/state -count=1 passed. rg -n 'func TestM(27|28|29|30)|TestM(27|28|29|30)' internal cmd returned no matches.
+    next: >-
+      Execute M30 Task 3: implement app-owned supported undo/redo execution through explicit effects, permission classification, target-version rechecks, and bounded recovery result persistence.
+    context:
+      intent: Keep recovery persistence auditable and bounded before wiring command execution.
+      constraints: TUI remains presentation-only; no provider review, conversation rewind, broad edit/overwrite restoration, non-interactive run behavior, or M31+ behavior was added in Task 2.
+      unknowns: "none"
+      scope: internal/history recovery event contract, internal/state fake history recovery round trip, and the history package boundary test.
+  - number: 177
+    timestamp: "2026-05-16 23:24"
+    type: build
+    phase: build
+    what: >-
+      Completed M30 Task 1 by adding closed /undo and /redo command routes, ctrl+x u/r shortcut parity, visible help-command entries, behavior-based touched command tests, and updated help-command plain/ANSI/semantic snapshots.
+    commit: "N/A: implementation in progress before M30 commit"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 30; README.md undo/redo command promises; docs/tui-testing.md command/keybinding and snapshot gates"
+    discovered: >-
+      Undo and redo route cleanly through the same policy and TUI command seams as status/history/diff/quit. The 80x24 help render cannot show every shortcut after adding two commands, but semantic snapshots and larger render snapshots carry the complete command list.
+    verified: >-
+      go test ./internal/policy ./internal/tui -run 'TestCommandRoutes|TestSlashAndShortcut|TestHelpCommand|TestCommandFixtureSet|TestM6CommandSemantics' -count=1 passed after regenerating and reviewing help-command snapshots.
+    next: >-
+      Execute M30 Task 2: extend the bounded history contract for recovery records while preserving existing event compatibility.
+    context:
+      intent: Keep M30 command recognition closed and shared before implementing recovery execution.
+      constraints: TUI remains presentation-only; no recovery execution, file mutation, provider review, conversation rewind, or M31+ behavior was added in Task 1.
+      unknowns: "none"
+      scope: internal/policy command routes/tests, internal/tui command routing/help tests, and help-command fixture snapshots.
+  - number: 176
+    timestamp: "2026-05-16 23:12"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 30: Undo And Redo Commands as the next roadmap milestone, archived the completed M29 plan, and created a new active full plan with five bounded tasks for command routing, recovery history contracts, guarded undo/redo execution, TUI recovery rendering, PTY smoke, validation, and closeout.
+    commit: "N/A: planning artifact before M30 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 30; AGENTS.md; README.md history/undo command promises; ARCHITECTURE.md tool/permission/history boundaries; docs/workflow-architecture.md permission/history flow; docs/tui-testing.md command/keybinding, history-view, semantic snapshot, and PTY gates"
+    discovered: >-
+      M30 should build on M29 rather than create a parallel recovery subsystem. Policy owns closed /undo and /redo routes, TUI owns route input and display-only recovery/history state, app owns recovery target selection and orchestration, guarded tool/effect code owns workspace file mutation, and history/state owns bounded recovery result records. The first safe supported record should be create-file writes with delete_created_file undo metadata; richer edit/overwrite restoration, provider review, conversation rewind, context compaction, indexing, plugins, MCP, workflow DSL, marketplace, hosted control plane, run mode, and M31+ behavior stay out of scope.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress state, ROADMAP.md M30 section, AGENTS.md, docs/notes/PROMPT.md, README history/undo commands, ARCHITECTURE.md tool/permission/state/history boundaries, docs/workflow-architecture.md permission/history flow, docs/tui-testing.md TUI gates, and current policy/app/runtime/tools/history/state/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M30 Task 1: add the closed undo and redo command routes. Do not implement provider review, conversation rewind, broad edit/overwrite restoration, non-interactive run behavior, or M31+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md before starting implementation.
+      constraints: >-
+        Plan only M30; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, CLI-first Agentera artifact access, app-owned guarded recovery execution, bounded recovery records, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Redo support should stay conservative: restore only when the preceding undo recorded safe bounded redo metadata; otherwise record an unsupported result instead of fabricating recovery.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m29.yaml archival, and progress evidence for the M30 planning handoff.
   - number: 175
     timestamp: "2026-05-16 22:51"
     type: build

@@ -11,11 +11,11 @@
 | /status - Show deterministic placeholder status.                             |
 | /help - Show this deterministic placeholder help.                            |
 | /diff - Review current changes.                                              |
+| /undo - Undo the latest supported mutation.                                  |
+| /redo - Redo the latest supported recovery.                                  |
 | /quit - Quit Aila.                                                           |
 | shortcuts:                                                                   |
 | ctrl+x s - Show deterministic placeholder status.                            |
-| ctrl+x d - Review current changes.                                           |
-| ctrl+x q - Quit Aila.                                                        |
 +------------------------------------------------------------------------------+
 + [33mPrompt[0m ----------------------------------------------------------------------+
 | [36m>[0m                                                                            |

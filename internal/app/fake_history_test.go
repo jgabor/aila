@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -148,6 +149,153 @@ func TestSessionControllerPersistsApprovedMutationHistoryWithUndoMetadata(t *tes
 	}
 }
 
+func TestSessionControllerUndoDeletesSupportedMutationAndRecordsRecovery(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "approved write")
+	version := appTestFileVersion(t, filepath.Join(workspace, "notes.txt"))
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyWrite)
+	controller := newSessionControllerWithPersistenceAndHistoryRead(context.Background(), view, newInputRunnerWithDispatch(runtime.Dispatch), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
+		return HistoryReadResult{State: state.FakeHistoryLoaded, Events: []history.FakeEvent{supportedCreateFileMutationEvent("event-mutation", version)}}
+	})
+	controller.workspacePath = workspace
+	controller.autonomyLevel = string(permission.AutonomyWrite)
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteUndo, Kind: policy.CommandInputSlash}, controller.view)
+
+	if _, err := os.Stat(filepath.Join(workspace, "notes.txt")); !os.IsNotExist(err) {
+		t.Fatalf("undo did not remove target file: %v", err)
+	}
+	if got.Recovery == nil || got.Recovery.Command != "undo" || got.Recovery.Status != "completed" || got.Recovery.TargetEventID != "event-mutation" || !got.Recovery.RedoAvailable || got.Recovery.Decision == nil || !got.Recovery.Decision.Allowed {
+		t.Fatalf("undo recovery view = %+v", got.Recovery)
+	}
+	if len(commands) != 2 {
+		t.Fatalf("history commands = %#v, want command plus recovery", commands)
+	}
+	event := commands[1].Event
+	if _, err := history.NormalizeFakeEvent(event); err != nil {
+		t.Fatalf("recovery history event invalid: %#v err=%v", event, err)
+	}
+	if event.Kind != history.EventKindRecovery || event.Recovery == nil || event.Recovery.Command != "undo" || event.Recovery.Status != "completed" || event.Recovery.RedoContent != "approved write" {
+		t.Fatalf("recovery event = %#v", event)
+	}
+}
+
+func TestSessionControllerRedoRestoresRecordedUndoAndRecordsRecovery(t *testing.T) {
+	workspace := t.TempDir()
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyWrite)
+	controller := newSessionControllerWithPersistenceAndHistoryRead(context.Background(), view, newInputRunnerWithDispatch(runtime.Dispatch), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
+		return HistoryReadResult{State: state.FakeHistoryLoaded, Events: []history.FakeEvent{
+			supportedCreateFileMutationEvent("event-mutation", "sha256:original"),
+			completedUndoRecoveryEvent("event-undo", "event-mutation", "notes.txt", "sha256:original", "approved write"),
+		}}
+	})
+	controller.workspacePath = workspace
+	controller.autonomyLevel = string(permission.AutonomyWrite)
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteRedo, Kind: policy.CommandInputSlash}, controller.view)
+
+	if content := readAppTestFile(t, filepath.Join(workspace, "notes.txt")); content != "approved write" {
+		t.Fatalf("redo restored content = %q", content)
+	}
+	if got.Recovery == nil || got.Recovery.Command != "redo" || got.Recovery.Status != "completed" || got.Recovery.TargetEventID != "event-mutation" || got.Recovery.RedoAvailable {
+		t.Fatalf("redo recovery view = %+v", got.Recovery)
+	}
+	if len(commands) != 2 || commands[1].Event.Recovery == nil || commands[1].Event.Recovery.Command != "redo" || commands[1].Event.Recovery.NewVersion == "" {
+		t.Fatalf("redo history commands = %#v", commands)
+	}
+}
+
+func TestSessionControllerUndoStaleTargetRecordsFailureWithoutMutation(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "changed")
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyWrite)
+	controller := newSessionControllerWithPersistenceAndHistoryRead(context.Background(), view, newInputRunnerWithDispatch(runtime.Dispatch), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
+		return HistoryReadResult{State: state.FakeHistoryLoaded, Events: []history.FakeEvent{supportedCreateFileMutationEvent("event-mutation", "sha256:stale")}}
+	})
+	controller.workspacePath = workspace
+	controller.autonomyLevel = string(permission.AutonomyWrite)
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteUndo, Kind: policy.CommandInputSlash}, controller.view)
+
+	if content := readAppTestFile(t, filepath.Join(workspace, "notes.txt")); content != "changed" {
+		t.Fatalf("stale undo mutated file = %q", content)
+	}
+	if got.Recovery == nil || got.Recovery.Status != "failed" || got.Recovery.ErrorKind != "target_version_mismatch" {
+		t.Fatalf("stale undo recovery = %+v", got.Recovery)
+	}
+	if len(commands) != 2 || commands[1].Event.Recovery == nil || commands[1].Event.Recovery.Status != "failed" {
+		t.Fatalf("stale undo history commands = %#v", commands)
+	}
+}
+
+func TestSessionControllerUndoWithoutSupportedTargetRecordsUnsupportedNoOp(t *testing.T) {
+	workspace := t.TempDir()
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyWrite)
+	controller := newSessionControllerWithPersistenceAndHistoryRead(context.Background(), view, newInputRunnerWithDispatch(runtime.Dispatch), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
+		return HistoryReadResult{State: state.FakeHistoryLoaded}
+	})
+	controller.workspacePath = workspace
+	controller.autonomyLevel = string(permission.AutonomyWrite)
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteUndo, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Recovery == nil || got.Recovery.Status != "unsupported" || got.Recovery.Action != "inspect_history" || !strings.Contains(got.Recovery.Reason, "no supported undo target") {
+		t.Fatalf("unsupported undo recovery = %+v", got.Recovery)
+	}
+	if len(commands) != 2 || commands[1].Event.Recovery == nil || commands[1].Event.Recovery.Status != "unsupported" {
+		t.Fatalf("unsupported undo history commands = %#v", commands)
+	}
+}
+
+func TestSessionControllerUndoDeniedByPermissionRecordsFailureWithoutMutation(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "approved write")
+	version := appTestFileVersion(t, filepath.Join(workspace, "notes.txt"))
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyRead)
+	controller := newSessionControllerWithPersistenceAndHistoryRead(context.Background(), view, newInputRunnerWithDispatch(runtime.Dispatch), nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
+		return HistoryReadResult{State: state.FakeHistoryLoaded, Events: []history.FakeEvent{supportedCreateFileMutationEvent("event-mutation", version)}}
+	})
+	controller.workspacePath = workspace
+	controller.autonomyLevel = string(permission.AutonomyRead)
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteUndo, Kind: policy.CommandInputSlash}, controller.view)
+
+	if content := readAppTestFile(t, filepath.Join(workspace, "notes.txt")); content != "approved write" {
+		t.Fatalf("denied undo mutated file = %q", content)
+	}
+	if got.Recovery == nil || got.Recovery.Status != "failed" || got.Recovery.ErrorKind != "permission_denied" || got.Recovery.Decision == nil || got.Recovery.Decision.Allowed {
+		t.Fatalf("denied undo recovery = %+v", got.Recovery)
+	}
+	if len(commands) != 2 || commands[1].Event.Recovery == nil || commands[1].Event.Recovery.Status != "failed" {
+		t.Fatalf("denied undo history commands = %#v", commands)
+	}
+}
+
 func TestSessionControllerAppendsFakeHistoryThroughStoreCommand(t *testing.T) {
 	t.Parallel()
 
@@ -194,6 +342,64 @@ func TestSessionControllerSurfacesHistoryPersistenceFailureWithoutWorkflowMutati
 	}
 	if strings.Contains(got.BoundedMessage, "/tmp/secret") || strings.Contains(got.BoundedMessage, "abc123") || len(got.BoundedMessage) > diagnostic.MaxMessageBytes {
 		t.Fatalf("history diagnostic was not bounded/redacted: %q", got.BoundedMessage)
+	}
+}
+
+func supportedCreateFileMutationEvent(eventID string, version string) history.FakeEvent {
+	event := history.FakeEvent{
+		SchemaVersion: history.FakeEventSchemaVersion,
+		Kind:          history.EventKindMutation,
+		EventID:       eventID,
+		RunID:         "run-1",
+		SessionID:     "session-1",
+		Source:        "mutation.tool",
+		Provenance:    "mutation.result",
+		DisplayText:   "mutation write completed notes.txt",
+		Mutation: &history.MutationRecord{
+			ToolName:              "write",
+			Status:                "completed",
+			CommandSource:         "approval-write",
+			ChangedPaths:          []string{"notes.txt"},
+			RequestedPath:         "notes.txt",
+			ExpectedEffect:        "create notes",
+			PreviousVersion:       "missing",
+			NewVersion:            version,
+			PreviousExists:        false,
+			ResolvedPathAvailable: true,
+		},
+		Undo: &history.UndoMetadata{
+			Available:       true,
+			Action:          "delete_created_file",
+			Paths:           []string{"notes.txt"},
+			PreviousVersion: "missing",
+			NewVersion:      version,
+		},
+	}
+	return event
+}
+
+func completedUndoRecoveryEvent(eventID string, targetEventID string, path string, version string, redoContent string) history.FakeEvent {
+	return history.FakeEvent{
+		SchemaVersion: history.FakeEventSchemaVersion,
+		Kind:          history.EventKindRecovery,
+		EventID:       eventID,
+		RunID:         "run-1",
+		SessionID:     "session-1",
+		Source:        "recovery.command",
+		Provenance:    "recovery.undo",
+		DisplayText:   "recovery undo completed " + path,
+		Recovery: &history.RecoveryRecord{
+			Command:         "undo",
+			Status:          "completed",
+			TargetEventID:   targetEventID,
+			Action:          "delete_created_file",
+			Paths:           []string{path},
+			PreviousVersion: version,
+			NewVersion:      "missing",
+			RedoAvailable:   true,
+			RedoAction:      "restore_created_file",
+			RedoContent:     redoContent,
+		},
 	}
 }
 

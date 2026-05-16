@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto write
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: recovery command dispatch                                                                                    |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Recovery result:                                                                                                     |
+| command: undo                                                                                                        |
+| status: completed                                                                                                    |
+| action: delete_created_file                                                                                          |
+| target event id: evt-fake-006                                                                                        |
+| paths: notes.txt                                                                                                     |
+| previous version: sha256:fixture-new-version                                                                         |
+| new version: missing                                                                                                 |
+| redo available: true                                                                                                 |
+| redo action: restore_created_file                                                                                    |
+| decision source: autonomy_policy                                                                                     |
+| approval required: false                                                                                             |
+| operation: mutation                                                                                                  |
+| autonomy: write                                                                                                      |
+| decision tool: undo                                                                                                  |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

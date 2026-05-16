@@ -161,6 +161,18 @@ func NewWriteOperation(targetPath string, targetVersion string, diffPreview stri
 	}
 }
 
+// NewRecoveryOperation classifies an app-owned undo or redo recovery as a file mutation.
+func NewRecoveryOperation(command string, targetPath string, targetVersion string, expectedEffect string) ProposedOperation {
+	return ProposedOperation{
+		Kind:           OperationMutation,
+		Tool:           command,
+		TargetPath:     targetPath,
+		TargetVersion:  targetVersion,
+		ExpectedEffect: expectedEffect,
+		Reversible:     true,
+	}
+}
+
 // NewMutatingBashOperation classifies a future mutating shell command as exec.
 func NewMutatingBashOperation(command []string, workingDir string, expectedEffect string) ProposedOperation {
 	return ProposedOperation{

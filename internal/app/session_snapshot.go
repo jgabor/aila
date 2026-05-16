@@ -45,11 +45,16 @@ type sessionController struct {
 	persistHistory  historyPersistenceFunc
 	readHistory     historyReadFunc
 	readDiff        diffReadFunc
+	workspacePath   string
+	autonomyLevel   string
 	historySequence int
 }
 
 func newController(ctx context.Context, workspacePath string, view tui.ViewState, runner *inputRunner) *sessionController {
-	return newSessionControllerWithPersistenceHistoryReadAndDiff(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath), storeCurrentDiffRead(workspacePath))
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath), storeCurrentDiffRead(workspacePath))
+	controller.workspacePath = workspacePath
+	controller.autonomyLevel = view.Autonomy
+	return controller
 }
 
 func newSessionControllerWithPersistence(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc) *sessionController {
@@ -68,7 +73,7 @@ func newSessionControllerWithPersistenceHistoryReadAndDiff(ctx context.Context, 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist, persistHistory: persistHistory, readHistory: readHistory, readDiff: readDiff}
+	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist, persistHistory: persistHistory, readHistory: readHistory, readDiff: readDiff, autonomyLevel: view.Autonomy}
 }
 
 func (controller *sessionController) submitPrompt(text string) tui.TranscriptTurn {
@@ -115,6 +120,15 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	}
 	if recommendation.Route == policy.CommandRouteDiff {
 		controller.openDiffView()
+		return controller.view
+	}
+	if recommendation.Route == policy.CommandRouteUndo || recommendation.Route == policy.CommandRouteRedo {
+		diagnostics := controller.persistCommandHistory(recommendation)
+		record, decision, recoveryDiagnostics := controller.runRecoveryCommand(recommendation.Route)
+		diagnostics = append(diagnostics, recoveryDiagnostics...)
+		controller.view = tui.ApplyRecoveryView(controller.view, recoveryView(record, decision))
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
 	}
 	diagnostics := controller.persistCommandHistory(recommendation)

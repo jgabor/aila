@@ -48,6 +48,7 @@ type TranscriptTurn struct {
 	Command            *CommandView
 	Fetch              *FetchView
 	Mutation           *MutationView
+	Recovery           *RecoveryView
 	Approval           *ApprovalProposalView
 	ApprovalDecision   *ApprovalDecisionView
 }
@@ -191,6 +192,24 @@ type MutationView struct {
 
 // FetchView is app-injected network read presentation data. It is display-only;
 // TUI code must never contact the network itself.
+// RecoveryView is app-injected undo/redo presentation data. It is display-only;
+// TUI code must never read history or mutate workspace files itself.
+type RecoveryView struct {
+	Command         string
+	Status          string
+	TargetEventID   string
+	Action          string
+	Paths           []string
+	PreviousVersion string
+	NewVersion      string
+	RedoAvailable   bool
+	RedoAction      string
+	Reason          string
+	ErrorKind       string
+	ErrorMessage    string
+	Decision        *DecisionView
+}
+
 type FetchView struct {
 	Name              string
 	Status            string
@@ -449,6 +468,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Command = cloneCommandView(turn.Command)
 	state.Fetch = cloneFetchView(turn.Fetch)
 	state.Mutation = cloneMutationView(turn.Mutation)
+	state.Recovery = cloneRecoveryView(turn.Recovery)
 	state.Approval = cloneApprovalProposalView(turn.Approval)
 	state.ApprovalDecision = cloneApprovalDecisionView(turn.ApprovalDecision)
 	return state
@@ -511,6 +531,16 @@ func cloneMutationView(mutation *MutationView) *MutationView {
 	}
 	clone := *mutation
 	clone.Decision = cloneDecisionView(mutation.Decision)
+	return &clone
+}
+
+func cloneRecoveryView(recovery *RecoveryView) *RecoveryView {
+	if recovery == nil {
+		return nil
+	}
+	clone := *recovery
+	clone.Paths = append([]string(nil), recovery.Paths...)
+	clone.Decision = cloneDecisionView(recovery.Decision)
 	return &clone
 }
 
@@ -651,10 +681,14 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/status - Show deterministic placeholder status.",
 			"/help - Show this deterministic placeholder help.",
 			"/diff - Review current changes.",
+			"/undo - Undo the latest supported mutation.",
+			"/redo - Redo the latest supported recovery.",
 			"/quit - Quit Aila.",
 			"shortcuts:",
 			"ctrl+x s - Show deterministic placeholder status.",
 			"ctrl+x d - Review current changes.",
+			"ctrl+x u - Undo the latest supported mutation.",
+			"ctrl+x r - Redo the latest supported recovery.",
 			"ctrl+x q - Quit Aila.",
 		}
 	case policy.CommandRouteHistory:
@@ -676,6 +710,18 @@ func ApplyHistoryView(state ViewState, items []HistoryItem, selected int, focus 
 	state.HistorySelected = selected
 	state.HistorySelected = clampHistorySelection(state)
 	state.SurfaceLines = historySurfaceLines(state)
+	return state
+}
+
+// ApplyRecoveryView injects app-owned undo/redo result display data into the TUI state.
+func ApplyRecoveryView(state ViewState, recovery *RecoveryView) ViewState {
+	state.RouteSource = "policy.command"
+	if recovery != nil {
+		state.CommandRoute = recovery.Command
+	}
+	state.SurfaceTitle = "recovery"
+	state.Recovery = cloneRecoveryView(recovery)
+	state.SurfaceLines = recoverySurfaceLines(recovery)
 	return state
 }
 
@@ -742,6 +788,11 @@ func cloneHistoryItems(items []HistoryItem) []HistoryItem {
 			undo := *item.Undo
 			undo.Paths = append([]string(nil), item.Undo.Paths...)
 			itemClone.Undo = &undo
+		}
+		if item.Recovery != nil {
+			recovery := *item.Recovery
+			recovery.Paths = append([]string(nil), item.Recovery.Paths...)
+			itemClone.Recovery = &recovery
 		}
 		clone = append(clone, itemClone)
 	}

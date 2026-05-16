@@ -1,0 +1,166 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: M29 completed; actual /undo and /redo execution, redo state, provider review, context compaction, indexing, and M30+ behavior
+    deferred
+  title: Milestone 29 Mutation History And Undo Metadata
+what: Deliver ROADMAP.md Milestone 29 by recording edit/write mutation history, approval decisions, command/source metadata, results, and undo
+  metadata where supported, then exposing those records in the existing history view.
+why: M27 made edit/write mutations possible and M28 made diffs inspectable. M29 makes mutations auditable and prepares safe recovery work before
+  M30 adds undo/redo commands.
+constraints: 'Execute only Milestone 29. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only: it may render app-injected
+  mutation history and undo metadata, but it must not read history files, mutate files, decide permissions, or execute undo. Keep actual /undo
+  and /redo commands, redo state, mutation execution changes beyond history recording, provider review, context compaction, stale checks, source
+  indexing, plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, and Milestone 30+ behavior out of scope. Use
+  behavior-based test names rather than milestone-numbered names. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m28.yaml
+source_anchors:
+- ROADMAP.md:1-110
+- ROADMAP.md:1277-1297
+- docs/notes/PROMPT.md:1-39
+- README.md:285-302
+- ARCHITECTURE.md:451-523
+- ARCHITECTURE.md:981-986
+- docs/workflow-architecture.md:573-631
+- docs/tui-testing.md:69-77
+- docs/tui-testing.md:206-230
+verification_commands:
+- go test ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/history internal/state internal/app internal/tui cmd/aila
+- git diff --check --no-index /dev/null <each new M29 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve terminal padding
+  and are covered by snapshot tests
+scope:
+  included:
+  - Extend the bounded fake history event contract with mutation records and undo metadata while keeping prompt, response, command, and runtime
+    events compatible.
+  - Persist edit/write mutation history from the app-owned mutation result path, including approval ID when present, tool/command source, changed
+    paths, result status, versions, and safe undo metadata where supported.
+  - Extend the history-view TUI presentation and semantic snapshots to show mutation records, approval ID, changed paths, result status, and undo
+    availability without executing recovery.
+  - Add state/history/app tests proving mutation records can be appended, read, inspected, bounded, and redacted.
+  - Add or update deterministic fixture snapshots and PTY history navigation smoke if terminal-visible history behavior changes.
+  excluded:
+  - Actual undo execution, redo execution, /undo or /redo route implementation, recovery file mutation, provider review, durable diff storage
+    beyond mutation history metadata, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces,
+    hosted control planes, and Milestone 30+ behavior.
+  deferred:
+  - Applying undo/redo commands, storing richer previous content for edit/write reversal, review workflows, and provider-assisted recovery suggestions.
+design: 'Keep history IO in internal/state and event shaping in internal/history. The app converts completed/denied/failed mutation results into
+  structured history events through the existing explicit persistence command. The TUI receives display-only HistoryItem metadata and renders/serializes
+  it alongside existing history rows; it never reads .aila/history, decides permissions, or executes undo. Undo metadata is descriptive and bounded
+  for M29: create/delete recovery can be marked available when enough information exists, while unsupported recovery cases remain inspectable
+  with a reason.'
+overall_acceptance:
+- Mutation history events validate through the closed history contract and continue to round-trip through .aila/history/fake-events.jsonl without
+  breaking older event kinds.
+- App-owned mutation dispatch persists structured records with approval ID, changed paths, command/source metadata, status/result fields, and
+  undo metadata where supported.
+- The history view renders mutation records and selected-record details, including approval ID, changed paths, and undo availability.
+- Semantic snapshots expose approval ID, changed paths, and undo availability for mutation history records.
+- State/history tests prove mutation records can be appended, read, replay-inspected, bounded, and redacted; PTY history navigation is covered
+  if terminal behavior changes.
+surprises: []
+tasks:
+- number: 1
+  name: Extend bounded history event contract for mutations
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN a mutation history event is normalized WHEN it includes edit/write metadata and undo metadata THEN the contract accepts bounded, redacted,
+    display-safe fields.
+  - GIVEN older prompt/response/command/runtime events are normalized WHEN the contract is expanded THEN those existing event kinds remain valid
+    and stable.
+  - GIVEN invalid mutation payloads are decoded WHEN required changed-path/result/undo fields are missing or unsafe THEN validation rejects them
+    without writing history.
+  evidence:
+  - internal/history event contract now includes EventKindMutation plus bounded MutationRecord and UndoMetadata payloads while preserving prompt/response/command/runtime
+    event kinds.
+  - NormalizeFakeEvent accepts bounded mutation/undo metadata, redacts display/effect/error text, rejects unsafe absolute/home/.aila paths, and
+    rejects incomplete mutation or undo payloads.
+  - internal/history tests cover stable event kinds, mutation/undo normalization, unsafe/incomplete metadata rejection, and the expanded narrow
+    FakeEvent field set.
+- number: 2
+  name: Persist mutation results through app-owned history commands
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN an edit or write mutation completes WHEN the app builds the transcript turn THEN one mutation history event records tool name, command/source
+    metadata, changed paths, status, versions, and result details.
+  - GIVEN a mutation follows an approval decision WHEN the history event is persisted THEN the approval proposal ID and action are recorded with
+    the mutation metadata.
+  - GIVEN a denied or failed mutation result occurs WHEN persistence runs THEN the history record remains auditable and does not fabricate undo
+    availability.
+  evidence:
+  - internal/app persists completed, denied, and failed mutation results through the existing explicit HistoryPersistenceCommand path instead
+    of a separate history subsystem.
+  - Approved fake write decisions now persist mutation history with approval proposal ID/action, approval-write command source, request ID, changed
+    path, status/result metadata, and delete-created-file undo availability.
+  - internal/app and internal/state tests prove mutation history events append/read through .aila/history/fake-events.jsonl with redaction and
+    without workflow/TUI ownership mutation.
+- number: 3
+  name: Render mutation history and undo metadata in history view
+  depends_on:
+  - 1
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN history view receives a mutation item WHEN rendered THEN the row and selected details show mutation status, changed paths, approval
+    ID when present, and undo availability.
+  - GIVEN semantic snapshots are generated WHEN a mutation item is visible THEN approval_id, changed_paths, undo_available, undo_action, and selected
+    state are machine-readable.
+  - GIVEN non-mutation history items are rendered WHEN mutation fields are absent THEN existing history behavior remains read-only and unchanged
+    except for behavior-based test names where touched.
+  evidence:
+  - HistoryItem now carries app-injected mutation and undo metadata; ApplyHistoryView clones structured metadata and the render path stays display-only.
+  - history-view rendering shows mutation rows, selected mutation status/source/path/approval/undo details in tall layouts, and undo enabled state
+    when any record is undoable.
+  - Semantic history snapshots expose mutation.approval_id, mutation.changed_paths, undo.available, undo.action, selected state, app-owned, and
+    display-only evidence.
+- number: 4
+  name: Extend fixtures, snapshots, and PTY history navigation coverage
+  depends_on:
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN the history-view fixture renders WHEN snapshot tests run THEN mutation records and undo metadata appear in plain, ANSI, and semantic
+    snapshots.
+  - GIVEN terminal history behavior changes WHEN PTY smoke runs THEN /history opens seeded mutation history and navigation exposes the mutation
+    selected-record details.
+  - GIVEN test names are added or touched WHEN the tests are reviewed THEN they describe behavior instead of temporary roadmap numbers.
+  evidence:
+  - history-view fixture now includes mutation approval and undo metadata with 100x30 and 120x45 plain/ANSI/semantic snapshots.
+  - TestHistoryViewPTYSmoke seeds mutation history, opens /history, navigates to the mutation record, and verifies selected changed path, approval
+    ID, and undo availability/action in a 120x45 PTY.
+  - Touched test names now describe behavior instead of roadmap numbers; rg found no TestM17/TestM26/TestM27/TestM28/TestM29 symbols under internal
+    or cmd after the cleanup.
+- number: 5
+  name: Prove validation gates and roadmap closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: completed
+  acceptance:
+  - GIVEN M29 implementation is complete WHEN targeted history/state/app/TUI/cmd tests run THEN mutation record persistence, inspection, render,
+    semantic, and PTY behavior pass.
+  - GIVEN full validation runs WHEN mage check and whitespace checks pass THEN ROADMAP.md records M29 complete and M30 next.
+  - GIVEN closeout is prepared WHEN Agentera artifacts are validated THEN the Slice Completion Template records source docs, fixture/snapshot
+    evidence, update/keybinding tests, PTY smoke, architecture checklist, verification commands, and roadmap status.
+  evidence:
+  - go test ./internal/history ./internal/state ./internal/app ./internal/tui ./cmd/aila -count=1 passed.
+  - go test ./cmd/aila -run TestHistory(View|Empty)PTYSmoke -count=1 passed.
+  - go test ./internal/... -count=1 passed.
+  - go test ./cmd/aila -count=1 passed as part of targeted and mage check runs.
+  - mage check passed with 0 lint issues and no vulnerabilities.
+  - ROADMAP.md records M29 complete and M30 next; Agentera plan/progress validation passed after artifact updates.
+complete: 5
+total: 5
+active: false
+complete_plan: true

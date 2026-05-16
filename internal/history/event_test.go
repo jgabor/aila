@@ -10,11 +10,11 @@ import (
 func TestEventKindsAreClosedAndStable(t *testing.T) {
 	t.Parallel()
 
-	want := []EventKind{EventKindPrompt, EventKindResponse, EventKindCommand, EventKindRuntime, EventKindMutation}
+	want := []EventKind{EventKindPrompt, EventKindResponse, EventKindCommand, EventKindRuntime, EventKindMutation, EventKindRecovery}
 	if got := EventKinds(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("EventKinds() = %v, want %v", got, want)
 	}
-	if got := []string{string(EventKindPrompt), string(EventKindResponse), string(EventKindCommand), string(EventKindRuntime), string(EventKindMutation)}; !reflect.DeepEqual(got, []string{"prompt", "response", "command", "runtime", "mutation"}) {
+	if got := []string{string(EventKindPrompt), string(EventKindResponse), string(EventKindCommand), string(EventKindRuntime), string(EventKindMutation), string(EventKindRecovery)}; !reflect.DeepEqual(got, []string{"prompt", "response", "command", "runtime", "mutation", "recovery"}) {
 		t.Fatalf("stable event kind IDs = %v", got)
 	}
 }
@@ -134,7 +134,65 @@ func TestNormalizeFakeMutationEventRejectsUnsafeOrIncompleteMetadata(t *testing.
 	}
 }
 
-func TestNormalizeFakeEventRejectsMutationMetadataOnOtherKinds(t *testing.T) {
+func TestNormalizeFakeRecoveryEventRecordsUndoRedoResult(t *testing.T) {
+	t.Parallel()
+
+	event := validRecoveryFakeEvent()
+	event.Recovery.RedoContent = "restored notes token=abc123"
+	normalized, err := NormalizeFakeEvent(event)
+	if err != nil {
+		t.Fatalf("NormalizeFakeEvent recovery returned error: %v", err)
+	}
+	if normalized.Recovery == nil {
+		t.Fatalf("normalized recovery metadata missing: %#v", normalized)
+	}
+	if normalized.Recovery.Command != "undo" || normalized.Recovery.Status != "completed" || normalized.Recovery.TargetEventID != "event-mutation" {
+		t.Fatalf("recovery command/status/target = %#v", normalized.Recovery)
+	}
+	if normalized.Recovery.Action != "delete_created_file" || !reflect.DeepEqual(normalized.Recovery.Paths, []string{"notes.txt"}) {
+		t.Fatalf("recovery action/path = %#v", normalized.Recovery)
+	}
+	if !normalized.Recovery.RedoAvailable || normalized.Recovery.RedoAction != "restore_created_file" || strings.Contains(normalized.Recovery.RedoContent, "token=") || strings.Contains(normalized.Recovery.RedoContent, "abc123") {
+		t.Fatalf("redo metadata was not bounded/redacted: %#v", normalized.Recovery)
+	}
+}
+
+func TestNormalizeFakeRecoveryEventRejectsUnsafeOrIncompleteMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]func(*FakeEvent){
+		"missing recovery": func(event *FakeEvent) { event.Recovery = nil },
+		"bad command":      func(event *FakeEvent) { event.Recovery.Command = "rollback" },
+		"bad status":       func(event *FakeEvent) { event.Recovery.Status = "done" },
+		"missing target":   func(event *FakeEvent) { event.Recovery.TargetEventID = "" },
+		"missing action":   func(event *FakeEvent) { event.Recovery.Action = "" },
+		"missing paths":    func(event *FakeEvent) { event.Recovery.Paths = nil },
+		"unsafe path":      func(event *FakeEvent) { event.Recovery.Paths = []string{"/home/user/notes.txt"} },
+		"missing redo action": func(event *FakeEvent) {
+			event.Recovery.RedoAvailable = true
+			event.Recovery.RedoAction = ""
+		},
+		"missing redo content": func(event *FakeEvent) {
+			event.Recovery.RedoAvailable = true
+			event.Recovery.RedoAction = "restore_created_file"
+			event.Recovery.RedoContent = ""
+		},
+	}
+	for name, mutate := range tests {
+		name, mutate := name, mutate
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			event := validRecoveryFakeEvent()
+			mutate(&event)
+			if _, err := NormalizeFakeEvent(event); !errors.Is(err, ErrInvalidFakeEvent) {
+				t.Fatalf("%s error = %v, want ErrInvalidFakeEvent", name, err)
+			}
+		})
+	}
+}
+
+func TestNormalizeFakeEventRejectsMetadataOnWrongKinds(t *testing.T) {
 	t.Parallel()
 
 	event := validFakeEvent(EventKindRuntime)
@@ -143,12 +201,18 @@ func TestNormalizeFakeEventRejectsMutationMetadataOnOtherKinds(t *testing.T) {
 	if _, err := NormalizeFakeEvent(event); !errors.Is(err, ErrInvalidFakeEvent) {
 		t.Fatalf("non-mutation metadata error = %v, want ErrInvalidFakeEvent", err)
 	}
+
+	event = validFakeEvent(EventKindRuntime)
+	event.Recovery = validRecoveryRecord()
+	if _, err := NormalizeFakeEvent(event); !errors.Is(err, ErrInvalidFakeEvent) {
+		t.Fatalf("non-recovery metadata error = %v, want ErrInvalidFakeEvent", err)
+	}
 }
 
 func TestFakeEventContractFieldsRemainNarrow(t *testing.T) {
 	t.Parallel()
 
-	want := []string{"SchemaVersion", "Kind", "EventID", "RunID", "SessionID", "Source", "Provenance", "DisplayText", "Mutation", "Undo"}
+	want := []string{"SchemaVersion", "Kind", "EventID", "RunID", "SessionID", "Source", "Provenance", "DisplayText", "Mutation", "Undo", "Recovery"}
 	eventType := reflect.TypeOf(FakeEvent{})
 	got := make([]string, 0, eventType.NumField())
 	for index := 0; index < eventType.NumField(); index++ {
@@ -180,6 +244,32 @@ func validMutationFakeEvent() FakeEvent {
 	event.Mutation = validMutationRecord()
 	event.Undo = validUndoMetadata(true)
 	return event
+}
+
+func validRecoveryFakeEvent() FakeEvent {
+	event := validFakeEvent(EventKindRecovery)
+	event.Source = "recovery.command"
+	event.Provenance = "recovery.undo"
+	event.DisplayText = "recovery undo completed notes.txt"
+	event.Recovery = validRecoveryRecord()
+	return event
+}
+
+func validRecoveryRecord() *RecoveryRecord {
+	return &RecoveryRecord{
+		Command:            "undo",
+		Status:             "completed",
+		TargetEventID:      "event-mutation",
+		Action:             "delete_created_file",
+		Paths:              []string{"notes.txt"},
+		PreviousVersion:    "sha256:abc",
+		NewVersion:         "missing",
+		RedoAvailable:      true,
+		RedoAction:         "restore_created_file",
+		RedoContent:        "restored notes",
+		DecisionRunID:      "op-undo-1",
+		DecisionCapability: "recovery.undo",
+	}
 }
 
 func validMutationRecord() *MutationRecord {

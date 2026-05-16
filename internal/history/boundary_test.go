@@ -30,7 +30,6 @@ func TestHistoryPackageBoundaryAllowsOnlyEventContracts(t *testing.T) {
 		"github.com/jgabor/aila/internal/tui":     true,
 	}
 	forbiddenTokens := []string{
-		"redo",
 		"real model",
 		"real tool",
 		"replay",

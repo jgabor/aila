@@ -12,7 +12,7 @@ func TestPackageCompiles(t *testing.T) {
 	t.Parallel()
 }
 
-func TestM5CommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
+func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,6 +24,8 @@ func TestM5CommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "help", input: "/help", want: CommandRouteHelp},
 		{name: "history", input: "/history", want: CommandRouteHistory},
 		{name: "diff", input: "/diff", want: CommandRouteDiff},
+		{name: "undo", input: "/undo", want: CommandRouteUndo},
+		{name: "redo", input: "/redo", want: CommandRouteRedo},
 		{name: "quit", input: "/quit", want: CommandRouteQuit},
 	}
 	for _, tc := range tests {
@@ -42,7 +44,7 @@ func TestM5CommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 	}
 }
 
-func TestM5SlashAndShortcutRoutesShareRoute(t *testing.T) {
+func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	t.Parallel()
 
 	statusSlash, ok := RecommendSlashCommand("/status")
@@ -80,6 +82,30 @@ func TestM5SlashAndShortcutRoutesShareRoute(t *testing.T) {
 		t.Fatalf("diff route mismatch: slash=%+v shortcut=%+v", diffSlash, diffShortcut)
 	}
 
+	undoSlash, ok := RecommendSlashCommand("/undo")
+	if !ok {
+		t.Fatal("/undo did not match")
+	}
+	undoShortcut, ok := RecommendShortcut("ctrl+x", "u")
+	if !ok {
+		t.Fatal("ctrl+x u did not match")
+	}
+	if undoSlash.Route != undoShortcut.Route || undoSlash.Route != CommandRouteUndo {
+		t.Fatalf("undo route mismatch: slash=%+v shortcut=%+v", undoSlash, undoShortcut)
+	}
+
+	redoSlash, ok := RecommendSlashCommand("/redo")
+	if !ok {
+		t.Fatal("/redo did not match")
+	}
+	redoShortcut, ok := RecommendShortcut("ctrl+x", "r")
+	if !ok {
+		t.Fatal("ctrl+x r did not match")
+	}
+	if redoSlash.Route != redoShortcut.Route || redoSlash.Route != CommandRouteRedo {
+		t.Fatalf("redo route mismatch: slash=%+v shortcut=%+v", redoSlash, redoShortcut)
+	}
+
 	quitSlash, ok := RecommendSlashCommand("/quit")
 	if !ok {
 		t.Fatal("/quit did not match")
@@ -93,13 +119,15 @@ func TestM5SlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 }
 
-func TestM5CommandBoundaryRejectsDeferredFamilies(t *testing.T) {
+func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 	t.Parallel()
 
 	for _, input := range []string{
 		"/status now",
 		"/help commands",
 		"/quit --force",
+		"/undo now",
+		"/redo --last",
 		"/q",
 		"/exit",
 		"!git status",
@@ -116,6 +144,7 @@ func TestM5CommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		key    string
 	}{
 		{prefix: "ctrl+x", key: "status"},
+		{prefix: "ctrl+x", key: "undo"},
 		{prefix: "ctrl+c", key: "q"},
 		{prefix: "", key: "q"},
 	} {
@@ -125,7 +154,7 @@ func TestM5CommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 	}
 }
 
-func TestM5CommandBoundaryStaysPureAndClosed(t *testing.T) {
+func TestCommandBoundaryStaysPureAndClosed(t *testing.T) {
 	t.Parallel()
 
 	fileSet := token.NewFileSet()

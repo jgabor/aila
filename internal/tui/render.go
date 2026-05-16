@@ -45,6 +45,7 @@ type ViewState struct {
 	Command            *CommandView
 	Fetch              *FetchView
 	Mutation           *MutationView
+	Recovery           *RecoveryView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -84,6 +85,7 @@ type HistoryItem struct {
 	DisplayText string
 	Mutation    *HistoryMutationItem
 	Undo        *HistoryUndoItem
+	Recovery    *HistoryRecoveryItem
 }
 
 // HistoryMutationItem is app-injected mutation history metadata.
@@ -117,6 +119,24 @@ type HistoryUndoItem struct {
 	PreviousVersion string
 	NewVersion      string
 	Reason          string
+}
+
+// HistoryRecoveryItem is app-injected recovery history metadata.
+type HistoryRecoveryItem struct {
+	Command            string
+	Status             string
+	TargetEventID      string
+	Action             string
+	Paths              []string
+	PreviousVersion    string
+	NewVersion         string
+	RedoAvailable      bool
+	RedoAction         string
+	Reason             string
+	ErrorKind          string
+	ErrorMessage       string
+	DecisionRunID      string
+	DecisionCapability string
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -251,6 +271,7 @@ func contentItems(state ViewState) []string {
 		items = append(items, searchLines(state.Search)...)
 		items = append(items, commandLines(state.Command)...)
 		items = append(items, fetchLines(state.Fetch)...)
+		items = append(items, recoveryLines(state.Recovery)...)
 		items = append(items, mutationLines(state.Mutation)...)
 		items = append(items, memoryLines(state)...)
 		items = append(items, queueLines(state)...)
@@ -265,6 +286,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, searchLines(state.Search)...)
 	items = append(items, commandLines(state.Command)...)
 	items = append(items, fetchLines(state.Fetch)...)
+	items = append(items, recoveryLines(state.Recovery)...)
 	items = append(items, mutationLines(state.Mutation)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
@@ -511,6 +533,104 @@ func commandLines(command *CommandView) []string {
 	}
 	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
+	return lines
+}
+
+func recoveryLines(recovery *RecoveryView) []string {
+	if recovery == nil {
+		return nil
+	}
+	lines := []string{
+		"  Recovery result:",
+		"  command: " + safeText(recovery.Command),
+		"  status: " + safeText(recovery.Status),
+		"  action: " + safeText(recovery.Action),
+	}
+	if recovery.TargetEventID != "" {
+		lines = append(lines, "  target event id: "+safeText(recovery.TargetEventID))
+	}
+	if len(recovery.Paths) > 0 {
+		lines = append(lines, "  paths: "+safeText(strings.Join(recovery.Paths, ", ")))
+	}
+	if recovery.PreviousVersion != "" {
+		lines = append(lines, "  previous version: "+safeText(recovery.PreviousVersion))
+	}
+	if recovery.NewVersion != "" {
+		lines = append(lines, "  new version: "+safeText(recovery.NewVersion))
+	}
+	lines = append(lines, "  redo available: "+boolLabel(recovery.RedoAvailable))
+	if recovery.RedoAction != "" {
+		lines = append(lines, "  redo action: "+safeText(recovery.RedoAction))
+	}
+	if recovery.Decision != nil {
+		lines = append(lines,
+			"  decision source: "+recovery.Decision.Source,
+			"  approval required: "+boolLabel(recovery.Decision.ApprovalRequired),
+			"  operation: "+recovery.Decision.OperationKind,
+			"  autonomy: "+recovery.Decision.Autonomy,
+		)
+		if recovery.Decision.Name != "" {
+			lines = append(lines, "  decision tool: "+recovery.Decision.Name)
+		}
+	}
+	if recovery.Reason != "" {
+		lines = append(lines, "  reason: "+safeText(recovery.Reason))
+	}
+	if recovery.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+safeText(recovery.ErrorKind))
+	}
+	if recovery.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+safeText(recovery.ErrorMessage))
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func recoverySurfaceLines(recovery *RecoveryView) []string {
+	if recovery == nil {
+		return []string{"command: recovery", "status: unsupported", "reason: recovery unavailable"}
+	}
+	lines := []string{
+		"command: " + safeText(recovery.Command),
+		"status: " + safeText(recovery.Status),
+		"action: " + safeText(recovery.Action),
+	}
+	if recovery.TargetEventID != "" {
+		lines = append(lines, "target event id: "+safeText(recovery.TargetEventID))
+	}
+	if len(recovery.Paths) > 0 {
+		lines = append(lines, "paths: "+safeText(strings.Join(recovery.Paths, ", ")))
+	}
+	if recovery.PreviousVersion != "" {
+		lines = append(lines, "previous version: "+safeText(recovery.PreviousVersion))
+	}
+	if recovery.NewVersion != "" {
+		lines = append(lines, "new version: "+safeText(recovery.NewVersion))
+	}
+	lines = append(lines, "redo available: "+boolLabel(recovery.RedoAvailable))
+	if recovery.RedoAction != "" {
+		lines = append(lines, "redo action: "+safeText(recovery.RedoAction))
+	}
+	if recovery.Reason != "" {
+		lines = append(lines, "reason: "+safeText(recovery.Reason))
+	}
+	if recovery.ErrorKind != "" {
+		lines = append(lines, "error kind: "+safeText(recovery.ErrorKind))
+	}
+	if recovery.ErrorMessage != "" {
+		lines = append(lines, "error message: "+safeText(recovery.ErrorMessage))
+	}
+	if recovery.Decision != nil {
+		lines = append(lines,
+			"decision source: "+recovery.Decision.Source,
+			"approval required: "+boolLabel(recovery.Decision.ApprovalRequired),
+			"operation: "+recovery.Decision.OperationKind,
+			"autonomy: "+recovery.Decision.Autonomy,
+		)
+		if recovery.Decision.Name != "" {
+			lines = append(lines, "decision tool: "+recovery.Decision.Name)
+		}
+	}
 	return lines
 }
 
@@ -894,6 +1014,7 @@ type SemanticSnapshot struct {
 	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
 	Fetch       *SemanticFetch       `json:"fetch_tool,omitempty"`
 	Mutation    *SemanticMutation    `json:"mutation_tool,omitempty"`
+	Recovery    *SemanticRecovery    `json:"recovery,omitempty"`
 	Approval    *SemanticApproval    `json:"approval,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
@@ -1015,6 +1136,24 @@ type SemanticFetch struct {
 	Completed         bool              `json:"completed"`
 }
 
+// SemanticRecovery describes injected undo/redo result state for snapshots.
+type SemanticRecovery struct {
+	Command         string            `json:"command"`
+	Status          string            `json:"status"`
+	TargetEventID   string            `json:"target_event_id,omitempty"`
+	Action          string            `json:"action"`
+	Paths           []string          `json:"paths,omitempty"`
+	PreviousVersion string            `json:"previous_version,omitempty"`
+	NewVersion      string            `json:"new_version,omitempty"`
+	RedoAvailable   bool              `json:"redo_available"`
+	RedoAction      string            `json:"redo_action,omitempty"`
+	Reason          string            `json:"reason,omitempty"`
+	ErrorKind       string            `json:"error_kind,omitempty"`
+	ErrorMessage    string            `json:"error_message,omitempty"`
+	Decision        *SemanticDecision `json:"decision,omitempty"`
+	Completed       bool              `json:"completed"`
+}
+
 // SemanticMutation describes injected edit/write state for snapshots.
 type SemanticMutation struct {
 	Name                  string            `json:"tool_name"`
@@ -1126,6 +1265,7 @@ type SemanticHistory struct {
 	Visible       bool                  `json:"visible"`
 	ReadOnly      bool                  `json:"read_only"`
 	UndoEnabled   bool                  `json:"undo_enabled"`
+	RedoEnabled   bool                  `json:"redo_enabled"`
 	Focus         bool                  `json:"focus"`
 	Empty         bool                  `json:"empty"`
 	Count         int                   `json:"count"`
@@ -1145,6 +1285,7 @@ type SemanticHistoryItem struct {
 	DisplayText string                   `json:"display_text"`
 	Mutation    *SemanticHistoryMutation `json:"mutation,omitempty"`
 	Undo        *SemanticHistoryUndo     `json:"undo,omitempty"`
+	Recovery    *SemanticHistoryRecovery `json:"recovery,omitempty"`
 	Selected    bool                     `json:"selected"`
 }
 
@@ -1171,6 +1312,24 @@ type SemanticHistoryUndo struct {
 	PreviousVersion string   `json:"previous_version,omitempty"`
 	NewVersion      string   `json:"new_version,omitempty"`
 	Reason          string   `json:"reason,omitempty"`
+}
+
+// SemanticHistoryRecovery describes recovery metadata inside history snapshots.
+type SemanticHistoryRecovery struct {
+	Command            string   `json:"command"`
+	Status             string   `json:"status"`
+	TargetEventID      string   `json:"target_event_id,omitempty"`
+	Action             string   `json:"action"`
+	Paths              []string `json:"paths,omitempty"`
+	PreviousVersion    string   `json:"previous_version,omitempty"`
+	NewVersion         string   `json:"new_version,omitempty"`
+	RedoAvailable      bool     `json:"redo_available"`
+	RedoAction         string   `json:"redo_action,omitempty"`
+	Reason             string   `json:"reason,omitempty"`
+	ErrorKind          string   `json:"error_kind,omitempty"`
+	ErrorMessage       string   `json:"error_message,omitempty"`
+	DecisionRunID      string   `json:"decision_run_id,omitempty"`
+	DecisionCapability string   `json:"decision_capability,omitempty"`
 }
 
 // SemanticDiff describes app-injected read-only diff presentation state.
@@ -1273,6 +1432,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Mutation != nil {
 		regions = append(regions, SemanticRegion{Name: "mutation_tool", Visible: true, Items: semanticMutationItems(state.Mutation)})
 	}
+	if state.Recovery != nil {
+		regions = append(regions, SemanticRegion{Name: "recovery", Visible: true, Items: semanticRecoveryItems(state.Recovery)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -1355,6 +1517,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Bash:        semanticBash(state.Command),
 		Fetch:       semanticFetch(state.Fetch),
 		Mutation:    semanticMutation(state.Mutation),
+		Recovery:    semanticRecovery(state.Recovery),
 		Approval:    semanticApproval(state.Approval),
 		Regions:     regions,
 		Actions:     actions,
@@ -1905,6 +2068,73 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticRecoveryItems(recovery *RecoveryView) []string {
+	semantic := semanticRecovery(recovery)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"command: " + semantic.Command,
+		"status: " + semantic.Status,
+		"action: " + semantic.Action,
+		"completed: " + boolLabel(semantic.Completed),
+		"redo_available: " + boolLabel(semantic.RedoAvailable),
+	}
+	if semantic.TargetEventID != "" {
+		items = append(items, "target_event_id: "+semantic.TargetEventID)
+	}
+	if len(semantic.Paths) > 0 {
+		items = append(items, "paths: "+strings.Join(semantic.Paths, ","))
+	}
+	if semantic.PreviousVersion != "" {
+		items = append(items, "previous_version: "+semantic.PreviousVersion)
+	}
+	if semantic.NewVersion != "" {
+		items = append(items, "new_version: "+semantic.NewVersion)
+	}
+	if semantic.RedoAction != "" {
+		items = append(items, "redo_action: "+semantic.RedoAction)
+	}
+	if semantic.Reason != "" {
+		items = append(items, "reason: "+semantic.Reason)
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = appendDecisionItems(items, semantic.Decision)
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticRecovery(recovery *RecoveryView) *SemanticRecovery {
+	if recovery == nil {
+		return nil
+	}
+	status := safeText(recovery.Status)
+	if status == "" {
+		status = "unsupported"
+	}
+	return &SemanticRecovery{
+		Command:         safeText(recovery.Command),
+		Status:          status,
+		TargetEventID:   safeText(recovery.TargetEventID),
+		Action:          safeText(recovery.Action),
+		Paths:           safeTextSlice(recovery.Paths),
+		PreviousVersion: safeText(recovery.PreviousVersion),
+		NewVersion:      safeText(recovery.NewVersion),
+		RedoAvailable:   recovery.RedoAvailable,
+		RedoAction:      safeText(recovery.RedoAction),
+		Reason:          safeText(recovery.Reason),
+		ErrorKind:       safeText(recovery.ErrorKind),
+		ErrorMessage:    safeText(recovery.ErrorMessage),
+		Decision:        semanticDecision(recovery.Decision),
+		Completed:       status == "completed" || status == "failed" || status == "unsupported",
+	}
 }
 
 func semanticMutationItems(mutation *MutationView) []string {
@@ -2721,6 +2951,13 @@ func historySurfaceLines(state ViewState) []string {
 }
 
 func historyRowSummary(item HistoryItem) string {
+	if item.Recovery != nil {
+		paths := strings.Join(item.Recovery.Paths, ",")
+		if paths == "" {
+			paths = safeText(item.DisplayText)
+		}
+		return safeText(fmt.Sprintf("%s %s %s %s", item.Recovery.Command, item.Recovery.Status, item.Recovery.Action, paths))
+	}
 	if item.Mutation == nil {
 		return safeText(item.DisplayText)
 	}
@@ -2732,6 +2969,33 @@ func historyRowSummary(item HistoryItem) string {
 }
 
 func selectedHistoryMutationLines(item HistoryItem) []string {
+	if item.Recovery != nil {
+		recovery := item.Recovery
+		lines := []string{
+			"selected recovery command: " + safeText(recovery.Command),
+			"selected recovery status: " + safeText(recovery.Status),
+			"selected recovery target event id: " + safeText(recovery.TargetEventID),
+			"selected recovery action: " + safeText(recovery.Action),
+			"selected recovery paths: " + safeText(strings.Join(recovery.Paths, ", ")),
+			"selected redo available: " + boolLabel(recovery.RedoAvailable),
+		}
+		if recovery.RedoAction != "" {
+			lines = append(lines, "selected redo action: "+safeText(recovery.RedoAction))
+		}
+		if recovery.PreviousVersion != "" {
+			lines = append(lines, "selected previous version: "+safeText(recovery.PreviousVersion))
+		}
+		if recovery.NewVersion != "" {
+			lines = append(lines, "selected new version: "+safeText(recovery.NewVersion))
+		}
+		if recovery.Reason != "" {
+			lines = append(lines, "selected recovery reason: "+safeText(recovery.Reason))
+		}
+		if recovery.ErrorKind != "" {
+			lines = append(lines, "selected error kind: "+safeText(recovery.ErrorKind))
+		}
+		return lines
+	}
 	if item.Mutation == nil {
 		return nil
 	}
@@ -2846,6 +3110,7 @@ func semanticHistory(state ViewState) *SemanticHistory {
 			DisplayText: safeText(item.DisplayText),
 			Mutation:    semanticHistoryMutation(item.Mutation),
 			Undo:        semanticHistoryUndo(item.Undo),
+			Recovery:    semanticHistoryRecovery(item.Recovery),
 			Selected:    index == selected && len(state.HistoryItems) > 0,
 		})
 	}
@@ -2857,6 +3122,7 @@ func semanticHistory(state ViewState) *SemanticHistory {
 		Visible:       true,
 		ReadOnly:      true,
 		UndoEnabled:   historyUndoEnabled(state.HistoryItems),
+		RedoEnabled:   historyRedoEnabled(state.HistoryItems),
 		Focus:         state.HistoryFocus,
 		Empty:         state.HistoryEmpty || len(state.HistoryItems) == 0,
 		Count:         len(state.HistoryItems),
@@ -2899,9 +3165,40 @@ func semanticHistoryUndo(undo *HistoryUndoItem) *SemanticHistoryUndo {
 	}
 }
 
+func semanticHistoryRecovery(recovery *HistoryRecoveryItem) *SemanticHistoryRecovery {
+	if recovery == nil {
+		return nil
+	}
+	return &SemanticHistoryRecovery{
+		Command:            safeText(recovery.Command),
+		Status:             safeText(recovery.Status),
+		TargetEventID:      safeText(recovery.TargetEventID),
+		Action:             safeText(recovery.Action),
+		Paths:              safeTextSlice(recovery.Paths),
+		PreviousVersion:    safeText(recovery.PreviousVersion),
+		NewVersion:         safeText(recovery.NewVersion),
+		RedoAvailable:      recovery.RedoAvailable,
+		RedoAction:         safeText(recovery.RedoAction),
+		Reason:             safeText(recovery.Reason),
+		ErrorKind:          safeText(recovery.ErrorKind),
+		ErrorMessage:       safeText(recovery.ErrorMessage),
+		DecisionRunID:      safeText(recovery.DecisionRunID),
+		DecisionCapability: safeText(recovery.DecisionCapability),
+	}
+}
+
 func historyUndoEnabled(items []HistoryItem) bool {
 	for _, item := range items {
 		if item.Undo != nil && item.Undo.Available {
+			return true
+		}
+	}
+	return false
+}
+
+func historyRedoEnabled(items []HistoryItem) bool {
+	for _, item := range items {
+		if item.Recovery != nil && item.Recovery.RedoAvailable {
 			return true
 		}
 	}
@@ -2916,6 +3213,7 @@ func semanticHistoryRegionItems(state ViewState) []string {
 	items := []string{
 		"read_only: true",
 		"undo_enabled: " + boolLabel(history.UndoEnabled),
+		"redo_enabled: " + boolLabel(history.RedoEnabled),
 		"focus: " + boolLabel(history.Focus),
 		"empty: " + boolLabel(history.Empty),
 		fmt.Sprintf("count: %d", history.Count),
@@ -2939,6 +3237,18 @@ func semanticHistoryRegionItems(state ViewState) []string {
 			items = append(items, "item_undo_available: "+boolLabel(item.Undo.Available))
 			if item.Undo.Action != "" {
 				items = append(items, "item_undo_action: "+item.Undo.Action)
+			}
+		}
+		if item.Recovery != nil {
+			items = append(items,
+				"item_recovery: "+item.EventID+" "+item.Recovery.Command+" "+item.Recovery.Status,
+				"item_recovery_target: "+item.Recovery.TargetEventID,
+				"item_recovery_action: "+item.Recovery.Action,
+				"item_recovery_paths: "+strings.Join(item.Recovery.Paths, ","),
+				"item_redo_available: "+boolLabel(item.Recovery.RedoAvailable),
+			)
+			if item.Recovery.RedoAction != "" {
+				items = append(items, "item_redo_action: "+item.Recovery.RedoAction)
 			}
 		}
 	}

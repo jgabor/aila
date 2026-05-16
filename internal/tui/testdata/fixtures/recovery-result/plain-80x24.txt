@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto wri~
++ Conversation ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| status source: runtime.dispatch                                              |
+| detail: recovery command dispatch                                            |
+| active: false                                                                |
+|                                                                              |
+| Recovery result:                                                             |
+| command: undo                                                                |
+| status: completed                                                            |
+| action: delete_created_file                                                  |
+| target event id: evt-fake-006                                                |
+| paths: notes.txt                                                             |
+| previous version: sha256:fixture-new-version                                 |
+| new version: missing                                                         |
+| redo available: true                                                         |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit

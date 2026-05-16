@@ -41,6 +41,11 @@ func TestWriteShapedOperationConstructorsPreserveEvidence(t *testing.T) {
 		t.Fatalf("write operation = %+v", write)
 	}
 
+	recovery := NewRecoveryOperation("undo", "internal/generated.txt", "sha256:new", "delete created file")
+	if recovery.Kind != OperationMutation || recovery.Tool != "undo" || recovery.TargetPath != "internal/generated.txt" || recovery.TargetVersion != "sha256:new" || recovery.ExpectedEffect == "" || !recovery.Reversible {
+		t.Fatalf("recovery operation = %+v", recovery)
+	}
+
 	command := []string{"sh", "-c", "printf updated > internal/demo.txt"}
 	mutatingBash := NewMutatingBashOperation(command, ".", "update demo file")
 	if mutatingBash.Kind != OperationExec || mutatingBash.Tool != "bash" || mutatingBash.WorkingDir != "." || mutatingBash.ExpectedEffect == "" || mutatingBash.Reversible {

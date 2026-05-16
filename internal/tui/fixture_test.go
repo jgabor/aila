@@ -381,8 +381,51 @@ func loadHistoryViewFixture(t *testing.T) renderFixture {
 				NewVersion:      "sha256:fixture-new-version",
 			},
 		},
+		{
+			EventID:     "evt-fake-007",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "recovery",
+			Source:      "recovery.command",
+			Provenance:  "recovery.undo",
+			DisplayText: "recovery undo completed notes.txt target evt-fake-006 redo restore_created_file",
+			Recovery: &HistoryRecoveryItem{
+				Command:            "undo",
+				Status:             "completed",
+				TargetEventID:      "evt-fake-006",
+				Action:             "delete_created_file",
+				Paths:              []string{"notes.txt"},
+				PreviousVersion:    "sha256:fixture-new-version",
+				NewVersion:         "missing",
+				RedoAvailable:      true,
+				RedoAction:         "restore_created_file",
+				DecisionRunID:      "current",
+				DecisionCapability: "recovery.undo",
+			},
+		},
+		{
+			EventID:     "evt-fake-008",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "recovery",
+			Source:      "recovery.command",
+			Provenance:  "recovery.redo",
+			DisplayText: "recovery redo completed notes.txt target evt-fake-006",
+			Recovery: &HistoryRecoveryItem{
+				Command:            "redo",
+				Status:             "completed",
+				TargetEventID:      "evt-fake-006",
+				Action:             "restore_created_file",
+				Paths:              []string{"notes.txt"},
+				PreviousVersion:    "missing",
+				NewVersion:         "sha256:fixture-redone-version",
+				RedoAvailable:      false,
+				DecisionRunID:      "current",
+				DecisionCapability: "recovery.redo",
+			},
+		},
 	}
-	state = ApplyHistoryView(state, items, 5, true)
+	state = ApplyHistoryView(state, items, 7, true)
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
@@ -1301,20 +1344,20 @@ func TestHistoryViewFixtureShowsMutationUndoMetadata(t *testing.T) {
 	wantRender := []string{
 		"history:",
 		"read-only: true",
-		"entries: 6",
-		"selected: 6",
+		"entries: 8",
+		"selected: 8",
 		"undo enabled: true",
 		"run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history",
 		"run-fake-017 session-fake-alpha evt-fake-002 response response summary",
 		"run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only",
 		"run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event",
-		"> run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt",
-		"selected event id: evt-fake-006",
+		"run-fake-017 session-fake-alpha evt-fake-006 mutation write completed notes.txt",
+		"run-fake-017 session-fake-alpha evt-fake-007 recovery undo completed",
+		"> run-fake-017 session-fake-alpha evt-fake-008 recovery redo completed",
+		"selected event id: evt-fake-008",
 		"selected run id: run-fake-017",
 		"selected session id: session-fake-alpha",
-		"selected kind: mutation",
-		"selected source: mutation.tool",
-		"selected provenance: mutation.result",
+		"selected kind: recovery",
 	}
 	for _, renderCase := range fixture.TextCases() {
 		renderCase := renderCase
@@ -1345,16 +1388,24 @@ func TestHistoryViewFixtureShowsMutationUndoMetadata(t *testing.T) {
 			if snapshot.Screen.Focus != "history" {
 				t.Fatalf("focus = %q, want history", snapshot.Screen.Focus)
 			}
-			if snapshot.History == nil || !snapshot.History.Visible || !snapshot.History.ReadOnly || !snapshot.History.UndoEnabled || !snapshot.History.Focus || snapshot.History.Count != 6 || snapshot.History.SelectedIndex != 5 || snapshot.History.SelectedID != "evt-fake-006" {
+			if snapshot.History == nil || !snapshot.History.Visible || !snapshot.History.ReadOnly || !snapshot.History.UndoEnabled || !snapshot.History.Focus || snapshot.History.Count != 8 || snapshot.History.SelectedIndex != 7 || snapshot.History.SelectedID != "evt-fake-008" {
 				t.Fatalf("history semantic = %+v, want focused read-only selected mutation history", snapshot.History)
 			}
-			selected := snapshot.History.Items[5]
-			if selected.Kind != "mutation" || !selected.Selected || selected.Mutation == nil || selected.Undo == nil || selected.Mutation.ApprovalID != "fake-approval-write-001" || !reflect.DeepEqual(selected.Mutation.ChangedPaths, []string{"notes.txt"}) || !selected.Undo.Available {
-				t.Fatalf("selected history item = %+v, want stable mutation identifiers and undo metadata", selected)
+			mutation := snapshot.History.Items[5]
+			if mutation.Kind != "mutation" || mutation.Mutation == nil || mutation.Undo == nil || mutation.Mutation.ApprovalID != "fake-approval-write-001" || !reflect.DeepEqual(mutation.Mutation.ChangedPaths, []string{"notes.txt"}) || !mutation.Undo.Available {
+				t.Fatalf("mutation history item = %+v, want stable mutation identifiers and undo metadata", mutation)
+			}
+			undone := snapshot.History.Items[6]
+			if undone.Kind != "recovery" || undone.Recovery == nil || undone.Recovery.Command != "undo" || !undone.Recovery.RedoAvailable || undone.Recovery.TargetEventID != "evt-fake-006" {
+				t.Fatalf("undo recovery item = %+v, want redo-available recovery", undone)
+			}
+			selected := snapshot.History.Items[7]
+			if selected.Kind != "recovery" || !selected.Selected || selected.Recovery == nil || selected.Recovery.Command != "redo" || selected.Recovery.RedoAvailable || selected.Recovery.Action != "restore_created_file" {
+				t.Fatalf("selected history item = %+v, want selected redone recovery metadata", selected)
 			}
 			regions := semanticRegionsByName(t, snapshot)
 			history := strings.Join(regions["history"].Items, "\n")
-			if !containsAll(history, []string{"read_only: true", "undo_enabled: true", "focus: true", "selected_id: evt-fake-006", "item: run-fake-017 session-fake-alpha evt-fake-006 mutation mutation write completed notes.txt approval fake-approval-write-001 undo delete_created_file selected: true", "item_approval_id: fake-approval-write-001", "item_changed_paths: notes.txt", "item_undo_available: true", "item_undo_action: delete_created_file", "app-owned", "display-only"}) {
+			if !containsAll(history, []string{"read_only: true", "undo_enabled: true", "redo_enabled: true", "focus: true", "selected_id: evt-fake-008", "item: run-fake-017 session-fake-alpha evt-fake-006 mutation mutation write completed notes.txt approval fake-approval-write-001 undo delete_created_file selected: false", "item_approval_id: fake-approval-write-001", "item_changed_paths: notes.txt", "item_undo_available: true", "item_undo_action: delete_created_file", "item_recovery: evt-fake-007 undo completed", "item_redo_available: true", "item_redo_action: restore_created_file", "item_recovery: evt-fake-008 redo completed", "item_recovery_action: restore_created_file", "app-owned", "display-only"}) {
 				t.Fatalf("history semantic region = %v, want machine-readable selected mutation history", regions["history"].Items)
 			}
 		})
@@ -2427,7 +2478,7 @@ func sameStringSet(first []string, second []string) bool {
 	return true
 }
 
-func TestM5CommandFixtureSet(t *testing.T) {
+func TestCommandFixtureSet(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -2592,7 +2643,7 @@ func TestM4SubmittedPromptSemanticSnapshot(t *testing.T) {
 				t.Fatalf("prompt region items = %v, want cleared prompt marker", got)
 			}
 			if len(snapshot.Actions) != 1 || snapshot.Actions[0].Name != "quit" || snapshot.Actions[0].Input != "q" {
-				t.Fatalf("actions = %+v, want q quit only with no M5 routing semantics", snapshot.Actions)
+				t.Fatalf("actions = %+v, want q quit only with no command-routing semantics", snapshot.Actions)
 			}
 		})
 	}
@@ -3727,6 +3778,91 @@ func TestWritePermissionInputsDoNotSwitchAutonomyOrExecute(t *testing.T) {
 	}
 }
 
+func recoveryResultFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
+}
+
+func loadRecoveryResultFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = "recovery-result"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.dispatch"
+	state.StatusDetail = "recovery command dispatch"
+	state.Autonomy = "write"
+	state = ApplyRecoveryView(state, &RecoveryView{
+		Command:         "undo",
+		Status:          "completed",
+		TargetEventID:   "evt-fake-006",
+		Action:          "delete_created_file",
+		Paths:           []string{"notes.txt"},
+		PreviousVersion: "sha256:fixture-new-version",
+		NewVersion:      "missing",
+		RedoAvailable:   true,
+		RedoAction:      "restore_created_file",
+		Decision: &DecisionView{
+			Autonomy:         "write",
+			Source:           "autonomy_policy",
+			Allowed:          true,
+			Automatic:        true,
+			ApprovalRequired: false,
+			Reason:           "write autonomy allows classified operation",
+			OperationKind:    "mutation",
+			Name:             "undo",
+			Target:           "notes.txt",
+			ExpectedEffect:   "delete created file for undo",
+			Reversible:       true,
+			RunID:            "current",
+			Capability:       "recovery.undo",
+		},
+	})
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestRecoveryResultRenderAndSemantic(t *testing.T) {
+	fixture := loadRecoveryResultFixture(t)
+	render := RenderPlain(fixture.State, Size{Width: 120, Height: 32})
+	if !containsAll(render, []string{"Recovery result:", "command: undo", "status: completed", "target event id: evt-fake-006", "action: delete_created_file", "paths: notes.txt", "redo available: true", "redo action: restore_created_file", "decision source: autonomy_policy"}) {
+		t.Fatalf("recovery render missing evidence:\n%s", render)
+	}
+	snapshot := Semantic(fixture.State, Size{Width: 120, Height: 32})
+	if snapshot.Recovery == nil || snapshot.Recovery.Command != "undo" || snapshot.Recovery.Status != "completed" || snapshot.Recovery.TargetEventID != "evt-fake-006" || !snapshot.Recovery.RedoAvailable || snapshot.Recovery.Decision == nil || snapshot.Recovery.Decision.Source != "autonomy_policy" {
+		t.Fatalf("recovery semantic = %+v", snapshot.Recovery)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	recoveryRegion := strings.Join(regions["recovery"].Items, "\n")
+	if !containsAll(recoveryRegion, []string{"command: undo", "status: completed", "target_event_id: evt-fake-006", "paths: notes.txt", "redo_available: true", "redo_action: restore_created_file", "decision_source: autonomy_policy", "app-owned", "display-only"}) {
+		t.Fatalf("recovery semantic region = %v", regions["recovery"].Items)
+	}
+}
+
+func TestRecoveryResultFixtureSnapshots(t *testing.T) {
+	fixture := loadRecoveryResultFixture(t)
+	assertFixtureSizes(t, fixture, recoveryResultFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		if !containsAll(plain, []string{"Recovery result:", "command: undo", "status: completed"}) {
+			t.Fatalf("recovery fixture missing result evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Recovery == nil || snapshot.Recovery.Decision == nil || snapshot.Recovery.Decision.Source != "autonomy_policy" {
+			t.Fatalf("semantic recovery = %+v", snapshot.Recovery)
+		}
+	}
+}
+
 func mutationResultFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
 }
@@ -3767,8 +3903,8 @@ func loadMutationResultFixture(t *testing.T, name string) renderFixture {
 				Target:           "internal/demo.txt",
 				ExpectedEffect:   "create demo file",
 				Reversible:       false,
-				RunID:            "run-m27-write",
-				Capability:       "m27-fixture",
+				RunID:            "run-write-fixture",
+				Capability:       "mutation-fixture",
 			},
 		}
 	case "mutation-failure":
@@ -3798,8 +3934,8 @@ func loadMutationResultFixture(t *testing.T, name string) renderFixture {
 				Target:           "internal/demo.txt",
 				ExpectedEffect:   "replace demo text",
 				Reversible:       true,
-				RunID:            "run-m27-edit",
-				Capability:       "m27-fixture",
+				RunID:            "run-edit-fixture",
+				Capability:       "mutation-fixture",
 			},
 		}
 	default:

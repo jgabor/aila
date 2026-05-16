@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto wri~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| status source: runtime.dispatch                                              |
+| detail: recovery command dispatch                                            |
+| active: false                                                                |
+|                                                                              |
+| Recovery result:                                                             |
+| command: undo                                                                |
+| status: completed                                                            |
+| action: delete_created_file                                                  |
+| target event id: evt-fake-006                                                |
+| paths: notes.txt                                                             |
+| previous version: sha256:fixture-new-version                                 |
+| new version: missing                                                         |
+| redo available: true                                                         |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
