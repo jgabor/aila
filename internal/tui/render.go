@@ -259,6 +259,7 @@ func readLines(read *ReadView) []string {
 	if semantic.ErrorMessage != "" {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
+	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
 	return lines
 }
@@ -313,6 +314,7 @@ func searchLines(search *SearchView) []string {
 	if semantic.ErrorMessage != "" {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
+	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
 	return lines
 }
@@ -364,6 +366,7 @@ func commandLines(command *CommandView) []string {
 	if semantic.ErrorMessage != "" {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
+	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
 	return lines
 }
@@ -415,8 +418,56 @@ func fetchLines(fetch *FetchView) []string {
 	if semantic.ErrorMessage != "" {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
+	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
 	return lines
+}
+
+func appendDecisionLines(lines []string, decision *SemanticDecision) []string {
+	if decision == nil {
+		return lines
+	}
+	lines = append(lines,
+		"  decision source: "+decision.Source,
+		"  decision: "+decisionLabel(decision.Allowed),
+		"  decision automatic: "+boolLabel(decision.Automatic),
+		"  approval required: "+boolLabel(decision.ApprovalRequired),
+		"  autonomy: "+decision.Autonomy,
+		"  operation: "+decision.OperationKind,
+	)
+	if decision.Name != "" {
+		lines = append(lines, "  decision tool: "+decision.Name)
+	}
+	if decision.Target != "" {
+		lines = append(lines, "  decision target: "+decision.Target)
+	}
+	if len(decision.Command) > 0 {
+		lines = append(lines, "  decision command: "+strings.Join(decision.Command, " "))
+	}
+	if decision.WorkingDir != "" {
+		lines = append(lines, "  decision working dir: "+decision.WorkingDir)
+	}
+	if decision.ExpectedEffect != "" {
+		lines = append(lines, "  decision expected effect: "+decision.ExpectedEffect)
+	}
+	lines = append(lines, "  decision reversible: "+boolLabel(decision.Reversible))
+	if decision.RunID != "" {
+		lines = append(lines, "  decision run id: "+decision.RunID)
+	}
+	if decision.Capability != "" {
+		lines = append(lines, "  decision capability: "+decision.Capability)
+	}
+	if decision.Reason != "" {
+		lines = append(lines, "  decision reason: "+decision.Reason)
+	}
+	return lines
+}
+
+func decisionLabel(allowed bool) string {
+	if allowed {
+		return "allowed"
+	}
+	return "denied"
 }
 
 func readRangeLabel(lineRange SemanticReadLineRange) string {
@@ -653,6 +704,7 @@ type SemanticRead struct {
 	TruncationMarker string                 `json:"truncation_marker,omitempty"`
 	ErrorKind        string                 `json:"error_kind,omitempty"`
 	ErrorMessage     string                 `json:"error_message,omitempty"`
+	Decision         *SemanticDecision      `json:"decision,omitempty"`
 	Completed        bool                   `json:"completed"`
 }
 
@@ -680,6 +732,7 @@ type SemanticSearch struct {
 	TruncationMarkers string                `json:"truncation_markers,omitempty"`
 	ErrorKind         string                `json:"error_kind,omitempty"`
 	ErrorMessage      string                `json:"error_message,omitempty"`
+	Decision          *SemanticDecision     `json:"decision,omitempty"`
 	Completed         bool                  `json:"completed"`
 }
 
@@ -692,44 +745,65 @@ type SemanticSearchMatch struct {
 
 // SemanticBash describes injected read-only safe bash state for snapshots.
 type SemanticBash struct {
-	Name            string   `json:"tool_name"`
-	Status          string   `json:"status"`
-	ReadOnly        bool     `json:"read_only"`
-	Argv            []string `json:"argv"`
-	WorkingDir      string   `json:"working_dir"`
-	CommandFamily   string   `json:"command_family,omitempty"`
-	ExpectedEffect  string   `json:"expected_effect,omitempty"`
-	ExitCode        int      `json:"exit_code"`
-	StdoutLines     []string `json:"stdout_lines,omitempty"`
-	StderrLines     []string `json:"stderr_lines,omitempty"`
-	StdoutTruncated bool     `json:"stdout_truncated"`
-	StderrTruncated bool     `json:"stderr_truncated"`
-	DurationMillis  int64    `json:"duration_millis,omitempty"`
-	ErrorKind       string   `json:"error_kind,omitempty"`
-	ErrorMessage    string   `json:"error_message,omitempty"`
-	Completed       bool     `json:"completed"`
+	Name            string            `json:"tool_name"`
+	Status          string            `json:"status"`
+	ReadOnly        bool              `json:"read_only"`
+	Argv            []string          `json:"argv"`
+	WorkingDir      string            `json:"working_dir"`
+	CommandFamily   string            `json:"command_family,omitempty"`
+	ExpectedEffect  string            `json:"expected_effect,omitempty"`
+	ExitCode        int               `json:"exit_code"`
+	StdoutLines     []string          `json:"stdout_lines,omitempty"`
+	StderrLines     []string          `json:"stderr_lines,omitempty"`
+	StdoutTruncated bool              `json:"stdout_truncated"`
+	StderrTruncated bool              `json:"stderr_truncated"`
+	DurationMillis  int64             `json:"duration_millis,omitempty"`
+	ErrorKind       string            `json:"error_kind,omitempty"`
+	ErrorMessage    string            `json:"error_message,omitempty"`
+	Decision        *SemanticDecision `json:"decision,omitempty"`
+	Completed       bool              `json:"completed"`
 }
 
 // SemanticFetch describes injected read-only network state for snapshots.
 type SemanticFetch struct {
-	Name              string   `json:"tool_name"`
-	Status            string   `json:"status"`
-	ReadOnly          bool     `json:"read_only"`
-	URL               string   `json:"url"`
-	Method            string   `json:"method"`
-	ExpectedEffect    string   `json:"expected_effect,omitempty"`
-	HTTPStatusCode    int      `json:"http_status_code,omitempty"`
-	HTTPStatus        string   `json:"http_status,omitempty"`
-	ContentType       string   `json:"content_type,omitempty"`
-	PreviewLines      []string `json:"preview_lines,omitempty"`
-	PreviewTruncated  bool     `json:"preview_truncated"`
-	OmittedBytesKnown bool     `json:"omitted_bytes_known"`
-	OmittedBytes      int64    `json:"omitted_bytes,omitempty"`
-	TruncationMarker  string   `json:"truncation_marker,omitempty"`
-	DurationMillis    int64    `json:"duration_millis,omitempty"`
-	ErrorKind         string   `json:"error_kind,omitempty"`
-	ErrorMessage      string   `json:"error_message,omitempty"`
-	Completed         bool     `json:"completed"`
+	Name              string            `json:"tool_name"`
+	Status            string            `json:"status"`
+	ReadOnly          bool              `json:"read_only"`
+	URL               string            `json:"url"`
+	Method            string            `json:"method"`
+	ExpectedEffect    string            `json:"expected_effect,omitempty"`
+	HTTPStatusCode    int               `json:"http_status_code,omitempty"`
+	HTTPStatus        string            `json:"http_status,omitempty"`
+	ContentType       string            `json:"content_type,omitempty"`
+	PreviewLines      []string          `json:"preview_lines,omitempty"`
+	PreviewTruncated  bool              `json:"preview_truncated"`
+	OmittedBytesKnown bool              `json:"omitted_bytes_known"`
+	OmittedBytes      int64             `json:"omitted_bytes,omitempty"`
+	TruncationMarker  string            `json:"truncation_marker,omitempty"`
+	DurationMillis    int64             `json:"duration_millis,omitempty"`
+	ErrorKind         string            `json:"error_kind,omitempty"`
+	ErrorMessage      string            `json:"error_message,omitempty"`
+	Decision          *SemanticDecision `json:"decision,omitempty"`
+	Completed         bool              `json:"completed"`
+}
+
+// SemanticDecision describes app-injected autonomy decision evidence.
+type SemanticDecision struct {
+	Autonomy         string   `json:"autonomy"`
+	Source           string   `json:"source"`
+	Allowed          bool     `json:"allowed"`
+	Automatic        bool     `json:"automatic"`
+	ApprovalRequired bool     `json:"approval_required"`
+	Reason           string   `json:"reason,omitempty"`
+	OperationKind    string   `json:"operation_kind"`
+	Name             string   `json:"tool,omitempty"`
+	Target           string   `json:"target,omitempty"`
+	Command          []string `json:"command,omitempty"`
+	WorkingDir       string   `json:"working_dir,omitempty"`
+	ExpectedEffect   string   `json:"expected_effect,omitempty"`
+	Reversible       bool     `json:"reversible"`
+	RunID            string   `json:"run_id,omitempty"`
+	Capability       string   `json:"capability,omitempty"`
 }
 
 // SemanticMemory describes app-injected resumed current-session memory.
@@ -1140,6 +1214,7 @@ func semanticReadItems(read *ReadView) []string {
 	if semantic.ErrorMessage != "" {
 		items = append(items, "error_message: "+semantic.ErrorMessage)
 	}
+	items = appendDecisionItems(items, semantic.Decision)
 	items = append(items, "app-owned", "display-only")
 	return items
 }
@@ -1172,6 +1247,7 @@ func semanticRead(read *ReadView) *SemanticRead {
 		TruncationMarker: safeText(read.TruncationMarker),
 		ErrorKind:        safeText(read.ErrorKind),
 		ErrorMessage:     safeText(read.ErrorMessage),
+		Decision:         semanticDecision(read.Decision),
 		Completed:        completed,
 	}
 	if hasReadRange(read.EffectiveRange) {
@@ -1186,6 +1262,7 @@ func semanticRead(read *ReadView) *SemanticRead {
 		semantic.TruncationMarker = ""
 		semantic.ErrorKind = ""
 		semantic.ErrorMessage = ""
+		semantic.Decision = nil
 	}
 	return semantic
 }
@@ -1236,6 +1313,7 @@ func semanticSearchItems(search *SearchView) []string {
 	if semantic.ErrorMessage != "" {
 		items = append(items, "error_message: "+semantic.ErrorMessage)
 	}
+	items = appendDecisionItems(items, semantic.Decision)
 	items = append(items, "app-owned", "display-only")
 	return items
 }
@@ -1272,6 +1350,7 @@ func semanticSearch(search *SearchView) *SemanticSearch {
 		TruncationMarkers: safeText(search.TruncationMarkers),
 		ErrorKind:         safeText(search.ErrorKind),
 		ErrorMessage:      safeText(search.ErrorMessage),
+		Decision:          semanticDecision(search.Decision),
 		Completed:         completed,
 	}
 	if !semantic.Completed {
@@ -1283,6 +1362,7 @@ func semanticSearch(search *SearchView) *SemanticSearch {
 		semantic.TruncationMarkers = ""
 		semantic.ErrorKind = ""
 		semantic.ErrorMessage = ""
+		semantic.Decision = nil
 	}
 	return semantic
 }
@@ -1343,6 +1423,7 @@ func semanticBashItems(command *CommandView) []string {
 	if semantic.ErrorMessage != "" {
 		items = append(items, "error_message: "+semantic.ErrorMessage)
 	}
+	items = appendDecisionItems(items, semantic.Decision)
 	items = append(items, "app-owned", "display-only")
 	return items
 }
@@ -1379,6 +1460,7 @@ func semanticBash(command *CommandView) *SemanticBash {
 		DurationMillis:  command.DurationMillis,
 		ErrorKind:       safeText(command.ErrorKind),
 		ErrorMessage:    safeText(command.ErrorMessage),
+		Decision:        semanticDecision(command.Decision),
 		Completed:       completed,
 	}
 	if !semantic.Completed {
@@ -1392,6 +1474,7 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.DurationMillis = 0
 		semantic.ErrorKind = ""
 		semantic.ErrorMessage = ""
+		semantic.Decision = nil
 	}
 	return semantic
 }
@@ -1442,6 +1525,7 @@ func semanticFetchItems(fetch *FetchView) []string {
 	if semantic.ErrorMessage != "" {
 		items = append(items, "error_message: "+semantic.ErrorMessage)
 	}
+	items = appendDecisionItems(items, semantic.Decision)
 	items = append(items, "app-owned", "display-only")
 	return items
 }
@@ -1484,6 +1568,7 @@ func semanticFetch(fetch *FetchView) *SemanticFetch {
 		DurationMillis:    fetch.DurationMillis,
 		ErrorKind:         safeText(fetch.ErrorKind),
 		ErrorMessage:      safeText(fetch.ErrorMessage),
+		Decision:          semanticDecision(fetch.Decision),
 		Completed:         completed,
 	}
 	if !semantic.Completed {
@@ -1499,8 +1584,84 @@ func semanticFetch(fetch *FetchView) *SemanticFetch {
 		semantic.DurationMillis = 0
 		semantic.ErrorKind = ""
 		semantic.ErrorMessage = ""
+		semantic.Decision = nil
 	}
 	return semantic
+}
+
+func appendDecisionItems(items []string, decision *SemanticDecision) []string {
+	if decision == nil {
+		return items
+	}
+	items = append(items,
+		"decision_source: "+decision.Source,
+		"decision: "+decisionLabel(decision.Allowed),
+		"decision_automatic: "+boolLabel(decision.Automatic),
+		"approval_required: "+boolLabel(decision.ApprovalRequired),
+		"decision_autonomy: "+decision.Autonomy,
+		"operation_kind: "+decision.OperationKind,
+	)
+	if decision.Name != "" {
+		items = append(items, "decision_tool: "+decision.Name)
+	}
+	if decision.Target != "" {
+		items = append(items, "decision_target: "+decision.Target)
+	}
+	if len(decision.Command) > 0 {
+		items = append(items, "decision_command: "+strings.Join(decision.Command, " "))
+	}
+	if decision.WorkingDir != "" {
+		items = append(items, "decision_working_dir: "+decision.WorkingDir)
+	}
+	if decision.ExpectedEffect != "" {
+		items = append(items, "decision_expected_effect: "+decision.ExpectedEffect)
+	}
+	items = append(items, "decision_reversible: "+boolLabel(decision.Reversible))
+	if decision.RunID != "" {
+		items = append(items, "decision_run_id: "+decision.RunID)
+	}
+	if decision.Capability != "" {
+		items = append(items, "decision_capability: "+decision.Capability)
+	}
+	if decision.Reason != "" {
+		items = append(items, "decision_reason: "+decision.Reason)
+	}
+	return items
+}
+
+func semanticDecision(decision *DecisionView) *SemanticDecision {
+	if decision == nil || decision.Source == "" {
+		return nil
+	}
+	workingDir := ""
+	if decision.WorkingDir != "" {
+		workingDir = safeCommandPath(decision.WorkingDir)
+	}
+	return &SemanticDecision{
+		Autonomy:         safeText(decision.Autonomy),
+		Source:           safeText(decision.Source),
+		Allowed:          decision.Allowed,
+		Automatic:        decision.Automatic,
+		ApprovalRequired: decision.ApprovalRequired,
+		Reason:           safeText(decision.Reason),
+		OperationKind:    safeText(decision.OperationKind),
+		Name:             safeText(decision.Name),
+		Target:           safeDecisionTarget(decision.Target),
+		Command:          safeCommandArgv(decision.Command),
+		WorkingDir:       workingDir,
+		ExpectedEffect:   safeText(decision.ExpectedEffect),
+		Reversible:       decision.Reversible,
+		RunID:            safeText(decision.RunID),
+		Capability:       safeText(decision.Capability),
+	}
+}
+
+func safeDecisionTarget(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
+		return safeFetchURL(value)
+	}
+	return safeReadTargetPath(value)
 }
 
 func safeCommandOutputLines(lines []string) []string {

@@ -141,6 +141,8 @@ func TestReadToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
 	if got := runner.model.LastRead; got.ToolName != "read" || got.WorkspaceRelativePath != "notes.txt" || got.EffectiveRange.StartLine != 2 || got.EffectiveRange.EndLine != 3 || got.Error.Kind != runtime.ReadToolErrorNone {
 		t.Fatalf("last read = %#v, want successful read result", got)
 	}
+	assertAllowedToolDecision(t, runner.model.LastRead.Decision, "read", "notes.txt")
+	assertViewDecision(t, turn.Read.Decision, "allowed", "read", "notes.txt")
 	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
 		t.Fatalf("read tool created durable state err=%v", err)
 	}
@@ -219,6 +221,8 @@ func TestReadToolProposalDeniedWhenAutonomyOff(t *testing.T) {
 	if runner.model.LastRead.Error.Kind != runtime.ReadToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
 		t.Fatalf("denied read result = %#v assistant=%q", runner.model.LastRead, turn.AssistantText)
 	}
+	assertDeniedToolDecision(t, runner.model.LastRead.Decision, "read", "notes.txt")
+	assertViewDecision(t, turn.Read.Decision, "denied", "read", "notes.txt")
 }
 
 func TestSearchToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
@@ -247,6 +251,8 @@ func TestSearchToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
 	if got := runner.model.LastSearch; got.ToolName != "grep" || len(got.Matches) != 1 || got.Error.Kind != runtime.SearchToolErrorNone {
 		t.Fatalf("last search = %#v, want successful search result", got)
 	}
+	assertAllowedToolDecision(t, runner.model.LastSearch.Decision, "grep", "needle in **/*.go")
+	assertViewDecision(t, turn.Search.Decision, "allowed", "grep", "needle in **/*.go")
 	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
 		t.Fatalf("search tool created durable state err=%v", err)
 	}
@@ -303,6 +309,8 @@ func TestSearchToolProposalDeniedWhenAutonomyOff(t *testing.T) {
 	if runner.model.LastSearch.Error.Kind != runtime.SearchToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
 		t.Fatalf("denied search result = %#v assistant=%q", runner.model.LastSearch, turn.AssistantText)
 	}
+	assertDeniedToolDecision(t, runner.model.LastSearch.Decision, "find", "*.go")
+	assertViewDecision(t, turn.Search.Decision, "denied", "find", "*.go")
 }
 
 func TestInterruptRequestRoutesTypedRuntimeMessageWhileFakeWorkActive(t *testing.T) {
@@ -624,6 +632,8 @@ func TestBashToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
 	if got := runner.model.LastBash; got.ToolName != "bash" || got.CommandFamily != "ls" || got.Error.Kind != runtime.BashToolErrorNone {
 		t.Fatalf("last bash = %+v", got)
 	}
+	assertAllowedToolDecision(t, runner.model.LastBash.Decision, "bash", "")
+	assertViewDecision(t, turn.Command.Decision, "allowed", "bash", "")
 }
 
 func TestBashToolProposalCanSurfaceRunningPresentation(t *testing.T) {
@@ -659,6 +669,44 @@ func TestBashToolProposalDeniedWhenAutonomyOff(t *testing.T) {
 	turn := runner.proposeBashTool(runtime.BashToolRequest{Argv: []string{"pwd"}})
 	if turn.Command == nil || turn.Command.ErrorKind != string(runtime.BashToolErrorPermission) || !strings.Contains(turn.AssistantText, "autonomy off") {
 		t.Fatalf("denied command view = %+v assistant=%q", turn.Command, turn.AssistantText)
+	}
+	assertDeniedToolDecision(t, runner.model.LastBash.Decision, "bash", "")
+	assertViewDecision(t, turn.Command.Decision, "denied", "bash", "")
+}
+
+func assertAllowedToolDecision(t *testing.T, decision runtime.ToolDecision, tool string, target string) {
+	t.Helper()
+	if !decision.Present || decision.Autonomy != string(permission.AutonomyRead) || decision.Source != "autonomy_policy" || !decision.Allowed || !decision.Automatic || decision.ApprovalRequired || decision.OperationKind != string(permission.OperationRead) || decision.Tool != tool || decision.ExpectedEffect == "" || !decision.Reversible {
+		t.Fatalf("allowed decision = %+v, want read-only allow for %s", decision, tool)
+	}
+	if target != "" && decision.Target != target {
+		t.Fatalf("allowed decision target = %q, want %q", decision.Target, target)
+	}
+}
+
+func assertDeniedToolDecision(t *testing.T, decision runtime.ToolDecision, tool string, target string) {
+	t.Helper()
+	if !decision.Present || decision.Autonomy != string(permission.AutonomyOff) || decision.Source != "autonomy_policy" || decision.Allowed || decision.Automatic || !decision.ApprovalRequired || decision.OperationKind != string(permission.OperationRead) || decision.Tool != tool || !strings.Contains(decision.Reason, "autonomy off") {
+		t.Fatalf("denied decision = %+v, want read-only denial for %s", decision, tool)
+	}
+	if target != "" && decision.Target != target {
+		t.Fatalf("denied decision target = %q, want %q", decision.Target, target)
+	}
+}
+
+func assertViewDecision(t *testing.T, decision *tui.DecisionView, want string, name string, target string) {
+	t.Helper()
+	if decision == nil || decision.Source != "autonomy_policy" || decision.OperationKind != string(permission.OperationRead) || decision.Name != name || decision.ExpectedEffect == "" || !decision.Reversible {
+		t.Fatalf("view decision = %+v, want %s decision for %s", decision, want, name)
+	}
+	if want == "allowed" && (!decision.Allowed || !decision.Automatic || decision.ApprovalRequired) {
+		t.Fatalf("view allowed decision = %+v", decision)
+	}
+	if want == "denied" && (decision.Allowed || decision.Automatic || !decision.ApprovalRequired || !strings.Contains(decision.Reason, "autonomy off")) {
+		t.Fatalf("view denied decision = %+v", decision)
+	}
+	if target != "" && decision.Target != target {
+		t.Fatalf("view decision target = %q, want %q", decision.Target, target)
 	}
 }
 
@@ -718,6 +766,8 @@ func TestFetchToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
 	if got := runner.model.LastFetch; got.ToolName != "fetch" || got.EffectiveURL != "https://example.com/docs" || got.Error.Kind != runtime.FetchToolErrorNone {
 		t.Fatalf("last fetch = %#v, want successful fetch result", got)
 	}
+	assertAllowedToolDecision(t, runner.model.LastFetch.Decision, "fetch", "https://example.com/docs")
+	assertViewDecision(t, turn.Fetch.Decision, "allowed", "fetch", "https://example.com/docs")
 	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
 		t.Fatalf("fetch tool created durable state err=%v", err)
 	}
@@ -752,6 +802,9 @@ func TestFetchToolProposalSurfacesValidationFailureWithoutHiddenRetry(t *testing
 	if got := runner.model.LastFetch.Error; got.Kind != runtime.FetchToolErrorInvalidURL {
 		t.Fatalf("last fetch error = %#v, want invalid url failure", got)
 	}
+	if runner.model.LastFetch.Decision.Present || turn.Fetch.Decision != nil {
+		t.Fatalf("invalid fetch should not fabricate decision metadata: last=%+v view=%+v", runner.model.LastFetch.Decision, turn.Fetch.Decision)
+	}
 	if strings.Contains(turn.AssistantText, "/etc/passwd") || strings.Contains(turn.AssistantText, workspace) {
 		t.Fatalf("fetch failure leaked unsafe path context: %q", turn.AssistantText)
 	}
@@ -774,6 +827,8 @@ func TestFetchToolProposalDeniedWhenAutonomyOff(t *testing.T) {
 	if runner.model.LastFetch.Error.Kind != runtime.FetchToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
 		t.Fatalf("denied fetch result = %#v assistant=%q", runner.model.LastFetch, turn.AssistantText)
 	}
+	assertDeniedToolDecision(t, runner.model.LastFetch.Decision, "fetch", "https://example.com/docs")
+	assertViewDecision(t, turn.Fetch.Decision, "denied", "fetch", "https://example.com/docs")
 }
 
 func TestFetchToolProposalSurfacesNetworkFailureWithoutProviderFallback(t *testing.T) {

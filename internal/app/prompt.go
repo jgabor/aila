@@ -202,6 +202,7 @@ func readView(model runtime.Model) *tui.ReadView {
 		TruncationMarker: model.LastRead.Truncation.Marker,
 		ErrorKind:        string(model.LastRead.Error.Kind),
 		ErrorMessage:     model.LastRead.Error.Message,
+		Decision:         decisionView(model.LastRead.Decision),
 	}
 }
 
@@ -257,6 +258,7 @@ func searchView(model runtime.Model) *tui.SearchView {
 		TruncationMarkers: model.LastSearch.Truncation.TruncationMarkers,
 		ErrorKind:         string(model.LastSearch.Error.Kind),
 		ErrorMessage:      model.LastSearch.Error.Message,
+		Decision:          decisionView(model.LastSearch.Decision),
 	}
 }
 
@@ -305,6 +307,7 @@ func commandView(model runtime.Model) *tui.CommandView {
 		DurationMillis:  model.LastBash.DurationMillis,
 		ErrorKind:       string(model.LastBash.Error.Kind),
 		ErrorMessage:    model.LastBash.Error.Message,
+		Decision:        decisionView(model.LastBash.Decision),
 	}
 }
 
@@ -351,6 +354,30 @@ func fetchView(model runtime.Model) *tui.FetchView {
 		DurationMillis:    model.LastFetch.DurationMillis,
 		ErrorKind:         string(model.LastFetch.Error.Kind),
 		ErrorMessage:      model.LastFetch.Error.Message,
+		Decision:          decisionView(model.LastFetch.Decision),
+	}
+}
+
+func decisionView(decision runtime.ToolDecision) *tui.DecisionView {
+	if !decision.Present {
+		return nil
+	}
+	return &tui.DecisionView{
+		Autonomy:         decision.Autonomy,
+		Source:           decision.Source,
+		Allowed:          decision.Allowed,
+		Automatic:        decision.Automatic,
+		ApprovalRequired: decision.ApprovalRequired,
+		Reason:           decision.Reason,
+		OperationKind:    decision.OperationKind,
+		Name:             decision.Tool,
+		Target:           decision.Target,
+		Command:          append([]string(nil), decision.Command...),
+		WorkingDir:       decision.WorkingDir,
+		ExpectedEffect:   decision.ExpectedEffect,
+		Reversible:       decision.Reversible,
+		RunID:            decision.RunID,
+		Capability:       decision.Capability,
 	}
 }
 

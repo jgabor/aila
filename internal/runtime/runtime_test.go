@@ -242,7 +242,7 @@ func TestUpdateHandlesReadToolResultMessages(t *testing.T) {
 	if completed.Status != StatusIdle {
 		t.Fatalf("Status = %q, want %q", completed.Status, StatusIdle)
 	}
-	if completed.LastRead != result {
+	if !reflect.DeepEqual(completed.LastRead, result) {
 		t.Fatalf("LastRead = %#v, want %#v", completed.LastRead, result)
 	}
 	if completed.ActiveRead != (ReadToolRequest{}) {
@@ -1006,5 +1006,68 @@ func TestUpdateQueuesFetchToolProposalWhileActive(t *testing.T) {
 	updated, effects := Update(model, FetchToolProposed{Request: FetchToolRequest{URL: "https://example.com/docs"}})
 	if len(effects) != 0 || len(updated.Queued) != 1 || updated.Queued[0].Kind != "fetch" || updated.Queued[0].Text != "https://example.com/docs" {
 		t.Fatalf("queued fetch model=%+v effects=%v", updated, effects)
+	}
+}
+
+func TestUpdateRetainsToolDecisionMetadata(t *testing.T) {
+	t.Parallel()
+
+	readDecision := ToolDecision{
+		Present:          true,
+		Autonomy:         "off",
+		Source:           "autonomy_policy",
+		Allowed:          false,
+		Automatic:        false,
+		ApprovalRequired: true,
+		Reason:           "autonomy off requires approval",
+		OperationKind:    "read",
+		Tool:             "read",
+		Target:           "notes.txt",
+		ExpectedEffect:   "bounded workspace file preview",
+		Reversible:       true,
+	}
+	readOperation := OperationMetadata{ID: "op-read", Kind: OperationRead, Subject: "notes.txt", Source: "test"}
+	readModel := Model{Status: StatusActive, ActiveOperation: readOperation, ActiveRead: ReadToolRequest{Path: "notes.txt"}}
+	readResult := ReadToolResult{
+		ToolName:      "read",
+		RequestedPath: "notes.txt",
+		Error:         ReadToolError{Kind: ReadToolErrorPermission, Message: readDecision.Reason},
+		Decision:      readDecision,
+	}
+
+	readCompleted, effects := Update(readModel, ReadToolCompleted{Operation: readOperation, Result: readResult})
+	if len(effects) != 0 || readCompleted.Status != StatusIdle || !reflect.DeepEqual(readCompleted.LastRead.Decision, readDecision) {
+		t.Fatalf("completed read model=%+v effects=%v", readCompleted, effects)
+	}
+	if readCompleted.ActiveOperation.ID != "" || readCompleted.ActiveRead.Path != "" {
+		t.Fatalf("active read state not cleared: %+v", readCompleted)
+	}
+
+	searchDecision := readDecision
+	searchDecision.Tool = "grep"
+	searchDecision.Target = "needle in **/*.go"
+	searchOperation := OperationMetadata{ID: "op-search", Kind: OperationGrep, Subject: "needle", Source: "test"}
+	searchCompleted, effects := Update(Model{Status: StatusActive, ActiveOperation: searchOperation}, SearchToolCompleted{Operation: searchOperation, Result: SearchToolResult{ToolName: "grep", Query: "needle", Error: SearchToolError{Kind: SearchToolErrorPermission, Message: searchDecision.Reason}, Decision: searchDecision}})
+	if len(effects) != 0 || searchCompleted.Status != StatusIdle || !reflect.DeepEqual(searchCompleted.LastSearch.Decision, searchDecision) {
+		t.Fatalf("completed search model=%+v effects=%v", searchCompleted, effects)
+	}
+
+	bashDecision := readDecision
+	bashDecision.Tool = "bash"
+	bashDecision.Target = ""
+	bashDecision.Command = []string{"pwd"}
+	bashOperation := OperationMetadata{ID: "op-bash", Kind: OperationBash, Subject: "pwd", Source: "test"}
+	bashCompleted, effects := Update(Model{Status: StatusActive, ActiveOperation: bashOperation, ActiveBash: BashToolRequest{Argv: []string{"pwd"}}}, BashToolCompleted{Operation: bashOperation, Result: BashToolResult{ToolName: "bash", RequestedArgv: []string{"pwd"}, Status: "denied", Error: BashToolError{Kind: BashToolErrorPermission, Message: bashDecision.Reason}, Decision: bashDecision}})
+	if len(effects) != 0 || bashCompleted.Status != StatusIdle || !reflect.DeepEqual(bashCompleted.LastBash.Decision, bashDecision) {
+		t.Fatalf("completed bash model=%+v effects=%v", bashCompleted, effects)
+	}
+
+	fetchDecision := readDecision
+	fetchDecision.Tool = "fetch"
+	fetchDecision.Target = "https://example.com/docs"
+	fetchOperation := OperationMetadata{ID: "op-fetch", Kind: OperationFetch, Subject: "https://example.com/docs", Source: "test"}
+	fetchCompleted, effects := Update(Model{Status: StatusActive, ActiveOperation: fetchOperation, ActiveFetch: FetchToolRequest{URL: "https://example.com/docs"}}, FetchToolCompleted{Operation: fetchOperation, Result: FetchToolResult{ToolName: "fetch", RequestedURL: "https://example.com/docs", Status: "denied", Error: FetchToolError{Kind: FetchToolErrorPermission, Message: fetchDecision.Reason}, Decision: fetchDecision}})
+	if len(effects) != 0 || fetchCompleted.Status != StatusIdle || !reflect.DeepEqual(fetchCompleted.LastFetch.Decision, fetchDecision) {
+		t.Fatalf("completed fetch model=%+v effects=%v", fetchCompleted, effects)
 	}
 }

@@ -52,6 +52,26 @@ type ReadView struct {
 	TruncationMarker string
 	ErrorKind        string
 	ErrorMessage     string
+	Decision         *DecisionView
+}
+
+// DecisionView is app-injected autonomy decision evidence for a tool result.
+type DecisionView struct {
+	Autonomy         string
+	Source           string
+	Allowed          bool
+	Automatic        bool
+	ApprovalRequired bool
+	Reason           string
+	OperationKind    string
+	Name             string
+	Target           string
+	Command          []string
+	WorkingDir       string
+	ExpectedEffect   string
+	Reversible       bool
+	RunID            string
+	Capability       string
 }
 
 // ReadLineRangeView records 1-based read line references for presentation.
@@ -79,6 +99,7 @@ type SearchView struct {
 	TruncationMarkers string
 	ErrorKind         string
 	ErrorMessage      string
+	Decision          *DecisionView
 }
 
 // SearchMatchView records one injected find or grep match.
@@ -106,6 +127,7 @@ type CommandView struct {
 	DurationMillis  int64
 	ErrorKind       string
 	ErrorMessage    string
+	Decision        *DecisionView
 }
 
 // FetchView is app-injected network read presentation data. It is display-only;
@@ -128,6 +150,7 @@ type FetchView struct {
 	DurationMillis    int64
 	ErrorKind         string
 	ErrorMessage      string
+	Decision          *DecisionView
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -357,6 +380,7 @@ func cloneReadView(read *ReadView) *ReadView {
 	}
 	clone := *read
 	clone.PreviewLines = append([]string(nil), read.PreviewLines...)
+	clone.Decision = cloneDecisionView(read.Decision)
 	return &clone
 }
 
@@ -366,6 +390,7 @@ func cloneSearchView(search *SearchView) *SearchView {
 	}
 	clone := *search
 	clone.Matches = append([]SearchMatchView(nil), search.Matches...)
+	clone.Decision = cloneDecisionView(search.Decision)
 	return &clone
 }
 
@@ -377,6 +402,7 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.Argv = append([]string(nil), command.Argv...)
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
+	clone.Decision = cloneDecisionView(command.Decision)
 	return &clone
 }
 
@@ -386,6 +412,16 @@ func cloneFetchView(fetch *FetchView) *FetchView {
 	}
 	clone := *fetch
 	clone.PreviewLines = append([]string(nil), fetch.PreviewLines...)
+	clone.Decision = cloneDecisionView(fetch.Decision)
+	return &clone
+}
+
+func cloneDecisionView(decision *DecisionView) *DecisionView {
+	if decision == nil {
+		return nil
+	}
+	clone := *decision
+	clone.Command = append([]string(nil), decision.Command...)
 	return &clone
 }
 

@@ -1,0 +1,44 @@
+Aila                                                                                                                                                      160x45
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto off
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                                                  |  | phase source: workflow.fixture         |
+| primary model: placeholder                                                                                       |  | primary model: placeholder             |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: off (display-only)                                                                                     |  | autonomy: off                          |
+|                                                                                                                  |  | status: idle                           |
+| Runtime status:                                                                                                  |  | status source: runtime.fixture         |
+| status: idle                                                                                                     |  | detail: read tool dispatch             |
+| status source: runtime.fixture                                                                                   |  | active: false                          |
+| detail: read tool dispatch                                                                                       |  | display-only                           |
+| active: false                                                                                                    |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Read tool:                                                                                                       |  |                                        |
+| tool: read                                                                                                       |  |                                        |
+| status: failed                                                                                                   |  |                                        |
+| read-only: true                                                                                                  |  |                                        |
+| path: internal/tui/render.go                                                                                     |  |                                        |
+| requested range: full file                                                                                       |  |                                        |
+| completed: true                                                                                                  |  |                                        |
+| preview truncated: false                                                                                         |  |                                        |
+| line limit hit: false                                                                                            |  |                                        |
+| error kind: permission_denied                                                                                    |  |                                        |
+| error message: autonomy off requires approval                                                                    |  |                                        |
+| decision source: autonomy_policy                                                                                 |  |                                        |
+| decision: denied                                                                                                 |  |                                        |
+| decision automatic: false                                                                                        |  |                                        |
+| approval required: true                                                                                          |  |                                        |
+| autonomy: off                                                                                                    |  |                                        |
+| operation: read                                                                                                  |  |                                        |
+| decision tool: read                                                                                              |  |                                        |
+| decision target: internal/tui/render.go                                                                          |  |                                        |
+| decision expected effect: bounded workspace file preview                                                         |  |                                        |
+| decision reversible: true                                                                                        |  |                                        |
+| decision reason: autonomy off requires approval                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit

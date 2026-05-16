@@ -1,4 +1,75 @@
 cycles:
+  - number: 161
+    timestamp: "2026-05-16 20:05"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M22 by adding explicit read-only autonomy decision records, carrying decision metadata through runtime/app read/search/bash/fetch results, exposing blocked decisions in TUI render and semantic state, adding blocked-read-decision fixtures/snapshots, and updating ROADMAP.md closeout.
+    commit: "pending local commit for M22 permission decision metadata"
+    inspiration: ".agentera/plan.yaml tasks 1-4; ROADMAP.md Milestone 22; docs/notes/PROMPT.md; ARCHITECTURE.md statechart-MVU and permission-plane rules; docs/tui-testing.md fixture/snapshot gate"
+    discovered: >-
+      Existing autonomy policy already allowed read operations at read/write/yolo and blocked at off, so M22 needed to make decisions observable rather than add approval UX. Validation-before-decision paths matter: bash/fetch validation failures remain bounded and do not fabricate decision metadata. The TUI resize boundary rejects capital ownership markers in model/render sources, so decision presentation uses display-owned names without importing permission/tool ownership. No approval prompts, write classes, edit/write tools, mutation history, approval persistence, undo/replay, context compaction, stale checks, source indexing, provider fallback, plugins, MCP, workflow DSL, marketplace, hosted control plane, or M23+ behavior was added.
+    verified: >-
+      `go test ./internal/permission ./internal/runtime ./internal/app ./internal/tui -count=1` passed. `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. `git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/permission internal/runtime internal/app internal/tui` passed. Explicit `git diff --check --no-index /dev/null <file>` checks passed for `.agentera/archive/plan-2026-05-16-m21.yaml` and all new blocked-read-decision fixture files. Installed Agentera CLI plan/progress validation passed after this metadata write.
+    next: >-
+      Commit the M22 permission decision metadata slice, then continue with M23: Agent Event Adapter With Fake Provider in the next planera -> orkestrera -> commit loop.
+    context:
+      intent: >-
+        Execute the active M22 plan through Orkestrera and close the roadmap slice only after validation passed.
+      constraints: >-
+        Preserve statechart-MVU, TUI presentation-only boundary, fixed-product posture, read-only permission recording, and no approval/write/mutation/provider/M23+ scope. Do not include pre-existing `.agentera/session.yaml` or `.aila/` state in the commit.
+      unknowns: "none"
+      scope: >-
+        M22 implementation, runtime/app/TUI decision metadata, fixtures/snapshots, validation, ROADMAP.md closeout, and Agentera plan/progress synchronization.
+  - number: 160
+    timestamp: "2026-05-16 19:18"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 22: Permission Model For Read-Only Work as the next roadmap
+      milestone, archived the completed M21 plan, and created a new active full plan
+      with four bounded tasks for decision contracts, runtime/app decision recording,
+      TUI decision visibility, and validation closeout.
+    commit: "N/A: planning artifact before M22 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 22; AGENTS.md; README.md;
+      ARCHITECTURE.md; docs/tui-testing.md; docs/workflow-architecture.md;
+      agentera hej --format json --capability-context planera
+    discovered: >-
+      Active milestone was none and ROADMAP.md Next milestone was M22. The existing
+      permission package already defines autonomy levels and read-only decisions for
+      read, find, grep, bash inspection, and fetch, but decisions are not yet recorded
+      in runtime/app/TUI-visible result metadata. The plan must avoid approval prompts,
+      write classes, mutation persistence, undo/replay, context compaction, stale checks,
+      source indexing, provider fallback, plugins, MCP, workflow DSL, marketplace,
+      hosted control planes, and M23+ behavior. The apply_patch artifact hook remains
+      unavailable because /hooks/validate_artifact.py is missing, so the plan file was
+      written with a controlled script and will be diff/CLI validated.
+    verified: >-
+      Planera startup state loaded through the installed Agentera CLI; docs/notes/PROMPT.md,
+      the top of ROADMAP.md, the M22 roadmap section, AGENTS.md, README.md,
+      ARCHITECTURE.md, docs/tui-testing.md, docs/workflow-architecture.md, current
+      permission source, runtime/app tool result seams, and TUI autonomy/tool presentation
+      seams were reviewed before writing the plan.
+    next: >-
+      Execute M22 Task 1: define read-only decision record contracts. Do not implement
+      approval prompts, write classes, edit/write, mutation history, approval persistence,
+      undo/replay, compaction, source indexing, plugins, MCP, or M23+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md
+        before starting implementation.
+      constraints: >-
+        Plan only M22; preserve statechart-MVU, fixed-product posture,
+        TUI presentation-only boundary, CLI-first Agentera artifact access, and commit
+        only after implementation and validation complete.
+      unknowns: >-
+        Exact result field names and whether the blocked decision fixture should reuse
+        read or tool-failed presentation are implementation-owned; PTY smoke must run
+        only if visible autonomy interactions are added.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-16-m21.yaml
+        archival, progress evidence for the planning handoff, and archive index sync.
   - number: 159
     timestamp: "2026-05-16 19:07"
     type: build
@@ -7001,3 +7072,4 @@ archive:
   - .agentera/archive/plan-2026-05-16-m18.yaml
   - .agentera/archive/plan-2026-05-16-m19.yaml
   - .agentera/archive/plan-2026-05-16-m20.yaml
+  - .agentera/archive/plan-2026-05-16-m21.yaml

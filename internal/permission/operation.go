@@ -41,6 +41,27 @@ type Decision struct {
 	Reason    string
 }
 
+const decisionSourceAutonomyPolicy = "autonomy_policy"
+
+// DecisionRecord is the copied, serializable evidence for one autonomy decision.
+type DecisionRecord struct {
+	Autonomy         AutonomyLevel
+	Source           string
+	Allowed          bool
+	Automatic        bool
+	ApprovalRequired bool
+	Reason           string
+	OperationKind    OperationKind
+	Tool             string
+	TargetPath       string
+	Command          []string
+	WorkingDir       string
+	ExpectedEffect   string
+	Reversible       bool
+	RunID            string
+	Capability       string
+}
+
 // NewReadOperation classifies the built-in read tool as read-only.
 func NewReadOperation(targetPath string) ProposedOperation {
 	return ProposedOperation{
@@ -112,4 +133,30 @@ func Decide(level AutonomyLevel, operation ProposedOperation) Decision {
 		return Decision{Allowed: false, Automatic: false, Reason: "autonomy off requires approval"}
 	}
 	return Decision{Allowed: false, Automatic: false, Reason: "operation is not allowed automatically"}
+}
+
+// DecideRecord applies the autonomy policy and returns durable decision evidence.
+func DecideRecord(level AutonomyLevel, operation ProposedOperation) DecisionRecord {
+	return RecordDecision(level, operation, Decide(level, operation))
+}
+
+// RecordDecision copies the operation and policy outcome without executing work.
+func RecordDecision(level AutonomyLevel, operation ProposedOperation, decision Decision) DecisionRecord {
+	return DecisionRecord{
+		Autonomy:         level,
+		Source:           decisionSourceAutonomyPolicy,
+		Allowed:          decision.Allowed,
+		Automatic:        decision.Automatic,
+		ApprovalRequired: !decision.Allowed && level == AutonomyOff && operation.Kind == OperationRead,
+		Reason:           decision.Reason,
+		OperationKind:    operation.Kind,
+		Tool:             operation.Tool,
+		TargetPath:       operation.TargetPath,
+		Command:          append([]string(nil), operation.Command...),
+		WorkingDir:       operation.WorkingDir,
+		ExpectedEffect:   operation.ExpectedEffect,
+		Reversible:       operation.Reversible,
+		RunID:            operation.RunID,
+		Capability:       operation.Capability,
+	}
 }

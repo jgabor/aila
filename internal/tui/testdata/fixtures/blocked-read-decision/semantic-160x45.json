@@ -1,0 +1,154 @@
+{
+  "scenario": "blocked-read-decision",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "read tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "off"
+  },
+  "read_tool": {
+    "tool_name": "read",
+    "status": "failed",
+    "read_only": true,
+    "path": "internal/tui/render.go",
+    "requested_range": {},
+    "preview_truncated": false,
+    "line_limit_hit": false,
+    "error_kind": "permission_denied",
+    "error_message": "autonomy off requires approval",
+    "decision": {
+      "autonomy": "off",
+      "source": "autonomy_policy",
+      "allowed": false,
+      "automatic": false,
+      "approval_required": true,
+      "reason": "autonomy off requires approval",
+      "operation_kind": "read",
+      "tool": "read",
+      "target": "internal/tui/render.go",
+      "expected_effect": "bounded workspace file preview",
+      "reversible": true
+    },
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": ["primary: placeholder", "utility: placeholder", "autonomy: off"]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: off",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: read tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "read_tool",
+      "visible": true,
+      "items": [
+        "tool_name: read",
+        "status: failed",
+        "read_only: true",
+        "path: internal/tui/render.go",
+        "requested_range: full file",
+        "completed: true",
+        "preview_truncated: false",
+        "line_limit_hit: false",
+        "error_kind: permission_denied",
+        "error_message: autonomy off requires approval",
+        "decision_source: autonomy_policy",
+        "decision: denied",
+        "decision_automatic: false",
+        "approval_required: true",
+        "decision_autonomy: off",
+        "operation_kind: read",
+        "decision_tool: read",
+        "decision_target: internal/tui/render.go",
+        "decision_expected_effect: bounded workspace file preview",
+        "decision_reversible: true",
+        "decision_reason: autonomy off requires approval",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: workflow.fixture",
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: off",
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: read tool dispatch",
+        "active: false",
+        "display-only",
+        "git: placeholder",
+        "context: placeholder"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

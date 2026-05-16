@@ -1,0 +1,43 @@
+[1mAila                                                                                          100x44[0m
+[2mStage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto off                     [0m
++ [33mConversation[0m ------------------------------------------------------------------------------------+
+| Display labels:                                                                                  |
+| primary model: placeholder                                                                       |
+| utility model: placeholder                                                                       |
+| autonomy: off (display-only)                                                                     |
+|                                                                                                  |
+| Runtime status:                                                                                  |
+| status: idle                                                                                     |
+| status source: runtime.fixture                                                                   |
+| detail: read tool dispatch                                                                       |
+| active: false                                                                                    |
+|                                                                                                  |
+| Read tool:                                                                                       |
+| tool: read                                                                                       |
+| status: failed                                                                                   |
+| read-only: true                                                                                  |
+| path: internal/tui/render.go                                                                     |
+| requested range: full file                                                                       |
+| completed: true                                                                                  |
+| preview truncated: false                                                                         |
+| line limit hit: false                                                                            |
+| error kind: permission_denied                                                                    |
+| error message: autonomy off requires approval                                                    |
+| decision source: autonomy_policy                                                                 |
+| decision: denied                                                                                 |
+| decision automatic: false                                                                        |
+| approval required: true                                                                          |
+| autonomy: off                                                                                    |
+| operation: read                                                                                  |
+| decision tool: read                                                                              |
+| decision target: internal/tui/render.go                                                          |
+| decision expected effect: bounded workspace file preview                                         |
+| decision reversible: true                                                                        |
+| decision reason: autonomy off requires approval                                                  |
+|                                                                                                  |
+| No messages yet.                                                                                 |
++--------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                |
++--------------------------------------------------------------------------------------------------+
+[2m                                                    git: placeholder | context: placeholder | q quit[0m

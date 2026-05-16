@@ -446,6 +446,26 @@ type ReadToolError struct {
 	Message string
 }
 
+// ToolDecision records app-owned autonomy policy evidence for a tool result.
+type ToolDecision struct {
+	Present          bool
+	Autonomy         string
+	Source           string
+	Allowed          bool
+	Automatic        bool
+	ApprovalRequired bool
+	Reason           string
+	OperationKind    string
+	Tool             string
+	Target           string
+	Command          []string
+	WorkingDir       string
+	ExpectedEffect   string
+	Reversible       bool
+	RunID            string
+	Capability       string
+}
+
 // ReadToolResult is the typed runtime message payload returned by read effects.
 type ReadToolResult struct {
 	ToolName              string
@@ -459,6 +479,7 @@ type ReadToolResult struct {
 	Truncation            ReadTruncation
 	Error                 ReadToolError
 	Source                ReadSourceMetadata
+	Decision              ToolDecision
 }
 
 // SearchToolName names one of the fixed read-only search tools.
@@ -542,6 +563,7 @@ type SearchToolResult struct {
 	Truncation     SearchToolTruncation
 	Error          SearchToolError
 	Source         SearchSourceMetadata
+	Decision       ToolDecision
 }
 
 // BashToolRequest is the runtime-owned safe bash proposal data.
@@ -606,6 +628,7 @@ type BashToolResult struct {
 	DurationMillis           int64
 	Error                    BashToolError
 	Source                   BashSourceMetadata
+	Decision                 ToolDecision
 }
 
 // FetchToolRequest is the runtime-owned fetch proposal data.
@@ -673,6 +696,7 @@ type FetchToolResult struct {
 	DurationMillis int64
 	Error          FetchToolError
 	Source         FetchSourceMetadata
+	Decision       ToolDecision
 }
 
 // Update applies one runtime message and returns the next model plus typed

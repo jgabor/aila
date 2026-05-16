@@ -113,16 +113,18 @@ func readDispatchContextWithFetchClient(ctx context.Context, workspacePath strin
 
 func dispatchReadEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.ReadToolEffect) runtime.Message {
 	operation := permission.NewReadOperation(effect.Request.Path)
-	decision := permission.Decide(autonomyLevel, operation)
-	if !decision.Allowed {
+	decisionRecord := permission.DecideRecord(autonomyLevel, operation)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
 		return runtime.ReadToolCompleted{Operation: effect.Operation, Result: runtime.ReadToolResult{
 			ToolName:      tools.ReadToolName,
 			RequestedPath: effect.Request.Path,
 			Error: runtime.ReadToolError{
 				Kind:    runtime.ReadToolErrorPermission,
-				Message: decision.Reason,
+				Message: decisionRecord.Reason,
 			},
-			Source: effect.Request.Source,
+			Source:   effect.Request.Source,
+			Decision: decision,
 		}}
 	}
 
@@ -145,16 +147,17 @@ func dispatchReadEffect(ctx context.Context, workspacePath string, autonomyLevel
 				Kind:    runtime.ReadToolErrorKind(readErr.Kind),
 				Message: readErr.Message,
 			},
-			Source: effect.Request.Source,
+			Source:   effect.Request.Source,
+			Decision: decision,
 		}}
 	}
 
 	result := tools.ExecuteRead(ctx, validated)
-	mapped := runtimeReadResult(effect.Request.Path, result)
+	mapped := runtimeReadResult(effect.Request.Path, result, decision)
 	return runtime.ReadToolCompleted{Operation: effect.Operation, Result: mapped}
 }
 
-func runtimeReadResult(requestedPath string, result tools.ReadResult) runtime.ReadToolResult {
+func runtimeReadResult(requestedPath string, result tools.ReadResult, decision runtime.ToolDecision) runtime.ReadToolResult {
 	return runtime.ReadToolResult{
 		ToolName:              result.ToolName,
 		RequestedPath:         requestedPath,
@@ -187,22 +190,25 @@ func runtimeReadResult(requestedPath string, result tools.ReadResult) runtime.Re
 			RequestID:   result.Source.RequestID,
 			Description: result.Source.Description,
 		},
+		Decision: decision,
 	}
 }
 
 func dispatchSearchEffect(ctx context.Context, workspacePath string, autonomyLevel permission.AutonomyLevel, effect runtime.SearchToolEffect) runtime.Message {
 	operation := searchOperation(effect.Request)
-	decision := permission.Decide(autonomyLevel, operation)
-	if !decision.Allowed {
+	decisionRecord := permission.DecideRecord(autonomyLevel, operation)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
 		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtime.SearchToolResult{
 			ToolName: string(effect.Request.ToolName),
 			Pattern:  effect.Request.Pattern,
 			Query:    effect.Request.Query,
 			Error: runtime.SearchToolError{
 				Kind:    runtime.SearchToolErrorPermission,
-				Message: decision.Reason,
+				Message: decisionRecord.Reason,
 			},
-			Source: effect.Request.Source,
+			Source:   effect.Request.Source,
+			Decision: decision,
 		}}
 	}
 
@@ -216,9 +222,9 @@ func dispatchSearchEffect(ctx context.Context, workspacePath string, autonomyLev
 			Source:          tools.SearchSourceMetadata(effect.Request.Source),
 		})
 		if searchErr.Kind != "" {
-			return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr)}
+			return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr, decision)}
 		}
-		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteGrep(ctx, validated))}
+		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteGrep(ctx, validated), decision)}
 	}
 
 	validated, searchErr := tools.ValidateFindRequest(workspacePath, tools.FindRequest{
@@ -228,9 +234,9 @@ func dispatchSearchEffect(ctx context.Context, workspacePath string, autonomyLev
 		Source:          tools.SearchSourceMetadata(effect.Request.Source),
 	})
 	if searchErr.Kind != "" {
-		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr)}
+		return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchFailure(effect.Request, searchErr, decision)}
 	}
-	return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteFind(ctx, validated))}
+	return runtime.SearchToolCompleted{Operation: effect.Operation, Result: runtimeSearchResult(tools.ExecuteFind(ctx, validated), decision)}
 }
 
 func searchOperation(request runtime.SearchToolRequest) permission.ProposedOperation {
@@ -240,7 +246,7 @@ func searchOperation(request runtime.SearchToolRequest) permission.ProposedOpera
 	return permission.NewFindOperation(request.Pattern)
 }
 
-func runtimeSearchFailure(request runtime.SearchToolRequest, err tools.SearchError) runtime.SearchToolResult {
+func runtimeSearchFailure(request runtime.SearchToolRequest, err tools.SearchError, decision runtime.ToolDecision) runtime.SearchToolResult {
 	return runtime.SearchToolResult{
 		ToolName:       string(request.ToolName),
 		Pattern:        request.Pattern,
@@ -251,11 +257,12 @@ func runtimeSearchFailure(request runtime.SearchToolRequest, err tools.SearchErr
 			Kind:    runtime.SearchToolErrorKind(err.Kind),
 			Message: err.Message,
 		},
-		Source: request.Source,
+		Source:   request.Source,
+		Decision: decision,
 	}
 }
 
-func runtimeSearchResult(result tools.SearchResult) runtime.SearchToolResult {
+func runtimeSearchResult(result tools.SearchResult, decision runtime.ToolDecision) runtime.SearchToolResult {
 	matches := make([]runtime.SearchToolMatch, 0, len(result.Matches))
 	for _, match := range result.Matches {
 		matches = append(matches, runtime.SearchToolMatch{Path: match.Path, LineNumber: match.LineNumber, PreviewText: match.PreviewText})
@@ -281,7 +288,8 @@ func runtimeSearchResult(result tools.SearchResult) runtime.SearchToolResult {
 			Kind:    runtime.SearchToolErrorKind(result.Error.Kind),
 			Message: result.Error.Message,
 		},
-		Source: runtime.SearchSourceMetadata(result.Source),
+		Source:   runtime.SearchSourceMetadata(result.Source),
+		Decision: decision,
 	}
 }
 
@@ -302,8 +310,9 @@ func dispatchBashEffect(ctx context.Context, workspacePath string, autonomyLevel
 	}
 
 	operation := permission.NewBashInspectionOperation(validated.EffectiveArgv, validated.WorkspaceRelativeWorkDir, validated.ExpectedEffect)
-	decision := permission.Decide(autonomyLevel, operation)
-	if !decision.Allowed {
+	decisionRecord := permission.DecideRecord(autonomyLevel, operation)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
 		return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtime.BashToolResult{
 			ToolName:                 tools.BashToolName,
 			RequestedArgv:            append([]string(nil), effect.Request.Argv...),
@@ -315,13 +324,14 @@ func dispatchBashEffect(ctx context.Context, workspacePath string, autonomyLevel
 			Status:                   "denied",
 			Error: runtime.BashToolError{
 				Kind:    runtime.BashToolErrorPermission,
-				Message: decision.Reason,
+				Message: decisionRecord.Reason,
 			},
-			Source: effect.Request.Source,
+			Source:   effect.Request.Source,
+			Decision: decision,
 		}}
 	}
 
-	return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtimeBashResult(tools.ExecuteBash(ctx, validated))}
+	return runtime.BashToolCompleted{Operation: effect.Operation, Result: runtimeBashResult(tools.ExecuteBash(ctx, validated), decision)}
 }
 
 func runtimeBashFailure(request runtime.BashToolRequest, err tools.BashError) runtime.BashToolResult {
@@ -338,7 +348,7 @@ func runtimeBashFailure(request runtime.BashToolRequest, err tools.BashError) ru
 	}
 }
 
-func runtimeBashResult(result tools.BashResult) runtime.BashToolResult {
+func runtimeBashResult(result tools.BashResult, decision runtime.ToolDecision) runtime.BashToolResult {
 	return runtime.BashToolResult{
 		ToolName:                 result.ToolName,
 		RequestedArgv:            append([]string(nil), result.RequestedArgv...),
@@ -363,7 +373,8 @@ func runtimeBashResult(result tools.BashResult) runtime.BashToolResult {
 			Kind:    runtime.BashToolErrorKind(result.Error.Kind),
 			Message: result.Error.Message,
 		},
-		Source: runtime.BashSourceMetadata(result.Source),
+		Source:   runtime.BashSourceMetadata(result.Source),
+		Decision: decision,
 	}
 }
 
@@ -380,8 +391,9 @@ func dispatchFetchEffect(ctx context.Context, autonomyLevel permission.AutonomyL
 	}
 
 	operation := permission.NewFetchOperation(validated.EffectiveURL)
-	decision := permission.Decide(autonomyLevel, operation)
-	if !decision.Allowed {
+	decisionRecord := permission.DecideRecord(autonomyLevel, operation)
+	decision := runtimeToolDecision(decisionRecord)
+	if !decisionRecord.Allowed {
 		return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtime.FetchToolResult{
 			ToolName:       tools.FetchToolName,
 			RequestedURL:   effect.Request.URL,
@@ -391,13 +403,14 @@ func dispatchFetchEffect(ctx context.Context, autonomyLevel permission.AutonomyL
 			Status:         "denied",
 			Error: runtime.FetchToolError{
 				Kind:    runtime.FetchToolErrorPermission,
-				Message: decision.Reason,
+				Message: decisionRecord.Reason,
 			},
-			Source: effect.Request.Source,
+			Source:   effect.Request.Source,
+			Decision: decision,
 		}}
 	}
 
-	return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtimeFetchResult(tools.ExecuteFetchWithClient(ctx, validated, fetchClient))}
+	return runtime.FetchToolCompleted{Operation: effect.Operation, Result: runtimeFetchResult(tools.ExecuteFetchWithClient(ctx, validated, fetchClient), decision)}
 }
 
 func runtimeFetchFailure(request runtime.FetchToolRequest, err tools.FetchError) runtime.FetchToolResult {
@@ -413,7 +426,7 @@ func runtimeFetchFailure(request runtime.FetchToolRequest, err tools.FetchError)
 	}
 }
 
-func runtimeFetchResult(result tools.FetchResult) runtime.FetchToolResult {
+func runtimeFetchResult(result tools.FetchResult, decision runtime.ToolDecision) runtime.FetchToolResult {
 	return runtime.FetchToolResult{
 		ToolName:       result.ToolName,
 		RequestedURL:   result.RequestedURL,
@@ -437,7 +450,29 @@ func runtimeFetchResult(result tools.FetchResult) runtime.FetchToolResult {
 			Kind:    runtime.FetchToolErrorKind(result.Error.Kind),
 			Message: result.Error.Message,
 		},
-		Source: runtime.FetchSourceMetadata(result.Source),
+		Source:   runtime.FetchSourceMetadata(result.Source),
+		Decision: decision,
+	}
+}
+
+func runtimeToolDecision(record permission.DecisionRecord) runtime.ToolDecision {
+	return runtime.ToolDecision{
+		Present:          true,
+		Autonomy:         string(record.Autonomy),
+		Source:           record.Source,
+		Allowed:          record.Allowed,
+		Automatic:        record.Automatic,
+		ApprovalRequired: record.ApprovalRequired,
+		Reason:           record.Reason,
+		OperationKind:    string(record.OperationKind),
+		Tool:             record.Tool,
+		Target:           record.TargetPath,
+		Command:          append([]string(nil), record.Command...),
+		WorkingDir:       record.WorkingDir,
+		ExpectedEffect:   record.ExpectedEffect,
+		Reversible:       record.Reversible,
+		RunID:            record.RunID,
+		Capability:       record.Capability,
 	}
 }
 

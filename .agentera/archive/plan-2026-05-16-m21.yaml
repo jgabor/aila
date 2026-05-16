@@ -1,0 +1,166 @@
+header:
+  level: full
+  created: 2026-05-16
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: completed as M21-only; provider/model networking, mutations, permission decision recording, and M22+ deferred
+  title: Milestone 21 Fetch Tool
+what: >-
+  Deliver ROADMAP.md Milestone 21 by adding `fetch` as a fixed, read-only
+  network boundary. Aila must fetch remote content through an explicit,
+  bounded, fakeable tool effect with clear network error reporting while keeping
+  provider/model networking separate and preserving statechart-MVU and
+  presentation-only TUI boundaries.
+why: >-
+  M18 through M20 established local read, discovery, content search, and safe
+  shell inspection as explicit read-only effects. M21 adds the separate network
+  read primitive needed for remote context without coupling user-requested fetch
+  to model/provider clients, fallback behavior, source indexing, or future
+  context compaction.
+constraints: >-
+  Execute only Milestone 21. Preserve statechart-MVU: deterministic updates may
+  propose and receive typed fetch results, but network IO must remain in guarded
+  app/tool effects. Keep provider and model networking completely separate from
+  fetch. Make network behavior fakeable in tests; tests must not require live
+  external network access. Bound response bytes and previews, expose omitted
+  content markers, classify fetch as read-only where existing autonomy policy
+  permits read operations, and surface clear validation, HTTP, timeout,
+  cancellation, content, and execution errors. Do not add edit/write, mutation
+  history, approval persistence, undo/replay, context compaction, stale checks,
+  source indexing, generic HTTP client framework, provider fallback, plugin, MCP,
+  workflow DSL, marketplace, hosted control plane, or Milestone 22+ behavior. Do
+  not push.
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m20.yaml
+source_anchors:
+  - ROADMAP.md:912-930
+  - ROADMAP.md:275-312
+  - README.md:181-188
+  - README.md:226-243
+  - ARCHITECTURE.md:451-483
+  - ARCHITECTURE.md:871-880
+  - ARCHITECTURE.md:931-949
+  - docs/tui-testing.md:52-83
+  - docs/tui-testing.md:126-228
+  - docs/tui-testing.md:230-263
+  - docs/workflow-architecture.md:50-68
+  - docs/workflow-architecture.md:457-475
+  - docs/workflow-architecture.md:558-576
+  - docs/notes/PROMPT.md:1-39
+verification_commands:
+  - go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1
+  - go test ./internal/... -count=1
+  - mage check
+  - git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/tools internal/runtime internal/app internal/permission internal/tui
+  - git diff --check --no-index /dev/null <each new fetch fixture and tools file>
+scope:
+  included:
+    - Narrow `fetch` request/result contracts with URL, method, source metadata, response status, content type, bounded preview, truncation, omitted-byte markers, duration metadata, and typed errors.
+    - URL validation that permits only explicit HTTP and HTTPS remote reads and rejects empty, relative, file, shell-shaped, credential-bearing, unsupported-scheme, and malformed URLs.
+    - A fakeable network execution boundary with deterministic timeout, cancellation, response-size, status, and body handling for tests without live external network access.
+    - Runtime/app integration that proposes, classifies, executes, records, and returns `fetch` results as typed messages or effects without importing provider/model clients into the fetch path.
+    - Permission/autonomy classification proving `fetch` is a read-only network operation and does not reuse mutation, bash, provider, edit, or write paths.
+    - TUI running, success, and failure fetch presentation with URL, status, content type, bounded preview or error detail, omitted content markers, and semantic metadata from injected state only.
+    - Fetch success and fetch failure fixtures with plain, ANSI, and semantic snapshots; PTY smoke only if M21 exposes a visible interactive fetch command.
+  excluded:
+    - Provider/model networking, model fallback, credential management, authentication flows, retries for provider calls, source indexing, context compaction, stale checks, ranking, scraping frameworks, or Markdown conversion beyond bounded text previewing required by this slice.
+    - Edit, write, mutation history, approval persistence, undo/redo, replay, shell mutation, arbitrary bash expansion, workflow phase mutation, plugins, MCP servers, workflow DSLs, marketplaces, hosted control planes, or Milestone 22+ behavior.
+  deferred:
+    - Full read-only permission-model enforcement and decision recording for Milestone 22.
+    - Mutation-capable tools, approval persistence, mutation history, undo/replay, context compaction, stale checks, and source indexing until later roadmap slices.
+design: >-
+  Add a small `internal/tools` fetch contract beside read/search/bash rather than
+  a generic network framework. Validation normalizes and bounds a single
+  HTTP(S) read request. Execution accepts an injected fetch transport or client
+  interface so tests can fake status, headers, body chunks, network failures,
+  timeouts, and cancellations without live network. Runtime owns typed fetch
+  proposals, effects, active state, completed results, and summaries without
+  importing `internal/tools` or doing network IO. App dispatch owns permission
+  classification, guarded execution, and mapping tool results into runtime
+  messages. TUI renders injected fetch state and semantic metadata; it does not
+  parse URLs, contact the network, or infer provider/model behavior.
+tasks:
+  - number: 1
+    name: Define fetch request and result contracts
+    depends_on: []
+    status: completed
+    acceptance:
+      - GIVEN fetch requests are validated WHEN tests inspect contracts THEN URL, method/defaults, source metadata, timeout, byte bounds, expected effect, response status metadata, bounded content preview, omitted bytes, duration, and typed errors are explicit.
+      - GIVEN malformed, empty, unsupported-scheme, relative, local-file, shell-shaped, credential-bearing, oversized-bound, or ambiguous fetch requests are validated THEN typed bounded errors are returned without network IO.
+      - GIVEN package boundaries are inspected WHEN contracts exist THEN M21 does not introduce provider/model networking, edit/write, mutation history, approval persistence, undo/replay, compaction, source indexing, plugin, MCP, workflow DSL, or Milestone 22+ behavior.
+    evidence:
+      - internal/tools/fetch.go defines FetchRequest, ValidatedFetchRequest, FetchResult, FetchTruncation, source metadata, expected-effect metadata, bounds, and bounded FetchError kinds.
+      - internal/tools/fetch_test.go validates defaulted HTTP(S) requests, unsafe URL/method/range rejection, and future/provider boundary exclusions.
+  - number: 2
+    name: Execute bounded fakeable network reads
+    depends_on:
+      - 1
+    status: completed
+    acceptance:
+      - GIVEN a validated HTTP(S) request WHEN the executor runs with a fake transport THEN it returns status, content type, bounded body preview, omitted-byte metadata, and duration without relying on live network.
+      - GIVEN network error, DNS failure, timeout, cancellation, non-2xx status, oversized body, invalid content, read failure, or context cancellation occurs WHEN execution runs THEN bounded typed results or errors are surfaced without panic, hidden retry, provider fallback, or mutation.
+      - GIVEN repeated fetch tests run WHEN validation inspects state THEN no `.aila`, `.agentera`, HOME, config, git, or unrelated durable state is created or modified by the fetch executor itself.
+    evidence:
+      - internal/tools/fetch.go ExecuteFetchWithClient uses an injected FetchClient, bounded body reads, timeout/cancellation handling, HTTP status shaping, UTF-8/content validation, and no hidden retry or provider fallback.
+      - internal/tools/fetch_test.go covers fake-client success, truncation/omitted-byte metadata, HTTP status failures, network errors, cancellation, invalid content, and no live external network dependency.
+  - number: 3
+    name: Wire fetch effects through runtime, app, and permission metadata
+    depends_on:
+      - 1
+      - 2
+    status: completed
+    acceptance:
+      - GIVEN fetch proposals are produced WHEN runtime handling runs THEN Aila emits explicit fetch effects and receives typed fetch result messages instead of running network IO inside deterministic updates.
+      - GIVEN permission metadata classifies fetch WHEN validation runs THEN fetch is treated as a read-only network operation at read/write/yolo and denied at off without adding write approval persistence.
+      - GIVEN validation, permission, or execution fails WHEN app dispatch maps the result THEN bounded diagnostics/results are surfaced without workflow phase mutation, provider fallback, hidden retry, or destructive recovery.
+      - GIVEN existing read, find, grep, bash, prompt, queue, interrupt, history, snapshot, command, help, quit, diagnostic, and store paths run WHEN fetch wiring exists THEN their behavior remains stable except for intentional fetch metadata.
+    evidence:
+      - internal/runtime/runtime.go adds FetchToolProposed, FetchToolEffect, FetchToolCompleted, active/last fetch state, queue behavior, and result summaries without importing internal/tools or doing network IO.
+      - internal/app/shutdown.go dispatches fetch effects through tools.ValidateFetchRequest, permission.NewFetchOperation, permission.Decide, and tools.ExecuteFetchWithClient with injectable client support and no provider fallback.
+      - internal/runtime/runtime_test.go, internal/app/prompt_test.go, and internal/permission/operation_test.go cover fetch proposals, effects, results, validation failure, autonomy-off denial, fake network failure, and read-only permission metadata.
+  - number: 4
+    name: Render fetch success and failure evidence
+    depends_on:
+      - 3
+    status: completed
+    acceptance:
+      - GIVEN an injected running fetch exists WHEN the TUI renders THEN running evidence clearly shows URL, expected read-only network effect, status, and does not look completed.
+      - GIVEN an injected completed fetch result exists WHEN the TUI renders THEN URL, response status, content type, body excerpt, omitted content markers, truncation, and read-only status are visible without network access from the TUI.
+      - GIVEN an injected failed fetch result exists WHEN the TUI renders THEN URL, failure kind, status/error lines, bounded preview if present, omitted content markers, and read-only status are visible without network access from the TUI.
+      - GIVEN semantic snapshots are inspected WHEN fetch state is present THEN machine-readable fields preserve URL, result status, HTTP status, content type, preview, omitted bytes, truncation, error kind, expected effect, and read_only=true.
+      - GIVEN fetch data contains terminal controls, credential-like text, HOME/config paths, `.aila`, `.agentera`, or outside-workspace paths WHEN render and semantic evidence is produced THEN output is bounded and redacted without losing intentional URL/status metadata.
+    evidence:
+      - internal/tui/model.go and internal/tui/render.go add injected FetchView and fetch_tool semantic state; rendering consumes app-provided fetch data only.
+      - internal/tui/fixture_test.go covers running, completed, failed, redacted, semantic, fixture, and no-visible-fetch-path presentation behavior.
+      - internal/tui/testdata/fixtures/fetch-success, fetch-failure, and fetch-tool-running contain checked-in plain, ANSI, and semantic snapshots.
+  - number: 5
+    name: Prove fixtures, validation gates, and roadmap closeout
+    depends_on:
+      - 1
+      - 2
+      - 3
+      - 4
+    status: completed
+    acceptance:
+      - GIVEN fetch success and fetch failure fixtures render WHEN snapshots are updated THEN plain, ANSI, and semantic outputs are checked in with URL, result status, omitted content markers, and bounded preview or error metadata.
+      - GIVEN a visible fetch slash command or prompt route exists WHEN terminal smoke runs THEN bounded PTY output shows running/completed or failed fetch state without leaking HOME, `.aila`, config, credential, temp workspace, or unrelated host paths.
+      - GIVEN no visible interactive fetch path exists in M21 WHEN closeout evidence is prepared THEN PTY smoke is explicitly documented as skipped by the roadmap gate rather than silently omitted.
+      - GIVEN Milestone 21 implementation and validation are complete WHEN targeted tests, full `go test ./internal/...`, `mage check`, and `git diff --check` run THEN they pass without bypassing configured gates.
+      - GIVEN validation passes WHEN ROADMAP.md is updated THEN the Milestone 21 Slice Completion Template records tool tests, app/effect wiring tests, TUI fixtures/snapshots, PTY smoke decision, validation, architecture checklist evidence, roadmap status, and commit readiness.
+    evidence:
+      - '`go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.'
+      - '`go test ./internal/... -count=1` passed.'
+      - '`mage check` passed with 0 lint issues and no vulnerabilities.'
+      - '`git diff --check` passed for tracked M21 files and explicit `git diff --check --no-index /dev/null <file>` checks passed for new fetch/tool fixture files.'
+      - PTY smoke skipped by roadmap gate because M21 exposes no visible interactive fetch command path; TestM21FetchPTYSmokeDecision proves `/fetch https://example.com`, `fetch https://example.com`, and `curl https://example.com` do not invoke visible fetch state.
+complete: 5
+total: 5
+active: false
+complete_plan: true
+overall_acceptance:
+  - GIVEN fetch requests are proposed WHEN validation and execution run THEN only bounded HTTP(S) network reads are accepted and no provider/model client or mutation path is involved.
+  - GIVEN fetch executes through app/tool effects WHEN results return THEN URL, result status, HTTP status, content type, bounded preview, omitted content markers, and typed network errors are preserved.
+  - GIVEN fetch operations flow through runtime/app/TUI WHEN state changes THEN IO remains outside deterministic updates and presentation consumes injected state only.
+  - GIVEN failures or denied autonomy occur WHEN dispatch handles them THEN typed bounded failures are surfaced without hidden retries, provider fallback, destructive recovery, or workflow phase mutation.
+  - GIVEN milestone validation runs WHEN documented gates complete THEN fetch contract/executor tests, fake network tests, permission/app/runtime tests, render and semantic snapshots, optional PTY smoke decision, targeted tests, full `go test ./internal/...`, and `mage check` support closeout.
+surprises:
+  - Fetch must be a product-owned read primitive, not a provider client convenience wrapper. Keep tests fakeable and live-network-free by default.

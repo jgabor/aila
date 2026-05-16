@@ -2931,3 +2931,152 @@ func fetchToolState(fetch *FetchView) ViewState {
 	state.Fetch = fetch
 	return state
 }
+
+func blockedReadDecisionView() *DecisionView {
+	return &DecisionView{
+		Autonomy:         "off",
+		Source:           "autonomy_policy",
+		Allowed:          false,
+		Automatic:        false,
+		ApprovalRequired: true,
+		Reason:           "autonomy off requires approval",
+		OperationKind:    "read",
+		Name:             "read",
+		Target:           "internal/tui/render.go",
+		ExpectedEffect:   "bounded workspace file preview",
+		Reversible:       true,
+	}
+}
+
+func loadBlockedReadDecisionFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := readToolState(&ReadView{
+		Name:         "read",
+		Status:       "failed",
+		ReadOnly:     true,
+		Path:         "internal/tui/render.go",
+		ErrorKind:    "permission_denied",
+		ErrorMessage: "autonomy off requires approval",
+		Decision:     blockedReadDecisionView(),
+	})
+	state.Scenario = "blocked-read-decision"
+	state.Autonomy = "off"
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func TestM22BlockedReadDecisionRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadBlockedReadDecisionFixture(t)
+	render := RenderPlain(fixture.State, Size{Width: 120, Height: 44})
+	wantRender := []string{
+		"Read tool:",
+		"status: failed",
+		"read-only: true",
+		"path: internal/tui/render.go",
+		"error kind: permission_denied",
+		"decision source: autonomy_policy",
+		"decision: denied",
+		"decision automatic: false",
+		"approval required: true",
+		"autonomy: off",
+		"operation: read",
+		"decision tool: read",
+		"decision target: internal/tui/render.go",
+		"decision expected effect: bounded workspace file preview",
+		"decision reversible: true",
+		"decision reason: autonomy off requires approval",
+	}
+	if !containsAll(render, wantRender) {
+		t.Fatalf("blocked decision render missing evidence %v:\n%s", wantRender, render)
+	}
+	if containsAny(render, []string{"approval prompt", "approve action", "write class"}) {
+		t.Fatalf("blocked decision render implies out-of-scope approval behavior:\n%s", render)
+	}
+	assertNoReadLeak(t, render)
+
+	snapshot := Semantic(fixture.State, Size{Width: 120, Height: 44})
+	if snapshot.Session.Autonomy != "off" || snapshot.Read == nil || snapshot.Read.Decision == nil {
+		t.Fatalf("semantic blocked decision missing autonomy/read decision: %+v", snapshot)
+	}
+	decision := snapshot.Read.Decision
+	if decision.Source != "autonomy_policy" || decision.Allowed || decision.Automatic || !decision.ApprovalRequired || decision.OperationKind != "read" || decision.Name != "read" || decision.Target != "internal/tui/render.go" || decision.ExpectedEffect == "" || !decision.Reversible || decision.Reason != "autonomy off requires approval" {
+		t.Fatalf("semantic decision = %+v", decision)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	readRegion := strings.Join(regions["read_tool"].Items, "\n")
+	if !containsAll(readRegion, []string{"decision_source: autonomy_policy", "decision: denied", "approval_required: true", "operation_kind: read", "decision_reason: autonomy off requires approval"}) {
+		t.Fatalf("read semantic region missing decision evidence: %v", regions["read_tool"].Items)
+	}
+	assertNoReadLeak(t, RenderSemanticJSON(fixture.State, Size{Width: 120, Height: 44}))
+}
+
+func TestM22BlockedReadDecisionFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadBlockedReadDecisionFixture(t)
+	if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+		t.Fatalf("blocked decision fixture metadata = %+v", fixture)
+	}
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			plain := stripANSI(got)
+			if !containsAll(plain, []string{"Read tool:", "decision source: autonomy_policy", "decision: denied", "approval required: true"}) {
+				t.Fatalf("blocked decision fixture render missing evidence:\n%s", plain)
+			}
+			assertNoReadLeak(t, plain)
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			assertNoReadLeak(t, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Session.Autonomy != "off" || snapshot.Read == nil || snapshot.Read.Decision == nil || snapshot.Read.Decision.Source != "autonomy_policy" {
+				t.Fatalf("semantic blocked decision = %+v", snapshot.Read)
+			}
+		})
+	}
+}
+
+func TestM22DecisionPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"/autonomy off", "autonomy read", "approve read"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Read != nil || state.Command != nil || state.Search != nil || state.Fetch != nil || state.RuntimeStatus != "" {
+				t.Fatalf("%q unexpectedly invoked visible decision state: %+v", input, state)
+			}
+		})
+	}
+}

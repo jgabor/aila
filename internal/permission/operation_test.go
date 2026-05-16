@@ -99,3 +99,47 @@ func TestFetchOperationIsReadOnlyNetworkRead(t *testing.T) {
 		t.Fatalf("off autonomy decision = %+v, want denied", got)
 	}
 }
+
+func TestDecisionRecordCopiesReadOnlyPolicyEvidence(t *testing.T) {
+	t.Parallel()
+
+	operation := NewBashInspectionOperation([]string{"git", "status", "--short"}, ".", "inspect git working tree status")
+	operation.RunID = "run-1"
+	operation.Capability = "inspect"
+
+	record := DecideRecord(AutonomyRead, operation)
+	if record.Autonomy != AutonomyRead || record.Source != decisionSourceAutonomyPolicy || !record.Allowed || !record.Automatic || record.ApprovalRequired || record.Reason == "" {
+		t.Fatalf("allowed record = %+v, want automatic read allow evidence", record)
+	}
+	if record.OperationKind != OperationRead || record.Tool != "bash" || record.WorkingDir != "." || record.ExpectedEffect == "" || !record.Reversible || record.RunID != "run-1" || record.Capability != "inspect" {
+		t.Fatalf("operation evidence = %+v", record)
+	}
+	operation.Command[0] = "mutated"
+	if record.Command[0] != "git" {
+		t.Fatalf("record command changed after operation mutation: %+v", record.Command)
+	}
+}
+
+func TestDecisionRecordMarksOffReadAsApprovalRequiredWithoutApproving(t *testing.T) {
+	t.Parallel()
+
+	record := DecideRecord(AutonomyOff, NewReadOperation("notes.txt"))
+	if record.Allowed || record.Automatic || !record.ApprovalRequired || record.Reason != "autonomy off requires approval" {
+		t.Fatalf("off read record = %+v, want blocked approval-required read evidence", record)
+	}
+	if record.OperationKind != OperationRead || record.Tool != "read" || record.TargetPath != "notes.txt" || record.ExpectedEffect == "" || !record.Reversible {
+		t.Fatalf("off read operation evidence = %+v", record)
+	}
+}
+
+func TestDecisionRecordDeniesNonReadWithoutApprovalPrompt(t *testing.T) {
+	t.Parallel()
+
+	record := DecideRecord(AutonomyRead, ProposedOperation{Kind: OperationMutation, Tool: "edit", TargetPath: "notes.txt", DiffPreview: "-old\n+new"})
+	if record.Allowed || record.Automatic || record.ApprovalRequired || record.Reason == "" {
+		t.Fatalf("non-read record = %+v, want automatic denial without approval requirement", record)
+	}
+	if record.OperationKind != OperationMutation || record.Tool != "edit" {
+		t.Fatalf("non-read operation evidence = %+v", record)
+	}
+}
