@@ -1,0 +1,30 @@
+Aila                                                                                          100x30
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                             
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| history:                                                                                         |
+| command route: history                                                                           |
+| route source: policy.command                                                                     |
+| read-only: true                                                                                  |
+| entries: 5                                                                                       |
+| selected: 3                                                                                      |
+|   run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history       |
+|   run-fake-017 session-fake-alpha evt-fake-002 response response summary: fake answer for histo~ |
+| > run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only    |
+|   run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event    |
+|   run-fake-017 session-fake-alpha evt-fake-005 diagnostic credential [redacted] path [path-reda~ |
+| selected event id: evt-fake-003                                                                  |
+| selected run id: run-fake-017                                                                    |
+| selected session id: session-fake-alpha                                                          |
+| selected kind: command                                                                           |
+| selected source: policy.command                                                                  |
+| selected provenance: slash.route                                                                 |
+| selected text: command summary: /status rendered only                                            |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit
+                                                                                                    

@@ -21,6 +21,7 @@ import (
 
 	"github.com/jgabor/aila/internal/app"
 	"github.com/jgabor/aila/internal/diagnostic"
+	"github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/state"
 )
 
@@ -313,6 +314,121 @@ func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
 			assertProjectStoreLayout(t, workspace)
 			assertNoDurableStatePollution(t, env, baseline)
 		})
+	}
+}
+
+func TestM17HistoryViewPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 120, 32, env.vars, func(workspace string) {
+		seedFakeHistoryEvents(t, workspace)
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	if _, err := terminal.Write([]byte("/history\r")); err != nil {
+		t.Fatalf("send /history command input: %v", err)
+	}
+
+	output := readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"entries: 4",
+		"selected: 1",
+		"m17-run m17-session m17-event-1 prompt user asked for fake history",
+		"m17-run m17-session m17-event-2 response fake response summary",
+		"m17-run m17-session m17-event-3 command history command summary",
+		"m17-run m17-session m17-event-4 runtime runtime idle: smoke complete",
+		"selected event id: m17-event-1",
+		"selected run id: m17-run",
+		"selected session id: m17-session",
+		"selected kind: prompt",
+		"selected text: user asked for fake history",
+	}, 10*time.Second)
+	assertNoHistorySmokeLeaks(t, output, env, workspace)
+	for _, forbidden := range []string{"undo", "redo", "replay", "token=", "Authorization:", "m17-smoke-secret"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("history PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after history smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("history PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("history PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertFakeHistoryProjectStoreState(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for history smoke: %v", err)
+	}
+}
+
+func TestM17HistoryEmptyPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithSizeEnvAndWorkspace(t, 80, 24, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	if _, err := terminal.Write([]byte{0x18, 'h'}); err != nil {
+		t.Fatalf("send ctrl+x h history shortcut input: %v", err)
+	}
+
+	output := readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"empty history",
+		"no fake history events recorded yet",
+	}, 10*time.Second)
+	assertNoHistorySmokeLeaks(t, output, env, workspace)
+	for _, forbidden := range []string{"entries:", "selected event id:", "undo", "redo", "replay"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("empty history PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after empty history smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("empty history PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("empty history PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertProjectStoreLayout(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+	if _, err := os.Stat(filepath.Join(env.xdgConfigHome, "aila", "config.toml")); err != nil {
+		t.Fatalf("temp XDG config was not created for empty history smoke: %v", err)
 	}
 }
 
@@ -797,6 +913,42 @@ func seedCurrentSessionSnapshot(t *testing.T, workspace string) {
 	}
 }
 
+func seedFakeHistoryEvents(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open history smoke project store: %v", err)
+	}
+	for _, event := range []history.FakeEvent{
+		fakeHistorySmokeEvent("m17-event-1", history.EventKindPrompt, "prompt.submit", "user", "user asked for fake history"),
+		fakeHistorySmokeEvent("m17-event-2", history.EventKindResponse, "runtime.response", "fake-runtime", "fake response summary"),
+		fakeHistorySmokeEvent("m17-event-3", history.EventKindCommand, "policy.command", "policy.command", "history command summary token=m17-smoke-secret"),
+		fakeHistorySmokeEvent("m17-event-4", history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: smoke complete Authorization: Bearer m17-smoke-secret"),
+	} {
+		result, err := store.AppendFakeHistory(context.Background(), event)
+		if err != nil {
+			t.Fatalf("append history smoke event %q: %v", event.EventID, err)
+		}
+		if result.State != state.FakeHistoryLoaded || len(result.Diagnostics) != 0 {
+			t.Fatalf("append history smoke event %q result = %#v, want loaded without diagnostics", event.EventID, result)
+		}
+	}
+}
+
+func fakeHistorySmokeEvent(eventID string, kind history.EventKind, provenance string, source string, displayText string) history.FakeEvent {
+	return history.FakeEvent{
+		SchemaVersion: history.FakeEventSchemaVersion,
+		Kind:          kind,
+		EventID:       eventID,
+		RunID:         "m17-run",
+		SessionID:     "m17-session",
+		Source:        source,
+		Provenance:    provenance,
+		DisplayText:   displayText,
+	}
+}
+
 func mustSourceDir(t *testing.T) string {
 	t.Helper()
 	sourceDir, err := os.Getwd()
@@ -891,6 +1043,60 @@ func assertCurrentSessionSnapshotState(t *testing.T, workspace string) {
 	}
 }
 
+func assertFakeHistoryProjectStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	storeRoot := filepath.Join(workspace, ".aila")
+	for _, dir := range []string{storeRoot, filepath.Join(storeRoot, "artifacts"), filepath.Join(storeRoot, "history"), filepath.Join(storeRoot, "indexes")} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat history smoke project store directory %q: %v", dir, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("history smoke project store path %q is not a directory", dir)
+		}
+	}
+	assertFileContent(t, filepath.Join(storeRoot, "project.toml"), "schema_version = 1\n")
+
+	entries, err := os.ReadDir(storeRoot)
+	if err != nil {
+		t.Fatalf("read history smoke project store root: %v", err)
+	}
+	got := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			name += "/"
+		}
+		got = append(got, name)
+	}
+	if strings.Join(got, ",") != "artifacts/,history/,indexes/,project.toml" {
+		t.Fatalf("history smoke project store entries = %v, want artifacts history indexes and project.toml only", got)
+	}
+
+	historyEntries, err := os.ReadDir(filepath.Join(storeRoot, "history"))
+	if err != nil {
+		t.Fatalf("read history smoke history dir: %v", err)
+	}
+	if len(historyEntries) != 1 || historyEntries[0].Name() != "fake-events.jsonl" || historyEntries[0].IsDir() {
+		t.Fatalf("history smoke history entries = %v, want fake-events.jsonl only", historyEntries)
+	}
+	content, err := os.ReadFile(filepath.Join(storeRoot, "history", "fake-events.jsonl"))
+	if err != nil {
+		t.Fatalf("read history smoke JSONL: %v", err)
+	}
+	for _, marker := range []string{"m17-event-1", "m17-event-2", "m17-event-3", "m17-event-4", "[secret]"} {
+		if !strings.Contains(string(content), marker) {
+			t.Fatalf("history smoke JSONL missing marker %q: %s", marker, content)
+		}
+	}
+	for _, leaked := range []string{"m17-smoke-secret", "token=", "Authorization:"} {
+		if strings.Contains(string(content), leaked) {
+			t.Fatalf("history smoke JSONL leaked %q: %s", leaked, content)
+		}
+	}
+}
+
 func assertFileContent(t *testing.T, path string, want string) {
 	t.Helper()
 
@@ -951,6 +1157,36 @@ func assertNoResumeSmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, w
 	} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("resume smoke output leaked marker %q: %q", forbidden, output)
+		}
+	}
+}
+
+func assertNoHistorySmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		workspace,
+		env.home,
+		env.xdgConfigHome,
+		mustRepositoryRoot(t),
+		"/tmp",
+		"/home/",
+		".aila",
+		"history/fake-events.jsonl",
+		"fake-events.jsonl",
+		"project.toml",
+		"artifacts/",
+		"indexes/",
+		"config.toml",
+		".config/aila",
+		"credential",
+		"OPENAI_API_KEY",
+		"ANTHROPIC_API_KEY",
+		"GOOGLE_API_KEY",
+		"internal/",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("history smoke output leaked marker %q: %q", forbidden, output)
 		}
 	}
 }

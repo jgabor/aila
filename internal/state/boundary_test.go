@@ -28,7 +28,6 @@ func TestStatePackageBoundaryAvoidsRuntimeAndPresentationOwnership(t *testing.T)
 		"github.com/jgabor/aila/internal/app":        true,
 		"github.com/jgabor/aila/internal/capability": true,
 		"github.com/jgabor/aila/internal/context":    true,
-		"github.com/jgabor/aila/internal/history":    true,
 		"github.com/jgabor/aila/internal/permission": true,
 		"github.com/jgabor/aila/internal/policy":     true,
 		"github.com/jgabor/aila/internal/runtime":    true,

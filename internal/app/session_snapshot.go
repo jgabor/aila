@@ -38,46 +38,82 @@ type SnapshotResumeResult struct {
 type snapshotPersistenceFunc func(context.Context, SnapshotPersistenceCommand) SnapshotPersistenceResult
 
 type sessionController struct {
-	ctx     context.Context
-	runner  *inputRunner
-	view    tui.ViewState
-	persist snapshotPersistenceFunc
+	ctx             context.Context
+	runner          *inputRunner
+	view            tui.ViewState
+	persist         snapshotPersistenceFunc
+	persistHistory  historyPersistenceFunc
+	readHistory     historyReadFunc
+	historySequence int
 }
 
 func newController(ctx context.Context, workspacePath string, view tui.ViewState, runner *inputRunner) *sessionController {
-	return newSessionControllerWithPersistence(ctx, view, runner, storeSnapshotPersistence(workspacePath))
+	return newSessionControllerWithPersistenceAndHistoryRead(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath))
 }
 
 func newSessionControllerWithPersistence(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc) *sessionController {
+	return newSessionControllerWithPersistenceAndHistory(ctx, view, runner, persist, nil)
+}
+
+func newSessionControllerWithPersistenceAndHistory(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc, persistHistory historyPersistenceFunc) *sessionController {
+	return newSessionControllerWithPersistenceAndHistoryRead(ctx, view, runner, persist, persistHistory, nil)
+}
+
+func newSessionControllerWithPersistenceAndHistoryRead(ctx context.Context, view tui.ViewState, runner *inputRunner, persist snapshotPersistenceFunc, persistHistory historyPersistenceFunc, readHistory historyReadFunc) *sessionController {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist}
+	return &sessionController{ctx: ctx, runner: runner, view: view, persist: persist, persistHistory: persistHistory, readHistory: readHistory}
 }
 
 func (controller *sessionController) submitPrompt(text string) tui.TranscriptTurn {
+	queuedBefore := controller.view.QueuedCount
 	turn := controller.runner.submitPrompt(text)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	turn.Diagnostics = append(turn.Diagnostics, controller.persistPromptHistory(turn)...)
+	turn.Diagnostics = append(turn.Diagnostics, controller.persistQueuedPromptHistory(queuedBefore, turn)...)
+	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
 	return controller.persistCurrentSnapshot(turn)
 }
 
 func (controller *sessionController) requestInterrupt(reason string) tui.TranscriptTurn {
 	turn := controller.runner.requestInterrupt(reason)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	turn.Diagnostics = append(turn.Diagnostics, controller.persistPromptHistory(turn)...)
+	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
 	return controller.persistCurrentSnapshot(turn)
 }
 
 func (controller *sessionController) requestShutdown(err error) tui.TranscriptTurn {
 	turn := controller.runner.requestShutdown(err)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	turn.Diagnostics = append(turn.Diagnostics, controller.persistPromptHistory(turn)...)
+	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
 	return controller.persistCurrentSnapshot(turn)
 }
 
-func (controller *sessionController) routeCommand(recommendation policy.CommandRecommendation) {
+func (controller *sessionController) routeCommand(recommendation policy.CommandRecommendation, view tui.ViewState) tui.ViewState {
+	visibleView := view
+	controller.view = view
 	controller.view = tui.ApplyCommandRecommendation(controller.view, recommendation)
+	if recommendation.Route == policy.CommandRouteHistory {
+		controller.openHistoryView()
+		return controller.view
+	}
+	diagnostics := controller.persistCommandHistory(recommendation)
+	before := controller.runner.model
 	controller.runner.routeCommand(recommendation)
 	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
+	if runtimeModelChanged(before, controller.runner.model) {
+		diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+	}
+	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 	_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+	return visibleView
+}
+
+func runtimeModelChanged(before runtime.Model, after runtime.Model) bool {
+	return before.Status != after.Status || before.Result != after.Result || before.LastCommand != after.LastCommand || len(before.Queued) != len(after.Queued) || len(before.Transcript) != len(after.Transcript) || len(before.Diagnostics) != len(after.Diagnostics)
 }
 
 func (controller *sessionController) persistCurrentSnapshot(turn tui.TranscriptTurn) tui.TranscriptTurn {

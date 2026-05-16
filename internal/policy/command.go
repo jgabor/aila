@@ -2,14 +2,15 @@ package policy
 
 import "strings"
 
-// CommandRoute is Aila's fixed M5 command recommendation set.
+// CommandRoute is Aila's fixed command recommendation set.
 type CommandRoute string
 
 const (
-	CommandRouteNone   CommandRoute = ""
-	CommandRouteStatus CommandRoute = "status"
-	CommandRouteHelp   CommandRoute = "help"
-	CommandRouteQuit   CommandRoute = "quit"
+	CommandRouteNone    CommandRoute = ""
+	CommandRouteStatus  CommandRoute = "status"
+	CommandRouteHelp    CommandRoute = "help"
+	CommandRouteHistory CommandRoute = "history"
+	CommandRouteQuit    CommandRoute = "quit"
 )
 
 // CommandInputKind identifies the closed command input family that produced a route.
@@ -26,13 +27,15 @@ type CommandRecommendation struct {
 	Kind  CommandInputKind
 }
 
-// RecommendSlashCommand maps exact M5 slash commands to closed command routes.
+// RecommendSlashCommand maps exact slash commands to closed command routes.
 func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 	switch strings.TrimSpace(input) {
 	case "/status":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputSlash}, true
 	case "/help":
 		return CommandRecommendation{Route: CommandRouteHelp, Kind: CommandInputSlash}, true
+	case "/history":
+		return CommandRecommendation{Route: CommandRouteHistory, Kind: CommandInputSlash}, true
 	case "/quit":
 		return CommandRecommendation{Route: CommandRouteQuit, Kind: CommandInputSlash}, true
 	default:
@@ -40,7 +43,7 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 	}
 }
 
-// RecommendShortcut maps exact M5 ctrl+x shortcuts to the same closed routes as slash commands.
+// RecommendShortcut maps exact ctrl+x shortcuts to the same closed routes as slash commands.
 func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 	if prefix != "ctrl+x" {
 		return CommandRecommendation{}, false
@@ -49,6 +52,8 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 	switch key {
 	case "s":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputShortcut}, true
+	case "h":
+		return CommandRecommendation{Route: CommandRouteHistory, Kind: CommandInputShortcut}, true
 	case "q":
 		return CommandRecommendation{Route: CommandRouteQuit, Kind: CommandInputShortcut}, true
 	default:

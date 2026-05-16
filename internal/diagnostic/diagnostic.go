@@ -29,6 +29,7 @@ const (
 	SourceStartup       Source = "startup"
 	SourceStateOpen     Source = "state.open"
 	SourceStateSnapshot Source = "state.session_snapshot"
+	SourceStateHistory  Source = "state.history"
 	SourceRuntime       Source = "runtime"
 	SourceEffect        Source = "effect"
 	SourceProvider      Source = "provider"
@@ -57,6 +58,7 @@ const (
 	ArtifactPermissionRequest AffectedArtifact = "permission_request"
 	ArtifactRuntimeEffect     AffectedArtifact = "runtime_effect"
 	ArtifactSessionSnapshot   AffectedArtifact = "session_snapshot"
+	ArtifactFakeHistory       AffectedArtifact = "fake_history"
 )
 
 // RecoveryAction is a visible recommendation. It does not execute recovery.

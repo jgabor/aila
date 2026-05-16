@@ -13,8 +13,8 @@ import (
 // PromptSubmitFunc routes non-empty submitted prompt text to the application layer.
 type PromptSubmitFunc func(text string) TranscriptTurn
 
-// CommandRouteFunc receives policy-owned command recommendations selected by the TUI.
-type CommandRouteFunc func(policy.CommandRecommendation)
+// CommandRouteFunc receives policy-owned command recommendations and returns app-owned view state.
+type CommandRouteFunc func(policy.CommandRecommendation, ViewState) ViewState
 
 // InterruptRequestFunc routes user interrupt intent to the application layer.
 type InterruptRequestFunc func(reason string) TranscriptTurn
@@ -174,6 +174,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
+		if m.historyFocused() {
+			return m.handleHistoryKey(msg), nil
+		}
 		return m, m.handlePromptKey(msg)
 	}
 	return m, nil
@@ -287,7 +290,7 @@ func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {
 func (m *Model) routeRecommendation(recommendation policy.CommandRecommendation) tea.Cmd {
 	m.state = ApplyCommandRecommendation(m.state, recommendation)
 	if m.routeCommand != nil {
-		m.routeCommand(recommendation)
+		m.state = m.routeCommand(recommendation, m.state)
 	}
 	if recommendation.Route == policy.CommandRouteQuit {
 		m.quitting = true
@@ -342,8 +345,50 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"ctrl+x s - Show deterministic placeholder status.",
 			"ctrl+x q - Quit Aila.",
 		}
+	case policy.CommandRouteHistory:
+		state = ApplyHistoryView(state, nil, 0, true)
 	}
 	return state
+}
+
+// ApplyHistoryView injects app-owned read-only history display data into the TUI state.
+func ApplyHistoryView(state ViewState, items []HistoryItem, selected int, focus bool) ViewState {
+	state.CommandRoute = string(policy.CommandRouteHistory)
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = "history"
+	state.HistoryItems = append([]HistoryItem(nil), items...)
+	state.HistoryEmpty = len(items) == 0
+	state.HistoryFocus = focus
+	state.HistorySelected = selected
+	state.HistorySelected = clampHistorySelection(state)
+	state.SurfaceLines = historySurfaceLines(state)
+	return state
+}
+
+func (m Model) historyFocused() bool {
+	return m.state.HistoryFocus && m.state.SurfaceTitle == "history"
+}
+
+func (m Model) handleHistoryKey(msg tea.KeyMsg) Model {
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.HistorySelected--
+	case tea.KeyDown:
+		m.state.HistorySelected++
+	case tea.KeyHome:
+		m.state.HistorySelected = 0
+	case tea.KeyEnd:
+		m.state.HistorySelected = len(m.state.HistoryItems) - 1
+	case tea.KeyPgUp:
+		m.state.HistorySelected -= 12
+	case tea.KeyPgDown:
+		m.state.HistorySelected += 12
+	case tea.KeyEsc:
+		m.state.HistoryFocus = false
+	}
+	m.state.HistorySelected = clampHistorySelection(m.state)
+	m.state.SurfaceLines = historySurfaceLines(m.state)
+	return m
 }
 
 func dropLastRune(value string) string {

@@ -22,6 +22,7 @@ func TestM5CommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 	}{
 		{name: "status", input: "/status", want: CommandRouteStatus},
 		{name: "help", input: "/help", want: CommandRouteHelp},
+		{name: "history", input: "/history", want: CommandRouteHistory},
 		{name: "quit", input: "/quit", want: CommandRouteQuit},
 	}
 	for _, tc := range tests {
@@ -53,6 +54,17 @@ func TestM5SlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 	if statusSlash.Route != statusShortcut.Route || statusSlash.Route != CommandRouteStatus {
 		t.Fatalf("status route mismatch: slash=%+v shortcut=%+v", statusSlash, statusShortcut)
+	}
+	historySlash, ok := RecommendSlashCommand("/history")
+	if !ok {
+		t.Fatal("/history did not match")
+	}
+	historyShortcut, ok := RecommendShortcut("ctrl+x", "h")
+	if !ok {
+		t.Fatal("ctrl+x h did not match")
+	}
+	if historySlash.Route != historyShortcut.Route || historySlash.Route != CommandRouteHistory {
+		t.Fatalf("history route mismatch: slash=%+v shortcut=%+v", historySlash, historyShortcut)
 	}
 
 	quitSlash, ok := RecommendSlashCommand("/quit")
@@ -90,7 +102,6 @@ func TestM5CommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		prefix string
 		key    string
 	}{
-		{prefix: "ctrl+x", key: "h"},
 		{prefix: "ctrl+x", key: "status"},
 		{prefix: "ctrl+c", key: "q"},
 		{prefix: "", key: "q"},

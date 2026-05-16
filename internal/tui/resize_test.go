@@ -21,8 +21,9 @@ func TestWindowSizeMsgUpdatesOnlyLayoutState(t *testing.T) {
 	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 		submitted = append(submitted, text)
 		return TranscriptTurn{UserText: text, AssistantText: "Fake Aila response: " + text}
-	}, func(recommendation policy.CommandRecommendation) {
+	}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		routed = append(routed, recommendation)
+		return state
 	})
 
 	updated := updateNoCommand(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("explain this repo")})

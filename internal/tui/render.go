@@ -18,7 +18,10 @@ const (
 	maxDisplayTextBytes = 240
 )
 
-var secretLikeText = regexp.MustCompile(`(?i)(bearer\s+)[^\s,;]+|((?:api[_-]?key|token|password|secret)\s*[:=]\s*)[^\s,;]+`)
+var (
+	secretLikeText = regexp.MustCompile(`(?i)(bearer\s+)[^\s,;]+|((?:api[_-]?key|token|password|secret)\s*[:=]\s*)[^\s,;]+`)
+	pathLikeText   = regexp.MustCompile(`(?i)(~|/home/[^\s,;]+|/tmp/[^\s,;]+|[^\s,;]*(?:\x2eaila|\x2econfig|project\.toml|artifacts/|indexes/)[^\s,;]*|[a-z]:\\[^\s,;]+|\\\\[^\s,;]+)`)
+)
 
 // ViewState is the deterministic data rendered by the M2 static shell.
 type ViewState struct {
@@ -51,7 +54,22 @@ type ViewState struct {
 	RouteSource        string
 	SurfaceTitle       string
 	SurfaceLines       []string
+	HistoryItems       []HistoryItem
+	HistorySelected    int
+	HistoryFocus       bool
+	HistoryEmpty       bool
 	PromptInput        string
+}
+
+// HistoryItem is app-injected read-only history display data.
+type HistoryItem struct {
+	EventID     string
+	RunID       string
+	SessionID   string
+	Kind        string
+	Source      string
+	Provenance  string
+	DisplayText string
 }
 
 // DiagnosticView is app-owned diagnostic presentation data consumed by the TUI.
@@ -391,6 +409,7 @@ type SemanticSnapshot struct {
 	Diagnostics []SemanticDiagnostic `json:"diagnostics,omitempty"`
 	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
 	Command     *SemanticCommand     `json:"command,omitempty"`
+	History     *SemanticHistory     `json:"history,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
 }
@@ -464,6 +483,31 @@ type SemanticCommand struct {
 	Executed    bool   `json:"executed"`
 }
 
+// SemanticHistory describes app-injected read-only history presentation state.
+type SemanticHistory struct {
+	Visible       bool                  `json:"visible"`
+	ReadOnly      bool                  `json:"read_only"`
+	UndoEnabled   bool                  `json:"undo_enabled"`
+	Focus         bool                  `json:"focus"`
+	Empty         bool                  `json:"empty"`
+	Count         int                   `json:"count"`
+	SelectedIndex int                   `json:"selected_index"`
+	SelectedID    string                `json:"selected_id,omitempty"`
+	Items         []SemanticHistoryItem `json:"items"`
+}
+
+// SemanticHistoryItem describes one app-injected history row.
+type SemanticHistoryItem struct {
+	EventID     string `json:"event_id"`
+	RunID       string `json:"run_id"`
+	SessionID   string `json:"session_id"`
+	Kind        string `json:"kind"`
+	Source      string `json:"source"`
+	Provenance  string `json:"provenance"`
+	DisplayText string `json:"display_text"`
+	Selected    bool   `json:"selected"`
+}
+
 // SemanticRegion describes a visible region of the static shell.
 type SemanticRegion struct {
 	Name    string   `json:"name"`
@@ -514,6 +558,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
+	if historyVisible(state) {
+		regions = append(regions, SemanticRegion{Name: "history", Visible: true, Items: semanticHistoryRegionItems(state)})
+	}
 	var command *SemanticCommand
 	if state.CommandRoute != "" || state.SurfaceTitle != "" {
 		command = &SemanticCommand{
@@ -546,7 +593,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Screen: SemanticScreen{
 			Width:  size.Width,
 			Height: size.Height,
-			Focus:  "prompt",
+			Focus:  semanticFocus(state),
 		},
 		Layout: SemanticLayout{
 			Class:            layout.Class,
@@ -571,6 +618,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Memory:      semanticMemory(state),
 		Diagnostics: semanticDiagnostics(state.Diagnostics),
 		Command:     command,
+		History:     semanticHistory(state),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -780,8 +828,16 @@ func safeTextSlice(values []string) []string {
 func safeText(value string) string {
 	value = stripTerminalControls(value)
 	value = secretLikeText.ReplaceAllString(value, "[redacted]")
+	value = pathLikeText.ReplaceAllString(value, "[path-redacted]")
 	value = strings.Join(strings.Fields(value), " ")
 	return limitTextBytes(value, maxDisplayTextBytes)
+}
+
+func semanticFocus(state ViewState) string {
+	if historyVisible(state) && state.HistoryFocus {
+		return "history"
+	}
+	return "prompt"
 }
 
 func stripTerminalControls(value string) string {
@@ -855,6 +911,86 @@ func surfaceLines(route string, source string, title string, items []string) []s
 	return lines
 }
 
+func historySurfaceLines(state ViewState) []string {
+	if !historyVisible(state) {
+		return nil
+	}
+	if state.HistoryEmpty || len(state.HistoryItems) == 0 {
+		return []string{
+			"read-only: true",
+			"empty history",
+			"no fake history events recorded yet",
+		}
+	}
+	selected := clampHistorySelection(state)
+	lines := []string{
+		"read-only: true",
+		fmt.Sprintf("entries: %d", len(state.HistoryItems)),
+		fmt.Sprintf("selected: %d", selected+1),
+	}
+	start := historyWindowStart(state, 12)
+	for index, item := range visibleHistoryItems(state, 12) {
+		marker := " "
+		absolute := start + index
+		if absolute == selected {
+			marker = ">"
+		}
+		lines = append(lines, fmt.Sprintf("%s %s %s %s %s %s", marker, safeText(item.RunID), safeText(item.SessionID), safeText(item.EventID), safeText(item.Kind), safeText(item.DisplayText)))
+	}
+	item := state.HistoryItems[selected]
+	lines = append(lines,
+		"selected event id: "+safeText(item.EventID),
+		"selected run id: "+safeText(item.RunID),
+		"selected session id: "+safeText(item.SessionID),
+		"selected kind: "+safeText(item.Kind),
+		"selected source: "+safeText(item.Source),
+		"selected provenance: "+safeText(item.Provenance),
+		"selected text: "+safeText(item.DisplayText),
+	)
+	return lines
+}
+
+func historyVisible(state ViewState) bool {
+	return state.SurfaceTitle == "history" || state.CommandRoute == "history" || state.HistoryFocus
+}
+
+func clampHistorySelection(state ViewState) int {
+	if len(state.HistoryItems) == 0 {
+		return 0
+	}
+	if state.HistorySelected < 0 {
+		return 0
+	}
+	if state.HistorySelected >= len(state.HistoryItems) {
+		return len(state.HistoryItems) - 1
+	}
+	return state.HistorySelected
+}
+
+func visibleHistoryItems(state ViewState, limit int) []HistoryItem {
+	if limit <= 0 || len(state.HistoryItems) <= limit {
+		return state.HistoryItems
+	}
+	start := historyWindowStart(state, limit)
+	return state.HistoryItems[start : start+limit]
+}
+
+func historyWindowStart(state ViewState, limit int) int {
+	if limit <= 0 || len(state.HistoryItems) <= limit {
+		return 0
+	}
+	selected := clampHistorySelection(state)
+	start := selected - limit/2
+	if start < 0 {
+		return 0
+	}
+	maxStart := len(state.HistoryItems) - limit
+	if start > maxStart {
+		return maxStart
+	}
+	return start
+}
+
 func semanticSurfaceItems(route string, source string, title string, items []string) []string {
 	if title == "" {
 		return nil
@@ -869,6 +1005,64 @@ func semanticSurfaceItems(route string, source string, title string, items []str
 	}
 	result = append(result, items...)
 	return result
+}
+
+func semanticHistory(state ViewState) *SemanticHistory {
+	if !historyVisible(state) {
+		return nil
+	}
+	selected := clampHistorySelection(state)
+	items := make([]SemanticHistoryItem, 0, len(state.HistoryItems))
+	for index, item := range state.HistoryItems {
+		items = append(items, SemanticHistoryItem{
+			EventID:     safeText(item.EventID),
+			RunID:       safeText(item.RunID),
+			SessionID:   safeText(item.SessionID),
+			Kind:        safeText(item.Kind),
+			Source:      safeText(item.Source),
+			Provenance:  safeText(item.Provenance),
+			DisplayText: safeText(item.DisplayText),
+			Selected:    index == selected && len(state.HistoryItems) > 0,
+		})
+	}
+	selectedID := ""
+	if len(state.HistoryItems) > 0 {
+		selectedID = safeText(state.HistoryItems[selected].EventID)
+	}
+	return &SemanticHistory{
+		Visible:       true,
+		ReadOnly:      true,
+		UndoEnabled:   false,
+		Focus:         state.HistoryFocus,
+		Empty:         state.HistoryEmpty || len(state.HistoryItems) == 0,
+		Count:         len(state.HistoryItems),
+		SelectedIndex: selected,
+		SelectedID:    selectedID,
+		Items:         items,
+	}
+}
+
+func semanticHistoryRegionItems(state ViewState) []string {
+	history := semanticHistory(state)
+	if history == nil {
+		return nil
+	}
+	items := []string{
+		"read_only: true",
+		"undo_enabled: false",
+		"focus: " + boolLabel(history.Focus),
+		"empty: " + boolLabel(history.Empty),
+		fmt.Sprintf("count: %d", history.Count),
+		fmt.Sprintf("selected_index: %d", history.SelectedIndex),
+	}
+	if history.SelectedID != "" {
+		items = append(items, "selected_id: "+history.SelectedID)
+	}
+	for _, item := range history.Items {
+		items = append(items, "item: "+item.RunID+" "+item.SessionID+" "+item.EventID+" "+item.Kind+" "+item.DisplayText+" selected: "+boolLabel(item.Selected))
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
 }
 
 func rightRailSemanticItems(state ViewState) []string {

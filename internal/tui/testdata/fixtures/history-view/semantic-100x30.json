@@ -1,0 +1,176 @@
+{
+  "scenario": "history-view",
+  "screen": {
+    "width": 100,
+    "height": 30,
+    "focus": "history"
+  },
+  "layout": {
+    "class": "standard",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "command": {
+    "route": "history",
+    "route_source": "policy.command",
+    "surface": "history",
+    "visible": true,
+    "executed": false
+  },
+  "history": {
+    "visible": true,
+    "read_only": true,
+    "undo_enabled": false,
+    "focus": true,
+    "empty": false,
+    "count": 5,
+    "selected_index": 2,
+    "selected_id": "evt-fake-003",
+    "items": [
+      {
+        "event_id": "evt-fake-001",
+        "run_id": "run-fake-017",
+        "session_id": "session-fake-alpha",
+        "kind": "prompt",
+        "source": "user",
+        "provenance": "prompt.submit",
+        "display_text": "prompt summary: inspect fake history",
+        "selected": false
+      },
+      {
+        "event_id": "evt-fake-002",
+        "run_id": "run-fake-017",
+        "session_id": "session-fake-alpha",
+        "kind": "response",
+        "source": "runtime.fake",
+        "provenance": "model.response",
+        "display_text": "response summary: fake answer for history",
+        "selected": false
+      },
+      {
+        "event_id": "evt-fake-003",
+        "run_id": "run-fake-017",
+        "session_id": "session-fake-alpha",
+        "kind": "command",
+        "source": "policy.command",
+        "provenance": "slash.route",
+        "display_text": "command summary: /status rendered only",
+        "selected": true
+      },
+      {
+        "event_id": "evt-fake-004",
+        "run_id": "run-fake-017",
+        "session_id": "session-fake-alpha",
+        "kind": "runtime",
+        "source": "runtime.fixture",
+        "provenance": "runtime.update",
+        "display_text": "runtime summary: idle after fake event",
+        "selected": false
+      },
+      {
+        "event_id": "evt-fake-005",
+        "run_id": "run-fake-017",
+        "session_id": "session-fake-alpha",
+        "kind": "diagnostic",
+        "source": "state.fixture",
+        "provenance": "redaction.fixture",
+        "display_text": "credential [redacted] path [path-redacted] control",
+        "selected": false
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "history",
+        "command route: history",
+        "route source: policy.command",
+        "read-only: true",
+        "entries: 5",
+        "selected: 3",
+        "  run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history",
+        "  run-fake-017 session-fake-alpha evt-fake-002 response response summary: fake answer for history",
+        "> run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only",
+        "  run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event",
+        "  run-fake-017 session-fake-alpha evt-fake-005 diagnostic credential [redacted] path [path-redacted] control",
+        "selected event id: evt-fake-003",
+        "selected run id: run-fake-017",
+        "selected session id: session-fake-alpha",
+        "selected kind: command",
+        "selected source: policy.command",
+        "selected provenance: slash.route",
+        "selected text: command summary: /status rendered only"
+      ]
+    },
+    {
+      "name": "history",
+      "visible": true,
+      "items": [
+        "read_only: true",
+        "undo_enabled: false",
+        "focus: true",
+        "empty: false",
+        "count: 5",
+        "selected_index: 2",
+        "selected_id: evt-fake-003",
+        "item: run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history selected: false",
+        "item: run-fake-017 session-fake-alpha evt-fake-002 response response summary: fake answer for history selected: false",
+        "item: run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only selected: true",
+        "item: run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event selected: false",
+        "item: run-fake-017 session-fake-alpha evt-fake-005 diagnostic credential [redacted] path [path-redacted] control selected: false",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

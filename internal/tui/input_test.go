@@ -97,8 +97,9 @@ func TestCtrlCEmitsAppInterruptMessageOnly(t *testing.T) {
 	var commands []policy.CommandRecommendation
 	model := NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 		return TranscriptTurn{UserText: text, AssistantText: "unexpected"}
-	}, func(recommendation policy.CommandRecommendation) {
+	}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		commands = append(commands, recommendation)
+		return state
 	}, func(reason string) TranscriptTurn {
 		interrupts = append(interrupts, reason)
 		return TranscriptTurn{
@@ -138,8 +139,9 @@ func TestCtrlXCEmitsSameAppInterruptMessageOnly(t *testing.T) {
 	model := NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 		prompts = append(prompts, text)
 		return TranscriptTurn{UserText: text, AssistantText: "unexpected"}
-	}, func(recommendation policy.CommandRecommendation) {
+	}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		commands = append(commands, recommendation)
+		return state
 	}, func(reason string) TranscriptTurn {
 		interrupts = append(interrupts, reason)
 		return TranscriptTurn{
@@ -269,8 +271,9 @@ func TestPromptEnterRoutesRecognizedCommandThroughPolicyBoundary(t *testing.T) {
 	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 		routed = append(routed, text)
 		return TranscriptTurn{UserText: text, AssistantText: "Fake Aila response: " + text}
-	}, func(recommendation policy.CommandRecommendation) {
+	}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		commands = append(commands, recommendation)
+		return state
 	})
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/status")})
 	if cmd != nil {
@@ -304,8 +307,9 @@ func TestCommandShortcutsUseSamePolicyRoutesAsSlashCommands(t *testing.T) {
 	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 		routed = append(routed, text)
 		return TranscriptTurn{UserText: text, AssistantText: "unexpected"}
-	}, func(recommendation policy.CommandRecommendation) {
+	}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		commands = append(commands, recommendation)
+		return state
 	})
 
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
@@ -380,6 +384,28 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 	}
 	if statusSlashModel.state.SurfaceTitle != statusShortcutModel.state.SurfaceTitle || strings.Join(statusSlashModel.state.SurfaceLines, "\n") != strings.Join(statusShortcutModel.state.SurfaceLines, "\n") {
 		t.Fatalf("status TUI surface mismatch:\nslash=%s %v\nshortcut=%s %v", statusSlashModel.state.SurfaceTitle, statusSlashModel.state.SurfaceLines, statusShortcutModel.state.SurfaceTitle, statusShortcutModel.state.SurfaceLines)
+	}
+	historySlash, ok := policy.RecommendSlashCommand("/history")
+	if !ok {
+		t.Fatal("/history did not match")
+	}
+	historyShortcut, ok := policy.RecommendShortcut("ctrl+x", "h")
+	if !ok {
+		t.Fatal("ctrl+x h did not match")
+	}
+	if historySlash.Route != historyShortcut.Route || historySlash.Route != policy.CommandRouteHistory {
+		t.Fatalf("history policy route mismatch: slash=%+v shortcut=%+v", historySlash, historyShortcut)
+	}
+	historySlashModel, historySlashCmd := routeSlashCommandForParity(t, "/history")
+	historyShortcutModel, historyShortcutCmd := routeShortcutForParity(t, "h")
+	if historySlashCmd != nil || historyShortcutCmd != nil {
+		t.Fatal("history parity routes should not emit Bubble Tea commands")
+	}
+	if historySlashModel.state.CommandRoute != historyShortcutModel.state.CommandRoute || historySlashModel.state.RouteSource != historyShortcutModel.state.RouteSource {
+		t.Fatalf("history TUI route mismatch: slash=%+v shortcut=%+v", historySlashModel.state, historyShortcutModel.state)
+	}
+	if historySlashModel.state.SurfaceTitle != "history" || historyShortcutModel.state.SurfaceTitle != "history" {
+		t.Fatalf("history surface mismatch: slash=%q shortcut=%q", historySlashModel.state.SurfaceTitle, historyShortcutModel.state.SurfaceTitle)
 	}
 
 	quitSlashModel, quitSlashCmd := routeSlashCommandForParity(t, "/quit")
@@ -525,8 +551,9 @@ func TestPromptQWhileComposingRemainsInput(t *testing.T) {
 	t.Parallel()
 
 	var commands []policy.CommandRecommendation
-	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, nil, func(recommendation policy.CommandRecommendation) {
+	model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, nil, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 		commands = append(commands, recommendation)
+		return state
 	})
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hel")})
 	if cmd != nil {
@@ -562,8 +589,9 @@ func TestPromptEnterKeepsOrdinaryAndUnknownSlashFakeBehavior(t *testing.T) {
 			model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
 				routed = append(routed, text)
 				return TranscriptTurn{UserText: text, AssistantText: "Fake Aila response: " + text}
-			}, func(recommendation policy.CommandRecommendation) {
+			}, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
 				commands = append(commands, recommendation)
+				return state
 			})
 			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(input)})
 			if cmd != nil {
@@ -610,6 +638,96 @@ func TestFakeResponseTranscriptRenderingIsStable(t *testing.T) {
 		if strings.Contains(first, forbidden) {
 			t.Fatalf("transcript render contains unstable time marker %q:\n%s", forbidden, first)
 		}
+	}
+}
+
+func TestHistoryViewNavigationSelectionFocusEmptyAndBoundsAreDeterministic(t *testing.T) {
+	t.Parallel()
+
+	items := make([]HistoryItem, 0, 20)
+	for i := 0; i < 20; i++ {
+		items = append(items, HistoryItem{
+			EventID:     "event-" + string(rune('a'+i)),
+			RunID:       "run-1",
+			SessionID:   "session-1",
+			Kind:        "prompt",
+			Source:      "user",
+			Provenance:  "prompt.submit",
+			DisplayText: "entry " + string(rune('a'+i)),
+		})
+	}
+	state := ApplyHistoryView(IdleEmptyState(), items, 0, true)
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, nil)
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("history up navigation emitted a command")
+	}
+	if got.state.HistorySelected != 0 {
+		t.Fatalf("history selection after up at start = %d, want 0", got.state.HistorySelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("history page down emitted a command")
+	}
+	if got.state.HistorySelected != 12 {
+		t.Fatalf("history selection after page down = %d, want 12", got.state.HistorySelected)
+	}
+	if !strings.Contains(strings.Join(got.state.SurfaceLines, "\n"), "event-m") || strings.Contains(strings.Join(got.state.SurfaceLines, "\n"), "event-a") {
+		t.Fatalf("bounded history window did not follow selected row: %#v", got.state.SurfaceLines)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("history end emitted a command")
+	}
+	if got.state.HistorySelected != 19 {
+		t.Fatalf("history selection after end = %d, want 19", got.state.HistorySelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("history down at end emitted a command")
+	}
+	if got.state.HistorySelected != 19 {
+		t.Fatalf("history selection after down at end = %d, want 19", got.state.HistorySelected)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("history escape emitted a command")
+	}
+	if got.state.HistoryFocus {
+		t.Fatal("history escape should release focus")
+	}
+}
+
+func TestHistoryViewEmptyStateIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	state := ApplyHistoryView(IdleEmptyState(), nil, 4, true)
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, nil)
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got := updated.(Model)
+
+	if cmd != nil {
+		t.Fatal("empty history navigation emitted a command")
+	}
+	if got.state.HistorySelected != 0 || !got.state.HistoryEmpty || !got.state.HistoryFocus {
+		t.Fatalf("empty history state = %+v, want clamped focused empty history", got.state)
+	}
+	if !containsAll(got.View(), []string{"history:", "read-only: true", "empty history", "no fake history events recorded yet"}) {
+		t.Fatalf("empty history render missing deterministic lines:\n%s", got.View())
+	}
+	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
+	if semantic.History == nil || !semantic.History.ReadOnly || !semantic.History.Empty || semantic.History.Count != 0 {
+		t.Fatalf("empty history semantic = %+v", semantic.History)
 	}
 }
 

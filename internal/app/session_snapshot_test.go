@@ -239,9 +239,9 @@ func TestSessionControllerPersistsCommandPathsWithoutChangingRuntimeRouting(t *t
 		return SnapshotPersistenceResult{}
 	})
 
-	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteStatus, Kind: policy.CommandInputSlash})
-	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteHelp, Kind: policy.CommandInputSlash})
-	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteQuit, Kind: policy.CommandInputShortcut})
+	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteStatus, Kind: policy.CommandInputSlash}, controller.view)
+	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteHelp, Kind: policy.CommandInputSlash}, controller.view)
+	controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteQuit, Kind: policy.CommandInputShortcut}, controller.view)
 
 	if len(commands) != 3 {
 		t.Fatalf("persist commands = %d, want status/help/quit", len(commands))

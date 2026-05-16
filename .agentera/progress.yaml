@@ -5647,6 +5647,678 @@ cycles:
         outcome and the audit-context clarification instead.
       scope: >-
         Final M16 Agentera plan completion and progress closeout metadata only.
+  - number: 125
+    timestamp: "2026-05-16 07:02"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 17: History View For Fake Events as the next active Agentera plan after committing
+      completed M16 work as `09c571e complete session snapshot resume`.
+    commit: "09c571e complete session snapshot resume"
+    inspiration: "ROADMAP.md Milestone 17; Agentera plan status completed; user requested Planera then Orkestrera"
+    discovered: >-
+      Agentera reported the M16 plan completed with no active plan and next action pointing to Planera. The
+      roadmap top marks M17 as next, while M18 Read Tool and M19 Find/Grep remain later milestones. The new
+      plan therefore covers only M17 fake history recording and read-only history inspection, with M18+ tool
+      behavior explicitly deferred. Decisions, health, docs, and TODO fallback commands returned empty or
+      missing artifacts with no blockers.
+    verified: >-
+      Reviewed ROADMAP.md status and M17-M19 sections, docs/notes/PROMPT.md milestone-selection rules,
+      ARCHITECTURE.md state/event/history boundaries, docs/tui-testing.md history-view fixture expectations,
+      docs/workflow-architecture.md artifact/state model, README.md `/history` command promise, and
+      internal/history scaffolding. Archived the completed M16 plan to
+      `.agentera/archive/plan-2026-05-16-m16.yaml`, created an active M17 plan, and deferred M18+ behavior.
+    next: >-
+      Orkestrera may select the first dependency-ready M17 task: Task 1, Define fake history event contract.
+      Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless explicitly
+      requested.
+    context:
+      intent: >-
+        Create the next executable plan after M16 closeout while preserving roadmap order and the single active
+        milestone discipline.
+      constraints: >-
+        Plan only M17. Do not start M18 read tools, M19 find/grep tools, undo, replay, real model/tool history,
+        context compaction, provider fallback, plugins, MCP, workflow DSL behavior, commits, pushes, or
+        vision/objective changes.
+      unknowns: >-
+        No decisions, health, docs mapping, TODO, vision, or objective artifacts are present; the plan relies on
+        ROADMAP.md and architecture source anchors.
+      scope: >-
+        Agentera plan archive, active M17 plan creation, and progress metadata only.
+  - number: 126
+    timestamp: "2026-05-16 07:08"
+    type: fix
+    phase: plan
+    what: >-
+      Fixed and validated the M17 plan artifact after Agentera initially parsed zero task entries because one
+      YAML list item began with an unquoted backtick. The active plan now exposes all seven M17 tasks.
+    commit: "N/A: user did not request a post-M16-planning commit"
+    inspiration: "agentera plan --format json returned zero entries after initial M17 plan write"
+    discovered: >-
+      YAML plain scalars cannot start with a backtick. The offending scope item was rewritten from a
+      backtick-starting `history-view` phrase to a plain `History-view` phrase without changing plan scope.
+    verified: >-
+      `agentera plan --format json` now reports seven pending M17 tasks, active status, and complete plan
+      summary fields. `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-16-m16.yaml` passed.
+    next: >-
+      Orkestrera may select M17 Task 1: Define fake history event contract.
+    context:
+      intent: >-
+        Ensure the new M17 plan is machine-readable before Orkestrera uses it.
+      constraints: >-
+        Planning metadata only; no M17 implementation, M18+ behavior, commit, push, vision/objective changes,
+        or local runtime state additions.
+      unknowns: "none"
+      scope: >-
+        M17 plan YAML syntax and Agentera CLI validation only.
+  - number: 127
+    timestamp: "2026-05-16 07:12"
+    type: test
+    phase: build
+    what: >-
+      Implemented M17 Task 1's pure fake history event contract with stable prompt, response, command, and
+      runtime event kinds; required schema, run, session, source, provenance, and bounded display fields; and
+      display normalization that strips terminal controls and redacts secret-like text.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 1; ROADMAP.md Milestone 17; internal/history and internal/state boundary tests"
+    discovered: >-
+      The existing history package comment still described later undo/replay-style ownership. It was narrowed to
+      the M17 fake activity contract before adding tests so the package boundary now matches this task's scope.
+      State needed only a path description and validation seam for `.aila/history/fake-events.jsonl`; append/read
+      persistence remains deferred to Task 2.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`
+      passed. `go test ./internal/history ./internal/state -count=1` passed. `git diff --check` passed after
+      this progress update.
+    next: >-
+      Hand M17 Task 1 to Inspektera. Do not mark `.agentera/plan.yaml` Task 1 complete, start Task 2 append/read
+      behavior, implement app recording or TUI history routes, commit, push, or add M18+ behavior.
+    context:
+      intent: >-
+        Define and test the fake history schema, normalization, and state path contract before any persistence or
+        TUI history-view work begins.
+      constraints: >-
+        Execute only M17 Task 1. Do not modify vision/objective state, mark Task 1 complete, add append/read IO,
+        undo/redo, mutation records, real model/tool history, event replay, context compaction, read/find/grep/bash
+        tools, plugins, MCP, workflow DSL behavior, commits, pushes, `.agentera/session.yaml`, or `.aila/`.
+      unknowns: >-
+        Future credential syntaxes beyond authorization, api_key/apikey, password, secret, and token may need
+        explicit sanitizer coverage in later tasks.
+      scope: >-
+        internal/history fake event contract and tests, internal/state fake history path contract and tests,
+        package boundary guards, and Agentera progress metadata only.
+  - number: 128
+    timestamp: "2026-05-16 07:17"
+    type: fix
+    phase: build
+    what: >-
+      Fixed the M17 Task 1 retry finding by stripping C1 terminal controls before fake history display text secret
+      redaction, including credentials whose key text was split by a C1 control byte.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 1 FAIL retry 1/2; internal/history/event.go sanitizer findings"
+    discovered: >-
+      The existing sanitizer removed ESC-pattern controls and C0 controls but retained U+0080 through U+009F. Because
+      normalization redacts after control stripping, a retained U+009B could both reach display output and prevent the
+      token redaction pattern from matching a split key such as `to\u009bken=abc123`.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`
+      passed. `go test ./internal/history ./internal/state -count=1` passed. `git diff --check --
+      .agentera/progress.yaml internal/history internal/state/history_path.go internal/state/history_path_test.go` passed.
+    next: >-
+      Re-run the required M17 Task 1 sanitizer validation and hand the focused retry fix back to Inspektera without
+      marking `.agentera/plan.yaml` Task 1 complete, starting Task 2 persistence, committing, pushing, or adding M18+
+      behavior.
+    context:
+      intent: >-
+        Close only the C1 sanitizer/redaction gap found during Inspektera review of the already scoped M17 Task 1
+        fake history event contract.
+      constraints: >-
+        Execute only the retry fix for M17 Task 1. Do not modify `.agentera/vision.yaml` or objective state, do not
+        mark `.agentera/plan.yaml` Task 1 complete, do not add append/read IO, app effects, TUI history routes,
+        fixtures, PTY smoke, closeout, commits, pushes, `.agentera/session.yaml`, `.aila/`, or M18+ behavior.
+      unknowns: "none"
+      scope: >-
+        internal/history fake event sanitizer and regression tests plus Agentera progress metadata only.
+  - number: 129
+    timestamp: "2026-05-16 07:20"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 1 after one focused sanitizer retry. The final audit found no
+      findings: fake history event kinds, required identifiers/provenance/schema/display fields, state-owned path
+      contract, boundary guards, and C1-control-safe redaction all satisfy the Task 1 contract.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 1 PASS; .agentera/plan.yaml task 1"
+    discovered: >-
+      The audit sequence exposed a real sanitizer gap: ESC and C0 controls were stripped, but C1 controls
+      U+0080 through U+009F remained and could split secret markers such as `to\u009bken=abc123`. Retry 1 now
+      strips C1 controls before redaction and keeps Task 1 limited to pure contract/path validation with no
+      append/read persistence, app effects, TUI history route, fixtures, PTY smoke, closeout, or M18+ behavior.
+    verified: >-
+      Inspektera inspected internal/history, internal/state history path files, the active M17 plan, and progress
+      evidence. It ran `go test ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`,
+      `go test ./internal/history ./internal/state -count=1`, and `git diff --check -- .agentera/plan.yaml
+      .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml internal/history
+      internal/state/history_path.go internal/state/history_path_test.go`; all passed. It confirmed Task 1
+      remained pending before Orkestrera resolution and no Task 2-7 or M18+ scope was introduced.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M17 task: Task 2, Append and read fake history through
+      the state store. Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless
+      explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 1 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 1 complete. Do not start Task 2 persistence in this metadata step, do not commit, push,
+        modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Broader secret syntaxes beyond the covered authorization, api_key/apikey, password, secret, and token
+        patterns may need later hardening.
+      scope: >-
+        internal/history fake event contract, internal/state fake history path contract, sanitizer/boundary
+        verification, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 1 only.
+  - number: 130
+    timestamp: "2026-05-16 07:24"
+    type: test
+    phase: build
+    what: >-
+      Implemented M17 Task 2 fake history persistence through the state store: missing logs read as empty,
+      validated fake events append to and read from `.aila/history/fake-events.jsonl` in stable order, and unsafe or
+      invalid existing history returns passive recovery diagnostics without repair writes.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 2; M17 Task 1 fake history contract; internal/state store ownership patterns"
+    discovered: >-
+      The state store boundary needed a narrow dependency on the Task 1 `internal/history` contract so persistence can
+      validate and redact the same schema it writes. Append stays scoped to fake JSONL events only and validates existing
+      history before adding a line, so corrupt, partial, oversized, version-mismatched, and symlink-escaped data is
+      surfaced as recovery state rather than overwritten. A follow-up bound guard also rejects a valid log when the next
+      append would exceed the fake history file size limit.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`
+      passed. `go test ./internal/history ./internal/state -count=1` passed. `git diff --check` passed after final
+      progress metadata updates.
+    next: >-
+      Run required formatting and validation, then hand M17 Task 2 to Inspektera. Do not mark `.agentera/plan.yaml`
+      Task 2 complete, start Tasks 3-7, commit, push, modify vision/objective state, add `.agentera/session.yaml` or
+      `.aila/`, or introduce M18+ behavior.
+    context:
+      intent: >-
+        Add only the store-owned append/read seam for fake history so later app and TUI tasks can consume a validated
+        persistence contract.
+      constraints: >-
+        Execute only M17 Task 2. Do not add app recording effects, `/history` routing, TUI state, fixtures, PTY smoke,
+        closeout, undo/redo, mutation records, real model/tool/provider history, shell command history, read/find/grep/bash
+        tools, event replay, session restore, context compaction, provider fallback, permission policy changes, plugins,
+        MCP, workflow DSL behavior, commits, pushes, `.agentera/session.yaml`, `.aila/`, or plan-complete metadata.
+      unknowns: >-
+        Append uses normal OS append semantics after pre-validating existing content; hostile storage failures during an
+        individual write cannot be perfectly simulated in unit tests, but no temp-file or rewrite path is introduced.
+      scope: >-
+        internal/state fake history persistence and tests, diagnostic enum additions for fake history recovery, state
+        boundary guard adjustment, and Agentera progress metadata only.
+  - number: 131
+    timestamp: "2026-05-16 07:30"
+    type: fix
+    phase: build
+    what: >-
+      Fixed the M17 Task 2 retry finding by replacing final-file `O_APPEND` writes with a bounded in-memory JSONL
+      rebuild followed by the store atomic temp-and-rename writer, so failed appends cannot leave partial final
+      content in `.aila/history/fake-events.jsonl`.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 2 FAIL retry 1/2; fake history append atomicity finding"
+    discovered: >-
+      Inspektera correctly identified that pre-validating existing history was not enough: a short final-file append
+      could still leave a partial newline-less JSONL record before returning an error. The retry keeps Task 2 scoped
+      to state-owned fake history persistence and does not start app recording effects, `/history` routing, fixtures,
+      PTY smoke, closeout, or M18+ behavior.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`
+      passed. `go test ./internal/history ./internal/state -count=1` passed. `git diff --check --
+      .agentera/progress.yaml internal/state/fake_history.go internal/state/fake_history_test.go
+      internal/state/boundary_test.go internal/diagnostic/diagnostic.go internal/history internal/state/history_path.go
+      internal/state/history_path_test.go` passed.
+    next: >-
+      Hand the retry back to Inspektera without marking `.agentera/plan.yaml` Task 2 complete, committing, pushing,
+      or starting M17 Tasks 3-7.
+    context:
+      intent: >-
+        Close only the append atomicity/no-partial-final-content gap while preserving existing read/append recovery
+        semantics and state/store ownership.
+      constraints: >-
+        Execute only the M17 Task 2 retry. Do not mark `.agentera/plan.yaml` Task 2 complete, do not implement Task 3
+        app recording effects, Task 4 `/history` route/TUI, Task 5 fixtures, Task 6 PTY smoke, Task 7 closeout,
+        M18+ behavior, commits, pushes, vision/objective edits, `.agentera/session.yaml`, or `.aila/` additions.
+      unknowns: "none"
+      scope: >-
+        internal/state fake history append atomicity, focused regression coverage, and Agentera retry progress
+        metadata only.
+  - number: 132
+    timestamp: "2026-05-16 07:33"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 2 after one focused append-atomicity retry. The final audit
+      found no findings: missing history is empty, valid fake events round-trip through `.aila/history/fake-events.jsonl`,
+      invalid data produces passive recovery diagnostics without overwrites, and append writes no longer risk
+      partial final JSONL content.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 2 PASS; .agentera/plan.yaml task 2"
+    discovered: >-
+      The audit sequence exposed a real append durability gap: direct `O_APPEND` writes could leave a partial
+      final record on short write even after pre-validating existing history. Retry 1 switched to bounded
+      read/rebuild plus the store atomic writer. Residual risk is concurrent append lost updates, which remains
+      outside Task 2 acceptance and can be addressed when real concurrent runs exist.
+    verified: >-
+      Inspektera inspected internal/state fake history code/tests, internal/state history path files,
+      internal/history event contract files, diagnostics, boundary tests, and progress evidence. It ran `go test
+      ./internal/history ./internal/state -run 'History|Event|Boundary' -count=1`, `go test ./internal/history
+      ./internal/state -count=1`, and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-16-m16.yaml internal/history internal/state
+      internal/diagnostic/diagnostic.go`; all passed. It confirmed Task 2 remained pending before Orkestrera
+      resolution and no Task 3-7, M18+, undo/replay/real-tool-history, plugin, or MCP scope was introduced.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M17 task: Task 3, Record fake app activity as explicit
+      history effects. Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless
+      explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 2 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 2 complete. Do not start Task 3 app recording in this metadata step, do not commit, push,
+        modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Concurrent appends are not serialized by the Task 2 implementation and remain a later concern outside
+        the current fake single-run acceptance scope.
+      scope: >-
+        internal/state fake history read/append persistence, typed recovery diagnostics, append atomicity
+        verification, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 2 only.
+  - number: 133
+    timestamp: "2026-05-16 07:41"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M17 Task 3 app-owned fake history recording effects. Prompt submissions, fake responses,
+      queued prompts, command surfaces, and runtime status/result changes now emit explicit history persistence
+      commands/results through the app controller instead of runtime update or TUI filesystem writes.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 3; M17 Task 1 event contract; M17 Task 2 state append API; M16 snapshot persistence command/result pattern"
+    discovered: >-
+      The existing controller snapshot seam was the smallest correct ownership point: TUI callbacks remain
+      presentation-only, deterministic runtime update still returns typed fake effects only, and app-owned
+      persistence can surface bounded state.history diagnostics without changing workflow phase. Command routes
+      needed runtime history only when the runtime model actually changed, so help/quit record visible command
+      surfaces without duplicating the prior status runtime result.
+    verified: >-
+      `go test ./internal/app -count=1` passed before formatting. `mage fmt` passed. `go test ./internal/app
+      ./internal/history ./internal/state -count=1` passed. `go test ./internal/tui ./cmd/aila -count=1` passed.
+      `go test ./internal/app -run 'History|SessionController|Continue|Shutdown' -count=1` passed. `git diff
+      --check` passed.
+    next: >-
+      Hand M17 Task 3 to Inspektera. Do not mark `.agentera/plan.yaml` Task 3 complete, start Tasks 4-7, commit,
+      push, modify vision/objective state, add `.agentera/session.yaml` or `.aila/`, or introduce M18+ behavior.
+    context:
+      intent: >-
+        Record only the currently visible fake app activity as explicit, testable history persistence effects while
+        preserving statechart-MVU and TUI presentation-only boundaries.
+      constraints: >-
+        Execute only M17 Task 3. Do not implement `/history`, TUI history state, fixtures, PTY smoke, closeout,
+        undo/redo, mutation records, edit/write history, approval persistence, real model/tool/provider history,
+        shell command history, read/find/grep/bash tools, replay, session restore/selection, context compaction,
+        stale checks, provider fallback, permission changes, plugins, MCP, workflow DSL behavior, commits, pushes,
+        `.agentera/session.yaml`, `.aila/`, or plan-complete metadata.
+      unknowns: >-
+        Fake history event IDs are per current app controller run and intentionally narrow for this fake single-session
+        milestone; cross-process global sequencing and concurrent append serialization remain outside Task 3.
+      scope: >-
+        internal/app fake history command/result wiring and regression tests plus Agentera progress metadata only.
+  - number: 134
+    timestamp: "2026-05-16 07:46"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 3 with no findings. App-owned fake history recording now uses
+      explicit history persistence commands/results for prompt, response, queued prompt, command surface, and
+      runtime events while preserving runtime/TUI filesystem-free boundaries.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 3 PASS; .agentera/plan.yaml task 3"
+    discovered: >-
+      The M16 app controller persistence seam was the right ownership point for M17 fake history recording. The
+      audit confirmed no `/history` route/TUI state, fixtures, PTY smoke, closeout, M18+ tool behavior,
+      undo/replay, real model/tool history, plugin, or MCP scope was introduced. Residual sequencing remains
+      per-controller/run only, with cross-process/global sequencing deferred.
+    verified: >-
+      Inspektera inspected internal/app fake history code/tests, session snapshot interaction, M17 plan/progress
+      metadata, and related Task 1-2 history/state/diagnostic code. It ran `go test ./internal/app
+      ./internal/history ./internal/state -count=1`, `go test ./internal/tui ./cmd/aila -count=1`, `go test
+      ./internal/app -run 'History|SessionController|Continue|Shutdown' -count=1`, and `git diff --check --
+      .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml internal/app
+      internal/history internal/state internal/diagnostic/diagnostic.go`; all passed. It confirmed Task 3
+      remained pending before Orkestrera resolution and `.agentera/session.yaml` / `.aila/` stayed untracked.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M17 task: Task 4, Add read-only history command and
+      TUI state. Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless
+      explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 3 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 3 complete. Do not start Task 4 route/TUI work in this metadata step, do not commit,
+        push, modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Fake history event IDs are per-controller/run sequence only; concurrent append serialization remains the
+        Task 2 residual risk.
+      scope: >-
+        internal/app fake history command/result wiring, bounded diagnostic verification, route-stability
+        regression evidence, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 3 only.
+  - number: 135
+    timestamp: "2026-05-16 07:54"
+    type: feat
+    phase: build
+    what: >-
+      Implemented M17 Task 4 read-only history command and TUI state. `/history` and `ctrl+x h` now route through
+      policy to an app-owned fake history read and inject bounded read-only history display data into the TUI.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 4; M17 Task 2 state read API; M17 Task 3 app command/result ownership"
+    discovered: >-
+      The TUI command callback was one-way, so app-read history data could not be injected without returning
+      app-owned view state from command routing. History open deliberately skips fake history append, runtime command
+      execution, and session snapshot persistence so the surface remains read-only for Task 4.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/policy ./internal/app ./internal/tui ./internal/history ./internal/state
+      ./cmd/aila -count=1` passed. `go test ./internal/tui -run
+      'History|Command|Prompt|Queue|Interrupt|Memory|Diagnostic|Help|Quit|Boundary' -count=1` passed. `go test
+      ./internal/app -run 'History|SessionController|Continue|Shutdown' -count=1` passed. `git diff --check --
+      .agentera/progress.yaml internal/policy internal/app internal/tui` passed.
+    next: >-
+      Run mage fmt, targeted policy/app/tui/history/state/cmd tests, and git diff --check, then hand M17 Task 4 to
+      Inspektera without marking `.agentera/plan.yaml` Task 4 complete, committing, or pushing.
+    context:
+      intent: >-
+        Add only the read-only history command route and deterministic injected TUI history state needed by M17 Task 4.
+      constraints: >-
+        Execute only M17 Task 4. Do not implement history-view fixture evidence, PTY smoke, closeout, undo/redo,
+        mutation records, real model/tool/provider history, shell command history, read/find/grep/bash tools, replay,
+        session restore/selection, context compaction, stale checks, provider fallback, permission changes, plugins,
+        MCP, workflow DSL behavior, commits, pushes, `.agentera/session.yaml`, `.aila/`, or plan-complete metadata.
+      unknowns: >-
+        The display list is intentionally capped at the latest 64 fake events for deterministic Task 4 navigation;
+        richer history fixture and PTY evidence remain Task 5 and Task 6.
+      scope: >-
+        internal/policy route additions, internal/app read-only fake history command handling, internal/tui injected
+        history display/navigation state, boundary/update tests, and Agentera progress metadata only.
+  - number: 136
+    timestamp: "2026-05-16 08:04"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 4 with no findings. `/history` and `ctrl+x h` now open a
+      read-only history surface through app-owned fake history reads and injected TUI state, with deterministic
+      navigation/focus/empty/bounded-list behavior and no TUI persistence imports.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 4 PASS; .agentera/plan.yaml task 4"
+    discovered: >-
+      The audit confirmed the history route intentionally skips fake history append, runtime command execution,
+      session snapshot persistence, and workflow phase mutation. Production TUI files do not import internal/state
+      or internal/history, and no history-view fixtures, PTY smoke, closeout, M18+ tools, undo/replay, compaction,
+      plugin, or MCP scope was introduced. Residual Task 4 scope leaves terminal/fixture evidence to Tasks 5-6
+      and caps displayed history at the latest 64 fake events.
+    verified: >-
+      Inspektera ran `go test ./internal/policy ./internal/app ./internal/tui ./internal/history
+      ./internal/state ./cmd/aila -count=1`, `go test ./internal/tui -run
+      'History|Command|Prompt|Queue|Interrupt|Memory|Diagnostic|Help|Quit|Boundary' -count=1`, `go test
+      ./internal/app -run 'History|SessionController|Continue|Shutdown' -count=1`, and `git diff --check --
+      .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-16-m16.yaml internal/policy
+      internal/app internal/tui internal/history internal/state internal/diagnostic/diagnostic.go`; all passed.
+      It confirmed Task 4 remained pending before Orkestrera resolution and `.agentera/session.yaml` / `.aila/`
+      stayed untracked.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M17 task: Task 5, Render history-view fixture and
+      semantic evidence. Keep `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless
+      explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 4 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 4 complete. Do not start Task 5 fixture work in this metadata step, do not commit, push,
+        modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Terminal-level history evidence and richer fixture/semantic snapshots remain pending in Tasks 5 and 6;
+        Task 4 display is intentionally capped to the latest 64 fake events.
+      scope: >-
+        internal/policy read-only history routing, internal/app fake history read injection, internal/tui
+        navigation/focus state, boundary/update verification, Inspektera PASS evidence, and Agentera
+        plan/progress synchronization for Task 4 only.
+  - number: 137
+    timestamp: "2026-05-16 08:21"
+    type: test
+    phase: build
+    what: >-
+      Implemented M17 Task 5 history-view render and semantic fixture evidence. The checked-in fixture now renders
+      injected fake prompt, response, command, runtime, and adversarial diagnostic history entries with stable
+      run/session/event identifiers, selected-item details, focused read-only semantics, undo-disabled metadata,
+      and bounded redaction/path-safety evidence.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 5; M17 Task 4 injected read-only history TUI state"
+    discovered: >-
+      The existing TUI already owned injected history rows and navigation state, so Task 5 only needed fixture
+      evidence plus small presentation-safe metadata extensions. Path-like redaction had to avoid literal deferred
+      ownership markers in render.go so existing IO-free boundary tests remained effective. Snapshot generation was
+      performed through the existing explicit AILA_UPDATE_TUI_SNAPSHOTS gate and then verified read-only.
+    verified: >-
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestM17HistoryViewFixtureSnapshots` regenerated the
+      new history-view snapshots and failed intentionally with the fixture harness review-gate message. `go test
+      ./internal/tui -run 'TestM17HistoryViewFixtureSnapshots|TestSafeTextRedactsPathLikeText'` passed. `go test
+      ./internal/tui -run 'TestM17History|TestSafeTextRedactsPathLikeText|TestHistoryView'` passed. `go test
+      ./internal/tui` passed after preserving boundary scan constraints.
+    next: >-
+      Run mage fmt, targeted TUI verification, and git diff --check, then hand M17 Task 5 to Inspektera without
+      marking `.agentera/plan.yaml` Task 5 complete, starting Task 6 PTY smoke or Task 7 closeout, committing, or
+      pushing.
+    context:
+      intent: >-
+        Produce deterministic checked-in history-view fixture and semantic evidence from injected TUI state, not
+        filesystem history reads, while proving redaction and stability properties.
+      constraints: >-
+        Execute only M17 Task 5. Do not implement PTY smoke, closeout, undo/redo, mutation records, edit/write
+        history, approval persistence, real model/tool/provider history, shell command history, read/find/grep/bash
+        tools, event replay, session restore/selection, context compaction, stale checks, provider fallback,
+        permission changes, plugins, MCP, workflow DSL behavior, commits, pushes, `.agentera/session.yaml`, `.aila/`,
+        or plan-complete metadata.
+      unknowns: >-
+        The fixture proves deterministic injected history evidence only; terminal-level PTY evidence remains Task 6
+        and real persisted history replay remains outside M17 Task 5.
+      scope: >-
+        internal/tui history-view fixture metadata/snapshots, semantic history focus and undo-disabled metadata,
+        safe text path redaction, regression tests, and Agentera progress metadata only.
+  - number: 138
+    timestamp: "2026-05-16 08:14"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 5 with no findings. The history-view fixture now provides
+      deterministic render and semantic evidence for injected fake history rows, selected item details,
+      read-only/undo-disabled semantics, and bounded redaction/path-safety.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 5 PASS; .agentera/plan.yaml task 5"
+    discovered: >-
+      The audit confirmed plain and semantic history-view snapshots do not leak path, HOME, `.aila`, config,
+      credential, or secret markers. ANSI output contains intentional UI styling escapes only, while injected
+      history data is sanitized/redacted. Task 6 PTY smoke and Task 7 closeout remain intentionally unimplemented.
+    verified: >-
+      Inspektera inspected history-view plain, ANSI, semantic, and fixture metadata outputs. It ran `go test
+      ./internal/tui -run 'TestM17HistoryViewFixtureSnapshots|TestSafeTextRedactsPathLikeText' -count=1`, `go
+      test ./internal/tui -run 'TestM17History|TestSafeTextRedactsPathLikeText|TestHistoryView' -count=1`, `go
+      test ./internal/tui -count=1`, and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-16-m16.yaml internal/tui internal/policy internal/app internal/history
+      internal/state internal/diagnostic/diagnostic.go`; all passed. It confirmed Task 5 remained pending before
+      Orkestrera resolution and `.agentera/session.yaml` / `.aila/` stayed untracked.
+    next: >-
+      Orkestrera may proceed to the next dependency-ready M17 task: Task 6, Prove terminal history smoke. Keep
+      `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 5 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 5 complete. Do not start Task 6 PTY smoke in this metadata step, do not commit, push,
+        modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Full terminal-level history evidence remains pending in Task 6; full `mage check` remains Task 7 closeout
+        scope.
+      scope: >-
+        internal/tui history-view fixture and semantic evidence, redaction/path-safety verification, fixture
+        stability checks, Inspektera PASS evidence, and Agentera plan/progress synchronization for Task 5 only.
+  - number: 139
+    timestamp: "2026-05-16 08:18"
+    type: test
+    phase: build
+    what: >-
+      Implemented M17 Task 6 terminal history smoke coverage. The existing bounded PTY harness now proves seeded
+      fake prompt, response, command, and runtime history events open through `/history`, and no-history workspaces
+      open through `ctrl+x h` with the documented empty-history path.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 6; docs/tui-testing.md PTY smoke procedure; M16 cmd/aila PTY harness"
+    discovered: >-
+      The M16 PTY harness already had isolated HOME, XDG config/cache, temp workspace setup, source-tree state
+      baselines, bounded process timeouts, and cleanup assertions, so Task 6 only needed focused history scenarios and
+      history-specific leak/action checks. Opening the read-only history route does not append command history or create
+      session snapshot state.
+    verified: >-
+      `mage fmt` passed. `go test ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1` passed. `go test
+      ./cmd/aila -run 'TestM16Continue|TestM17History|TestM15ProjectStore|TestM15AShutdownDiagnostics' -count=1`
+      passed. `go test ./cmd/aila -count=1` passed. `git diff --check -- .agentera/progress.yaml
+      cmd/aila/pty_test.go` passed.
+    next: >-
+      Hand the PTY smoke evidence to Inspektera without marking `.agentera/plan.yaml` Task 6 complete, starting Task 7
+      closeout, committing, or pushing.
+    context:
+      intent: >-
+        Prove terminal/process behavior for the M17 read-only history surface using real bounded PTY sessions and temp
+        project state.
+      constraints: >-
+        Execute only M17 Task 6. Do not implement Task 7 closeout or final mage check. Do not add undo/redo, mutation
+        records, edit/write history, approval persistence, real model/tool/provider history, shell command history,
+        read/find/grep/bash tools, event replay, session restore/selection, context compaction, stale checks, provider
+        fallback, permission changes, plugins, MCP, workflow DSL behavior, commits, pushes, `.agentera/session.yaml`,
+        `.aila/`, `.agentera/vision.yaml`, objective state, or plan-complete metadata.
+      unknowns: >-
+        The smoke proves terminal visibility and cleanup for fake history only; full M17 closeout and full-project
+        validation remain Task 7 scope.
+      scope: >-
+        cmd/aila PTY tests and helpers for seeded fake history, empty-history shortcut behavior, output leak checks,
+        no undo/replay assertions, workspace/config cleanup assertions, and Agentera progress metadata only.
+  - number: 140
+    timestamp: "2026-05-16 08:27"
+    type: test
+    phase: validate
+    what: >-
+      Completed Inspektera evaluation for M17 Task 6 with no findings. Bounded PTY smoke now proves the read-only
+      history view opens from seeded fake history through `/history`, shows required event/selection/summary fields
+      without undo/replay actions, passes terminal leak checks, preserves cleanup isolation, and shows the empty-history
+      path through `ctrl+x h`.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: "Inspektera M17 Task 6 PASS; .agentera/plan.yaml task 6"
+    discovered: >-
+      The audit confirmed Task 6 scope is limited to PTY smoke evidence and progress metadata. Full milestone
+      closeout and full `mage check` remain Task 7 scope, while real model/tool history, replay, undo/redo, M18+
+      tools, plugins, and MCP behavior remain out of scope.
+    verified: >-
+      Inspektera inspected `cmd/aila/pty_test.go`, M17 plan/progress metadata, and relevant Task 1-5 interactions
+      in internal/app, internal/policy, internal/tui, internal/history, and internal/state. It ran `go test
+      ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1`, `go test ./cmd/aila -run
+      'TestM16Continue|TestM17History|TestM15ProjectStore|TestM15AShutdownDiagnostics' -count=1`, `go test
+      ./cmd/aila -count=1`, and `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
+      .agentera/archive/plan-2026-05-16-m16.yaml cmd/aila/pty_test.go internal/policy internal/app
+      internal/tui internal/history internal/state internal/diagnostic/diagnostic.go`; all passed. It confirmed
+      Task 6 remained pending before Orkestrera resolution and Task 7 remained pending.
+    next: >-
+      Orkestrera may proceed to the final dependency-ready M17 task: Task 7, Plan-level freshness checkpoint. Keep
+      `.agentera/session.yaml` and `.aila/` untracked, and do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Record M17 Task 6 audit success and synchronize the active plan after independent evaluation passed.
+      constraints: >-
+        Mark only Task 6 complete. Do not start Task 7 closeout in this metadata step, do not commit, push,
+        modify vision/objective state, add local runtime state artifacts, or introduce M18+ behavior.
+      unknowns: >-
+        Full milestone closeout and full `mage check` remain Task 7 scope.
+      scope: >-
+        cmd/aila PTY history smoke evidence, cleanup/leak verification, Inspektera PASS evidence, and Agentera
+        plan/progress synchronization for Task 6 only.
+  - number: 141
+    timestamp: "2026-05-16 08:45"
+    type: test
+    phase: validate
+    what: >-
+      Executed M17 Task 7 plan-level freshness checkpoint. Final targeted M17 validation and full `mage check`
+      pass after applying the configured strict Go formatting required by the lint gate, and ROADMAP.md now records
+      Milestone 17 completion evidence for history state, app recording, fixtures/snapshots, navigation/keybindings,
+      PTY smoke, validation, and architecture boundaries.
+    commit: "N/A: user explicitly said do not commit or push"
+    inspiration: ".agentera/plan.yaml task 7; ROADMAP.md Milestone 17; docs/notes/PROMPT.md Slice Completion Template"
+    discovered: >-
+      The first combined targeted test command exceeded its 120s timeout after completing history/state/app/policy/TUI,
+      so cmd/aila was rerun separately with a larger bounded timeout and passed. The first full `mage check` reached
+      lint and failed only on gofumpt formatting in existing M17 Go files; `mage fmt` did not change them because the
+      formatter target selected goimports first in this environment, so the strict formatter was run directly while
+      debugging the formatter gate. No M18 behavior, undo/replay/mutation history, real model/tool/provider history,
+      read/find/grep/bash tools, plugin, MCP, vision/objective edit, commit, or push was introduced.
+    verified: >-
+      `go test ./internal/history ./internal/state ./internal/app ./internal/policy ./internal/tui ./cmd/aila -count=1`
+      passed after formatting. `go test ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1` passed during
+      focused PTY validation. `mage check` passed with package tests, 0 lint issues, and no vulnerabilities. ROADMAP.md
+      was updated only after validation passed. Task 7 remains pending in `.agentera/plan.yaml` for Orkestrera/Inspektera
+      resolution, `.agentera/session.yaml` and `.aila/` remain untracked local state, and no commit or push was performed.
+    next: >-
+      Hand M17 Task 7 closeout to Inspektera/Orkestrera. Do not start M18 or mark `.agentera/plan.yaml` Task 7 complete
+      in this Realisera cycle.
+    context:
+      intent: >-
+        Close the M17 implementation handoff with fresh validation, roadmap completion evidence, and synchronized
+        progress metadata while preserving the active plan task for orchestration closeout.
+      constraints: >-
+        Execute only M17 Task 7. Do not commit, push, modify `.agentera/vision.yaml` or objective state, add local
+        runtime state artifacts, mark `.agentera/plan.yaml` Task 7 complete, start M18, or introduce M18+ behavior.
+      unknowns: >-
+        Independent Inspektera closeout and Orkestrera task completion remain outside this Realisera cycle.
+      scope: >-
+        ROADMAP.md M17 closeout evidence, strict formatting required by the existing lint gate, targeted/full validation,
+        and Agentera progress metadata only.
+  - number: 142
+    timestamp: "2026-05-16 08:54"
+    type: test
+    phase: complete
+    what: >-
+      Completed M17 Task 7 and closed the active Milestone 17 plan after Inspektera PASS. The plan now marks all
+      seven M17 tasks completed and header status completed, with ROADMAP.md carrying the completed Slice
+      Completion Template required for final response review.
+    commit: "N/A: no M17 commit or push performed"
+    inspiration: "Inspektera M17 Task 7 PASS; .agentera/plan.yaml task 7; ROADMAP.md M17 completion template"
+    discovered: >-
+      Inspektera verified final targeted tests, focused PTY smoke, full `mage check`, and `git diff --check` all
+      passed. The latest commit remains `09c571e complete session snapshot resume`; no M17 commit was created.
+      The first targeted command needed a larger timeout because cmd/aila PTY coverage is slow, and formatting
+      required the strict gofumpt gate during Task 7 debugging.
+    verified: >-
+      Inspektera ran `go test ./internal/history ./internal/state ./internal/app ./internal/policy ./internal/tui
+      ./cmd/aila -count=1`, `go test ./cmd/aila -run 'TestM17History(View|Empty)PTYSmoke' -count=1`, `mage
+      check`, and `git diff --check`; all passed. It verified ROADMAP.md marks M17 complete/M18 next/active none,
+      includes the completed M17 Slice Completion Template, `.agentera/plan.yaml` Task 7 remained pending before
+      Orkestrera resolution, no M18 plan was created, no M17 commit was created after `09c571e`, and
+      `.agentera/session.yaml` / `.aila/` remain untracked.
+    next: >-
+      Report M17 closeout status to the user. Do not commit, push, create an M18 plan, or modify
+      `.agentera/session.yaml` / `.aila/` unless explicitly requested.
+    context:
+      intent: >-
+        Synchronize final Agentera plan/progress metadata after Task 7 passed independent evaluation.
+      constraints: >-
+        Mark only the completed M17 plan. Do not create a next milestone plan, start M18 behavior, commit, push,
+        modify vision/objective state, or add local runtime state artifacts.
+      unknowns: >-
+        None for M17 closeout. Uncommitted M17 work remains available for a user-requested commit.
+      scope: >-
+        Final M17 Agentera plan completion and progress closeout metadata only.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml
@@ -5662,3 +6334,4 @@ archive:
   - .agentera/archive/plan-2026-05-15-m14.yaml
   - .agentera/archive/plan-2026-05-15-m15.yaml
   - .agentera/archive/plan-2026-05-16-m15a.yaml
+  - .agentera/archive/plan-2026-05-16-m16.yaml

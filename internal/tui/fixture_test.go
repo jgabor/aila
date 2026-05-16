@@ -294,6 +294,64 @@ func loadIdleWithMemoryFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
+func loadHistoryViewFixture(t *testing.T) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = "history-view"
+	items := []HistoryItem{
+		{
+			EventID:     "evt-fake-001",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "prompt",
+			Source:      "user",
+			Provenance:  "prompt.submit",
+			DisplayText: "prompt summary: inspect fake history",
+		},
+		{
+			EventID:     "evt-fake-002",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "response",
+			Source:      "runtime.fake",
+			Provenance:  "model.response",
+			DisplayText: "response summary: fake answer for history",
+		},
+		{
+			EventID:     "evt-fake-003",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "command",
+			Source:      "policy.command",
+			Provenance:  "slash.route",
+			DisplayText: "command summary: /status rendered only",
+		},
+		{
+			EventID:     "evt-fake-004",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "runtime",
+			Source:      "runtime.fixture",
+			Provenance:  "runtime.update",
+			DisplayText: "runtime summary: idle after fake event",
+		},
+		{
+			EventID:     "evt-fake-005",
+			RunID:       "run-fake-017",
+			SessionID:   "session-fake-alpha",
+			Kind:        "diagnostic",
+			Source:      "state.fixture",
+			Provenance:  "redaction.fixture",
+			DisplayText: "credential token=abc123 path /home/jgabor/git/aila/.aila/project.toml \x1b[31mcontrol",
+		},
+	}
+	state = ApplyHistoryView(state, items, 2, true)
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
 func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
 	t.Parallel()
 
@@ -314,6 +372,138 @@ func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
 			}
 			assertNoMemoryLeak(t, got)
 		})
+	}
+}
+
+func TestSafeTextRedactsPathLikeText(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{
+		"workspace /home/jgabor/git/aila/internal/tui",
+		"store /home/jgabor/git/aila/.aila/project.toml",
+		"config ~/.config/aila/config.toml",
+		"scratch /tmp/aila/artifacts/indexes/cache",
+		`windows C:\Users\jgabor\AppData\Roaming\aila\config.toml`,
+	} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			got := safeText(input)
+			if !contains(got, "[path-redacted]") {
+				t.Fatalf("safeText(%q) = %q, want path redaction", input, got)
+			}
+			assertNoPathLeak(t, got)
+		})
+	}
+}
+
+func TestM17HistoryViewFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadHistoryViewFixture(t)
+	if fixture.Kind != "static_shell" {
+		t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+	}
+	assertFixtureSizes(t, fixture, []fixtureSize{{Name: "100x30", Width: 100, Height: 30}})
+
+	wantRender := []string{
+		"history:",
+		"read-only: true",
+		"entries: 5",
+		"selected: 3",
+		"run-fake-017 session-fake-alpha evt-fake-001 prompt prompt summary: inspect fake history",
+		"run-fake-017 session-fake-alpha evt-fake-002 response response summary",
+		"> run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only",
+		"run-fake-017 session-fake-alpha evt-fake-004 runtime runtime summary: idle after fake event",
+		"selected event id: evt-fake-003",
+		"selected run id: run-fake-017",
+		"selected session id: session-fake-alpha",
+		"selected kind: command",
+		"selected source: policy.command",
+		"selected provenance: slash.route",
+		"selected text: command summary: /status rendered only",
+	}
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := renderCase.render(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			if !containsAll(stripANSI(got), wantRender) {
+				t.Fatalf("history-view render missing fixture evidence %v:\n%s", wantRender, got)
+			}
+			assertNoHistoryLeak(t, stripANSI(got))
+		})
+	}
+
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			assertNoHistoryLeak(t, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Screen.Focus != "history" {
+				t.Fatalf("focus = %q, want history", snapshot.Screen.Focus)
+			}
+			if snapshot.History == nil || !snapshot.History.Visible || !snapshot.History.ReadOnly || snapshot.History.UndoEnabled || !snapshot.History.Focus || snapshot.History.Count != 5 || snapshot.History.SelectedIndex != 2 || snapshot.History.SelectedID != "evt-fake-003" {
+				t.Fatalf("history semantic = %+v, want focused read-only selected fake history", snapshot.History)
+			}
+			if snapshot.History.Items[2].Kind != "command" || !snapshot.History.Items[2].Selected || snapshot.History.Items[2].RunID != "run-fake-017" || snapshot.History.Items[2].SessionID != "session-fake-alpha" {
+				t.Fatalf("selected history item = %+v, want stable fake command identifiers", snapshot.History.Items[2])
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			history := strings.Join(regions["history"].Items, "\n")
+			if !containsAll(history, []string{"read_only: true", "undo_enabled: false", "focus: true", "selected_id: evt-fake-003", "item: run-fake-017 session-fake-alpha evt-fake-003 command command summary: /status rendered only selected: true", "app-owned", "display-only"}) {
+				t.Fatalf("history semantic region = %v, want machine-readable selected history", regions["history"].Items)
+			}
+		})
+	}
+}
+
+func TestM17HistorySupportLeavesExistingFixtureEvidenceStable(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range []renderFixture{
+		loadQueuedMessageFixture(t),
+		loadInterruptFixture(t, "canceling"),
+		loadInterruptFixture(t, "canceled"),
+		loadIdleWithMemoryFixture(t),
+		loadProjectStoreFixture(t, "store-initialized"),
+		loadProjectStoreFixture(t, "store-uninitialized"),
+		loadProjectStoreFixture(t, "store-degraded"),
+		loadDiagnosticFixture(t, "diagnostic-ready"),
+		loadCommandFixture(t, "status-command", "/status"),
+		loadCommandFixture(t, "help-command", "/help"),
+	} {
+		fixture := fixture
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+
+			renderCase := fixture.TextCases()[0]
+			render := RenderPlain(fixture.State, renderCase.size)
+			assertTextSnapshot(t, fixture, renderCase.file, render)
+			semanticCase := fixture.SemanticCases()[0]
+			semantic := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, semantic)
+			if containsAny(render+semantic, []string{"\"history\"", "read-only: true", "selected event id:", "undo_enabled"}) {
+				t.Fatalf("%s existing fixture gained history metadata unexpectedly", fixture.Name)
+			}
+		})
+	}
+
+	empty := ApplyHistoryView(IdleEmptyState(), nil, 0, true)
+	render := RenderPlain(empty, Size{Width: 80, Height: 24})
+	semantic := RenderSemanticJSON(empty, Size{Width: 80, Height: 24})
+	if !containsAll(render+semantic, []string{"empty history", "no fake history events recorded yet", "\"empty\": true", "\"undo_enabled\": false"}) {
+		t.Fatalf("empty history evidence missing deterministic no-history metadata:\n%s\n%s", render, semantic)
 	}
 }
 
@@ -962,6 +1152,14 @@ func assertNoMemoryLeak(t *testing.T, text string) {
 	assertNoPathLeak(t, text)
 	if containsAny(text, []string{"\x1b", "secret", "token=", "api_key", "password=", "authorization", "Bearer "}) {
 		t.Fatalf("memory fixture leaked control or secret-like text:\n%s", text)
+	}
+}
+
+func assertNoHistoryLeak(t *testing.T, text string) {
+	t.Helper()
+	assertNoPathLeak(t, text)
+	if containsAny(text, []string{"\x1b", "secret", "token=", "api_key", "password=", "authorization", "Bearer "}) {
+		t.Fatalf("history fixture leaked control or secret-like text:\n%s", text)
 	}
 }
 

@@ -1,0 +1,17 @@
+{
+  "name": "history-view",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle", "history", "focused", "read_only"],
+  "render_sizes": [{ "name": "100x30", "width": 100, "height": 30 }],
+  "render_outputs": {
+    "plain_100x30": "plain-100x30.txt",
+    "ansi_100x30": "ansi-100x30.txt",
+    "semantic_100x30": "semantic-100x30.json"
+  },
+  "notes": [
+    "M17 presentation-only history-view fixture; view state is injected by tests and does not read project history from disk.",
+    "Fake entries include prompt, response, command, runtime, and adversarial redaction evidence."
+  ]
+}

@@ -1,2 +1,2 @@
-// Package history will record commands, edits, undo metadata, and replayable run events.
+// Package history defines the M17 fake activity event contract.
 package history
