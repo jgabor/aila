@@ -9,6 +9,7 @@ import (
 
 	"github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/permission"
+	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/state"
 	"github.com/jgabor/aila/internal/tools"
 	"github.com/jgabor/aila/internal/tui"
@@ -16,7 +17,9 @@ import (
 )
 
 const (
-	nonInteractiveRunMode           = "non_interactive_read_only"
+	nonInteractiveReadOnlyRunMode   = "non_interactive_read_only"
+	nonInteractiveWriteRunMode      = "non_interactive_write"
+	nonInteractiveWritePath         = "docs/aila-run-output.md"
 	nonInteractiveRunPromptMaxBytes = 512
 	nonInteractiveRunTextMaxBytes   = 240
 )
@@ -26,14 +29,20 @@ type NonInteractiveRunRequest struct {
 	Version       string
 	Prompt        string
 	WorkspacePath string
+	AutonomyLevel string
 }
 
 type nonInteractiveRunReport struct {
 	Version        string
+	Mode           string
 	Prompt         string
 	Status         string
+	AutonomyLevel  string
 	InspectedFiles []tui.RunMemoryFileView
 	Commands       []tui.RunMemoryCommandView
+	ChangedFiles   []tui.RunMemoryChangedFileView
+	Mutation       *tui.RunMemoryMutationView
+	MutationResult runtime.MutationToolResult
 	Blockers       []string
 	Caveats        []string
 	SourceRefs     []string
@@ -66,6 +75,7 @@ func runNonInteractiveReadOnly(ctx context.Context, request NonInteractiveRunReq
 
 	report := nonInteractiveRunReport{
 		Version: strings.TrimSpace(request.Version),
+		Mode:    nonInteractiveReadOnlyRunMode,
 		Prompt:  boundRunText(request.Prompt, nonInteractiveRunPromptMaxBytes),
 		Status:  "completed",
 		Caveats: []string{"deterministic read-only run; provider model execution deferred"},
@@ -80,6 +90,8 @@ func runNonInteractiveReadOnly(ctx context.Context, request NonInteractiveRunReq
 	}
 
 	inspectKnownRunFiles(ctx, workspace, &report)
+	autonomy := nonInteractiveRunAutonomy(request, &report)
+	runNonInteractiveWriteIfRequested(ctx, workspace, autonomy, &report)
 	runFixedRunChecks(ctx, workspace, &report)
 	if len(report.InspectedFiles) == 0 {
 		report.Blockers = append(report.Blockers, "no known repo files were inspected")
@@ -167,6 +179,129 @@ func runFixedRunChecks(ctx context.Context, workspace string, report *nonInterac
 	}
 }
 
+func nonInteractiveRunAutonomy(request NonInteractiveRunRequest, report *nonInteractiveRunReport) permission.AutonomyLevel {
+	if value := strings.TrimSpace(request.AutonomyLevel); value != "" {
+		report.AutonomyLevel = value
+		return permission.AutonomyLevel(value)
+	}
+	config, _, err := LoadConfig()
+	if err != nil {
+		report.AutonomyLevel = string(permission.AutonomyRead)
+		report.Caveats = append(report.Caveats, "autonomy config not loaded: "+boundedStoreError(err))
+		return permission.AutonomyRead
+	}
+	report.AutonomyLevel = config.Autonomy.Level
+	return permission.AutonomyLevel(config.Autonomy.Level)
+}
+
+func runNonInteractiveWriteIfRequested(ctx context.Context, workspace string, autonomy permission.AutonomyLevel, report *nonInteractiveRunReport) {
+	if !isWriteRunPrompt(report.Prompt) {
+		return
+	}
+	report.Mode = nonInteractiveWriteRunMode
+	request := runtime.MutationToolRequest{
+		Path:           nonInteractiveWritePath,
+		TargetVersion:  tools.MissingFileVersion,
+		Content:        nonInteractiveWriteContent(report.Prompt),
+		ExpectedEffect: "create bounded non-interactive run note",
+		Source: runtime.MutationSourceMetadata{
+			Caller:    "noninteractive.run",
+			RequestID: "run-write-1",
+		},
+	}
+	runner := newInputRunnerWithReadContext(ctx, workspace, string(autonomy))
+	_ = runner.proposeWriteTool(request)
+	result := runner.model.LastMutation
+	if result.ToolName == "" && result.RequestedPath == "" && result.WorkspaceRelativePath == "" {
+		report.Blockers = append(report.Blockers, "write mutation did not produce a result")
+		return
+	}
+	report.MutationResult = result
+	report.Mutation = runMutationMemory(result)
+	path := result.WorkspaceRelativePath
+	if path == "" {
+		path = result.RequestedPath
+	}
+	if path != "" {
+		report.SourceRefs = appendUniqueString(report.SourceRefs, path)
+	}
+	if result.Status == "completed" {
+		report.ChangedFiles = append(report.ChangedFiles, tui.RunMemoryChangedFileView{
+			Path:            path,
+			Status:          result.Status,
+			PreviousVersion: result.PreviousVersion,
+			NewVersion:      result.NewVersion,
+			BytesWritten:    result.BytesWritten,
+			SourceRef:       path,
+		})
+		return
+	}
+	message := result.Error.Message
+	if message == "" && result.Decision.Reason != "" {
+		message = result.Decision.Reason
+	}
+	if message == "" {
+		message = result.Status
+	}
+	report.Blockers = append(report.Blockers, "write not completed: "+boundRunText(message, nonInteractiveRunTextMaxBytes))
+}
+
+func isWriteRunPrompt(prompt string) bool {
+	prompt = strings.ToLower(strings.TrimSpace(prompt))
+	if prompt == "" {
+		return false
+	}
+	writeWords := []string{"write", "create", "add", "generate"}
+	objectWords := []string{"note", "doc", "document", "file"}
+	for _, writeWord := range writeWords {
+		if !strings.Contains(prompt, writeWord) {
+			continue
+		}
+		for _, objectWord := range objectWords {
+			if strings.Contains(prompt, objectWord) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func nonInteractiveWriteContent(prompt string) string {
+	return "# Aila Non-Interactive Run\n\n" +
+		"Prompt: " + safeRunLine(prompt) + "\n\n" +
+		"This file was created by a bounded deterministic non-interactive write run.\n"
+}
+
+func runMutationMemory(result runtime.MutationToolResult) *tui.RunMemoryMutationView {
+	path := result.WorkspaceRelativePath
+	if path == "" {
+		path = result.RequestedPath
+	}
+	return &tui.RunMemoryMutationView{
+		Name:           result.ToolName,
+		Status:         result.Status,
+		Path:           path,
+		ExpectedEffect: result.ExpectedEffect,
+		BytesWritten:   result.BytesWritten,
+		ErrorKind:      string(result.Error.Kind),
+		ErrorMessage:   result.Error.Message,
+		Decision:       decisionView(result.Decision),
+	}
+}
+
+func cloneRunMemoryMutation(mutation *tui.RunMemoryMutationView) *tui.RunMemoryMutationView {
+	if mutation == nil {
+		return nil
+	}
+	clone := *mutation
+	if mutation.Decision != nil {
+		decision := *mutation.Decision
+		decision.Command = append([]string(nil), mutation.Decision.Command...)
+		clone.Decision = &decision
+	}
+	return &clone
+}
+
 func persistNonInteractiveRun(ctx context.Context, workspace string, report *nonInteractiveRunReport) {
 	store, err := state.OpenProjectStore(ctx, workspace)
 	if err != nil {
@@ -195,7 +330,7 @@ func nonInteractiveRunView(report nonInteractiveRunReport) tui.ViewState {
 	view.PhaseSource = workflow.PhaseIdle.String()
 	view.RuntimeStatus = "idle"
 	view.StatusSource = "noninteractive.run"
-	view.StatusDetail = "read-only run " + report.Status
+	view.StatusDetail = "non-interactive run " + report.Status
 	view.RuntimeResult = runAssistantSummary(report)
 	view.Transcript = []tui.TranscriptTurn{{UserText: report.Prompt}, {AssistantText: view.RuntimeResult}}
 	view.RunMemory = runMemoryFromReport(report)
@@ -215,6 +350,14 @@ func appendNonInteractiveRunHistory(ctx context.Context, store state.Store, repo
 	}
 	for _, command := range report.Commands {
 		events = append(events, nonInteractiveRunHistoryEvent(start+len(events), history.EventKindCommand, "run.check", "noninteractive.run", "check "+command.Command+" "+command.Status))
+	}
+	if report.Mutation != nil {
+		record := mutationHistoryRecord(report.MutationResult, nil)
+		undo := mutationUndoMetadata(record)
+		event := nonInteractiveRunHistoryEvent(start+len(events), history.EventKindMutation, "mutation.result", "noninteractive.run", mutationHistoryDisplay(record, undo))
+		event.Mutation = record
+		event.Undo = undo
+		events = append(events, event)
 	}
 	for _, event := range events {
 		result, err := store.AppendFakeHistory(ctx, event)
@@ -240,11 +383,13 @@ func nonInteractiveRunHistoryEvent(number int, kind history.EventKind, provenanc
 
 func runMemoryFromReport(report nonInteractiveRunReport) *tui.RunMemoryView {
 	return &tui.RunMemoryView{
-		Mode:           nonInteractiveRunMode,
+		Mode:           report.Mode,
 		Prompt:         report.Prompt,
 		Status:         report.Status,
 		InspectedFiles: append([]tui.RunMemoryFileView(nil), report.InspectedFiles...),
 		Commands:       append([]tui.RunMemoryCommandView(nil), report.Commands...),
+		ChangedFiles:   append([]tui.RunMemoryChangedFileView(nil), report.ChangedFiles...),
+		Mutation:       cloneRunMemoryMutation(report.Mutation),
 		Blockers:       append([]string(nil), report.Blockers...),
 		Caveats:        append([]string(nil), report.Caveats...),
 		SourceRefs:     append([]string(nil), report.SourceRefs...),
@@ -257,7 +402,7 @@ func formatNonInteractiveRunReport(report nonInteractiveRunReport) string {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "aila %s\n", report.Version)
 	fmt.Fprintln(&builder, "command: run")
-	fmt.Fprintln(&builder, "mode: "+nonInteractiveRunMode)
+	fmt.Fprintln(&builder, "mode: "+report.Mode)
 	fmt.Fprintln(&builder, "status: "+report.Status)
 	fmt.Fprintln(&builder, "prompt: "+safeRunLine(report.Prompt))
 	fmt.Fprintln(&builder, "inspected_files:")
@@ -274,6 +419,21 @@ func formatNonInteractiveRunReport(report nonInteractiveRunReport) string {
 	} else {
 		for _, command := range report.Commands {
 			fmt.Fprintf(&builder, "- %s status=%s exit=%d summary=%s\n", safeRunLine(command.Command), safeRunLine(command.Status), command.ExitCode, safeRunLine(command.Summary))
+		}
+	}
+	fmt.Fprintln(&builder, "changed_files:")
+	if len(report.ChangedFiles) == 0 {
+		fmt.Fprintln(&builder, "- none")
+	} else {
+		for _, file := range report.ChangedFiles {
+			fmt.Fprintf(&builder, "- %s status=%s bytes=%d source_ref=%s\n", safeRunLine(file.Path), safeRunLine(file.Status), file.BytesWritten, safeRunLine(file.SourceRef))
+		}
+	}
+	if report.Mutation != nil {
+		fmt.Fprintln(&builder, "mutation:")
+		fmt.Fprintf(&builder, "- tool=%s status=%s path=%s bytes=%d\n", safeRunLine(report.Mutation.Name), safeRunLine(report.Mutation.Status), safeRunLine(report.Mutation.Path), report.Mutation.BytesWritten)
+		if report.Mutation.Decision != nil {
+			fmt.Fprintf(&builder, "- decision_source=%s autonomy=%s allowed=%t automatic=%t approval_required=%t\n", safeRunLine(report.Mutation.Decision.Source), safeRunLine(report.Mutation.Decision.Autonomy), report.Mutation.Decision.Allowed, report.Mutation.Decision.Automatic, report.Mutation.Decision.ApprovalRequired)
 		}
 	}
 	appendRunList(&builder, "blockers", report.Blockers)
@@ -296,6 +456,9 @@ func appendRunList(builder *strings.Builder, label string, values []string) {
 }
 
 func runAssistantSummary(report nonInteractiveRunReport) string {
+	if report.Mode == nonInteractiveWriteRunMode {
+		return fmt.Sprintf("Write run %s: changed %d file(s), ran %d check(s).", report.Status, len(report.ChangedFiles), len(report.Commands))
+	}
 	return fmt.Sprintf("Read-only run %s: inspected %d file(s), ran %d check(s).", report.Status, len(report.InspectedFiles), len(report.Commands))
 }
 

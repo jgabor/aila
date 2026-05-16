@@ -35,16 +35,27 @@ func storeCurrentDiffRead(workspacePath string) diffReadFunc {
 func readCurrentUnifiedDiff(ctx context.Context, workspacePath string) (string, *tui.DiffView) {
 	cached, cachedFailure := runCurrentDiffCommand(ctx, workspacePath, "current-workspace-staged-diff", []string{"git", "diff", "--cached", "--color=never", "-U0"})
 	worktree, worktreeFailure := runCurrentDiffCommand(ctx, workspacePath, "current-workspace-unstaged-diff", []string{"git", "diff", "--color=never", "-U0"})
-	if cachedFailure != nil && worktreeFailure != nil {
-		return "", cachedFailure
+	untracked, untrackedFailure := readCurrentUntrackedDiff(ctx, workspacePath)
+	parts := make([]string, 0, 3)
+	failures := make([]*tui.DiffView, 0, 3)
+	for _, item := range []struct {
+		text    string
+		failure *tui.DiffView
+	}{
+		{text: cached, failure: cachedFailure},
+		{text: worktree, failure: worktreeFailure},
+		{text: untracked, failure: untrackedFailure},
+	} {
+		if item.failure != nil {
+			failures = append(failures, item.failure)
+			continue
+		}
+		parts = append(parts, item.text)
 	}
-	if cachedFailure != nil {
-		return worktree, nil
+	if len(parts) == 0 && len(failures) > 0 {
+		return "", failures[0]
 	}
-	if worktreeFailure != nil {
-		return cached, nil
-	}
-	return joinDiffOutputs(cached, worktree), nil
+	return joinDiffOutputs(parts...), nil
 }
 
 func runCurrentDiffCommand(ctx context.Context, workspacePath string, requestID string, argv []string) (string, *tui.DiffView) {
@@ -67,6 +78,97 @@ func runCurrentDiffCommand(ctx context.Context, workspacePath string, requestID 
 		return "", failedDiffView("git diff", result.Error.Message)
 	}
 	return result.Stdout.Text, nil
+}
+
+func readCurrentUntrackedDiff(ctx context.Context, workspacePath string) (string, *tui.DiffView) {
+	listing, failure := runCurrentDiffCommand(ctx, workspacePath, "current-workspace-untracked-list", []string{"git", "ls-files", "--others", "--exclude-standard"})
+	if failure != nil {
+		return "", failure
+	}
+	parts := make([]string, 0)
+	for _, rawPath := range strings.Split(listing, "\n") {
+		path := strings.TrimSpace(rawPath)
+		if path == "" {
+			continue
+		}
+		part, ok := untrackedFileUnifiedDiff(ctx, workspacePath, path)
+		if !ok {
+			continue
+		}
+		parts = append(parts, part)
+		if len(parts) >= 8 {
+			break
+		}
+	}
+	return joinDiffOutputs(parts...), nil
+}
+
+func untrackedFileUnifiedDiff(ctx context.Context, workspacePath string, requestedPath string) (string, bool) {
+	path, ok := safeUntrackedDiffPath(requestedPath)
+	if !ok {
+		return "", false
+	}
+	validated, readErr := tools.ValidateReadRequest(workspacePath, tools.ReadRequest{
+		Path:            path,
+		StartLine:       1,
+		LineLimit:       240,
+		MaxPreviewBytes: 24 * 1024,
+		Source: tools.ReadSourceMetadata{
+			Caller:      "diff-view",
+			RequestID:   "current-workspace-untracked-file",
+			Description: "inspect untracked workspace file for diff display",
+		},
+	})
+	if readErr.Kind != "" {
+		return "", false
+	}
+	result := tools.ExecuteRead(ctx, validated)
+	if result.Error.Kind != "" && result.Error.Kind != tools.ReadErrorNone {
+		return "", false
+	}
+	lines := previewLinesWithoutNumbers(result.PreviewText)
+	if len(lines) == 0 {
+		return "", false
+	}
+	relativePath := strings.ReplaceAll(result.WorkspaceRelativePath, "\\", "/")
+	output := []string{
+		"diff --git a/" + relativePath + " b/" + relativePath,
+		"new file mode 100644",
+		"--- /dev/null",
+		"+++ b/" + relativePath,
+		"@@ -0,0 +1," + strconv.Itoa(len(lines)) + " @@",
+	}
+	for _, line := range lines {
+		output = append(output, "+"+line)
+	}
+	return strings.Join(output, "\n"), true
+}
+
+func safeUntrackedDiffPath(path string) (string, bool) {
+	path = strings.TrimSpace(strings.ReplaceAll(path, "\\", "/"))
+	if path == "" || strings.HasPrefix(path, "/") || strings.HasPrefix(path, "~") || strings.Contains(path, "$HOME") || strings.Contains(path, "${HOME}") {
+		return "", false
+	}
+	for _, part := range strings.Split(path, "/") {
+		if part == "" || part == "." || part == ".." || part == ".aila" || part == ".agentera" || strings.Contains(part, "\x00") {
+			return "", false
+		}
+	}
+	return path, true
+}
+
+func previewLinesWithoutNumbers(preview string) []string {
+	preview = strings.TrimRight(preview, "\n")
+	if preview == "" {
+		return nil
+	}
+	lines := strings.Split(preview, "\n")
+	for index, line := range lines {
+		if _, after, ok := strings.Cut(line, ": "); ok {
+			lines[index] = after
+		}
+	}
+	return lines
 }
 
 func joinDiffOutputs(parts ...string) string {

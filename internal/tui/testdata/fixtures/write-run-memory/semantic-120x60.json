@@ -1,0 +1,347 @@
+{
+  "scenario": "write-run-memory",
+  "screen": {
+    "width": 120,
+    "height": 60,
+    "focus": "history"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "noninteractive.run",
+    "status_detail": "write run flagged",
+    "runtime_result": "Write run flagged: changed 1 file(s), ran 2 check(s).",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "memory": {
+    "source": "state.current-session-snapshot",
+    "session_id": "current",
+    "transcript_turns": 2,
+    "queued_count": 0,
+    "diagnostics": 0,
+    "run": {
+      "mode": "non_interactive_write",
+      "prompt": "create a note",
+      "status": "flagged",
+      "inspected_files": [
+        {
+          "path": "README.md",
+          "status": "completed",
+          "line_start": 1,
+          "line_end": 3,
+          "source_ref": "README.md:1-3"
+        }
+      ],
+      "commands_run": [
+        {
+          "command": "git status --short --branch",
+          "status": "completed",
+          "exit_code": 0,
+          "summary": "## main"
+        },
+        {
+          "command": "git diff --stat",
+          "status": "completed",
+          "exit_code": 0,
+          "summary": "docs/aila-run-output.md | 5 +++++"
+        }
+      ],
+      "changed_files": [
+        {
+          "path": "docs/aila-run-output.md",
+          "status": "completed",
+          "previous_version": "missing",
+          "new_version": "sha256:write-run",
+          "bytes_written": 120,
+          "source_ref": "docs/aila-run-output.md"
+        }
+      ],
+      "mutation": {
+        "tool_name": "write",
+        "status": "completed",
+        "path": "docs/aila-run-output.md",
+        "expected_effect": "create bounded non-interactive run output",
+        "bytes_written": 120,
+        "decision": {
+          "autonomy": "write",
+          "source": "autonomy_policy",
+          "allowed": true,
+          "automatic": true,
+          "approval_required": false,
+          "operation_kind": "file_mutation",
+          "tool": "write",
+          "target": "docs/aila-run-output.md",
+          "expected_effect": "create bounded non-interactive run output",
+          "reversible": false,
+          "run_id": "run-write-note",
+          "capability": "noninteractive.run"
+        }
+      },
+      "caveats": ["deterministic write run; provider model execution deferred"],
+      "source_refs": [
+        "README.md:1-3",
+        "docs/aila-run-output.md",
+        "git status --short --branch",
+        "git diff --stat"
+      ],
+      "stored_session": true,
+      "stored_history": true
+    }
+  },
+  "command": {
+    "route": "history",
+    "route_source": "policy.command",
+    "surface": "history",
+    "visible": true,
+    "executed": false
+  },
+  "history": {
+    "visible": true,
+    "read_only": true,
+    "undo_enabled": true,
+    "redo_enabled": false,
+    "focus": true,
+    "empty": false,
+    "count": 6,
+    "selected_index": 5,
+    "selected_id": "noninteractive-run-6",
+    "items": [
+      {
+        "event_id": "noninteractive-run-1",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "prompt",
+        "source": "user",
+        "provenance": "run.prompt",
+        "display_text": "noninteractive run prompt create a note",
+        "selected": false
+      },
+      {
+        "event_id": "noninteractive-run-2",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "response",
+        "source": "noninteractive.run",
+        "provenance": "run.response",
+        "display_text": "Write run flagged: changed 1 file(s), ran 2 check(s).",
+        "selected": false
+      },
+      {
+        "event_id": "noninteractive-run-3",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "runtime",
+        "source": "noninteractive.run",
+        "provenance": "run.complete",
+        "display_text": "noninteractive run flagged inspected=1 commands=2",
+        "selected": false
+      },
+      {
+        "event_id": "noninteractive-run-4",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "command",
+        "source": "noninteractive.run",
+        "provenance": "run.check",
+        "display_text": "check git status --short --branch completed",
+        "selected": false
+      },
+      {
+        "event_id": "noninteractive-run-5",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "command",
+        "source": "noninteractive.run",
+        "provenance": "run.check",
+        "display_text": "check git diff --stat completed",
+        "selected": false
+      },
+      {
+        "event_id": "noninteractive-run-6",
+        "run_id": "noninteractive-run",
+        "session_id": "current",
+        "kind": "mutation",
+        "source": "noninteractive.run",
+        "provenance": "mutation.result",
+        "display_text": "mutation write completed docs/aila-run-output.md undo delete_created_file",
+        "mutation": {
+          "tool_name": "write",
+          "status": "completed",
+          "command_source": "noninteractive.run",
+          "request_id": "run-write-note",
+          "changed_paths": ["docs/aila-run-output.md"],
+          "requested_path": "docs/aila-run-output.md",
+          "expected_effect": "create bounded non-interactive run output"
+        },
+        "undo": {
+          "available": true,
+          "action": "delete_created_file",
+          "paths": ["docs/aila-run-output.md"],
+          "previous_version": "missing",
+          "new_version": "sha256:write-run"
+        },
+        "selected": true
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": [
+        "user: create a note",
+        "assistant: Write run flagged: changed 1 file(s), ran 2 check(s)."
+      ]
+    },
+    {
+      "name": "memory",
+      "visible": true,
+      "items": [
+        "source: state.current-session-snapshot",
+        "session_id: current",
+        "transcript_turns: 2",
+        "queued_count: 0",
+        "diagnostics: 0",
+        "app-owned",
+        "display-only",
+        "run_mode: non_interactive_write",
+        "run_status: flagged",
+        "run_prompt: create a note",
+        "stored_session: true",
+        "stored_history: true",
+        "inspected_file: README.md status=completed source_ref=README.md:1-3",
+        "command_run: git status --short --branch status=completed",
+        "command_run: git diff --stat status=completed",
+        "changed_file: docs/aila-run-output.md status=completed source_ref=docs/aila-run-output.md",
+        "mutation_tool: write",
+        "mutation_status: completed",
+        "mutation_path: docs/aila-run-output.md",
+        "mutation_decision_source: autonomy_policy",
+        "mutation_decision_autonomy: write",
+        "mutation_approval_required: false",
+        "run_caveat: deterministic write run; provider model execution deferred",
+        "source_ref: README.md:1-3",
+        "source_ref: docs/aila-run-output.md",
+        "source_ref: git status --short --branch",
+        "source_ref: git diff --stat"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: noninteractive.run",
+        "detail: write run flagged",
+        "active: false",
+        "result: Write run flagged: changed 1 file(s), ran 2 check(s).",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "history",
+        "command route: history",
+        "route source: policy.command",
+        "read-only: true",
+        "entries: 6",
+        "selected: 6",
+        "undo enabled: true",
+        "  noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt create a note",
+        "  noninteractive-run current noninteractive-run-2 response Write run flagged: changed 1 file(s), ran 2 check(s).",
+        "  noninteractive-run current noninteractive-run-3 runtime noninteractive run flagged inspected=1 commands=2",
+        "  noninteractive-run current noninteractive-run-4 command check git status --short --branch completed",
+        "  noninteractive-run current noninteractive-run-5 command check git diff --stat completed",
+        "> noninteractive-run current noninteractive-run-6 mutation write completed docs/aila-run-output.md",
+        "selected event id: noninteractive-run-6",
+        "selected run id: noninteractive-run",
+        "selected session id: current",
+        "selected kind: mutation",
+        "selected source: noninteractive.run",
+        "selected provenance: mutation.result",
+        "selected text: mutation write completed docs/aila-run-output.md undo delete_created_file",
+        "selected mutation tool: write",
+        "selected mutation status: completed",
+        "selected command source: noninteractive.run",
+        "selected changed paths: docs/aila-run-output.md",
+        "selected expected effect: create bounded non-interactive run output",
+        "selected previous version: missing",
+        "selected new version: sha256:write-run",
+        "selected undo available: true",
+        "selected undo action: delete_created_file"
+      ]
+    },
+    {
+      "name": "history",
+      "visible": true,
+      "items": [
+        "read_only: true",
+        "undo_enabled: true",
+        "redo_enabled: false",
+        "focus: true",
+        "empty: false",
+        "count: 6",
+        "selected_index: 5",
+        "selected_id: noninteractive-run-6",
+        "item: noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt create a note selected: false",
+        "item: noninteractive-run current noninteractive-run-2 response Write run flagged: changed 1 file(s), ran 2 check(s). selected: false",
+        "item: noninteractive-run current noninteractive-run-3 runtime noninteractive run flagged inspected=1 commands=2 selected: false",
+        "item: noninteractive-run current noninteractive-run-4 command check git status --short --branch completed selected: false",
+        "item: noninteractive-run current noninteractive-run-5 command check git diff --stat completed selected: false",
+        "item: noninteractive-run current noninteractive-run-6 mutation mutation write completed docs/aila-run-output.md undo delete_created_file selected: true",
+        "item_mutation: noninteractive-run-6 write completed",
+        "item_changed_paths: docs/aila-run-output.md",
+        "item_undo_available: true",
+        "item_undo_action: delete_created_file",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

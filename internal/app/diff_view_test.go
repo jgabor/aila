@@ -144,6 +144,62 @@ func TestStoreCurrentDiffReadUsesReadOnlyGitDiff(t *testing.T) {
 	}
 }
 
+func TestStoreCurrentDiffReadIncludesBoundedUntrackedFiles(t *testing.T) {
+	workspace := t.TempDir()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(workspace, "docs"), 0o755); err != nil {
+		t.Fatalf("create docs dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("base\n"), 0o644); err != nil {
+		t.Fatalf("write base file: %v", err)
+	}
+	runGit(t, workspace, "init")
+	runGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+	runGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	if err := os.WriteFile(filepath.Join(workspace, "docs", "aila-run-output.md"), []byte("# Aila Non-Interactive Run\n\nPrompt: create a note\n"), 0o644); err != nil {
+		t.Fatalf("write untracked run output: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(workspace, ".aila", "sessions"), 0o755); err != nil {
+		t.Fatalf("create reserved state dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, ".aila", "sessions", "current.json"), []byte("state must not appear\n"), 0o644); err != nil {
+		t.Fatalf("write reserved state file: %v", err)
+	}
+
+	result := storeCurrentDiffRead(workspace)(context.Background(), DiffReadCommand{})
+
+	if result.View == nil || result.View.Status != "ready" || result.View.Source != "git diff" || len(result.View.Files) != 1 {
+		t.Fatalf("current diff result = %+v, want one untracked workspace file", result.View)
+	}
+	file := result.View.Files[0]
+	if file.Path != "docs/aila-run-output.md" || file.Status != "added" || len(file.Hunks) != 1 {
+		t.Fatalf("untracked diff file = %+v, want added run output", file)
+	}
+	lines := file.Hunks[0].Lines
+	if len(lines) != 3 || lines[0].Kind != "addition" || lines[0].Text != "# Aila Non-Interactive Run" || lines[2].Text != "Prompt: create a note" {
+		t.Fatalf("untracked diff lines = %+v, want bounded additions", lines)
+	}
+	encoded := renderDiffFileForTest(file)
+	for _, forbidden := range []string{".aila", "sessions/current.json", "state must not appear", workspace} {
+		if strings.Contains(encoded, forbidden) {
+			t.Fatalf("untracked diff leaked %q in %q", forbidden, encoded)
+		}
+	}
+}
+
+func renderDiffFileForTest(file tui.DiffFileView) string {
+	parts := []string{file.Path, file.OldPath, file.Status}
+	for _, hunk := range file.Hunks {
+		parts = append(parts, hunk.Header)
+		for _, line := range hunk.Lines {
+			parts = append(parts, line.Kind, line.Text)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
 func runGit(t *testing.T, workspace string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

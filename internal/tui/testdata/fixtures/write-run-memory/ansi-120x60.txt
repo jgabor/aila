@@ -1,0 +1,59 @@
+[1mAila                                                                                                              120x60[0m
+[2mStage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                  [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: noninteractive.run                                                                                    |
+| detail: write run flagged                                                                                            |
+| active: false                                                                                                        |
+| result: Write run flagged: changed 1 file(s), ran 2 check(s).                                                        |
+|                                                                                                                      |
+| Resumed memory:                                                                                                      |
+| source: state.current-session-snapshot                                                                               |
+| session id: current                                                                                                  |
+| resumed transcript turns: 2                                                                                          |
+| queued count: 0                                                                                                      |
+| diagnostics: 0                                                                                                       |
+| run mode: non_interactive_write                                                                                      |
+| run status: flagged                                                                                                  |
+| run prompt: create a note                                                                                            |
+| inspected file: README.md status=completed source_ref=README.md:1-3                                                  |
+| command run: git status --short --branch status=completed                                                            |
+| command run: git diff --stat status=completed                                                                        |
+| changed file: docs/aila-run-output.md status=completed source_ref=docs/aila-run-output.md                            |
+| mutation tool: write                                                                                                 |
+| mutation status: completed                                                                                           |
+| mutation path: docs/aila-run-output.md                                                                               |
+| mutation decision source: autonomy_policy                                                                            |
+| mutation decision autonomy: write                                                                                    |
+| mutation approval required: false                                                                                    |
+| run caveat: deterministic write run; provider model execution deferred                                               |
+| source ref: README.md:1-3                                                                                            |
+| source ref: docs/aila-run-output.md                                                                                  |
+| source ref: git status --short --branch                                                                              |
+| source ref: git diff --stat                                                                                          |
+|                                                                                                                      |
+| user: create a note                                                                                                  |
+| assistant: Write run flagged: changed 1 file(s), ran 2 check(s).                                                     |
+|                                                                                                                      |
+| history:                                                                                                             |
+| command route: history                                                                                               |
+| route source: policy.command                                                                                         |
+| read-only: true                                                                                                      |
+| entries: 6                                                                                                           |
+| selected: 6                                                                                                          |
+| undo enabled: true                                                                                                   |
+|   noninteractive-run current noninteractive-run-1 prompt noninteractive run prompt create a note                     |
+|   noninteractive-run current noninteractive-run-2 response Write run flagged: changed 1 file(s), ran 2 check(s).     |
+|   noninteractive-run current noninteractive-run-3 runtime noninteractive run flagged inspected=1 commands=2          |
+|   noninteractive-run current noninteractive-run-4 command check git status --short --branch completed                |
+|   noninteractive-run current noninteractive-run-5 command check git diff --stat completed                            |
+| > noninteractive-run current noninteractive-run-6 mutation write completed docs/aila-run-output.md                   |
+| selected event id: noninteractive-run-6                                                                              |
+| selected run id: noninteractive-run                                                                                  |
+| selected session id: current                                                                                         |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

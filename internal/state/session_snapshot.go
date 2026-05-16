@@ -125,18 +125,20 @@ type SessionSnapshotConcern struct {
 	Text   string `json:"text"`
 }
 
-// SessionSnapshotRun captures a bounded non-interactive read-only run summary.
+// SessionSnapshotRun captures a bounded non-interactive run summary.
 type SessionSnapshotRun struct {
-	Mode           string                      `json:"mode"`
-	Prompt         string                      `json:"prompt"`
-	Status         string                      `json:"status"`
-	InspectedFiles []SessionSnapshotRunFile    `json:"inspected_files"`
-	Commands       []SessionSnapshotRunCommand `json:"commands"`
-	Blockers       []string                    `json:"blockers"`
-	Caveats        []string                    `json:"caveats"`
-	SourceRefs     []string                    `json:"source_refs"`
-	StoredSession  bool                        `json:"stored_session"`
-	StoredHistory  bool                        `json:"stored_history"`
+	Mode           string                          `json:"mode"`
+	Prompt         string                          `json:"prompt"`
+	Status         string                          `json:"status"`
+	InspectedFiles []SessionSnapshotRunFile        `json:"inspected_files"`
+	Commands       []SessionSnapshotRunCommand     `json:"commands"`
+	ChangedFiles   []SessionSnapshotRunChangedFile `json:"changed_files,omitempty"`
+	Mutation       *SessionSnapshotRunMutation     `json:"mutation,omitempty"`
+	Blockers       []string                        `json:"blockers"`
+	Caveats        []string                        `json:"caveats"`
+	SourceRefs     []string                        `json:"source_refs"`
+	StoredSession  bool                            `json:"stored_session"`
+	StoredHistory  bool                            `json:"stored_history"`
 }
 
 // SessionSnapshotRunFile records one inspected file for a non-interactive run.
@@ -154,6 +156,32 @@ type SessionSnapshotRunCommand struct {
 	Status   string `json:"status"`
 	ExitCode int    `json:"exit_code"`
 	Summary  string `json:"summary,omitempty"`
+}
+
+// SessionSnapshotRunChangedFile records one changed file for a non-interactive write run.
+type SessionSnapshotRunChangedFile struct {
+	Path            string `json:"path"`
+	Status          string `json:"status"`
+	PreviousVersion string `json:"previous_version,omitempty"`
+	NewVersion      string `json:"new_version,omitempty"`
+	BytesWritten    int    `json:"bytes_written,omitempty"`
+	SourceRef       string `json:"source_ref,omitempty"`
+}
+
+// SessionSnapshotRunMutation records bounded mutation evidence for a non-interactive write run.
+type SessionSnapshotRunMutation struct {
+	ToolName         string `json:"tool_name"`
+	Status           string `json:"status"`
+	Path             string `json:"path"`
+	ExpectedEffect   string `json:"expected_effect,omitempty"`
+	BytesWritten     int    `json:"bytes_written,omitempty"`
+	ErrorKind        string `json:"error_kind,omitempty"`
+	ErrorMessage     string `json:"error_message,omitempty"`
+	DecisionSource   string `json:"decision_source,omitempty"`
+	DecisionAutonomy string `json:"decision_autonomy,omitempty"`
+	Allowed          bool   `json:"allowed"`
+	Automatic        bool   `json:"automatic"`
+	ApprovalRequired bool   `json:"approval_required"`
 }
 
 // DescribeCurrentSessionSnapshot derives `.aila/sessions/current.json` from the workspace store layout.
@@ -313,6 +341,28 @@ func validateSessionSnapshotRun(run SessionSnapshotRun) error {
 			return err
 		}
 	}
+	for index, file := range run.ChangedFiles {
+		if err := boundedString(fmt.Sprintf("run.changed_files[%d].path", index), file.Path, SnapshotLabelMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.changed_files[%d].status", index), file.Status, SnapshotStatusMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.changed_files[%d].previous_version", index), file.PreviousVersion, SnapshotLabelMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.changed_files[%d].new_version", index), file.NewVersion, SnapshotLabelMaxBytes); err != nil {
+			return err
+		}
+		if err := boundedString(fmt.Sprintf("run.changed_files[%d].source_ref", index), file.SourceRef, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+	}
+	if run.Mutation != nil {
+		if err := validateSessionSnapshotRunMutation(*run.Mutation); err != nil {
+			return err
+		}
+	}
 	for index, blocker := range run.Blockers {
 		if err := boundedString(fmt.Sprintf("run.blockers[%d]", index), blocker, SnapshotBlockerMaxBytes); err != nil {
 			return err
@@ -325,6 +375,29 @@ func validateSessionSnapshotRun(run SessionSnapshotRun) error {
 	}
 	for index, sourceRef := range run.SourceRefs {
 		if err := boundedString(fmt.Sprintf("run.source_refs[%d]", index), sourceRef, SnapshotTextMaxBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSessionSnapshotRunMutation(mutation SessionSnapshotRunMutation) error {
+	checks := []struct {
+		name  string
+		value string
+		limit int
+	}{
+		{name: "run.mutation.tool_name", value: mutation.ToolName, limit: SnapshotLabelMaxBytes},
+		{name: "run.mutation.status", value: mutation.Status, limit: SnapshotStatusMaxBytes},
+		{name: "run.mutation.path", value: mutation.Path, limit: SnapshotLabelMaxBytes},
+		{name: "run.mutation.expected_effect", value: mutation.ExpectedEffect, limit: SnapshotTextMaxBytes},
+		{name: "run.mutation.error_kind", value: mutation.ErrorKind, limit: SnapshotLabelMaxBytes},
+		{name: "run.mutation.error_message", value: mutation.ErrorMessage, limit: SnapshotTextMaxBytes},
+		{name: "run.mutation.decision_source", value: mutation.DecisionSource, limit: SnapshotSourceMaxBytes},
+		{name: "run.mutation.decision_autonomy", value: mutation.DecisionAutonomy, limit: SnapshotLabelMaxBytes},
+	}
+	for _, check := range checks {
+		if err := boundedString(check.name, check.value, check.limit); err != nil {
 			return err
 		}
 	}
@@ -439,6 +512,23 @@ func validateSessionSnapshotCompleteness(path string) error {
 		}
 		if err := requireJSONArrayObjectFields(runFields, "commands", []string{"command", "status", "exit_code"}); err != nil {
 			return err
+		}
+		if _, ok := runFields["changed_files"]; ok {
+			if err := requireJSONArrayObjectFields(runFields, "changed_files", []string{"path", "status"}); err != nil {
+				return err
+			}
+		}
+		if rawMutation, ok := runFields["mutation"]; ok {
+			if isJSONNull(rawMutation) {
+				return fmt.Errorf("current session snapshot null field run.mutation")
+			}
+			var mutationFields map[string]json.RawMessage
+			if err := json.Unmarshal(rawMutation, &mutationFields); err != nil {
+				return fmt.Errorf("decode current session snapshot run mutation fields: %w", err)
+			}
+			if err := requireJSONFields("current session snapshot run mutation", mutationFields, []string{"tool_name", "status", "path", "allowed", "automatic", "approval_required"}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -629,6 +719,23 @@ func redactSessionSnapshot(snapshot SessionSnapshot) SessionSnapshot {
 			snapshot.Run.Commands[index].Command = redactSnapshotText(snapshot.Run.Commands[index].Command)
 			snapshot.Run.Commands[index].Status = redactSnapshotText(snapshot.Run.Commands[index].Status)
 			snapshot.Run.Commands[index].Summary = redactSnapshotText(snapshot.Run.Commands[index].Summary)
+		}
+		for index := range snapshot.Run.ChangedFiles {
+			snapshot.Run.ChangedFiles[index].Path = redactSnapshotText(snapshot.Run.ChangedFiles[index].Path)
+			snapshot.Run.ChangedFiles[index].Status = redactSnapshotText(snapshot.Run.ChangedFiles[index].Status)
+			snapshot.Run.ChangedFiles[index].PreviousVersion = redactSnapshotText(snapshot.Run.ChangedFiles[index].PreviousVersion)
+			snapshot.Run.ChangedFiles[index].NewVersion = redactSnapshotText(snapshot.Run.ChangedFiles[index].NewVersion)
+			snapshot.Run.ChangedFiles[index].SourceRef = redactSnapshotText(snapshot.Run.ChangedFiles[index].SourceRef)
+		}
+		if snapshot.Run.Mutation != nil {
+			snapshot.Run.Mutation.ToolName = redactSnapshotText(snapshot.Run.Mutation.ToolName)
+			snapshot.Run.Mutation.Status = redactSnapshotText(snapshot.Run.Mutation.Status)
+			snapshot.Run.Mutation.Path = redactSnapshotText(snapshot.Run.Mutation.Path)
+			snapshot.Run.Mutation.ExpectedEffect = redactSnapshotText(snapshot.Run.Mutation.ExpectedEffect)
+			snapshot.Run.Mutation.ErrorKind = redactSnapshotText(snapshot.Run.Mutation.ErrorKind)
+			snapshot.Run.Mutation.ErrorMessage = redactSnapshotText(snapshot.Run.Mutation.ErrorMessage)
+			snapshot.Run.Mutation.DecisionSource = redactSnapshotText(snapshot.Run.Mutation.DecisionSource)
+			snapshot.Run.Mutation.DecisionAutonomy = redactSnapshotText(snapshot.Run.Mutation.DecisionAutonomy)
 		}
 		for index := range snapshot.Run.Blockers {
 			snapshot.Run.Blockers[index] = redactSnapshotText(snapshot.Run.Blockers[index])

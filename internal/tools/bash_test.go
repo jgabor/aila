@@ -22,6 +22,7 @@ func TestValidateBashRequestAllowsOnlySafeInspectionCommands(t *testing.T) {
 		{name: "ls", argv: []string{"ls", "-la", "."}, family: "ls"},
 		{name: "git status", argv: []string{"git", "status", "--short", "--branch"}, family: "git status"},
 		{name: "git diff", argv: []string{"git", "diff", "--stat", "--", "README.md"}, family: "git diff"},
+		{name: "git ls-files", argv: []string{"git", "ls-files", "--others", "--exclude-standard"}, family: "git ls-files"},
 	}
 	for _, tc := range cases {
 		tc := tc

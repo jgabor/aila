@@ -344,6 +344,35 @@ func TestValidateSessionSnapshotContractAcceptsBoundedRunMemory(t *testing.T) {
 	}
 }
 
+func TestValidateSessionSnapshotContractAcceptsBoundedWriteRunMemory(t *testing.T) {
+	t.Parallel()
+
+	snapshot := validSessionSnapshot()
+	snapshot.Run = validSessionSnapshotWriteRun()
+	if err := ValidateSessionSnapshotContract(snapshot); err != nil {
+		t.Fatalf("ValidateSessionSnapshotContract with write run memory returned error: %v", err)
+	}
+
+	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+	if _, err := store.WriteCurrentSessionSnapshot(context.Background(), snapshot); err != nil {
+		t.Fatalf("WriteCurrentSessionSnapshot with write run memory returned error: %v", err)
+	}
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("ReadCurrentSessionSnapshot with write run memory returned error: %v", err)
+	}
+	run := result.Snapshot.Run
+	if result.State != SessionSnapshotLoaded || run == nil {
+		t.Fatalf("read write run memory state = %q run=%#v, want loaded write run memory", result.State, run)
+	}
+	if run.Mode != "non_interactive_write" || len(run.ChangedFiles) != 1 || run.Mutation == nil {
+		t.Fatalf("write run memory = %#v", run)
+	}
+	if run.Mutation.ToolName != "write" || run.Mutation.Status != "completed" || run.Mutation.DecisionAutonomy != "write" || !run.Mutation.Allowed || !run.Mutation.Automatic || run.Mutation.ApprovalRequired {
+		t.Fatalf("write run mutation = %#v", run.Mutation)
+	}
+}
+
 func TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStrings(t *testing.T) {
 	t.Parallel()
 
@@ -394,6 +423,18 @@ func TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStr
 		"run command summary": func(snapshot *SessionSnapshot) {
 			snapshot.Run = validSessionSnapshotRun()
 			snapshot.Run.Commands[0].Summary = strings.Repeat("s", SnapshotTextMaxBytes+1)
+		},
+		"run changed file path": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotWriteRun()
+			snapshot.Run.ChangedFiles[0].Path = strings.Repeat("s", SnapshotLabelMaxBytes+1)
+		},
+		"run mutation path": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotWriteRun()
+			snapshot.Run.Mutation.Path = strings.Repeat("s", SnapshotLabelMaxBytes+1)
+		},
+		"run mutation expected effect": func(snapshot *SessionSnapshot) {
+			snapshot.Run = validSessionSnapshotWriteRun()
+			snapshot.Run.Mutation.ExpectedEffect = strings.Repeat("s", SnapshotTextMaxBytes+1)
 		},
 	}
 	for name, mutate := range tests {
@@ -521,6 +562,52 @@ func validSessionSnapshotRun() *SessionSnapshotRun {
 		Blockers:      []string{},
 		Caveats:       []string{"provider model execution deferred"},
 		SourceRefs:    []string{"README.md:1-20", "git status --short --branch"},
+		StoredSession: true,
+		StoredHistory: true,
+	}
+}
+
+func validSessionSnapshotWriteRun() *SessionSnapshotRun {
+	return &SessionSnapshotRun{
+		Mode:   "non_interactive_write",
+		Prompt: "create a note",
+		Status: "flagged",
+		InspectedFiles: []SessionSnapshotRunFile{{
+			Path:      "README.md",
+			Status:    "completed",
+			LineStart: 1,
+			LineEnd:   20,
+			SourceRef: "README.md:1-20",
+		}},
+		Commands: []SessionSnapshotRunCommand{{
+			Command:  "git status --short --branch",
+			Status:   "completed",
+			ExitCode: 0,
+			Summary:  "## main",
+		}},
+		ChangedFiles: []SessionSnapshotRunChangedFile{{
+			Path:            "docs/aila-run-output.md",
+			Status:          "completed",
+			PreviousVersion: "missing",
+			NewVersion:      "sha256:write-run",
+			BytesWritten:    120,
+			SourceRef:       "docs/aila-run-output.md",
+		}},
+		Mutation: &SessionSnapshotRunMutation{
+			ToolName:         "write",
+			Status:           "completed",
+			Path:             "docs/aila-run-output.md",
+			ExpectedEffect:   "create bounded non-interactive run output",
+			BytesWritten:     120,
+			DecisionSource:   "autonomy_policy",
+			DecisionAutonomy: "write",
+			Allowed:          true,
+			Automatic:        true,
+			ApprovalRequired: false,
+		},
+		Blockers:      []string{},
+		Caveats:       []string{"deterministic write run; provider model execution deferred"},
+		SourceRefs:    []string{"README.md:1-20", "docs/aila-run-output.md", "git status --short --branch"},
 		StoredSession: true,
 		StoredHistory: true,
 	}

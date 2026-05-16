@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -21,7 +22,7 @@ import (
 
 	"github.com/jgabor/aila/internal/app"
 	"github.com/jgabor/aila/internal/diagnostic"
-	"github.com/jgabor/aila/internal/history"
+	historypkg "github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/state"
 )
 
@@ -422,6 +423,153 @@ func TestNonInteractiveRunThenContinueSmoke(t *testing.T) {
 	}
 
 	assertNonInteractiveRunStoreState(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
+func TestNonInteractiveWriteRunThenContinueSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process and PTY smoke uses Unix path assertions")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	tmp := t.TempDir()
+	workspace := filepath.Join(tmp, "workspace")
+	seedNonInteractiveWriteRunSmokeWorkspace(t, workspace)
+	binary := buildAilaTestBinary(t, env.vars, tmp)
+
+	runCtx, runCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer runCancel()
+	runCmd := exec.CommandContext(runCtx, binary, "run", "create", "a", "note")
+	runCmd.Dir = workspace
+	runCmd.Env = append(env.vars, "OPENAI_API_KEY=write-run-smoke-secret")
+	runOutputBytes, err := runCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("non-interactive write run smoke failed: %v\n%s", err, runOutputBytes)
+	}
+	if runCtx.Err() != nil {
+		t.Fatalf("non-interactive write run smoke exceeded timeout: %v", runCtx.Err())
+	}
+	runOutput := string(runOutputBytes)
+	for _, want := range []string{
+		"command: run",
+		"mode: non_interactive_write",
+		"status: flagged",
+		"prompt: create a note",
+		"changed_files:",
+		"docs/aila-run-output.md status=completed",
+		"mutation:",
+		"tool=write status=completed path=docs/aila-run-output.md",
+		"decision_source=autonomy_policy autonomy=yolo allowed=true automatic=true approval_required=false",
+		"commands_run:",
+		"git status --short --branch status=completed",
+		"git diff --stat status=completed",
+		"blockers:",
+		"- none",
+		"caveats:",
+		"provider model execution deferred",
+		"source_refs:",
+		"docs/aila-run-output.md",
+		"stored_session: true",
+		"stored_history: true",
+	} {
+		if !strings.Contains(runOutput, want) {
+			t.Fatalf("write run smoke output missing %q:\n%s", want, runOutput)
+		}
+	}
+	assertNoNonInteractiveRunSmokeLeaks(t, runOutput, env, workspace)
+	written, err := os.ReadFile(filepath.Join(workspace, "docs", "aila-run-output.md"))
+	if err != nil {
+		t.Fatalf("read non-interactive write target: %v", err)
+	}
+	if !strings.Contains(string(written), "Prompt: create a note") {
+		t.Fatalf("write target content = %q, want prompt evidence", written)
+	}
+	assertNonInteractiveWriteRunStoreState(t, workspace)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "continue")
+	cmd.Dir = workspace
+	cmd.Env = env.vars
+	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 90, Cols: 160})
+	if err != nil {
+		t.Fatalf("start continue after write run smoke PTY: %v", err)
+	}
+	defer func() { _ = terminal.Close() }()
+	wait := make(chan error, 1)
+	go func() { wait <- cmd.Wait() }()
+
+	resumeOutput := readUntilAll(t, terminal, []string{
+		"Aila",
+		"Resumed memory:",
+		"run mode: non_interactive_write",
+		"run status: flagged",
+		"run prompt: create a note",
+		"changed file: docs/aila-run-output.md status=completed",
+		"mutation tool: write",
+		"mutation status: completed",
+		"mutation decision source: autonomy_policy",
+		"mutation decision autonomy: yolo",
+		"mutation approval required: false",
+	}, 20*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, resumeOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte("/history\r")); err != nil {
+		t.Fatalf("send /history after write run smoke: %v", err)
+	}
+	historyOutput := readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"entries: 6",
+		"noninteractive-run current noninteractive-run-6 mutation write completed docs/aila-run-output.md",
+		"selected event id: noninteractive-run-1",
+	}, 10*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, historyOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte("\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B")); err != nil {
+		t.Fatalf("send write history down navigation input: %v", err)
+	}
+	mutationOutput := readUntilAll(t, terminal, []string{
+		"selected: 6",
+		"selected event id: noninteractive-run-6",
+		"selected kind: mutation",
+		"selected changed paths: docs/aila-run-output.md",
+		"selected undo available: true",
+		"selected undo action: delete_created_file",
+	}, 10*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, mutationOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte{0x18, 'd'}); err != nil {
+		t.Fatalf("send diff shortcut after write history smoke: %v", err)
+	}
+	diffOutput := readUntilAll(t, terminal, []string{
+		"read_only: true",
+		"source: git diff",
+		"status: ready",
+		"file: docs/aila-run-output.md",
+		"file_status: added",
+		"line_addition: # Aila Non-Interactive",
+		"line_addition: Prompt: create a note",
+	}, 10*time.Second)
+	assertNoNonInteractiveRunSmokeLeaks(t, diffOutput, env, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after write run smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("write run continue PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("write run continue PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNonInteractiveWriteRunStoreState(t, workspace)
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
@@ -1395,6 +1543,14 @@ func seedNonInteractiveRunSmokeWorkspace(t *testing.T, workspace string) {
 	runPTYGit(t, workspace, "init")
 }
 
+func seedNonInteractiveWriteRunSmokeWorkspace(t *testing.T, workspace string) {
+	t.Helper()
+
+	seedNonInteractiveRunSmokeWorkspace(t, workspace)
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md", "ROADMAP.md", "AGENTS.md")
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+}
+
 func seedDiffSmokeWorkspace(t *testing.T, workspace string) {
 	t.Helper()
 
@@ -1430,11 +1586,11 @@ func seedFakeHistoryEvents(t *testing.T, workspace string) {
 	if err != nil {
 		t.Fatalf("open history smoke project store: %v", err)
 	}
-	for _, event := range []history.FakeEvent{
-		fakeHistorySmokeEvent("history-event-1", history.EventKindPrompt, "prompt.submit", "user", "user asked for fake history"),
-		fakeHistorySmokeEvent("history-event-2", history.EventKindResponse, "runtime.response", "fake-runtime", "fake response summary"),
-		fakeHistorySmokeEvent("history-event-3", history.EventKindCommand, "policy.command", "policy.command", "history command summary token=history-smoke-secret"),
-		fakeHistorySmokeEvent("history-event-4", history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: smoke complete Authorization: Bearer history-smoke-secret"),
+	for _, event := range []historypkg.FakeEvent{
+		fakeHistorySmokeEvent("history-event-1", historypkg.EventKindPrompt, "prompt.submit", "user", "user asked for fake history"),
+		fakeHistorySmokeEvent("history-event-2", historypkg.EventKindResponse, "runtime.response", "fake-runtime", "fake response summary"),
+		fakeHistorySmokeEvent("history-event-3", historypkg.EventKindCommand, "policy.command", "policy.command", "history command summary token=history-smoke-secret"),
+		fakeHistorySmokeEvent("history-event-4", historypkg.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: smoke complete Authorization: Bearer history-smoke-secret"),
 		fakeMutationHistorySmokeEvent(),
 	} {
 		result, err := store.AppendFakeHistory(context.Background(), event)
@@ -1447,9 +1603,9 @@ func seedFakeHistoryEvents(t *testing.T, workspace string) {
 	}
 }
 
-func fakeHistorySmokeEvent(eventID string, kind history.EventKind, provenance string, source string, displayText string) history.FakeEvent {
-	return history.FakeEvent{
-		SchemaVersion: history.FakeEventSchemaVersion,
+func fakeHistorySmokeEvent(eventID string, kind historypkg.EventKind, provenance string, source string, displayText string) historypkg.FakeEvent {
+	return historypkg.FakeEvent{
+		SchemaVersion: historypkg.FakeEventSchemaVersion,
 		Kind:          kind,
 		EventID:       eventID,
 		RunID:         "history-run",
@@ -1460,9 +1616,9 @@ func fakeHistorySmokeEvent(eventID string, kind history.EventKind, provenance st
 	}
 }
 
-func fakeMutationHistorySmokeEvent() history.FakeEvent {
-	event := fakeHistorySmokeEvent("history-event-5", history.EventKindMutation, "mutation.result", "mutation.tool", "mutation write completed notes.txt approval smoke-approval undo delete_created_file")
-	event.Mutation = &history.MutationRecord{
+func fakeMutationHistorySmokeEvent() historypkg.FakeEvent {
+	event := fakeHistorySmokeEvent("history-event-5", historypkg.EventKindMutation, "mutation.result", "mutation.tool", "mutation write completed notes.txt approval smoke-approval undo delete_created_file")
+	event.Mutation = &historypkg.MutationRecord{
 		ToolName:              "write",
 		Status:                "completed",
 		CommandSource:         "approval-write",
@@ -1479,7 +1635,7 @@ func fakeMutationHistorySmokeEvent() history.FakeEvent {
 		DecisionRunID:         "smoke-run",
 		DecisionCapability:    "approval-write",
 	}
-	event.Undo = &history.UndoMetadata{
+	event.Undo = &historypkg.UndoMetadata{
 		Available:       true,
 		Action:          "delete_created_file",
 		Paths:           []string{"notes.txt"},
@@ -1584,6 +1740,47 @@ func assertNonInteractiveRunStoreState(t *testing.T, workspace string) {
 		if strings.Contains(encoded, leaked) {
 			t.Fatalf("run smoke history leaked %q in %q", leaked, encoded)
 		}
+	}
+}
+
+func assertNonInteractiveWriteRunStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open write run smoke project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read write run smoke current snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded || snapshot.Snapshot.Run == nil {
+		t.Fatalf("write run smoke snapshot state = %q run=%#v, want loaded run memory", snapshot.State, snapshot.Snapshot.Run)
+	}
+	run := snapshot.Snapshot.Run
+	if run.Mode != "non_interactive_write" || run.Prompt != "create a note" || run.Status != "flagged" || !run.StoredSession || !run.StoredHistory {
+		t.Fatalf("write run smoke snapshot run = %#v", run)
+	}
+	if len(run.ChangedFiles) != 1 || run.ChangedFiles[0].Path != "docs/aila-run-output.md" || run.Mutation == nil {
+		t.Fatalf("write run smoke snapshot mutation evidence = changed=%#v mutation=%#v", run.ChangedFiles, run.Mutation)
+	}
+	if run.Mutation.ToolName != "write" || run.Mutation.Status != "completed" || run.Mutation.DecisionSource != "autonomy_policy" || run.Mutation.DecisionAutonomy != "yolo" || !run.Mutation.Allowed || !run.Mutation.Automatic || run.Mutation.ApprovalRequired {
+		t.Fatalf("write run smoke snapshot mutation = %#v", run.Mutation)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read write run smoke fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded || len(history.Events) != 6 {
+		t.Fatalf("write run smoke history state = %q events=%d, want 6", history.State, len(history.Events))
+	}
+	last := history.Events[len(history.Events)-1]
+	if last.Kind != historypkg.EventKindMutation || last.Mutation == nil || last.Undo == nil {
+		t.Fatalf("write run smoke last history event = %#v, want mutation with undo", last)
+	}
+	if last.Mutation.ToolName != "write" || last.Mutation.Status != "completed" || !reflect.DeepEqual(last.Mutation.ChangedPaths, []string{"docs/aila-run-output.md"}) || !last.Undo.Available || last.Undo.Action != "delete_created_file" {
+		t.Fatalf("write run smoke mutation history = mutation=%#v undo=%#v", last.Mutation, last.Undo)
 	}
 }
 

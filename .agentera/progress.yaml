@@ -1,4 +1,51 @@
 cycles:
+  - number: 187
+    timestamp: "2026-05-17 01:37"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M32 by routing write-shaped non-interactive runs through the existing write effect, permission/autonomy,
+      mutation tool, session snapshot, fake history, TUI memory/history, and diff inspection paths.
+    commit: "pending local commit for M32 non-interactive write run"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 32; README.md run/autonomy/tool/history/diff promises; ARCHITECTURE.md explicit effects, mutation history, state, and TUI boundaries; docs/tui-testing.md fixture/semantic/PTY gates"
+    discovered: >-
+      The write run can stay deterministic and narrow: write-shaped prompts create docs/aila-run-output.md only, and read/off autonomy records a denied mutation without creating the file. Because the created file is untracked, /diff needed bounded untracked-file additions through app-owned safe bash/read boundaries; the TUI still renders injected diff state only. New/touched tests use behavior names rather than milestone IDs.
+    verified: >-
+      mage fmt passed. go test ./internal/app -run 'TestNonInteractiveWrite|TestNonInteractiveRun' -count=1 passed. go test ./internal/state -run 'TestValidateSessionSnapshotContractAcceptsBounded.*RunMemory|TestValidateSessionSnapshotContractRejectsUnsupportedVersionAndOversizedStrings' -count=1 passed. go test ./internal/tui -run 'TestWriteRunMemory|TestRunMemory|TestResizePathStaysPresentationOnlyAndIOFree' -count=1 passed. go test ./internal/tools ./internal/app -run 'TestValidateBashRequestAllowsOnlySafeInspectionCommands|TestStoreCurrentDiffRead|TestParseUnifiedDiffView' -count=1 passed. go test ./cmd/aila -run 'TestNonInteractiveWriteRunThenContinueSmoke' -count=1 passed. go test ./internal/app ./internal/state ./internal/tui ./internal/tools ./cmd/aila -count=1 passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities. git diff --check passed. Changed-line home-path and milestone-numbered test-name hygiene returned no matches.
+    next: >-
+      Commit the completed M32 slice, leaving Milestone 33: Interactive Read-Only Build Loop as the next roadmap milestone.
+    context:
+      intent: >-
+        Close the current roadmap milestone first, with CLI write behavior, persistence, TUI inspection, PTY smoke, full validation, ROADMAP, and Agentera evidence complete before committing.
+      constraints: >-
+        No provider-backed code generation, arbitrary prompt-to-code synthesis, stdin diff review, multi-file writes, interactive non-interactive approvals, shell mutation, plugin/MCP/control-plane behavior, or M33+ behavior was added. TUI remains presentation-only. Public artifact updates avoid adding machine-specific home paths.
+      unknowns: >-
+        The write-shaped prompt detector remains intentionally narrow and deterministic until provider-backed non-interactive reasoning is introduced later.
+      scope: >-
+        cmd/aila write-run PTY smoke, internal/app non-interactive write and diff reader, internal/state run snapshot schema, internal/tools safe git ls-files inspection, internal/tui write-run rendering/semantic fixture, ROADMAP closeout, and Agentera plan/progress closeout.
+  - number: 186
+    timestamp: "2026-05-17 00:41"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 32: Non-Interactive Write Run as the next roadmap milestone, archived the completed M31 plan, and created a new active full plan with five bounded tasks for write-effect routing, autonomy/permission behavior, output reporting, snapshot/history persistence, TUI/diff/history inspection, PTY smoke, validation, and closeout.
+    commit: "N/A: planning artifact before M32 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 32; AGENTS.md; README.md run usage, autonomy, tools, diff, and history promises; ARCHITECTURE.md explicit effects, permission, mutation history, state, and TUI boundaries; docs/workflow-architecture.md permission/history flow; docs/tui-testing.md fixture/semantic/PTY gates"
+    discovered: >-
+      M32 should not become arbitrary provider-backed code generation. The smallest useful write slice is deterministic: a write-shaped `aila run <prompt>` proposes one bounded workspace write through the existing runtime write effect and configured autonomy policy, records denied or completed mutation evidence through existing history/undo metadata, stores write-run memory, and lets `aila continue`, `/history`, and `/diff` inspect the result. Provider reasoning, stdin diff review, multi-file changes, interactive non-interactive approvals, and M33+ scope stay deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, ROADMAP.md top status and M32 section, docs/notes/PROMPT.md, AGENTS.md, README run/autonomy/tool/history/diff sections, ARCHITECTURE.md effect/permission/state/history/TUI checklist sections, docs/workflow-architecture.md permission/history invariants, docs/tui-testing.md mutation/history/diff fixture expectations, and current non-interactive run/write/history/diff code seams were reviewed before writing the plan.
+    next: >-
+      Execute M32 Task 1: route write-shaped non-interactive run prompts through the existing write effect and autonomy decision path. Do not implement provider-backed reasoning, arbitrary prompt-to-code synthesis, stdin diff review, multi-file writes, interactive approval prompts, or M33+ scope.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md and the active thread goal before starting implementation.
+      constraints: >-
+        Plan only M32; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, app-owned explicit effects, existing permission/tool/history paths, bounded deterministic write behavior, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        The initial write-shaped prompt detector should stay intentionally narrow enough to avoid surprising mutation from ordinary read-only prompts.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m31.yaml archival, and progress evidence for the M32 planning handoff.
   - number: 185
     timestamp: "2026-05-17 00:23"
     type: build

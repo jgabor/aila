@@ -327,6 +327,13 @@ func validateSafeInspectionArgv(root string, workDir string, argv []string) ([]s
 			}
 			effective := append([]string{"git", "diff", "--no-ext-diff"}, argv[2:]...)
 			return effective, "git diff", "inspect git diff output", BashError{}
+		case "ls-files":
+			for _, arg := range argv[2:] {
+				if !allowedGitLsFilesArg(arg) {
+					return nil, "", "", bashError(BashErrorUnsafeCommand, "git ls-files argument is not allowed")
+				}
+			}
+			return append([]string(nil), argv...), "git ls-files", "inspect git untracked files", BashError{}
 		default:
 			return nil, "", "", bashError(BashErrorUnsafeCommand, "git subcommand is not allowed")
 		}
@@ -400,6 +407,15 @@ func allowedGitStatusArg(arg string) bool {
 func allowedGitDiffFlag(arg string) bool {
 	switch arg {
 	case "--cached", "--staged", "--stat", "--name-only", "--name-status", "--check", "--color=never", "--", "-U0":
+		return true
+	default:
+		return false
+	}
+}
+
+func allowedGitLsFilesArg(arg string) bool {
+	switch arg {
+	case "--others", "--exclude-standard":
 		return true
 	default:
 		return false

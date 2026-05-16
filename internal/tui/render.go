@@ -140,13 +140,15 @@ type HistoryRecoveryItem struct {
 	DecisionCapability string
 }
 
-// RunMemoryView is app-injected metadata for a stored non-interactive read-only run.
+// RunMemoryView is app-injected metadata for a stored non-interactive run.
 type RunMemoryView struct {
 	Mode           string
 	Prompt         string
 	Status         string
 	InspectedFiles []RunMemoryFileView
 	Commands       []RunMemoryCommandView
+	ChangedFiles   []RunMemoryChangedFileView
+	Mutation       *RunMemoryMutationView
 	Blockers       []string
 	Caveats        []string
 	SourceRefs     []string
@@ -169,6 +171,28 @@ type RunMemoryCommandView struct {
 	Status   string
 	ExitCode int
 	Summary  string
+}
+
+// RunMemoryChangedFileView records one file changed by a stored write run.
+type RunMemoryChangedFileView struct {
+	Path            string
+	Status          string
+	PreviousVersion string
+	NewVersion      string
+	BytesWritten    int
+	SourceRef       string
+}
+
+// RunMemoryMutationView records bounded mutation result data for a stored write run.
+type RunMemoryMutationView struct {
+	Name           string
+	Status         string
+	Path           string
+	ExpectedEffect string
+	BytesWritten   int
+	ErrorKind      string
+	ErrorMessage   string
+	Decision       *DecisionView
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -357,6 +381,23 @@ func memoryLines(state ViewState) []string {
 		}
 		for _, command := range run.Commands {
 			lines = append(lines, "  command run: "+safeText(command.Command)+" status="+safeText(command.Status))
+		}
+		for _, file := range run.ChangedFiles {
+			lines = append(lines, "  changed file: "+safeText(file.Path)+" status="+safeText(file.Status)+" source_ref="+safeText(file.SourceRef))
+		}
+		if run.Mutation != nil {
+			lines = append(lines,
+				"  mutation tool: "+safeText(run.Mutation.Name),
+				"  mutation status: "+safeText(run.Mutation.Status),
+				"  mutation path: "+safeText(run.Mutation.Path),
+			)
+			if run.Mutation.Decision != nil {
+				lines = append(lines,
+					"  mutation decision source: "+safeText(run.Mutation.Decision.Source),
+					"  mutation decision autonomy: "+safeText(run.Mutation.Decision.Autonomy),
+					"  mutation approval required: "+boolLabel(run.Mutation.Decision.ApprovalRequired),
+				)
+			}
 		}
 		for _, blocker := range run.Blockers {
 			lines = append(lines, "  run blocker: "+safeText(blocker))
@@ -1258,18 +1299,20 @@ type SemanticMemory struct {
 	Run             *SemanticRunMemory `json:"run,omitempty"`
 }
 
-// SemanticRunMemory describes a stored non-interactive read-only run.
+// SemanticRunMemory describes a stored non-interactive run.
 type SemanticRunMemory struct {
-	Mode           string                  `json:"mode"`
-	Prompt         string                  `json:"prompt"`
-	Status         string                  `json:"status"`
-	InspectedFiles []SemanticRunMemoryFile `json:"inspected_files,omitempty"`
-	CommandsRun    []SemanticRunCommand    `json:"commands_run,omitempty"`
-	Blockers       []string                `json:"blockers,omitempty"`
-	Caveats        []string                `json:"caveats,omitempty"`
-	SourceRefs     []string                `json:"source_refs,omitempty"`
-	StoredSession  bool                    `json:"stored_session"`
-	StoredHistory  bool                    `json:"stored_history"`
+	Mode           string                   `json:"mode"`
+	Prompt         string                   `json:"prompt"`
+	Status         string                   `json:"status"`
+	InspectedFiles []SemanticRunMemoryFile  `json:"inspected_files,omitempty"`
+	CommandsRun    []SemanticRunCommand     `json:"commands_run,omitempty"`
+	ChangedFiles   []SemanticRunChangedFile `json:"changed_files,omitempty"`
+	Mutation       *SemanticRunMutation     `json:"mutation,omitempty"`
+	Blockers       []string                 `json:"blockers,omitempty"`
+	Caveats        []string                 `json:"caveats,omitempty"`
+	SourceRefs     []string                 `json:"source_refs,omitempty"`
+	StoredSession  bool                     `json:"stored_session"`
+	StoredHistory  bool                     `json:"stored_history"`
 }
 
 // SemanticRunMemoryFile records one inspected file in run memory.
@@ -1287,6 +1330,28 @@ type SemanticRunCommand struct {
 	Status   string `json:"status"`
 	ExitCode int    `json:"exit_code"`
 	Summary  string `json:"summary,omitempty"`
+}
+
+// SemanticRunChangedFile records one changed file in run memory.
+type SemanticRunChangedFile struct {
+	Path            string `json:"path"`
+	Status          string `json:"status"`
+	PreviousVersion string `json:"previous_version,omitempty"`
+	NewVersion      string `json:"new_version,omitempty"`
+	BytesWritten    int    `json:"bytes_written,omitempty"`
+	SourceRef       string `json:"source_ref,omitempty"`
+}
+
+// SemanticRunMutation records mutation result data for a write run.
+type SemanticRunMutation struct {
+	Name           string            `json:"tool_name"`
+	Status         string            `json:"status"`
+	Path           string            `json:"path"`
+	ExpectedEffect string            `json:"expected_effect,omitempty"`
+	BytesWritten   int               `json:"bytes_written,omitempty"`
+	ErrorKind      string            `json:"error_kind,omitempty"`
+	ErrorMessage   string            `json:"error_message,omitempty"`
+	Decision       *SemanticDecision `json:"decision,omitempty"`
 }
 
 // SemanticDiagnostic is the stable diagnostic status contract for fixtures.
@@ -1757,17 +1822,39 @@ func semanticRunMemory(run *RunMemoryView) *SemanticRunMemory {
 	for _, command := range run.Commands {
 		commands = append(commands, SemanticRunCommand{Command: safeText(command.Command), Status: safeText(command.Status), ExitCode: command.ExitCode, Summary: safeText(command.Summary)})
 	}
+	changed := make([]SemanticRunChangedFile, 0, len(run.ChangedFiles))
+	for _, file := range run.ChangedFiles {
+		changed = append(changed, SemanticRunChangedFile{Path: safeText(file.Path), Status: safeText(file.Status), PreviousVersion: safeText(file.PreviousVersion), NewVersion: safeText(file.NewVersion), BytesWritten: file.BytesWritten, SourceRef: safeText(file.SourceRef)})
+	}
 	return &SemanticRunMemory{
 		Mode:           safeText(run.Mode),
 		Prompt:         safeText(run.Prompt),
 		Status:         safeText(run.Status),
 		InspectedFiles: files,
 		CommandsRun:    commands,
+		ChangedFiles:   changed,
+		Mutation:       semanticRunMutation(run.Mutation),
 		Blockers:       safeTextSlice(run.Blockers),
 		Caveats:        safeTextSlice(run.Caveats),
 		SourceRefs:     safeTextSlice(run.SourceRefs),
 		StoredSession:  run.StoredSession,
 		StoredHistory:  run.StoredHistory,
+	}
+}
+
+func semanticRunMutation(mutation *RunMemoryMutationView) *SemanticRunMutation {
+	if mutation == nil {
+		return nil
+	}
+	return &SemanticRunMutation{
+		Name:           safeText(mutation.Name),
+		Status:         safeText(mutation.Status),
+		Path:           safeText(mutation.Path),
+		ExpectedEffect: safeText(mutation.ExpectedEffect),
+		BytesWritten:   mutation.BytesWritten,
+		ErrorKind:      safeText(mutation.ErrorKind),
+		ErrorMessage:   safeText(mutation.ErrorMessage),
+		Decision:       semanticDecision(mutation.Decision),
 	}
 }
 
@@ -1801,6 +1888,23 @@ func semanticMemoryItems(state ViewState) []string {
 		}
 		for _, command := range memory.Run.CommandsRun {
 			items = append(items, "command_run: "+command.Command+" status="+command.Status)
+		}
+		for _, file := range memory.Run.ChangedFiles {
+			items = append(items, "changed_file: "+file.Path+" status="+file.Status+" source_ref="+file.SourceRef)
+		}
+		if memory.Run.Mutation != nil {
+			items = append(items,
+				"mutation_tool: "+memory.Run.Mutation.Name,
+				"mutation_status: "+memory.Run.Mutation.Status,
+				"mutation_path: "+memory.Run.Mutation.Path,
+			)
+			if memory.Run.Mutation.Decision != nil {
+				items = append(items,
+					"mutation_decision_source: "+memory.Run.Mutation.Decision.Source,
+					"mutation_decision_autonomy: "+memory.Run.Mutation.Decision.Autonomy,
+					"mutation_approval_required: "+boolLabel(memory.Run.Mutation.Decision.ApprovalRequired),
+				)
+			}
 		}
 		for _, blocker := range memory.Run.Blockers {
 			items = append(items, "run_blocker: "+blocker)

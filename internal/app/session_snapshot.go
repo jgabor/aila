@@ -263,17 +263,49 @@ func snapshotRunMemory(run *state.SessionSnapshotRun) *tui.RunMemoryView {
 	for _, command := range run.Commands {
 		commands = append(commands, tui.RunMemoryCommandView{Command: command.Command, Status: command.Status, ExitCode: command.ExitCode, Summary: command.Summary})
 	}
+	changed := make([]tui.RunMemoryChangedFileView, 0, len(run.ChangedFiles))
+	for _, file := range run.ChangedFiles {
+		changed = append(changed, tui.RunMemoryChangedFileView{Path: file.Path, Status: file.Status, PreviousVersion: file.PreviousVersion, NewVersion: file.NewVersion, BytesWritten: file.BytesWritten, SourceRef: file.SourceRef})
+	}
 	return &tui.RunMemoryView{
 		Mode:           run.Mode,
 		Prompt:         run.Prompt,
 		Status:         run.Status,
 		InspectedFiles: files,
 		Commands:       commands,
+		ChangedFiles:   changed,
+		Mutation:       snapshotRunMutationView(run.Mutation),
 		Blockers:       append([]string{}, run.Blockers...),
 		Caveats:        append([]string{}, run.Caveats...),
 		SourceRefs:     append([]string{}, run.SourceRefs...),
 		StoredSession:  run.StoredSession,
 		StoredHistory:  run.StoredHistory,
+	}
+}
+
+func snapshotRunMutationView(mutation *state.SessionSnapshotRunMutation) *tui.RunMemoryMutationView {
+	if mutation == nil {
+		return nil
+	}
+	return &tui.RunMemoryMutationView{
+		Name:           mutation.ToolName,
+		Status:         mutation.Status,
+		Path:           mutation.Path,
+		ExpectedEffect: mutation.ExpectedEffect,
+		BytesWritten:   mutation.BytesWritten,
+		ErrorKind:      mutation.ErrorKind,
+		ErrorMessage:   mutation.ErrorMessage,
+		Decision: &tui.DecisionView{
+			Autonomy:         mutation.DecisionAutonomy,
+			Source:           mutation.DecisionSource,
+			Allowed:          mutation.Allowed,
+			Automatic:        mutation.Automatic,
+			ApprovalRequired: mutation.ApprovalRequired,
+			OperationKind:    "mutation",
+			Name:             mutation.ToolName,
+			Target:           mutation.Path,
+			ExpectedEffect:   mutation.ExpectedEffect,
+		},
 	}
 }
 
@@ -374,18 +406,47 @@ func snapshotRun(run *tui.RunMemoryView) *state.SessionSnapshotRun {
 	for _, command := range run.Commands {
 		commands = append(commands, state.SessionSnapshotRunCommand{Command: command.Command, Status: command.Status, ExitCode: command.ExitCode, Summary: command.Summary})
 	}
+	changed := make([]state.SessionSnapshotRunChangedFile, 0, len(run.ChangedFiles))
+	for _, file := range run.ChangedFiles {
+		changed = append(changed, state.SessionSnapshotRunChangedFile{Path: file.Path, Status: file.Status, PreviousVersion: file.PreviousVersion, NewVersion: file.NewVersion, BytesWritten: file.BytesWritten, SourceRef: file.SourceRef})
+	}
 	return &state.SessionSnapshotRun{
 		Mode:           run.Mode,
 		Prompt:         run.Prompt,
 		Status:         run.Status,
 		InspectedFiles: files,
 		Commands:       commands,
+		ChangedFiles:   changed,
+		Mutation:       snapshotRunMutation(run.Mutation),
 		Blockers:       append([]string{}, run.Blockers...),
 		Caveats:        append([]string{}, run.Caveats...),
 		SourceRefs:     append([]string{}, run.SourceRefs...),
 		StoredSession:  run.StoredSession,
 		StoredHistory:  run.StoredHistory,
 	}
+}
+
+func snapshotRunMutation(mutation *tui.RunMemoryMutationView) *state.SessionSnapshotRunMutation {
+	if mutation == nil {
+		return nil
+	}
+	result := &state.SessionSnapshotRunMutation{
+		ToolName:       mutation.Name,
+		Status:         mutation.Status,
+		Path:           mutation.Path,
+		ExpectedEffect: mutation.ExpectedEffect,
+		BytesWritten:   mutation.BytesWritten,
+		ErrorKind:      mutation.ErrorKind,
+		ErrorMessage:   mutation.ErrorMessage,
+	}
+	if mutation.Decision != nil {
+		result.DecisionSource = mutation.Decision.Source
+		result.DecisionAutonomy = mutation.Decision.Autonomy
+		result.Allowed = mutation.Decision.Allowed
+		result.Automatic = mutation.Decision.Automatic
+		result.ApprovalRequired = mutation.Decision.ApprovalRequired
+	}
+	return result
 }
 
 func snapshotBlockers(view tui.ViewState) []state.SessionSnapshotBlocker {

@@ -1,0 +1,184 @@
+header:
+  level: full
+  created: '2026-05-16'
+  status: completed
+  reviewed: '2026-05-16'
+  critic_issues: M31 completed; real provider/model execution, stdin diff review, arbitrary shell, write run, hosted control
+    plane behavior, and M32+ behavior deferred
+  title: Milestone 31 Non-Interactive Read-Only Run
+what: Deliver ROADMAP.md Milestone 31 by turning `aila run <prompt>` from a stub into a bounded deterministic read-only CLI
+  task that inspects the repository through app-owned read-only tool paths, prints inspected files, checks/commands, blockers,
+  caveats, and source refs, and stores session state that the interactive TUI can inspect later.
+why: M30 made interactive recovery auditable. M31 makes the documented non-interactive `run` command useful for safe repo
+  inspection before write-mode run behavior arrives in M32.
+constraints: 'Execute only Milestone 31. Preserve statechart-MVU and explicit effect boundaries. Keep TUI presentation-only:
+  it may render stored app-injected run memory/history state, but it must not inspect files, run commands, decide permissions,
+  or persist session state. `aila run <prompt>` is read-only for this slice and may use deterministic app-owned read/search/bash
+  inspection through existing permission/tool boundaries. Keep real provider/model execution, stdin diff review, arbitrary
+  shell commands, file mutation, approval UI changes, write-run behavior, context compaction, stale checks, source indexing,
+  plugins, MCP servers, workflow DSLs, model marketplaces, hosted control plane behavior, and Milestone 32+ behavior out of
+  scope. Use behavior-based test names. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-16-m30.yaml
+source_anchors:
+- ROADMAP.md:16-110
+- ROADMAP.md:1361-1382
+- docs/notes/PROMPT.md:1-39
+- AGENTS.md:1-163
+- README.md:34-56
+- README.md:239-243
+- README.md:273-301
+- ARCHITECTURE.md:535-603
+- ARCHITECTURE.md:919-946
+- docs/tui-testing.md:69-77
+- docs/tui-testing.md:413-433
+verification_commands:
+- go test ./cmd/aila -run 'TestNonInteractiveRunThenContinueSmoke' -count=1
+- go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+  -count=1
+- go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+  -count=1
+- go test ./internal/app ./internal/state ./internal/tui ./cmd/aila -count=1
+- go test ./internal/... -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml cmd/aila internal/app internal/state internal/tui
+- git diff --check --no-index /dev/null <each new M31 source/YAML/JSON file>; fixed-width plain/ANSI render snapshots preserve
+  terminal padding and are covered by snapshot tests
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" plan --format json
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" progress --format json
+- uv run "$HOME/.local/share/agentera/app/scripts/agentera" hej
+scope:
+  included:
+  - Replace the `aila run` stub with a bounded read-only CLI report for `run <prompt>` that does not start the interactive
+    TUI path.
+  - Inspect a small deterministic repo context through app-owned read-only tool paths, including inspected files and safe
+    check/command summaries.
+  - Persist non-interactive run session state and bounded history evidence for later inspection through existing project-store
+    surfaces.
+  - Extend the interactive TUI session/history rendering and semantic snapshots so stored run memory exposes inspected files,
+    commands, blockers, caveats, and source refs.
+  - Add PTY smoke proving a temp-workspace non-interactive run writes inspectable state and interactive startup/continue can
+    render it afterward.
+  excluded:
+  - Real provider/model execution, stdin diff review, arbitrary user-selected shell commands, file mutation, approval UI changes,
+    write-run behavior, context compaction, stale checks, source indexing, plugins, MCP servers, workflow DSLs, model marketplaces,
+    hosted control planes, and Milestone 32+ behavior.
+  deferred:
+  - Provider-backed non-interactive reasoning, piped diff review, write-mode runs, richer per-run session directories, source
+    indexing, and stale-context validation.
+design: 'Keep CLI parsing in cmd/aila and route `run` to an app-owned non-interactive read-only runner. The app runner builds
+  a deterministic run report from existing permission/tool/state boundaries: read selected repo files through read validation/execution,
+  run only fixed safe inspection commands through the bash read-only path, summarize blockers and caveats, persist current-session
+  memory plus bounded fake history records, and return plain CLI output without terminal UI startup. The TUI consumes injected
+  snapshot/history state only; it does not perform inspection IO or infer run state from files.'
+overall_acceptance:
+- '`aila run <prompt>` returns a bounded plain-text report that includes prompt, inspected files, checks/commands run, blockers,
+  caveats, source refs, and a stored-session indicator without starting the interactive TUI.'
+- Repo inspection uses only app-owned read-only tool paths with permission decisions and safe fixed commands; no file mutation,
+  approval flow, provider execution, or arbitrary shell is introduced.
+- Current-session state and fake history capture the non-interactive run enough for `aila continue` and `/history` to show
+  it later without leaking absolute workspace paths or secrets.
+- TUI render and semantic snapshots expose stored run inspected files, commands, blockers, caveats, and source refs through
+  display-only state.
+- PTY smoke proves a temp-workspace `aila run <prompt>` completes, persists inspectable state, and a following interactive
+  startup/continue can render the stored non-interactive run.
+surprises: []
+tasks:
+- number: 1
+  name: Replace run stub with bounded read-only CLI report
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN `aila run explain the repo` is executed WHEN CLI parsing completes THEN the command routes to an app-owned non-interactive
+    run function instead of the deferred stub or interactive TUI path.
+  - GIVEN the run completes WHEN stdout is printed THEN the report lists status, prompt, inspected files, checks or commands
+    run, blockers, caveats, source refs, and stored-session status within bounded output.
+  - GIVEN missing prompt or unsafe setup occurs WHEN run starts THEN the CLI returns a bounded diagnostic or blocked report
+    without hanging or reading interactive terminal input.
+  evidence:
+  - cmd/aila routes `run` to app.NonInteractiveRunCommandOutput through injectable cliRunner.runCmd instead of the deferred
+    stub or interactive TUI path.
+  - go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+    -count=1 passed, including injected run routing and missing-prompt blocked report coverage.
+- number: 2
+  name: Inspect repository through read-only tool boundaries
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN a temp repo has README/ROADMAP or other known docs WHEN the non-interactive run executes THEN inspected files are
+    read through existing read validation/execution and reported by workspace-relative path.
+  - GIVEN fixed safe checks run WHEN command summaries are collected THEN they use existing read-only bash validation/execution
+    and record command, status, and bounded output summary.
+  - GIVEN files are missing, git is unavailable, or checks fail WHEN inspection continues THEN blockers/caveats are recorded
+    without mutation or unbounded output.
+  evidence:
+  - internal/app/noninteractive_run.go inspects README.md, ROADMAP.md, and AGENTS.md through tools.ValidateReadRequest/ExecuteRead
+    and fixed `git status --short --branch` plus `git diff --stat` through ValidateBashRequest/ExecuteBash.
+  - TestNonInteractiveRunInspectsRepoAndStoresSessionMemory passed, proving workspace-relative inspected files, fixed command
+    summaries, source refs, and no absolute workspace path leaks in stdout.
+- number: 3
+  name: Persist non-interactive run session and history state
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN a non-interactive read-only run completes WHEN persistence succeeds THEN current-session snapshot stores prompt,
+    assistant/report text, run metadata, blockers, caveats, inspected files, commands, and source refs for later resume.
+  - GIVEN fake history is available WHEN the run completes THEN prompt, response, and runtime/history evidence are appended
+    with bounded text and no secret or absolute-path leaks.
+  - GIVEN store persistence fails WHEN the run reports THEN stdout includes a bounded persistence blocker/caveat and the process
+    does not claim stored state succeeded.
+  evidence:
+  - Non-interactive run persistence writes state.SessionSnapshot.Run after stored flags are finalized and appends bounded
+    fake history prompt/response/runtime/command events.
+  - TestNonInteractiveRunInspectsRepoAndStoresSessionMemory and TestValidateSessionSnapshotContractAcceptsBoundedRunMemory
+    passed, proving stored session/history flags, run metadata, source refs, and read-back compatibility.
+- number: 4
+  name: Render stored run memory in TUI fixtures and semantic snapshots
+  depends_on:
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN interactive continue loads a stored non-interactive run WHEN the TUI renders THEN visible memory/status/history
+    surfaces show prompt/report context plus inspected files, commands, blockers, caveats, and source refs.
+  - GIVEN semantic snapshots are generated WHEN stored run memory is present THEN inspected_files, commands_run, blockers,
+    caveats, source_refs, and display-only provenance are machine-readable.
+  - GIVEN the history view includes non-interactive run records WHEN rendered THEN the TUI remains presentation-only and history
+    navigation bounds remain stable.
+  evidence:
+  - Added behavior-named run-memory TUI fixture that renders app-injected non-interactive run memory plus related read-only
+    history rows without TUI-owned IO.
+  - go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+    -count=1 passed, covering visible memory, semantic run metadata, and history rows.
+- number: 5
+  name: Add PTY smoke, full validation, and closeout
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN a temp workspace PTY/process smoke runs WHEN `aila run <prompt>` completes THEN stdout proves inspected files, commands/checks,
+    blockers, caveats, source refs, and stored-session status are bounded and path-safe.
+  - GIVEN the same workspace starts interactive `continue` or opens history WHEN PTY smoke runs THEN the stored non-interactive
+    session is visible through existing session/history surfaces.
+  - GIVEN targeted and full validation pass WHEN ROADMAP.md and Agentera artifacts are updated THEN M31 is recorded complete
+    and M32 is next.
+  evidence:
+  - TestNonInteractiveRunThenContinueSmoke passed, proving `aila run <prompt>` emits bounded path-safe stdout, stores current-session
+    run memory and fake history, and a following PTY `aila continue` plus `/history` renders the stored non-interactive run.
+  - go test ./cmd/aila ./internal/app ./internal/state ./internal/tui -run 'Test.*Run|Test.*NonInteractive|Test.*Session|Test.*History|TestCLIRunner|TestCLI'
+    -count=1 passed.
+  - go test ./internal/tui -run 'TestRunMemory|TestHistoryViewFixtureShowsMutationUndoMetadata|TestDiffView'
+    -count=1 passed.
+  - go test ./internal/app ./internal/state ./internal/tui ./cmd/aila -count=1 passed after restoring legacy 160x45 fixture
+    expectations and keeping the new run-memory fixture at 120x60.
+  - go test ./internal/... -count=1 passed.
+  - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md records M31 complete and M32 next; touched/new M31 tests use behavior-based names rather than stale milestone
+    IDs.
+complete: 5
+total: 5
+active: false
+complete_plan: true

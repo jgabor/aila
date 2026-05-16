@@ -1810,6 +1810,191 @@ func TestRunMemoryFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func loadWriteRunMemoryFixture(t *testing.T) renderFixture {
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = "write-run-memory"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "noninteractive.run"
+	state.StatusDetail = "write run flagged"
+	state.RuntimeResult = "Write run flagged: changed 1 file(s), ran 2 check(s)."
+	state.MemorySource = "state.current-session-snapshot"
+	state.MemorySessionID = "current"
+	state.Transcript = []TranscriptTurn{
+		{UserText: "create a note"},
+		{AssistantText: "Write run flagged: changed 1 file(s), ran 2 check(s)."},
+	}
+	state.RunMemory = &RunMemoryView{
+		Mode:   "non_interactive_write",
+		Prompt: "create a note",
+		Status: "flagged",
+		InspectedFiles: []RunMemoryFileView{
+			{Path: "README.md", Status: "completed", LineStart: 1, LineEnd: 3, SourceRef: "README.md:1-3"},
+		},
+		Commands: []RunMemoryCommandView{
+			{Command: "git status --short --branch", Status: "completed", ExitCode: 0, Summary: "## main"},
+			{Command: "git diff --stat", Status: "completed", ExitCode: 0, Summary: "docs/aila-run-output.md | 5 +++++"},
+		},
+		ChangedFiles: []RunMemoryChangedFileView{
+			{Path: "docs/aila-run-output.md", Status: "completed", PreviousVersion: "missing", NewVersion: "sha256:write-run", BytesWritten: 120, SourceRef: "docs/aila-run-output.md"},
+		},
+		Mutation: &RunMemoryMutationView{
+			Name:           "write",
+			Status:         "completed",
+			Path:           "docs/aila-run-output.md",
+			ExpectedEffect: "create bounded non-interactive run output",
+			BytesWritten:   120,
+			Decision: &DecisionView{
+				Source:           "autonomy_policy",
+				Autonomy:         "write",
+				Allowed:          true,
+				Automatic:        true,
+				ApprovalRequired: false,
+				OperationKind:    "file_mutation",
+				Name:             "write",
+				Target:           "docs/aila-run-output.md",
+				ExpectedEffect:   "create bounded non-interactive run output",
+				RunID:            "run-write-note",
+				Capability:       "noninteractive.run",
+			},
+		},
+		Blockers:      []string{},
+		Caveats:       []string{"deterministic write run; provider model execution deferred"},
+		SourceRefs:    []string{"README.md:1-3", "docs/aila-run-output.md", "git status --short --branch", "git diff --stat"},
+		StoredSession: true,
+		StoredHistory: true,
+	}
+	state = ApplyHistoryView(state, writeRunMemoryHistoryItems(), 5, true)
+	state.Scenario = "write-run-memory"
+	return loadRenderFixture(t, state.Scenario, state)
+}
+
+func writeRunMemoryHistoryItems() []HistoryItem {
+	items := runMemoryHistoryItems()
+	items[0].DisplayText = "noninteractive run prompt create a note"
+	items[1].DisplayText = "Write run flagged: changed 1 file(s), ran 2 check(s)."
+	items[2].DisplayText = "noninteractive run flagged inspected=1 commands=2"
+	items = append(items, HistoryItem{
+		EventID:     "noninteractive-run-6",
+		RunID:       "noninteractive-run",
+		SessionID:   "current",
+		Kind:        "mutation",
+		Source:      "noninteractive.run",
+		Provenance:  "mutation.result",
+		DisplayText: "mutation write completed docs/aila-run-output.md undo delete_created_file",
+		Mutation: &HistoryMutationItem{
+			Name:                  "write",
+			Status:                "completed",
+			CommandSource:         "noninteractive.run",
+			RequestID:             "run-write-note",
+			ChangedPaths:          []string{"docs/aila-run-output.md"},
+			RequestedPath:         "docs/aila-run-output.md",
+			ExpectedEffect:        "create bounded non-interactive run output",
+			PreviousVersion:       "missing",
+			NewVersion:            "sha256:write-run",
+			BytesWritten:          120,
+			ResolvedPathAvailable: true,
+			DecisionRunID:         "run-write-note",
+			DecisionCapability:    "noninteractive.run",
+		},
+		Undo: &HistoryUndoItem{
+			Available:       true,
+			Action:          "delete_created_file",
+			Paths:           []string{"docs/aila-run-output.md"},
+			PreviousVersion: "missing",
+			NewVersion:      "sha256:write-run",
+		},
+	})
+	return items
+}
+
+func TestWriteRunMemoryRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadWriteRunMemoryFixture(t)
+	render := RenderPlain(fixture.State, Size{Width: 120, Height: 60})
+	wantRender := []string{
+		"run mode: non_interactive_write",
+		"run status: flagged",
+		"run prompt: create a note",
+		"changed file: docs/aila-run-output.md status=completed source_ref=docs/aila-run-output.md",
+		"mutation tool: write",
+		"mutation status: completed",
+		"mutation decision source: autonomy_policy",
+		"mutation decision autonomy: write",
+		"mutation approval required: false",
+		"history:",
+		"selected event id: noninteractive-run-6",
+	}
+	if !containsAll(render, wantRender) {
+		t.Fatalf("write-run-memory render missing evidence %v:\n%s", wantRender, render)
+	}
+
+	snapshot := Semantic(fixture.State, Size{Width: 120, Height: 60})
+	if snapshot.Memory == nil || snapshot.Memory.Run == nil || snapshot.Memory.Run.Mutation == nil {
+		t.Fatalf("semantic memory missing write run evidence: %+v", snapshot.Memory)
+	}
+	run := snapshot.Memory.Run
+	if run.Mode != "non_interactive_write" || run.Prompt != "create a note" || len(run.ChangedFiles) != 1 || run.ChangedFiles[0].Path != "docs/aila-run-output.md" {
+		t.Fatalf("semantic write run memory = %+v", run)
+	}
+	if run.Mutation.Name != "write" || run.Mutation.Status != "completed" || run.Mutation.Decision == nil || run.Mutation.Decision.Autonomy != "write" || !run.Mutation.Decision.Allowed || run.Mutation.Decision.ApprovalRequired {
+		t.Fatalf("semantic write mutation = %+v", run.Mutation)
+	}
+	if snapshot.History == nil || snapshot.History.SelectedID != "noninteractive-run-6" {
+		t.Fatalf("semantic write history = %+v", snapshot.History)
+	}
+	selectedMutation := false
+	for _, item := range snapshot.History.Items {
+		if item.EventID == "noninteractive-run-6" && item.Selected && item.Kind == "mutation" && item.Mutation != nil && item.Undo != nil {
+			selectedMutation = true
+		}
+	}
+	if !selectedMutation {
+		t.Fatalf("semantic write history items = %+v", snapshot.History.Items)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	memory := strings.Join(regions["memory"].Items, "\n")
+	if !containsAll(memory, []string{"run_mode: non_interactive_write", "changed_file: docs/aila-run-output.md status=completed source_ref=docs/aila-run-output.md", "mutation_tool: write", "mutation_status: completed", "mutation_decision_source: autonomy_policy", "mutation_decision_autonomy: write", "mutation_approval_required: false", "app-owned", "display-only"}) {
+		t.Fatalf("memory semantic region = %v, want write run evidence", regions["memory"].Items)
+	}
+	history := strings.Join(regions["history"].Items, "\n")
+	if !containsAll(history, []string{"selected_id: noninteractive-run-6", "item: noninteractive-run current noninteractive-run-6 mutation mutation write completed docs/aila-run-output.md undo delete_created_file selected: true", "item_mutation: noninteractive-run-6 write completed", "item_changed_paths: docs/aila-run-output.md", "item_undo_action: delete_created_file", "display-only"}) {
+		t.Fatalf("history semantic region = %v, want write mutation history evidence", regions["history"].Items)
+	}
+}
+
+func TestWriteRunMemoryFixtureSnapshots(t *testing.T) {
+	fixture := loadWriteRunMemoryFixture(t)
+	assertFixtureSizes(t, fixture, runMemoryFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		renderCase := renderCase
+		t.Run(renderCase.name, func(t *testing.T) {
+			got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+			assertTextSnapshot(t, fixture, renderCase.file, got)
+			plain := stripANSI(got)
+			if !containsAll(plain, []string{"run mode: non_interactive_write", "changed file: docs/aila-run-output.md", "mutation tool: write", "selected event id: noninteractive-run-6"}) {
+				t.Fatalf("write-run-memory fixture missing visible evidence:\n%s", plain)
+			}
+		})
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		semanticCase := semanticCase
+		t.Run(semanticCase.name, func(t *testing.T) {
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+			var snapshot SemanticSnapshot
+			if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+				t.Fatalf("unmarshal semantic snapshot: %v", err)
+			}
+			if snapshot.Memory == nil || snapshot.Memory.Run == nil || snapshot.Memory.Run.Mutation == nil || snapshot.History == nil {
+				t.Fatalf("semantic write-run-memory fixture missing memory/history: %+v", snapshot)
+			}
+		})
+	}
+}
+
 func viewStateFromRuntimeModel(scenario string, model runtime.Model) ViewState {
 	state := IdleEmptyState()
 	state.Phase = "PLAN"
