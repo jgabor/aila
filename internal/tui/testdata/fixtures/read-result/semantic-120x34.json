@@ -1,0 +1,117 @@
+{
+  "scenario": "read-result",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "read tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "read_tool": {
+    "tool_name": "read",
+    "status": "completed",
+    "read_only": true,
+    "path": "internal/tui/render.go",
+    "requested_range": {
+      "start_line": 18,
+      "limit": 2
+    },
+    "effective_range": {
+      "start_line": 18,
+      "end_line": 19,
+      "limit": 2
+    },
+    "preview_lines": ["18: maxDisplayTextBytes = 240", "19: )"],
+    "preview_truncated": true,
+    "line_limit_hit": false,
+    "truncation_marker": "[preview truncated after 240 bytes]",
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: read tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "read_tool",
+      "visible": true,
+      "items": [
+        "tool_name: read",
+        "status: completed",
+        "read_only: true",
+        "path: internal/tui/render.go",
+        "requested_range: start 18 limit 2",
+        "completed: true",
+        "effective_range: start 18 end 19 limit 2",
+        "preview_line: 18: maxDisplayTextBytes = 240",
+        "preview_line: 19: )",
+        "preview_truncated: true",
+        "line_limit_hit: false",
+        "truncation_marker: [preview truncated after 240 bytes]",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

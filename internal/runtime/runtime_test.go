@@ -104,6 +104,45 @@ func TestUpdateHandlesCommandDeterministically(t *testing.T) {
 	})
 }
 
+func TestUpdateHandlesReadToolProposalDeterministically(t *testing.T) {
+	t.Parallel()
+
+	request := ReadToolRequest{Path: "docs/notes.md", StartLine: 3, LineLimit: 2, MaxPreviewBytes: 256, Source: ReadSourceMetadata{Caller: "test", RequestID: "read-1"}}
+	model := Model{Status: StatusIdle, NextOperation: 4}
+	firstModel, firstEffects := Update(model, ReadToolProposed{Request: request})
+	secondModel, secondEffects := Update(model, ReadToolProposed{Request: request})
+
+	if !reflect.DeepEqual(firstModel, secondModel) {
+		t.Fatalf("Update is not deterministic for read proposal model:\nfirst:  %#v\nsecond: %#v", firstModel, secondModel)
+	}
+	if !reflect.DeepEqual(firstEffects, secondEffects) {
+		t.Fatalf("Update is not deterministic for read proposal effects:\nfirst:  %#v\nsecond: %#v", firstEffects, secondEffects)
+	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{
+		ID:      "op-5",
+		Kind:    OperationRead,
+		Subject: "docs/notes.md",
+		Source:  "user",
+	})
+	if got := firstModel.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "tool", Text: "read docs/notes.md"}}) {
+		t.Fatalf("Transcript = %#v", got)
+	}
+	if !reflect.DeepEqual(firstModel.ActiveRead, request) {
+		t.Fatalf("ActiveRead = %#v, want %#v", firstModel.ActiveRead, request)
+	}
+	if len(firstEffects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(firstEffects))
+	}
+	effect, ok := firstEffects[0].(ReadToolEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want ReadToolEffect", firstEffects[0])
+	}
+	if !reflect.DeepEqual(effect.Request, request) {
+		t.Fatalf("read request = %#v, want %#v", effect.Request, request)
+	}
+	assertOperationMetadata(t, effect.Metadata(), firstModel.ActiveOperation)
+}
+
 func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 	t.Parallel()
 
@@ -141,6 +180,59 @@ func TestUpdateHandlesFakeResultMessages(t *testing.T) {
 	}
 	if got := failed.Transcript[len(failed.Transcript)-1]; got != (TranscriptEntry{Kind: "failure", Text: "fake failure"}) {
 		t.Fatalf("last transcript = %#v", got)
+	}
+}
+
+func TestUpdateHandlesReadToolResultMessages(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-3", Kind: OperationRead, Subject: "notes.txt", Source: "user"}
+	model := Model{
+		Status:        StatusActive,
+		NextOperation: 3,
+		Transcript:    []TranscriptEntry{{Kind: "tool", Text: "read notes.txt"}},
+	}
+	result := ReadToolResult{
+		ToolName:              "read",
+		RequestedPath:         "notes.txt",
+		WorkspaceRelativePath: "notes.txt",
+		EffectiveRange:        ReadLineRange{StartLine: 2, EndLine: 3, Limit: 2},
+		PreviewText:           "2: beta\n3: gamma\n",
+		Error:                 ReadToolError{Kind: ReadToolErrorNone},
+	}
+
+	completed, effects := Update(model, ReadToolCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	if completed.Status != StatusIdle {
+		t.Fatalf("Status = %q, want %q", completed.Status, StatusIdle)
+	}
+	if completed.LastRead != result {
+		t.Fatalf("LastRead = %#v, want %#v", completed.LastRead, result)
+	}
+	if completed.ActiveRead != (ReadToolRequest{}) {
+		t.Fatalf("ActiveRead = %#v, want cleared after read completion", completed.ActiveRead)
+	}
+	if !strings.Contains(completed.Result, "read notes.txt:2-3") || !strings.Contains(completed.Result, "2: beta") {
+		t.Fatalf("Result = %q, want bounded read summary with line refs", completed.Result)
+	}
+	if got := completed.Transcript[len(completed.Transcript)-1]; got.Kind != "result" || got.Text != completed.Result {
+		t.Fatalf("last transcript = %#v", got)
+	}
+
+	failure := result
+	failure.Error = ReadToolError{Kind: ReadToolErrorMissingFile, Message: "file does not exist"}
+	failure.PreviewText = ""
+	failed, effects := Update(model, ReadToolCompleted{Operation: operation, Result: failure})
+	if len(effects) != 0 {
+		t.Fatalf("failed len(effects) = %d, want 0", len(effects))
+	}
+	if failed.Status != StatusIdle {
+		t.Fatalf("failed Status = %q, want %q", failed.Status, StatusIdle)
+	}
+	if got := failed.Transcript[len(failed.Transcript)-1]; got.Kind != "failure" || !strings.Contains(got.Text, "missing_file") {
+		t.Fatalf("failure transcript = %#v", got)
 	}
 }
 
@@ -212,6 +304,50 @@ func TestUpdateRecordsInterruptingForActiveFakeWork(t *testing.T) {
 	assertOperationMetadata(t, effect.Metadata(), wantOperation)
 	if effect.Cancel != wantCancel {
 		t.Fatalf("Cancel = %#v, want %#v", effect.Cancel, wantCancel)
+	}
+}
+
+func TestUpdateDoesNotFakeCancelActiveReadWork(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationRead, Subject: "notes.txt", Source: "user"}
+	model := Model{
+		Status:          StatusActive,
+		NextOperation:   1,
+		ActiveOperation: operation,
+		Transcript:      []TranscriptEntry{{Kind: "tool", Text: "read notes.txt"}},
+	}
+
+	updated, effects := Update(model, InterruptRequested{Reason: "ctrl-c"})
+
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want no fake interrupt effect for read work", len(effects))
+	}
+	if !reflect.DeepEqual(updated, model) {
+		t.Fatalf("updated model = %#v, want active read unchanged %#v", updated, model)
+	}
+}
+
+func TestUpdateQueuesReadProposalWhileWorkIsActive(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-1", Kind: OperationRead, Subject: "active.txt", Source: "user"}
+	model := Model{
+		Status:          StatusActive,
+		ActiveOperation: operation,
+		Transcript:      []TranscriptEntry{{Kind: "tool", Text: "read active.txt"}},
+	}
+
+	updated, effects := Update(model, ReadToolProposed{Request: ReadToolRequest{Path: "queued.txt"}})
+
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want queued read no-op", len(effects))
+	}
+	if got, want := updated.Queued, []QueuedEntry{{Kind: "read", Text: "queued.txt"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Queued = %#v, want %#v", got, want)
+	}
+	if !reflect.DeepEqual(updated.Transcript, model.Transcript) || updated.ActiveOperation != operation {
+		t.Fatalf("active read mutated unexpectedly: %#v", updated)
 	}
 }
 

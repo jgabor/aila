@@ -31,6 +31,31 @@ type TranscriptTurn struct {
 	QueuedCount   int
 	QueuedText    []string
 	Diagnostics   []DiagnosticView
+	Read          *ReadView
+}
+
+// ReadView is app-injected read presentation data. It is display-only;
+// TUI code must never validate paths or read workspace files itself.
+type ReadView struct {
+	Name             string
+	Status           string
+	ReadOnly         bool
+	Path             string
+	RequestedRange   ReadLineRangeView
+	EffectiveRange   ReadLineRangeView
+	PreviewLines     []string
+	PreviewTruncated bool
+	LineLimitHit     bool
+	TruncationMarker string
+	ErrorKind        string
+	ErrorMessage     string
+}
+
+// ReadLineRangeView records 1-based read line references for presentation.
+type ReadLineRangeView struct {
+	StartLine int
+	EndLine   int
+	Limit     int
 }
 
 // Size is the terminal dimensions used by the static M2 renderer.
@@ -247,7 +272,17 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.QueuedCount = turn.QueuedCount
 	state.QueuedText = append([]string(nil), turn.QueuedText...)
 	state.Diagnostics = mergeDiagnosticViews(state.Diagnostics, turn.Diagnostics)
+	state.Read = cloneReadView(turn.Read)
 	return state
+}
+
+func cloneReadView(read *ReadView) *ReadView {
+	if read == nil {
+		return nil
+	}
+	clone := *read
+	clone.PreviewLines = append([]string(nil), read.PreviewLines...)
+	return &clone
 }
 
 func mergeDiagnosticViews(existing []DiagnosticView, added []DiagnosticView) []DiagnosticView {

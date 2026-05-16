@@ -39,7 +39,7 @@ func run(ctx context.Context, input io.Reader, output io.Writer, resumeCurrent b
 		return err
 	}
 
-	runner := newInputRunnerForEnvironment(ctx)
+	runner := newInputRunnerForEnvironment(ctx, workspace, state.Autonomy)
 	controller := newController(ctx, workspace, state, runner)
 	return runProgramWithShutdown(ctx, input, output, state, controller)
 }
@@ -48,14 +48,14 @@ func initialDisplayState(ctx context.Context, workspacePath string) (tui.ViewSta
 	return initialDisplayStateWithResume(ctx, workspacePath, false)
 }
 
-func newInputRunnerForEnvironment(ctx context.Context) *inputRunner {
+func newInputRunnerForEnvironment(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
 	if os.Getenv("AILA_FAKE_RUNTIME_HOLD_ACTIVE") == "1" {
 		if os.Getenv("AILA_FAKE_RUNTIME_RESOLVE_SECOND_INTERRUPT") == "1" {
 			return newInputRunnerHoldingFakeWorkWithSecondInterruptResolutionContext(ctx)
 		}
 		return newInputRunnerHoldingFakeWorkWithContext(ctx)
 	}
-	return newInputRunnerWithContext(ctx)
+	return newInputRunnerWithReadContext(ctx, workspacePath, autonomyLevel)
 }
 
 func initialDisplayStateWithResume(ctx context.Context, workspacePath string, resumeCurrent bool) (tui.ViewState, error) {

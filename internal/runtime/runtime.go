@@ -8,8 +8,8 @@ import (
 	"github.com/jgabor/aila/internal/diagnostic"
 )
 
-// Status describes whether the runtime is waiting for user input or a fake
-// operation result.
+// Status describes whether the runtime is waiting for user input or an operation
+// result.
 type Status string
 
 const (
@@ -40,6 +40,14 @@ type CommandSelected struct {
 
 func (CommandSelected) runtimeMessage() {}
 
+// ReadToolProposed records caller intent to read a workspace file.
+// Update turns it into an effect; app-owned dispatch performs validation and IO.
+type ReadToolProposed struct {
+	Request ReadToolRequest
+}
+
+func (ReadToolProposed) runtimeMessage() {}
+
 // InterruptRequested records user intent to stop the current fake operation.
 type InterruptRequested struct {
 	Reason string
@@ -62,6 +70,14 @@ type FakeEffectFailed struct {
 }
 
 func (FakeEffectFailed) runtimeMessage() {}
+
+// ReadToolCompleted reports a read effect result, including bounded read errors.
+type ReadToolCompleted struct {
+	Operation OperationMetadata
+	Result    ReadToolResult
+}
+
+func (ReadToolCompleted) runtimeMessage() {}
 
 // FakeInterruptResolved reports that the in-memory fake interrupt path resolved.
 type FakeInterruptResolved struct {
@@ -86,6 +102,8 @@ type Model struct {
 	Queued          []QueuedEntry
 	Result          string
 	LastCommand     string
+	ActiveRead      ReadToolRequest
+	LastRead        ReadToolResult
 	NextOperation   int
 	ActiveOperation OperationMetadata
 	Diagnostics     []diagnostic.Diagnostic
@@ -131,6 +149,18 @@ type FakeCommandEffect struct {
 func (FakeCommandEffect) runtimeEffect() {}
 
 func (effect FakeCommandEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// ReadToolEffect requests read-only workspace file execution outside Update.
+type ReadToolEffect struct {
+	Operation OperationMetadata
+	Request   ReadToolRequest
+}
+
+func (ReadToolEffect) runtimeEffect() {}
+
+func (effect ReadToolEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -237,6 +267,7 @@ type OperationKind string
 const (
 	OperationPrompt  OperationKind = "prompt"
 	OperationCommand OperationKind = "command"
+	OperationRead    OperationKind = "read"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -263,6 +294,79 @@ type CancelMetadata struct {
 	Reason    string
 }
 
+// ReadToolRequest is the runtime-owned read proposal data. It intentionally
+// mirrors only primitive request fields so runtime stays filesystem-free.
+type ReadToolRequest struct {
+	Path            string
+	StartLine       int
+	LineLimit       int
+	MaxPreviewBytes int
+	Source          ReadSourceMetadata
+}
+
+// ReadSourceMetadata records caller-visible provenance for a read request.
+type ReadSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// ReadLineRange records inclusive 1-based line bounds for read results.
+type ReadLineRange struct {
+	StartLine int
+	EndLine   int
+	Limit     int
+}
+
+// ReadTruncation records bounded preview truncation decisions.
+type ReadTruncation struct {
+	PreviewBytesLimit int
+	PreviewTruncated  bool
+	LineLimitHit      bool
+	Marker            string
+}
+
+// ReadToolErrorKind is a bounded machine-readable read failure category.
+type ReadToolErrorKind string
+
+const (
+	ReadToolErrorNone              ReadToolErrorKind = "none"
+	ReadToolErrorInvalidPath       ReadToolErrorKind = "invalid_path"
+	ReadToolErrorOutsideWorkspace  ReadToolErrorKind = "outside_workspace"
+	ReadToolErrorReservedPath      ReadToolErrorKind = "reserved_path"
+	ReadToolErrorDirectoryLikePath ReadToolErrorKind = "directory_like_path"
+	ReadToolErrorInvalidRange      ReadToolErrorKind = "invalid_range"
+	ReadToolErrorMissingFile       ReadToolErrorKind = "missing_file"
+	ReadToolErrorDirectory         ReadToolErrorKind = "directory"
+	ReadToolErrorPermission        ReadToolErrorKind = "permission_denied"
+	ReadToolErrorSymlinkEscape     ReadToolErrorKind = "symlink_escape"
+	ReadToolErrorBinaryContent     ReadToolErrorKind = "binary_content"
+	ReadToolErrorOversizedFile     ReadToolErrorKind = "oversized_file"
+	ReadToolErrorCanceled          ReadToolErrorKind = "canceled"
+	ReadToolErrorExecution         ReadToolErrorKind = "execution_error"
+)
+
+// ReadToolError is safe to surface without leaking host-local paths.
+type ReadToolError struct {
+	Kind    ReadToolErrorKind
+	Message string
+}
+
+// ReadToolResult is the typed runtime message payload returned by read effects.
+type ReadToolResult struct {
+	ToolName              string
+	RequestedPath         string
+	WorkspaceRelativePath string
+	ResolvedPath          string
+	ResolvedPathAvailable bool
+	RequestedRange        ReadLineRange
+	EffectiveRange        ReadLineRange
+	PreviewText           string
+	Truncation            ReadTruncation
+	Error                 ReadToolError
+	Source                ReadSourceMetadata
+}
+
 // Update applies one runtime message and returns the next model plus typed
 // effects for an external interpreter.
 func Update(model Model, message Message) (Model, []Effect) {
@@ -274,7 +378,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 	switch msg := message.(type) {
 	case PromptSubmitted:
 		text := strings.TrimSpace(msg.Text)
-		if hasActiveFakeWork(next.Status) {
+		if hasActiveWork(next.Status) {
 			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
 			return next, nil
 		}
@@ -282,6 +386,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationPrompt, text)
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
@@ -290,11 +396,29 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Status = StatusActive
 		next.Result = ""
 		next.LastCommand = msg.Name
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
+	case ReadToolProposed:
+		request := msg.Request
+		request.Path = strings.TrimSpace(request.Path)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "read", Text: readPathLabel(request.Path)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationRead, readPathLabel(request.Path))
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveRead = request
+		next.LastRead = ReadToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "tool", Text: "read " + readPathLabel(request.Path)})
+		return next, []Effect{ReadToolEffect{Operation: operation, Request: request}}
 	case InterruptRequested:
-		if !hasActiveFakeWork(next.Status) {
+		if !hasActiveFakeWork(next) {
 			return next, nil
 		}
 
@@ -308,14 +432,31 @@ func Update(model Model, message Message) (Model, []Effect) {
 	case FakeEffectCompleted:
 		next.Status = StatusIdle
 		next.Result = msg.Result
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: msg.Result})
 		return next, nil
 	case FakeEffectFailed:
 		next.Status = StatusIdle
 		next.Result = msg.Failure.Message
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
+		return next, nil
+	case ReadToolCompleted:
+		summary := readResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = msg.Result
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != ReadToolErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
 		return next, nil
 	case FakeInterruptResolved:
 		next.Status = StatusCanceled
@@ -334,8 +475,12 @@ func Update(model Model, message Message) (Model, []Effect) {
 	}
 }
 
-func hasActiveFakeWork(status Status) bool {
+func hasActiveWork(status Status) bool {
 	return status == StatusActive || status == StatusCanceling
+}
+
+func hasActiveFakeWork(model Model) bool {
+	return hasActiveWork(model.Status) && model.ActiveOperation.Kind != OperationRead
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -365,4 +510,44 @@ func operationID(number int) string {
 	}
 
 	return prefix + string(digits)
+}
+
+func readResultSummary(result ReadToolResult) string {
+	path := result.WorkspaceRelativePath
+	if path == "" {
+		path = readPathLabel(result.RequestedPath)
+	}
+	if path == "" {
+		path = "requested path"
+	}
+
+	if result.Error.Kind != "" && result.Error.Kind != ReadToolErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("read %s failed: %s", path, result.Error.Kind)
+		}
+		return fmt.Sprintf("read %s failed: %s: %s", path, result.Error.Kind, message)
+	}
+
+	if result.EffectiveRange.EndLine > 0 {
+		return fmt.Sprintf("read %s:%d-%d\n%s", path, result.EffectiveRange.StartLine, result.EffectiveRange.EndLine, strings.TrimRight(result.PreviewText, "\n"))
+	}
+	return "read " + path + ": no matching lines"
+}
+
+func readPathLabel(path string) string {
+	path = strings.TrimSpace(path)
+	slashPath := strings.ReplaceAll(path, "\\", "/")
+	if path == "" || strings.HasPrefix(slashPath, "/") || strings.Contains(slashPath, "..") {
+		return "requested path"
+	}
+	for _, reserved := range []string{"~", "$HOME", "${HOME}", "$XDG_", "${XDG_", ".aila", ".agentera"} {
+		if strings.HasPrefix(slashPath, reserved) {
+			return "requested path"
+		}
+	}
+	if strings.Contains(slashPath, ".config") {
+		return "requested path"
+	}
+	return path
 }

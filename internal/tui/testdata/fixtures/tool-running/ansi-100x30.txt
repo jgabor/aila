@@ -1,0 +1,29 @@
+[1mAila                                                                                          100x30[0m
+[2mStage BUILD | Runtime active | Model placeholder | Utility placeholder | Auto placeholder           [0m
++ [33mConversation[0m ------------------------------------------------------------------------------------+
+| Runtime status:                                                                                  |
+| status: active                                                                                   |
+| status source: runtime.fixture                                                                   |
+| detail: read tool dispatch                                                                       |
+| active: true                                                                                     |
+|                                                                                                  |
+| Read tool:                                                                                       |
+| tool: read                                                                                       |
+| status: running                                                                                  |
+| read-only: true                                                                                  |
+| path: internal/tui/render.go                                                                     |
+| requested range: start 18 limit 2                                                                |
+| completed: false                                                                                 |
+| preview truncated: false                                                                         |
+| line limit hit: false                                                                            |
+|                                                                                                  |
+| No messages yet.                                                                                 |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                |
++--------------------------------------------------------------------------------------------------+
+[2m                                                    git: placeholder | context: placeholder | q quit[0m

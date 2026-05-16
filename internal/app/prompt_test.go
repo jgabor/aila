@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -110,6 +111,109 @@ func TestPromptSubmitHandoffDistinguishesQueuedAndNonQueuedPaths(t *testing.T) {
 	}
 	if result.RuntimeStatus != "idle" || result.RuntimeActive {
 		t.Fatalf("non-queued runtime state = %+v, want idle", result)
+	}
+}
+
+func TestReadToolProposalRoutesThroughExplicitAppEffect(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, "notes.txt"), []byte("alpha\nbeta\ngamma\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "read")
+
+	turn := runner.proposeReadTool(runtime.ReadToolRequest{Path: "notes.txt", StartLine: 2, LineLimit: 2, Source: runtime.ReadSourceMetadata{Caller: "test", RequestID: "read-1"}})
+
+	if turn.UserText != "" || !strings.Contains(turn.AssistantText, "read notes.txt:2-3") || !strings.Contains(turn.AssistantText, "2: beta") {
+		t.Fatalf("read turn = %+v, want completed read result with exact path and lines", turn)
+	}
+	if turn.Read == nil || turn.Read.Status != "completed" || !turn.Read.ReadOnly || turn.Read.Path != "notes.txt" || turn.Read.EffectiveRange.StartLine != 2 || turn.Read.EffectiveRange.EndLine != 3 || !reflect.DeepEqual(turn.Read.PreviewLines, []string{"2: beta", "3: gamma"}) {
+		t.Fatalf("read view = %+v, want completed read presentation state", turn.Read)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive {
+		t.Fatalf("read runtime state = %+v, want idle after explicit read effect", turn)
+	}
+	if got := runner.model.LastRead; got.ToolName != "read" || got.WorkspaceRelativePath != "notes.txt" || got.EffectiveRange.StartLine != 2 || got.EffectiveRange.EndLine != 3 || got.Error.Kind != runtime.ReadToolErrorNone {
+		t.Fatalf("last read = %#v, want successful read result", got)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".aila")); !os.IsNotExist(err) {
+		t.Fatalf("read tool created durable state err=%v", err)
+	}
+}
+
+func TestReadToolProposalCanSurfaceRunningReadPresentation(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatch(func([]runtime.Effect) []runtime.Message { return nil })
+
+	turn := runner.proposeReadTool(runtime.ReadToolRequest{Path: "notes.txt", StartLine: 4, LineLimit: 6})
+
+	if turn.Read == nil || turn.Read.Status != "running" || !turn.Read.ReadOnly || turn.Read.Path != "notes.txt" || turn.Read.RequestedRange.StartLine != 4 || turn.Read.RequestedRange.Limit != 6 {
+		t.Fatalf("running read view = %+v, want active injected read presentation state", turn.Read)
+	}
+	if turn.RuntimeStatus != string(runtime.StatusActive) || !turn.RuntimeActive || turn.StatusDetail != "read tool dispatch" {
+		t.Fatalf("running read runtime turn = %+v, want active read dispatch detail", turn)
+	}
+}
+
+func TestReadToolProposalSurfacesValidationFailureWithoutHiddenRetry(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "read")
+
+	turn := runner.proposeReadTool(runtime.ReadToolRequest{Path: "../secret.txt"})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("read failure runtime state = turn %+v model %#v, want idle without retry", turn, runner.model)
+	}
+	if got := runner.model.LastRead.Error; got.Kind != runtime.ReadToolErrorInvalidPath || !strings.Contains(got.Message, "path traversal") {
+		t.Fatalf("last read error = %#v, want bounded invalid path failure", got)
+	}
+	if strings.Contains(turn.AssistantText, "../secret.txt") || strings.Contains(turn.AssistantText, workspace) {
+		t.Fatalf("read failure leaked unsafe path context: %q", turn.AssistantText)
+	}
+	if got := len(runner.model.Transcript); got != 2 {
+		t.Fatalf("transcript entries = %d, want proposal plus one result without hidden retry", got)
+	}
+}
+
+func TestReadToolProposalSurfacesExecutionFailureWithoutWorkflowMutation(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "read")
+
+	turn := runner.proposeReadTool(runtime.ReadToolRequest{Path: "missing.txt"})
+
+	if runner.model.Status != runtime.StatusIdle || turn.RuntimeStatus != string(runtime.StatusIdle) || turn.RuntimeActive {
+		t.Fatalf("missing read runtime state = turn %+v model %#v, want idle result", turn, runner.model)
+	}
+	if got := runner.model.LastRead.Error; got.Kind != runtime.ReadToolErrorMissingFile || !strings.Contains(got.Message, "file does not exist") {
+		t.Fatalf("missing read error = %#v, want missing file", got)
+	}
+	if !strings.Contains(turn.AssistantText, "read missing.txt failed: missing_file") {
+		t.Fatalf("missing read assistant = %q, want bounded failure result", turn.AssistantText)
+	}
+	if len(runner.model.Diagnostics) != 0 {
+		t.Fatalf("missing read diagnostics = %#v, want no workflow or recovery mutation", runner.model.Diagnostics)
+	}
+}
+
+func TestReadToolProposalDeniedWhenAutonomyOff(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	runner := newInputRunnerWithReadContext(context.Background(), workspace, "off")
+
+	turn := runner.proposeReadTool(runtime.ReadToolRequest{Path: "notes.txt"})
+
+	if turn.RuntimeStatus != string(runtime.StatusIdle) || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("denied read runtime state = turn %+v model %#v", turn, runner.model)
+	}
+	if runner.model.LastRead.Error.Kind != runtime.ReadToolErrorPermission || !strings.Contains(turn.AssistantText, "autonomy off") {
+		t.Fatalf("denied read result = %#v assistant=%q", runner.model.LastRead, turn.AssistantText)
 	}
 }
 

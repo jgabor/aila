@@ -1,0 +1,29 @@
+Aila                                                                                          100x30
+Stage BUILD | Runtime active | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation ------------------------------------------------------------------------------------+
+| Runtime status:                                                                                  |
+| status: active                                                                                   |
+| status source: runtime.fixture                                                                   |
+| detail: read tool dispatch                                                                       |
+| active: true                                                                                     |
+|                                                                                                  |
+| Read tool:                                                                                       |
+| tool: read                                                                                       |
+| status: running                                                                                  |
+| read-only: true                                                                                  |
+| path: internal/tui/render.go                                                                     |
+| requested range: start 18 limit 2                                                                |
+| completed: false                                                                                 |
+| preview truncated: false                                                                         |
+| line limit hit: false                                                                            |
+|                                                                                                  |
+| No messages yet.                                                                                 |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit

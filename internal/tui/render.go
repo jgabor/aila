@@ -20,7 +20,7 @@ const (
 
 var (
 	secretLikeText = regexp.MustCompile(`(?i)(bearer\s+)[^\s,;]+|((?:api[_-]?key|token|password|secret)\s*[:=]\s*)[^\s,;]+`)
-	pathLikeText   = regexp.MustCompile(`(?i)(~|/home/[^\s,;]+|/tmp/[^\s,;]+|[^\s,;]*(?:\x2eaila|\x2econfig|project\.toml|artifacts/|indexes/)[^\s,;]*|[a-z]:\\[^\s,;]+|\\\\[^\s,;]+)`)
+	pathLikeText   = regexp.MustCompile(`(?i)(~[^\s,;]*|\$\{?(?:HOME|XDG_[A-Z0-9_]+)\}?[^\s,;]*|/(?:[^\s,;/]+/)+[^\s,;]+|[^\s,;]*(?:\x2eaila|\x2eagentera|\x2econfig|project\.toml|artifacts/|indexes/)[^\s,;]*|[a-z]:\\[^\s,;]+|\\\\[^\s,;]+)`)
 )
 
 // ViewState is the deterministic data rendered by the M2 static shell.
@@ -36,6 +36,7 @@ type ViewState struct {
 	RuntimeResult      string
 	QueuedCount        int
 	QueuedText         []string
+	Read               *ReadView
 	PrimaryModel       string
 	UtilityModel       string
 	Autonomy           string
@@ -160,6 +161,7 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	items = append(items, readLines(state.Read)...)
 	items = append(items, memoryLines(state)...)
 	items = append(items, queueLines(state)...)
 	items = append(items, chatLines(state.Transcript)...)
@@ -213,6 +215,63 @@ func runtimeStatusLines(state ViewState) []string {
 	lines = append(lines, interruptStatusLines(state)...)
 	lines = append(lines, "")
 	return lines
+}
+
+func readLines(read *ReadView) []string {
+	if read == nil {
+		return nil
+	}
+	semantic := semanticRead(read)
+	lines := []string{
+		"  Read tool:",
+		"  tool: " + semantic.Name,
+		"  status: " + semantic.Status,
+		"  read-only: " + boolLabel(semantic.ReadOnly),
+		"  path: " + semantic.Path,
+		"  requested range: " + readRangeLabel(semantic.RequestedRange),
+		"  completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.EffectiveRange != nil {
+		lines = append(lines, "  effective range: "+readRangeLabel(*semantic.EffectiveRange))
+	}
+	if len(semantic.PreviewLines) > 0 {
+		lines = append(lines, "  preview:")
+		for _, previewLine := range semantic.PreviewLines {
+			lines = append(lines, "  | "+previewLine)
+		}
+	}
+	lines = append(lines,
+		"  preview truncated: "+boolLabel(semantic.PreviewTruncated),
+		"  line limit hit: "+boolLabel(semantic.LineLimitHit),
+	)
+	if semantic.TruncationMarker != "" {
+		lines = append(lines, "  truncation marker: "+semantic.TruncationMarker)
+	}
+	if semantic.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.ErrorMessage)
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func readRangeLabel(lineRange SemanticReadLineRange) string {
+	parts := make([]string, 0, 3)
+	if lineRange.StartLine > 0 {
+		parts = append(parts, fmt.Sprintf("start %d", lineRange.StartLine))
+	}
+	if lineRange.EndLine > 0 {
+		parts = append(parts, fmt.Sprintf("end %d", lineRange.EndLine))
+	}
+	if lineRange.Limit > 0 {
+		parts = append(parts, fmt.Sprintf("limit %d", lineRange.Limit))
+	}
+	if len(parts) == 0 {
+		return "full file"
+	}
+	return strings.Join(parts, " ")
 }
 
 func interruptStatusLines(state ViewState) []string {
@@ -410,8 +469,33 @@ type SemanticSnapshot struct {
 	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
 	Command     *SemanticCommand     `json:"command,omitempty"`
 	History     *SemanticHistory     `json:"history,omitempty"`
+	Read        *SemanticRead        `json:"read_tool,omitempty"`
 	Regions     []SemanticRegion     `json:"regions"`
 	Actions     []SemanticAction     `json:"actions"`
+}
+
+// SemanticRead describes injected read-only state for snapshots.
+type SemanticRead struct {
+	Name             string                 `json:"tool_name"`
+	Status           string                 `json:"status"`
+	ReadOnly         bool                   `json:"read_only"`
+	Path             string                 `json:"path"`
+	RequestedRange   SemanticReadLineRange  `json:"requested_range"`
+	EffectiveRange   *SemanticReadLineRange `json:"effective_range,omitempty"`
+	PreviewLines     []string               `json:"preview_lines,omitempty"`
+	PreviewTruncated bool                   `json:"preview_truncated"`
+	LineLimitHit     bool                   `json:"line_limit_hit"`
+	TruncationMarker string                 `json:"truncation_marker,omitempty"`
+	ErrorKind        string                 `json:"error_kind,omitempty"`
+	ErrorMessage     string                 `json:"error_message,omitempty"`
+	Completed        bool                   `json:"completed"`
+}
+
+// SemanticReadLineRange records machine-readable 1-based line references.
+type SemanticReadLineRange struct {
+	StartLine int `json:"start_line,omitempty"`
+	EndLine   int `json:"end_line,omitempty"`
+	Limit     int `json:"limit,omitempty"`
 }
 
 // SemanticMemory describes app-injected resumed current-session memory.
@@ -549,6 +633,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
+	if state.Read != nil {
+		regions = append(regions, SemanticRegion{Name: "read_tool", Visible: true, Items: semanticReadItems(state.Read)})
+	}
 	if hasInterruptState(state) {
 		regions = append(regions, SemanticRegion{Name: "interrupt", Visible: true, Items: semanticInterruptItems(state)})
 	}
@@ -619,6 +706,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Diagnostics: semanticDiagnostics(state.Diagnostics),
 		Command:     command,
 		History:     semanticHistory(state),
+		Read:        semanticRead(state.Read),
 		Regions:     regions,
 		Actions:     actions,
 	}
@@ -774,6 +862,112 @@ func semanticRuntimeStatusItems(state ViewState) []string {
 	return items
 }
 
+func semanticReadItems(read *ReadView) []string {
+	semantic := semanticRead(read)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"tool_name: " + semantic.Name,
+		"status: " + semantic.Status,
+		"read_only: " + boolLabel(semantic.ReadOnly),
+		"path: " + semantic.Path,
+		"requested_range: " + readRangeLabel(semantic.RequestedRange),
+		"completed: " + boolLabel(semantic.Completed),
+	}
+	if semantic.EffectiveRange != nil {
+		items = append(items, "effective_range: "+readRangeLabel(*semantic.EffectiveRange))
+	}
+	for _, previewLine := range semantic.PreviewLines {
+		items = append(items, "preview_line: "+previewLine)
+	}
+	items = append(items,
+		"preview_truncated: "+boolLabel(semantic.PreviewTruncated),
+		"line_limit_hit: "+boolLabel(semantic.LineLimitHit),
+	)
+	if semantic.TruncationMarker != "" {
+		items = append(items, "truncation_marker: "+semantic.TruncationMarker)
+	}
+	if semantic.ErrorKind != "" {
+		items = append(items, "error_kind: "+semantic.ErrorKind)
+	}
+	if semantic.ErrorMessage != "" {
+		items = append(items, "error_message: "+semantic.ErrorMessage)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticRead(read *ReadView) *SemanticRead {
+	if read == nil {
+		return nil
+	}
+	status := safeText(read.Status)
+	if status == "" {
+		status = "running"
+	}
+	completed := status != "running"
+	if read.ErrorKind != "" {
+		completed = true
+	}
+	name := safeText(read.Name)
+	if name == "" {
+		name = "read"
+	}
+	semantic := &SemanticRead{
+		Name:             name,
+		Status:           status,
+		ReadOnly:         read.ReadOnly,
+		Path:             safeReadTargetPath(read.Path),
+		RequestedRange:   semanticReadLineRange(read.RequestedRange),
+		PreviewLines:     safePreviewLines(read.PreviewLines),
+		PreviewTruncated: read.PreviewTruncated,
+		LineLimitHit:     read.LineLimitHit,
+		TruncationMarker: safeText(read.TruncationMarker),
+		ErrorKind:        safeText(read.ErrorKind),
+		ErrorMessage:     safeText(read.ErrorMessage),
+		Completed:        completed,
+	}
+	if hasReadRange(read.EffectiveRange) {
+		effective := semanticReadLineRange(read.EffectiveRange)
+		semantic.EffectiveRange = &effective
+	}
+	if !semantic.Completed {
+		semantic.EffectiveRange = nil
+		semantic.PreviewLines = nil
+		semantic.PreviewTruncated = false
+		semantic.LineLimitHit = false
+		semantic.TruncationMarker = ""
+		semantic.ErrorKind = ""
+		semantic.ErrorMessage = ""
+	}
+	return semantic
+}
+
+func semanticReadLineRange(lineRange ReadLineRangeView) SemanticReadLineRange {
+	return SemanticReadLineRange(lineRange)
+}
+
+func hasReadRange(lineRange ReadLineRangeView) bool {
+	return lineRange.StartLine > 0 || lineRange.EndLine > 0 || lineRange.Limit > 0
+}
+
+func safePreviewLines(lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	const maxPreviewLines = 12
+	limit := len(lines)
+	if limit > maxPreviewLines {
+		limit = maxPreviewLines
+	}
+	items := make([]string, 0, limit)
+	for _, line := range lines[:limit] {
+		items = append(items, safeText(line))
+	}
+	return items
+}
+
 func semanticInterruptItems(state ViewState) []string {
 	interrupt := semanticInterrupt(state)
 	items := []string{
@@ -833,6 +1027,21 @@ func safeText(value string) string {
 	return limitTextBytes(value, maxDisplayTextBytes)
 }
 
+func safeReadTargetPath(value string) string {
+	value = strings.Join(strings.Fields(stripTerminalControls(value)), " ")
+	if value == "" {
+		return "requested path"
+	}
+	if secretLikeText.MatchString(value) {
+		return "[redacted]"
+	}
+	slashPath := strings.ReplaceAll(value, "\\", "/")
+	if strings.HasPrefix(slashPath, "/") || strings.HasPrefix(slashPath, "~") || strings.HasPrefix(slashPath, "$HOME") || strings.HasPrefix(slashPath, "${HOME}") || strings.HasPrefix(slashPath, "$XDG_") || strings.HasPrefix(slashPath, "${XDG_") || strings.Contains(slashPath, "..") || strings.Contains(slashPath, "\x2eaila") || strings.Contains(slashPath, "\x2eagentera") || strings.Contains(slashPath, "\x2econfig") {
+		return "[path-redacted]"
+	}
+	return limitTextBytes(value, maxDisplayTextBytes)
+}
+
 func semanticFocus(state ViewState) string {
 	if historyVisible(state) && state.HistoryFocus {
 		return "history"
@@ -843,6 +1052,14 @@ func semanticFocus(state ViewState) string {
 func stripTerminalControls(value string) string {
 	var out strings.Builder
 	for i := 0; i < len(value); {
+		switch value[i] {
+		case 0x90, 0x9e, 0x9f:
+			i = skipUntilStringTerminator(value, i+1)
+			continue
+		case 0x9d:
+			i = skipUntilBELOrStringTerminator(value, i+1)
+			continue
+		}
 		r, size := utf8.DecodeRuneInString(value[i:])
 		if r == utf8.RuneError && size == 1 {
 			i++
@@ -850,16 +1067,7 @@ func stripTerminalControls(value string) string {
 		}
 		if r == '\x1b' {
 			i += size
-			if i < len(value) && value[i] == '[' {
-				i++
-			}
-			for i < len(value) {
-				r, size = utf8.DecodeRuneInString(value[i:])
-				i += size
-				if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
-					break
-				}
-			}
+			i = skipEscapeSequence(value, i)
 			continue
 		}
 		if r < ' ' || r == '\x7f' {
@@ -871,6 +1079,61 @@ func stripTerminalControls(value string) string {
 		i += size
 	}
 	return out.String()
+}
+
+func skipEscapeSequence(value string, index int) int {
+	if index >= len(value) {
+		return index
+	}
+	switch value[index] {
+	case '[':
+		return skipUntilFinalByte(value, index+1)
+	case ']':
+		return skipUntilBELOrStringTerminator(value, index+1)
+	case 'P', '^', '_':
+		return skipUntilStringTerminator(value, index+1)
+	default:
+		_, size := utf8.DecodeRuneInString(value[index:])
+		return index + size
+	}
+}
+
+func skipUntilFinalByte(value string, index int) int {
+	for index < len(value) {
+		r, size := utf8.DecodeRuneInString(value[index:])
+		index += size
+		if r >= 0x40 && r <= 0x7e {
+			break
+		}
+	}
+	return index
+}
+
+func skipUntilBELOrStringTerminator(value string, index int) int {
+	for index < len(value) {
+		r, size := utf8.DecodeRuneInString(value[index:])
+		index += size
+		if r == '\a' {
+			break
+		}
+		if r == '\x1b' && index < len(value) && value[index] == '\\' {
+			index++
+			break
+		}
+	}
+	return index
+}
+
+func skipUntilStringTerminator(value string, index int) int {
+	for index < len(value) {
+		r, size := utf8.DecodeRuneInString(value[index:])
+		index += size
+		if r == '\x1b' && index < len(value) && value[index] == '\\' {
+			index++
+			break
+		}
+	}
+	return index
 }
 
 func limitTextBytes(value string, maxBytes int) string {

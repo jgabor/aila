@@ -375,11 +375,40 @@ func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
 	}
 }
 
+func TestSafeTextStripsTerminalControlPayloads(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{
+		"title \x1b]0;token=secret-value\a after",
+		"payload \x1bPpassword=secret-value\x1b\\ after",
+		"payload \x1b_secret=hidden\x1b\\ after",
+		"title \x9dtoken=secret-value\a after",
+		"payload \x90password=secret-value\x1b\\ after",
+		"payload \x9esecret=hidden\x1b\\ after",
+		"payload \x9fsecret=hidden\x1b\\ after",
+	} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			got := safeText(input)
+			assertNoReadLeak(t, got)
+			if containsAny(got, []string{"token", "password", "hidden"}) {
+				t.Fatalf("safeText(%q) = %q, want terminal control payload stripped", input, got)
+			}
+		})
+	}
+}
+
 func TestSafeTextRedactsPathLikeText(t *testing.T) {
 	t.Parallel()
 
 	for _, input := range []string{
 		"workspace /home/jgabor/git/aila/internal/tui",
+		"system /etc/passwd",
+		"logs /var/log/auth.log",
+		"home $HOME/.ssh/id_rsa",
+		"config ${XDG_CONFIG_HOME}/aila/config.toml",
 		"store /home/jgabor/git/aila/.aila/project.toml",
 		"config ~/.config/aila/config.toml",
 		"scratch /tmp/aila/artifacts/indexes/cache",
@@ -395,6 +424,352 @@ func TestSafeTextRedactsPathLikeText(t *testing.T) {
 			}
 			assertNoPathLeak(t, got)
 		})
+	}
+}
+
+func TestM18ReadToolRunningRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	state := readToolState(&ReadView{
+		Name:           "read",
+		Status:         "running",
+		ReadOnly:       true,
+		Path:           "internal/tui/read_result.go",
+		RequestedRange: ReadLineRangeView{StartLine: 12, Limit: 8},
+	})
+	render := RenderPlain(state, Size{Width: 100, Height: 30})
+	if !containsAll(render, []string{
+		"Read tool:",
+		"tool: read",
+		"status: running",
+		"read-only: true",
+		"path: internal/tui/read_result.go",
+		"requested range: start 12 limit 8",
+		"completed: false",
+	}) {
+		t.Fatalf("running read render missing tool-running evidence:\n%s", render)
+	}
+	if containsAny(render, []string{"effective range:", "preview:", "error kind:", "completed: true"}) {
+		t.Fatalf("running read render looks completed:\n%s", render)
+	}
+
+	snapshot := Semantic(state, Size{Width: 100, Height: 30})
+	if snapshot.Read == nil || snapshot.Read.Name != "read" || snapshot.Read.Status != "running" || !snapshot.Read.ReadOnly || snapshot.Read.Path != "internal/tui/read_result.go" || snapshot.Read.Completed {
+		t.Fatalf("running read semantic = %+v, want read-only running metadata", snapshot.Read)
+	}
+	if snapshot.Read.RequestedRange.StartLine != 12 || snapshot.Read.RequestedRange.Limit != 8 || snapshot.Read.EffectiveRange != nil || len(snapshot.Read.PreviewLines) != 0 {
+		t.Fatalf("running read ranges = %+v effective=%+v preview=%v", snapshot.Read.RequestedRange, snapshot.Read.EffectiveRange, snapshot.Read.PreviewLines)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	readRegion := strings.Join(regions["read_tool"].Items, "\n")
+	if !containsAll(readRegion, []string{"tool_name: read", "status: running", "path: internal/tui/read_result.go", "requested_range: start 12 limit 8", "completed: false", "app-owned", "display-only"}) {
+		t.Fatalf("running read semantic region = %v", regions["read_tool"].Items)
+	}
+}
+
+func TestM18ReadToolCompletedRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	state := readToolState(&ReadView{
+		Name:             "read",
+		Status:           "completed",
+		ReadOnly:         true,
+		Path:             "internal/tui/read_result.go",
+		RequestedRange:   ReadLineRangeView{StartLine: 2, Limit: 3},
+		EffectiveRange:   ReadLineRangeView{StartLine: 2, EndLine: 4, Limit: 3},
+		PreviewLines:     []string{"2: beta", "3: token=secret-value", "4: cache /home/jgabor/git/aila/.aila/project.toml"},
+		PreviewTruncated: true,
+		LineLimitHit:     true,
+		TruncationMarker: "[preview truncated]",
+	})
+	render := RenderPlain(state, Size{Width: 120, Height: 34})
+	if !containsAll(render, []string{
+		"Read tool:",
+		"status: completed",
+		"read-only: true",
+		"path: internal/tui/read_result.go",
+		"requested range: start 2 limit 3",
+		"effective range: start 2 end 4 limit 3",
+		"completed: true",
+		"preview:",
+		"2: beta",
+		"3: [redacted]",
+		"4: cache [path-redacted]",
+		"preview truncated: true",
+		"line limit hit: true",
+		"truncation marker: [preview truncated]",
+	}) {
+		t.Fatalf("completed read render missing exact path, line, truncation, or preview evidence:\n%s", render)
+	}
+	assertNoReadLeak(t, render)
+
+	snapshot := Semantic(state, Size{Width: 120, Height: 34})
+	if snapshot.Read == nil || snapshot.Read.Path != "internal/tui/read_result.go" || !snapshot.Read.Completed || !snapshot.Read.PreviewTruncated || !snapshot.Read.LineLimitHit {
+		t.Fatalf("completed read semantic = %+v, want completed read metadata", snapshot.Read)
+	}
+	if snapshot.Read.EffectiveRange == nil || snapshot.Read.EffectiveRange.StartLine != 2 || snapshot.Read.EffectiveRange.EndLine != 4 || snapshot.Read.EffectiveRange.Limit != 3 {
+		t.Fatalf("completed read effective range = %+v", snapshot.Read.EffectiveRange)
+	}
+	if !sameStringSet(snapshot.Read.PreviewLines, []string{"2: beta", "3: [redacted]", "4: cache [path-redacted]"}) {
+		t.Fatalf("completed read preview lines = %v", snapshot.Read.PreviewLines)
+	}
+	semantic := RenderSemanticJSON(state, Size{Width: 120, Height: 34})
+	assertNoReadLeak(t, semantic)
+}
+
+func TestM18ReadToolErrorRenderRedactsUnsafeReadData(t *testing.T) {
+	t.Parallel()
+
+	state := readToolState(&ReadView{
+		Name:           "read",
+		Status:         "failed",
+		ReadOnly:       true,
+		Path:           "/home/jgabor/git/aila/.aila/project.toml",
+		RequestedRange: ReadLineRangeView{StartLine: 1, Limit: 4},
+		ErrorKind:      "permission_denied",
+		ErrorMessage:   "permission denied for /home/jgabor/.config/aila/config.toml token=secret-value",
+	})
+	render := RenderPlain(state, Size{Width: 120, Height: 30})
+	if !containsAll(render, []string{
+		"status: failed",
+		"read-only: true",
+		"path: [path-redacted]",
+		"requested range: start 1 limit 4",
+		"completed: true",
+		"error kind: permission_denied",
+		"error message: permission denied for [path-redacted] [redacted]",
+	}) {
+		t.Fatalf("failed read render missing bounded redacted error evidence:\n%s", render)
+	}
+	assertNoReadLeak(t, render)
+
+	snapshot := Semantic(state, Size{Width: 120, Height: 30})
+	if snapshot.Read == nil || snapshot.Read.Path != "[path-redacted]" || snapshot.Read.ErrorKind != "permission_denied" || snapshot.Read.ErrorMessage != "permission denied for [path-redacted] [redacted]" {
+		t.Fatalf("failed read semantic = %+v, want redacted path and error metadata", snapshot.Read)
+	}
+	assertNoReadLeak(t, RenderSemanticJSON(state, Size{Width: 120, Height: 30}))
+}
+
+func loadReadFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	var state ViewState
+	switch name {
+	case "tool-running":
+		state = readToolState(&ReadView{
+			Name:           "read",
+			Status:         "running",
+			ReadOnly:       true,
+			Path:           "internal/tui/render.go",
+			RequestedRange: ReadLineRangeView{StartLine: 18, Limit: 2},
+		})
+	case "read-result":
+		state = readToolState(&ReadView{
+			Name:             "read",
+			Status:           "completed",
+			ReadOnly:         true,
+			Path:             "internal/tui/render.go",
+			RequestedRange:   ReadLineRangeView{StartLine: 18, Limit: 2},
+			EffectiveRange:   ReadLineRangeView{StartLine: 18, EndLine: 19, Limit: 2},
+			PreviewLines:     []string{"18: \tmaxDisplayTextBytes = 240", "19: )"},
+			PreviewTruncated: true,
+			LineLimitHit:     false,
+			TruncationMarker: "[preview truncated after 240 bytes]",
+		})
+	default:
+		t.Fatalf("unknown read fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
+func TestM18ReadFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name           string
+		wantRender     []string
+		forbiddenPlain []string
+		completed      bool
+	}{
+		{
+			name: "tool-running",
+			wantRender: []string{
+				"Read tool:",
+				"tool: read",
+				"status: running",
+				"read-only: true",
+				"path: internal/tui/render.go",
+				"requested range: start 18 limit 2",
+				"completed: false",
+			},
+			forbiddenPlain: []string{"effective range:", "preview:", "error kind:", "completed: true"},
+		},
+		{
+			name: "read-result",
+			wantRender: []string{
+				"Read tool:",
+				"tool: read",
+				"status: completed",
+				"read-only: true",
+				"path: internal/tui/render.go",
+				"requested range: start 18 limit 2",
+				"effective range: start 18 end 19 limit 2",
+				"completed: true",
+				"18: maxDisplayTextBytes = 240",
+				"19: )",
+				"preview truncated: true",
+				"line limit hit: false",
+				"truncation marker: [preview truncated after 240 bytes]",
+			},
+			completed: true,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadReadFixture(t, tc.name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("read fixture metadata = %+v", fixture)
+			}
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, tc.wantRender) {
+						t.Fatalf("%s fixture render missing read evidence %v:\n%s", tc.name, tc.wantRender, plain)
+					}
+					if containsAny(plain, tc.forbiddenPlain) {
+						t.Fatalf("%s fixture render implies wrong read state:\n%s", tc.name, plain)
+					}
+					assertNoReadLeak(t, plain)
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					assertNoReadLeak(t, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Read == nil || snapshot.Read.Name != "read" || snapshot.Read.Path != "internal/tui/render.go" || !snapshot.Read.ReadOnly || snapshot.Read.Completed != tc.completed {
+						t.Fatalf("semantic read = %+v", snapshot.Read)
+					}
+					if snapshot.Read.RequestedRange.StartLine != 18 || snapshot.Read.RequestedRange.Limit != 2 {
+						t.Fatalf("requested range = %+v", snapshot.Read.RequestedRange)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					readRegion := strings.Join(regions["read_tool"].Items, "\n")
+					if !containsAll(readRegion, []string{"tool_name: read", "path: internal/tui/render.go", "requested_range: start 18 limit 2", "read_only: true", "app-owned", "display-only"}) {
+						t.Fatalf("read semantic region = %v", regions["read_tool"].Items)
+					}
+					if tc.completed {
+						if snapshot.Read.EffectiveRange == nil || snapshot.Read.EffectiveRange.StartLine != 18 || snapshot.Read.EffectiveRange.EndLine != 19 || !snapshot.Read.PreviewTruncated || snapshot.Read.TruncationMarker == "" {
+							t.Fatalf("completed read semantic = %+v", snapshot.Read)
+						}
+						if !sameStringSet(snapshot.Read.PreviewLines, []string{"18: maxDisplayTextBytes = 240", "19: )"}) {
+							t.Fatalf("preview lines = %v", snapshot.Read.PreviewLines)
+						}
+					} else if snapshot.Read.EffectiveRange != nil || len(snapshot.Read.PreviewLines) != 0 || snapshot.Read.PreviewTruncated || snapshot.Read.ErrorKind != "" {
+						t.Fatalf("running read semantic looks completed: %+v", snapshot.Read)
+					}
+				})
+			}
+		})
+	}
+}
+
+func trimSnapshotLinePadding(snapshot string) string {
+	lines := strings.Split(snapshot, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+}
+
+func TestM18ReadPTYSmokeDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"/read", "/read internal/tui/render.go", "read internal/tui/render.go"} {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil)
+			for _, r := range input {
+				updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				if cmd != nil {
+					t.Fatalf("typing %q emitted command", input)
+				}
+				model = updated.(Model)
+			}
+			updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd != nil {
+				t.Fatalf("submitting %q emitted command", input)
+			}
+			state := updated.(Model).state
+			if state.Read != nil || state.CommandRoute != "" || state.SurfaceTitle != "" || state.RuntimeStatus != "" {
+				t.Fatalf("%q unexpectedly invoked visible read state: %+v", input, state)
+			}
+		})
+	}
+}
+
+func TestM18ReadFixturesAreCheckedIn(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"tool-running", "read-result"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadReadFixture(t, name)
+			for _, size := range fixture.Sizes {
+				for _, kind := range []string{"plain", "ansi", "semantic"} {
+					key := fixtureOutputKey(kind, size.Name)
+					file := fixture.Outputs[key]
+					if file == "" {
+						t.Fatalf("render output %q missing from fixture metadata", key)
+					}
+					fixture.ReadFile(t, file)
+				}
+			}
+		})
+	}
+}
+
+func readToolState(readTool *ReadView) ViewState {
+	state := IdleEmptyState()
+	state.Phase = "BUILD"
+	state.PhaseSource = "workflow.fixture"
+	state.Scenario = "read-tool"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "read tool dispatch"
+	state.RuntimeActive = readTool != nil && readTool.Status == "running"
+	if state.RuntimeActive {
+		state.RuntimeStatus = "active"
+	}
+	state.Read = readTool
+	return state
+}
+
+func assertNoReadLeak(t *testing.T, text string) {
+	t.Helper()
+	assertNoPathLeak(t, text)
+	if containsAny(text, []string{"\x1b", "secret", "token=", "api_key", "password=", "authorization", "Bearer "}) {
+		t.Fatalf("read render leaked control or secret-like text:\n%s", text)
 	}
 }
 
@@ -1180,7 +1555,7 @@ func assertQueuedDefaultAction(t *testing.T, snapshot SemanticSnapshot) {
 
 func assertNoPathLeak(t *testing.T, text string) {
 	t.Helper()
-	if containsAny(text, []string{"/tmp", "/home/", "\\", ".aila", "project.toml", "artifacts/", "indexes/"}) {
+	if containsAny(text, []string{"/tmp", "/home/", "/etc/", "/var/", "$HOME", "${HOME}", "$XDG_", "\\", ".aila", "project.toml", "artifacts/", "indexes/"}) {
 		t.Fatalf("rendered project store status leaked path-like text:\n%s", text)
 	}
 }

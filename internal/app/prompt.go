@@ -1,6 +1,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
@@ -37,6 +39,14 @@ func (runner *inputRunner) requestInterrupt(reason string) tui.TranscriptTurn {
 	return turn
 }
 
+func (runner *inputRunner) proposeReadTool(request runtime.ReadToolRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.ReadToolProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.RuntimeDiagnostic{Diagnostic: signalShutdownDiagnostic(err)})
@@ -57,6 +67,10 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.QueuedCount = len(runner.model.Queued)
 	turn.QueuedText = queuedText(runner.model.Queued)
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
+	turn.Read = readView(runner.model)
+	if turn.Read != nil {
+		turn.StatusDetail = "read tool dispatch"
+	}
 }
 
 func (runner *inputRunner) routeCommand(recommendation policy.CommandRecommendation) {
@@ -115,4 +129,65 @@ func transcriptTurn(entries []runtime.TranscriptEntry) tui.TranscriptTurn {
 		}
 	}
 	return turn
+}
+
+func readView(model runtime.Model) *tui.ReadView {
+	if model.ActiveOperation.Kind == runtime.OperationRead && model.Status == runtime.StatusActive {
+		request := model.ActiveRead
+		return &tui.ReadView{
+			Name:           "read",
+			Status:         "running",
+			ReadOnly:       true,
+			Path:           request.Path,
+			RequestedRange: readRangeViewFromRequest(request),
+		}
+	}
+	if model.LastRead.ToolName == "" && model.LastRead.RequestedPath == "" && model.LastRead.WorkspaceRelativePath == "" {
+		return nil
+	}
+	status := "completed"
+	if model.LastRead.Error.Kind != "" && model.LastRead.Error.Kind != runtime.ReadToolErrorNone {
+		status = "failed"
+	}
+	path := model.LastRead.WorkspaceRelativePath
+	if path == "" {
+		path = model.LastRead.RequestedPath
+	}
+	return &tui.ReadView{
+		Name:             defaultString(model.LastRead.ToolName, "read"),
+		Status:           status,
+		ReadOnly:         true,
+		Path:             path,
+		RequestedRange:   readRangeView(model.LastRead.RequestedRange),
+		EffectiveRange:   readRangeView(model.LastRead.EffectiveRange),
+		PreviewLines:     readPreviewLines(model.LastRead.PreviewText),
+		PreviewTruncated: model.LastRead.Truncation.PreviewTruncated,
+		LineLimitHit:     model.LastRead.Truncation.LineLimitHit,
+		TruncationMarker: model.LastRead.Truncation.Marker,
+		ErrorKind:        string(model.LastRead.Error.Kind),
+		ErrorMessage:     model.LastRead.Error.Message,
+	}
+}
+
+func readRangeViewFromRequest(request runtime.ReadToolRequest) tui.ReadLineRangeView {
+	return tui.ReadLineRangeView{StartLine: request.StartLine, Limit: request.LineLimit}
+}
+
+func readRangeView(lineRange runtime.ReadLineRange) tui.ReadLineRangeView {
+	return tui.ReadLineRangeView{StartLine: lineRange.StartLine, EndLine: lineRange.EndLine, Limit: lineRange.Limit}
+}
+
+func readPreviewLines(preview string) []string {
+	preview = strings.TrimRight(preview, "\n")
+	if preview == "" {
+		return nil
+	}
+	return strings.Split(preview, "\n")
+}
+
+func defaultString(value string, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }

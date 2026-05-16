@@ -6554,6 +6554,167 @@ cycles:
         Commit retry still needs to pass hooks.
       scope: >-
         Lint-only close handling fix and progress metadata.
+  - number: 150
+    timestamp: "2026-05-16 10:31"
+    type: feat
+    phase: build
+    what: >-
+      Completed M18 Task 3 by wiring read tool proposals through runtime read effects, app-owned read dispatch,
+      tools validation/execution, and narrow read-only permission classification.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 3; ROADMAP.md Milestone 18; ARCHITECTURE.md tool and permission plane"
+    discovered: >-
+      Runtime can stay filesystem-free by carrying primitive read proposal/result structs while app dispatch maps to
+      `internal/tools`. Independent review found that active reads originally could have emitted fake interrupt effects
+      if delayed; the runtime now leaves active read work unchanged on interrupt until a real read-cancel path exists.
+      No TUI rendering, fixture, PTY smoke, find, grep, bash, fetch, edit/write, mutation history, undo/replay,
+      compaction, plugin, MCP, or M19+ behavior was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/app ./internal/runtime ./internal/permission
+      ./internal/tools -count=1` passed with read proposal/effect/result, validation failure, missing-file failure,
+      autonomy-off denial, queued read proposal, active read interrupt, and read-only permission classification coverage.
+      `go test ./internal/... -count=1` passed. `git diff --check -- internal/runtime internal/app internal/permission
+      internal/tools` passed. The first `mage check` attempt hit the 120s tool timeout without diagnostics; retrying with
+      a 300s bound passed with 0 lint issues and no vulnerabilities. Independent acceptance review reported no remaining
+      blocking findings; the only residual risk is that a production model/controller source for `ReadToolProposed` and
+      real read cancellation are deferred seams.
+    next: >-
+      Proceed to M18 Task 4: Render running and completed read results. Keep `.agentera/session.yaml` and `.aila/`
+      untracked, and do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Establish the app/runtime/policy read effect seam after the safe read executor without expanding into TUI
+        presentation or later tool families.
+      constraints: >-
+        Implement only M18 Task 3. Do not modify `.agentera/session.yaml`, `.aila/`, vision/objective state, TUI
+        fixture/rendering tasks, find/grep/bash/fetch/edit/write tools, mutation history, undo/replay, plugins, MCP, or
+        M19+ behavior.
+      unknowns: >-
+        Task 4 still owns dedicated TUI running/completed read presentation and semantic fields; Task 5 still owns
+        fixture evidence and the optional PTY smoke decision.
+      scope: >-
+        internal/runtime read proposal/effect/result state, internal/app read dispatch, internal/permission read-only
+        classification, focused tests, validation evidence, and Agentera plan/progress synchronization for Task 3.
+  - number: 151
+    timestamp: "2026-05-16 11:03"
+    type: feat
+    phase: build
+    what: >-
+      Completed M18 Task 4 by adding injected TUI read presentation state, running/completed read rendering, semantic
+      read metadata, app runtime-to-view mapping, and read data redaction hardening.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 4; ROADMAP.md Milestone 18; docs/tui-testing.md semantic-first TUI validation"
+    discovered: >-
+      Task 4 can stay presentation-only by adding TUI-owned read display structs and letting app code translate
+      runtime `ActiveRead`/`LastRead` into injected view state. Independent review found two real redaction risks:
+      generic absolute or HOME/XDG paths in read preview/error text and OSC/DCS/PM/APC terminal-control payloads.
+      Both were fixed, including 8-bit C1 introducers, while preserving slash-command display such as `/status`. No
+      checked-in read fixture snapshots, PTY smoke, find, grep, bash, fetch, edit/write, mutation history, undo/replay,
+      compaction, plugin, MCP, or M19+ behavior was added.
+    verified: >-
+      `mage fmt` completed successfully. `go test ./internal/tui ./internal/app ./internal/runtime -count=1` passed
+      with running read, completed read, failed read, truncation, exact safe target path, semantic read metadata, app
+      mapping, and redaction coverage. `go test ./internal/... -count=1` passed. `git diff --check -- internal/tui
+      internal/app internal/runtime internal/permission` passed. Independent acceptance review found redaction gaps;
+      after fixes, re-review confirmed generic path redaction and 7-bit/8-bit terminal-control payload stripping closed.
+      A first `mage check` run after Task 4 implementation failed on one staticcheck simplification; after converting the
+      line-range struct literal, the final `mage check` passed with 0 lint issues and no vulnerabilities.
+    next: >-
+      Proceed to M18 Task 5: Prove read fixtures and optional PTY smoke. Keep `.agentera/session.yaml` and `.aila/`
+      untracked, and do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Add only the TUI running/completed read presentation seam required after app/runtime read effect wiring.
+      constraints: >-
+        TUI must remain presentation-only and driven by injected state; it must not import runtime, tools, app, state,
+        permission, workflow, or perform filesystem reads. Do not modify `.agentera/session.yaml`, `.aila/`,
+        vision/objective state, checked-in fixture snapshots, PTY smoke gates, find/grep/bash/fetch/edit/write tools,
+        mutation history, undo/replay, plugins, MCP, or M19+ behavior.
+      unknowns: >-
+        Task 5 still owns checked-in plain/ANSI/semantic read fixtures and the optional PTY smoke decision; Task 6 still
+        owns roadmap closeout and final freshness evidence.
+      scope: >-
+        internal/tui read view and semantic rendering, internal/app read view mapping, runtime active read metadata,
+        focused TUI/app/runtime tests, redaction hardening, validation evidence, and Agentera plan/progress
+        synchronization for Task 4.
+  - number: 152
+    timestamp: "2026-05-16 11:48"
+    type: test
+    phase: validate
+    what: >-
+      Completed M18 Task 5 by checking in read-result and canonical tool-running TUI fixtures with plain, ANSI, and
+      semantic snapshots, plus an explicit PTY smoke skip decision for the absence of a visible read command path.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 5; docs/tui-testing.md fixture and semantic snapshot guidance"
+    discovered: >-
+      The read fixtures should stay out of the older M6 global fixture matrix because those contracts expect a fixed
+      size set for core shell fixtures. Dedicated M18 fixture tests cover the new read snapshots instead. Initial review
+      found two fixture-quality gaps: the completed fixture used synthetic stale line references, and the running fixture
+      used `read-running` rather than the canonical `tool-running` scenario. Both were fixed by anchoring the completed
+      fixture to actual `internal/tui/render.go` lines 18-19 and renaming the running fixture to `tool-running`. No
+      visible `/read` command path exists in M18, so PTY smoke is explicitly skipped by roadmap gate with regression
+      coverage proving read-like input does not invoke visible read state. No find, grep, bash, fetch, edit/write,
+      mutation history, undo/replay, compaction, plugin, MCP, or M19+ behavior was added.
+    verified: >-
+      `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run 'TestM18ReadFixtureSnapshots' -count=1` generated the
+      read snapshots for review. `go test ./internal/tui -run 'TestM18ReadFixtureSnapshots|TestM18ReadFixturesAreCheckedIn|TestM18ReadPTYSmokeDecision' -count=1`
+      passed. `mage fmt` completed successfully. `go test ./internal/tui ./internal/app ./internal/runtime -count=1`
+      passed. `go test ./internal/... -count=1` passed. `git diff --check -- internal/tui internal/app internal/runtime
+      internal/permission` passed. `mage check` passed with 0 lint issues and no vulnerabilities. Independent review
+      and re-review reported no remaining Task 5 findings, and leak scans over the read fixture outputs found no HOME,
+      `.aila`, config, credential, temp workspace, or unrelated outside-workspace paths.
+    next: >-
+      Proceed to M18 Task 6: Plan-level freshness checkpoint. Keep `.agentera/session.yaml` and `.aila/` untracked, and
+      do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Prove the read TUI presentation through checked-in deterministic fixtures and explicitly resolve the optional PTY
+        smoke gate for M18.
+      constraints: >-
+        Do not add a visible read command path, do not run fake PTY smoke without an invocation path, do not modify
+        `.agentera/session.yaml`, `.aila/`, vision/objective state, find/grep/bash/fetch/edit/write tools, mutation
+        history, undo/replay, plugins, MCP, or M19+ behavior.
+      unknowns: >-
+        Task 6 still owns roadmap closeout, slice completion template evidence, final plan/progress synchronization, and
+        final validation.
+      scope: >-
+        Read-result and tool-running fixture metadata/snapshots, dedicated fixture and PTY-skip tests, validation,
+        acceptance review fixes, and Agentera plan/progress synchronization for Task 5.
+  - number: 153
+    timestamp: "2026-05-16 12:02"
+    type: docs
+    phase: closeout
+    what: >-
+      Completed M18 Task 6 by updating ROADMAP.md status, completion log, and the completed Milestone 18 Slice
+      Completion Template, then synchronizing the Agentera plan as complete.
+    commit: "N/A: user did not request a git commit"
+    inspiration: ".agentera/plan.yaml task 6; ROADMAP.md milestone completion protocol; docs/notes/PROMPT.md final-response contract"
+    discovered: >-
+      Final closeout needed to account for untracked new files because normal tracked `git diff --check` does not inspect
+      them until staging. Added and ran explicit `git diff --check --no-index /dev/null <file>` checks for the new
+      permission and read fixture files, and documented that in ROADMAP.md. An independent closeout review also noted that
+      Agentera validation should use the installed CLI path rather than a bare `agentera` command; final validation uses
+      the installed `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera ...` form. No M19+ find/grep/search,
+      bash, fetch, edit/write, mutation history, undo/replay, compaction, plugin, MCP, or workflow DSL behavior was added.
+    verified: >-
+      `go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.
+      `go test ./internal/... -count=1` passed. `mage check` passed with 0 lint issues and no vulnerabilities. `git diff
+      --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml internal/tools internal/runtime internal/app
+      internal/permission internal/tui` passed. `git diff --check --no-index /dev/null <each new permission/read fixture
+      file>` passed. Agentera plan/progress validation ran with the installed CLI and reported the M18 plan completed.
+    next: >-
+      M18 is complete and M19: Find And Grep Tools is next. Do not commit or push unless explicitly requested.
+    context:
+      intent: >-
+        Close M18 after all implementation, TUI evidence, optional PTY decision, validation, and roadmap documentation are
+        complete.
+      constraints: >-
+        Do not start M19, do not modify `.agentera/session.yaml`, `.aila/`, vision/objective state, find/grep/bash/fetch
+        tool behavior, mutation history, undo/replay, plugins, MCP, or hosted assumptions, and do not commit or push.
+      unknowns: >-
+        Commit timing and whether to archive/clear the completed plan are user-owned; no commit was requested.
+      scope: >-
+        ROADMAP.md closeout, final validation, Agentera plan/progress synchronization, and final handoff evidence.
 archive:
   - .agentera/archive/plan-2026-05-12-m4.yaml
   - .agentera/archive/plan-2026-05-12-m5.yaml

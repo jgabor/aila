@@ -1,0 +1,33 @@
+Aila                                                                                                              120x34
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: read tool dispatch                                                                                           |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Read tool:                                                                                                           |
+| tool: read                                                                                                           |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| path: internal/tui/render.go                                                                                         |
+| requested range: start 18 limit 2                                                                                    |
+| completed: true                                                                                                      |
+| effective range: start 18 end 19 limit 2                                                                             |
+| preview:                                                                                                             |
+| | 18: maxDisplayTextBytes = 240                                                                                      |
+| | 19: )                                                                                                              |
+| preview truncated: true                                                                                              |
+| line limit hit: false                                                                                                |
+| truncation marker: [preview truncated after 240 bytes]                                                               |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit
