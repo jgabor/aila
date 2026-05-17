@@ -231,6 +231,33 @@ func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {
 			lines = append(lines, "utility suggested next action: "+view.StaleContext.SuggestedNextAction)
 		}
 	}
+	if view.SummaryRefresh.Status != "" || view.SummaryRefresh.RefreshedSummary != "" {
+		if view.SummaryRefresh.Status != "" {
+			lines = append(lines, "utility summary refresh: "+view.SummaryRefresh.Status)
+		}
+		if view.SummaryRefresh.OriginalSummary != "" {
+			lines = append(lines, "utility original summary: "+view.SummaryRefresh.OriginalSummary)
+		}
+		if view.SummaryRefresh.RefreshedSummary != "" {
+			line := "utility refreshed summary: " + view.SummaryRefresh.RefreshedSummary
+			if len(view.SummaryRefresh.SourceRefIDs) > 0 {
+				line += " refs=" + strings.Join(view.SummaryRefresh.SourceRefIDs, ",")
+			}
+			lines = append(lines, line)
+		}
+		if len(view.SummaryRefresh.SourceRefIDs) > 0 {
+			lines = append(lines, "utility summary refresh source refs: "+strings.Join(view.SummaryRefresh.SourceRefIDs, ","))
+		}
+		if view.SummaryRefresh.Confidence != "" {
+			lines = append(lines, "utility summary refresh confidence: "+view.SummaryRefresh.Confidence)
+		}
+		for _, detail := range view.SummaryRefresh.ExactDetails {
+			lines = append(lines, "utility summary refresh detail: "+detail)
+		}
+		for _, caveat := range view.SummaryRefresh.Caveats {
+			lines = append(lines, "utility summary refresh caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range view.Suggestions {
 		line := "utility suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {

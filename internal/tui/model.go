@@ -192,6 +192,7 @@ type UtilityView struct {
 	Summary         string
 	PreparedContext UtilityPreparedContextView
 	StaleContext    UtilityStaleContextView
+	SummaryRefresh  UtilitySummaryRefreshView
 	Suggestions     []UtilitySuggestionView
 	EvidenceRefs    []UtilityEvidenceRefView
 	Caveats         []string
@@ -216,6 +217,17 @@ type UtilityStaleContextView struct {
 	EvidenceRefIDs      []string
 	Caveats             []string
 	SuggestedNextAction string
+}
+
+// UtilitySummaryRefreshView records display-only refreshed summary output.
+type UtilitySummaryRefreshView struct {
+	Status           string
+	OriginalSummary  string
+	RefreshedSummary string
+	SourceRefIDs     []string
+	ExactDetails     []string
+	Confidence       string
+	Caveats          []string
 }
 
 // UtilitySuggestionView records one display-only utility suggestion.
@@ -717,6 +729,9 @@ func cloneUtilityView(utility *UtilityView) *UtilityView {
 	clone.PreparedContext.Caveats = append([]string(nil), utility.PreparedContext.Caveats...)
 	clone.StaleContext.EvidenceRefIDs = append([]string(nil), utility.StaleContext.EvidenceRefIDs...)
 	clone.StaleContext.Caveats = append([]string(nil), utility.StaleContext.Caveats...)
+	clone.SummaryRefresh.SourceRefIDs = append([]string(nil), utility.SummaryRefresh.SourceRefIDs...)
+	clone.SummaryRefresh.ExactDetails = append([]string(nil), utility.SummaryRefresh.ExactDetails...)
+	clone.SummaryRefresh.Caveats = append([]string(nil), utility.SummaryRefresh.Caveats...)
 	clone.Suggestions = make([]UtilitySuggestionView, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		item := suggestion

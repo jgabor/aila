@@ -221,6 +221,10 @@ func utilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bool 
 		before.LastUtility.Request.ID != after.LastUtility.Request.ID ||
 		before.LastUtility.Request.Kind != after.LastUtility.Request.Kind ||
 		before.LastUtility.Request.Model != after.LastUtility.Request.Model ||
+		before.LastUtility.SummaryRefresh.Status != after.LastUtility.SummaryRefresh.Status ||
+		before.LastUtility.SummaryRefresh.RefreshedSummary != after.LastUtility.SummaryRefresh.RefreshedSummary ||
+		len(before.LastUtility.SummaryRefresh.SourceRefIDs) != len(after.LastUtility.SummaryRefresh.SourceRefIDs) ||
+		len(before.LastUtility.SummaryRefresh.Caveats) != len(after.LastUtility.SummaryRefresh.Caveats) ||
 		len(before.LastUtility.Suggestions) != len(after.LastUtility.Suggestions) ||
 		len(before.LastUtility.EvidenceRefs) != len(after.LastUtility.EvidenceRefs) ||
 		len(before.LastUtility.Caveats) != len(after.LastUtility.Caveats)

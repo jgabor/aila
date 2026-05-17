@@ -725,10 +725,10 @@ func TestUtilityJobRoutesThroughRuntimeAndStaysDisplayOnly(t *testing.T) {
 	if turn.Utility == nil || turn.Utility.Status != "completed" || turn.Utility.Model != "test/utility" || !turn.Utility.ReadOnly {
 		t.Fatalf("utility view = %+v, want completed display-only result", turn.Utility)
 	}
-	if turn.Utility.JobKind != "stale_context_check" || turn.Utility.StaleContext.Status != "stale" || turn.Utility.StaleContext.SuggestedNextAction == "" || len(turn.Utility.StaleContext.EvidenceRefIDs) != 2 {
-		t.Fatalf("utility view missing stale context: %+v", turn.Utility)
+	if turn.Utility.JobKind != "summary_refresh" || turn.Utility.SummaryRefresh.Status != "low_confidence" || !strings.Contains(turn.Utility.SummaryRefresh.RefreshedSummary, "primary runtime remains idle") || len(turn.Utility.SummaryRefresh.SourceRefIDs) != 2 || len(turn.Utility.SummaryRefresh.Caveats) == 0 {
+		t.Fatalf("utility view missing summary refresh: %+v", turn.Utility)
 	}
-	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 2 {
+	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 4 {
 		t.Fatalf("utility view missing suggestion/evidence: %+v", turn.Utility)
 	}
 	if turn.Utility.Safety.FileMutation || turn.Utility.Safety.GitMutation || turn.Utility.Safety.ProjectArtifactMutation || turn.Utility.Safety.ApprovalGrant || turn.Utility.Safety.WorkflowPhaseTransition || turn.Utility.Safety.FinalJudgment || turn.Utility.Safety.ContextRefresh || turn.Utility.Safety.ContextCompaction || turn.Utility.Safety.ContextRewrite {
@@ -750,7 +750,7 @@ func TestUtilityJobBlockedByPendingApprovalWithoutDispatch(t *testing.T) {
 	runner.model = runtime.Model{Status: runtime.StatusIdle, PendingApproval: runtime.ApprovalProposal{ID: "approval-1"}}
 
 	turn := runner.proposeUtilityJob(defaultUtilityJobRequest("test/utility"))
-	if turn.Utility == nil || turn.Utility.Status != "blocked" || turn.Utility.DeniedReason != "approval_pending" {
+	if turn.Utility == nil || turn.Utility.Status != "blocked" || turn.Utility.DeniedReason != "approval_pending" || turn.Utility.SummaryRefresh.Status != "" {
 		t.Fatalf("blocked utility view = %+v", turn.Utility)
 	}
 	if len(dispatched) != 1 || len(dispatched[0]) != 0 {

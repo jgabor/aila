@@ -1,4 +1,121 @@
 cycles:
+  - number: 217
+    timestamp: "2026-05-17 09:57"
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 45 by adding deterministic idle-only utility summary
+      refresh, app-owned /status summary-refresh display, TUI render and
+      semantic support, a utility-summary-refresh fixture, and PTY visibility
+      coverage for refresh status, refreshed summary, and source refs.
+    commit: "pending local commit: add utility summary refresh"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 45; README utility
+      sections; ARCHITECTURE context/utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing semantic
+      guidance; installed Agentera CLI plan/progress state
+    discovered: >-
+      Summary refresh can stay pure by accepting bounded original-summary,
+      required-detail, source-ref, and confidence inputs and returning refreshed,
+      current, or low-confidence display output. The existing UtilityJob path was
+      enough for idle-only scheduling and runtime/app wiring. PTY status capture
+      needed to wait through the visible utility safety footer so status output
+      did not bleed into the following review capture.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/utility -count=1` passed. `go test
+      ./internal/runtime -run 'Test.*Utility.*|Test.*Summary.*' -count=1` passed.
+      `go test ./internal/app -run 'Test.*Utility.*|Test.*Status.*|Test.*Summary.*|TestInspection' -count=1`
+      passed. `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run
+      TestUtilityWorkerFixtureSnapshots -count=1` generated the new snapshots
+      for review, then `go test ./internal/tui -run TestUtilityWorkerFixtureSnapshots -count=1`
+      passed. `go test ./internal/tui -run 'TestUtilityWorkerFixtureSnapshots|Test.*Semantic.*|Test.*Utility.*' -count=1`
+      passed. `go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1`
+      passed. `go test ./internal/... -count=1` passed. `go test ./cmd/aila
+      -count=1` passed in 285.306s. Final `mage check` passed with cmd/aila in
+      289.832s, internal packages green, 0 lint issues, and no vulnerabilities.
+      Installed Agentera CLI plan/progress/lint/hej validation passed after
+      closeout. `git diff --check` passed for the changed artifacts, and
+      changed-line plus new-fixture hygiene found no absolute home paths or new
+      TestM<number> symbols.
+    next: >-
+      Commit the completed M45 slice locally, leaving Milestone 45A: Capability
+      Contract And Policy Boundary as the next roadmap milestone.
+    context:
+      intent: >-
+        Finish the active roadmap milestone first while preserving the
+        planera -> orkestrera -> commit loop.
+      constraints: >-
+        No provider/model refresh, durable refreshed-summary persistence,
+        automatic foreground adoption, stale-context policy expansion, context
+        compaction expansion, plugin/MCP/workflow DSL/hosted control plane, file
+        mutation, git mutation outside the final commit, project artifact writes
+        outside Agentera/ROADMAP closeout, permission approval, workflow phase
+        transition, or hidden final judgment.
+      unknowns: >-
+        Provider-assisted summary quality scoring, durable refresh storage, and
+        capability-policy contracts remain deferred to M45A+.
+      scope: >-
+        internal/utility, internal/runtime, internal/app, internal/tui,
+        cmd/aila PTY expectations, utility-summary-refresh fixture snapshots,
+        ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived
+        M44 plan inclusion.
+  - number: 216
+    timestamp: "2026-05-17 09:50"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 45: Utility Summary Refresh as the next roadmap
+      milestone, archived the completed M44 plan, and created a new active plan
+      with six bounded tasks for a typed summary-refresh contract, runtime/app
+      status wiring, summary-refresh render/semantic fixtures, PTY visibility
+      coverage, validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M45 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 45; AGENTS.md; README utility
+      sections; ARCHITECTURE context and utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing fixture and
+      semantic guidance; agentera hej --format json with planera context
+    discovered: >-
+      M45 should add summary refresh as a deterministic idle-only utility job
+      through the existing UtilityJob path. The request should supply a bounded
+      original summary, exact details, and source refs; the result should report
+      refreshed, current, or low-confidence status with preserved refs, caveats,
+      suggestions, evidence, and read-only safety. Because /status will expose
+      summary-refresh output, PTY smoke should be updated and run. Provider/model
+      calls, durable refresh persistence, context compaction expansion,
+      stale-context policy changes, hidden final judgment, and M45A+ behavior
+      remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera
+      plan/progress state, ROADMAP.md top status and M45 section,
+      docs/notes/PROMPT.md, AGENTS.md, README utility sections, ARCHITECTURE
+      context/utility boundaries, docs/workflow-architecture utility guidance,
+      docs/tui-testing fixture/semantic guidance, and current internal/utility,
+      internal/runtime, internal/app, internal/tui, and status/PTY seams were
+      reviewed before writing the plan.
+    next: >-
+      Execute M45 Tasks 2-5: add summary-refresh utility result fields, wire
+      summary refresh through the existing idle-only runtime/app UtilityJob path,
+      render summary-refresh status with refs/caveats/confidence in /status and
+      TUI semantics, and update PTY smoke for visible /status behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after
+        completing M44, selecting the next roadmap milestone from ROADMAP.md and
+        preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M45; preserve statechart-MVU, fixed-product posture, TUI
+        presentation-only boundary, idle-only utility worker behavior, source
+        refs, exact details, low-confidence caveats, behavior-based test names,
+        and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact summary-refresh status wording and deterministic detail merge shape
+        are implementation-owned; provider-assisted summary scoring, durable
+        refreshed-summary storage, automatic foreground adoption, and M45A
+        capability policy contracts remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m44.yaml
+        archival, and progress evidence for the M45 planning handoff.
   - number: 215
     timestamp: "2026-05-17 09:48"
     type: build
@@ -2943,10 +3060,10 @@ cycles:
       validation evidence including command PTY smoke, targeted command tests,
       go test ./..., and post-closeout mage check. Criterion 4: the completed plan
       is archived at .agentera/archive/plan-2026-05-12-m5.yaml, active
-      .agentera/plan.yaml is removed, `AGENTERA_HOME=/home/jgabor/git/agentera uv run
-      /home/jgabor/git/agentera/scripts/agentera plan` reports no active plan,
-      `AGENTERA_HOME=/home/jgabor/git/agentera uv run
-      /home/jgabor/git/agentera/scripts/agentera progress` reports this final M5
+      .agentera/plan.yaml is removed, `AGENTERA_HOME=$HOME/git/agentera uv run
+      $HOME/git/agentera/scripts/agentera plan` reports no active plan,
+      `AGENTERA_HOME=$HOME/git/agentera uv run
+      $HOME/git/agentera/scripts/agentera progress` reports this final M5
       evidence, and post-closeout `mage check` passed.
     next: >-
       Plan or execute ROADMAP.md Milestone 6: Resize And Layout Responsiveness.
@@ -4960,8 +5077,8 @@ cycles:
     verified: >-
       Task 5 evidence already showed targeted workflow/app/TUI/cmd tests, `go test
       ./...`, `git diff --check`, and `mage check` passed with source inspection
-      confirming no forbidden M10 behavior. Post-closeout `AGENTERA_HOME=/home/jgabor/git/agentera
-      uv run /home/jgabor/git/agentera/scripts/agentera plan --format json`
+      confirming no forbidden M10 behavior. Post-closeout `AGENTERA_HOME=$HOME/git/agentera
+      uv run $HOME/git/agentera/scripts/agentera plan --format json`
       returned status empty with zero entries, `git diff --check` passed, and
       `mage check` passed; no push or remote mutation was performed.
     next: >-
@@ -6356,7 +6473,7 @@ cycles:
       state validation, diagnostic/debug transport, runtime failure messages, signal shutdown,
       TUI evidence, PTY smoke, and closeout into separate dependency-ordered tasks.
     verified: >-
-      `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera lint --artifact
+      `uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact
       .agentera/plan.yaml` completed with the known advisory `abstraction creep: no concrete
       anchor`; the plan includes concrete anchors such as ROADMAP.md:650-686,
       ARCHITECTURE.md:529-607, ARCHITECTURE.md:781-821, and explicit validation commands, so
@@ -6952,12 +7069,12 @@ cycles:
       Initial verification also exposed that YAML list items beginning with backticks are rejected by the
       Agentera parser; the active plan now uses folded scalar list items for those command/fixture labels.
     verified: >-
-      `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera lint --artifact
+      `uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact
       .agentera/plan.yaml` completed with the known advisory `abstraction creep: no concrete anchor`;
       the plan includes concrete anchors such as ROADMAP.md:708-728, ARCHITECTURE.md:529-607,
       ARCHITECTURE.md:916-923, README.md:35-48, docs/tui-testing.md:60-79, and explicit validation
       commands, so this advisory was treated as non-blocking. After the folded-scalar correction, `uv run
-      /home/jgabor/.local/share/agentera/app/scripts/agentera plan --format json` reported 7 pending M16
+      $HOME/.local/share/agentera/app/scripts/agentera plan --format json` reported 7 pending M16
       tasks with Task 1 dependency-ready. `git diff --check -- .agentera/plan.yaml .agentera/progress.yaml
       .agentera/archive/plan-2026-05-16-m15a.yaml` passed.
     next: >-
@@ -8666,7 +8783,7 @@ cycles:
       them until staging. Added and ran explicit `git diff --check --no-index /dev/null <file>` checks for the new
       permission and read fixture files, and documented that in ROADMAP.md. An independent closeout review also noted that
       Agentera validation should use the installed CLI path rather than a bare `agentera` command; final validation uses
-      the installed `uv run /home/jgabor/.local/share/agentera/app/scripts/agentera ...` form. No M19+ find/grep/search,
+      the installed `uv run $HOME/.local/share/agentera/app/scripts/agentera ...` form. No M19+ find/grep/search,
       bash, fetch, edit/write, mutation history, undo/replay, compaction, plugin, MCP, or workflow DSL behavior was added.
     verified: >-
       `go test ./internal/tools ./internal/runtime ./internal/app ./internal/permission ./internal/tui -count=1` passed.

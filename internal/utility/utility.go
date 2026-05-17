@@ -1,7 +1,10 @@
 // Package utility schedules idle-only, read-only utility jobs.
 package utility
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // JobKind names a fixed utility worker job family.
 type JobKind string
@@ -9,6 +12,7 @@ type JobKind string
 const (
 	JobContextPrep       JobKind = "context_prep"
 	JobStaleContextCheck JobKind = "stale_context_check"
+	JobSummaryRefresh    JobKind = "summary_refresh"
 	JobSuggestion        JobKind = "suggestion"
 )
 
@@ -37,13 +41,22 @@ type StaleContextInput struct {
 	CurrentLabel       string
 }
 
+// SummaryRefreshInput records bounded summary facts for pure refresh checks.
+type SummaryRefreshInput struct {
+	OriginalSummary string
+	RequiredDetails []string
+	SourceRefIDs    []string
+	ConfidenceHint  string
+}
+
 // JobRequest records a deterministic utility job request.
 type JobRequest struct {
-	ID           string
-	Kind         JobKind
-	Model        string
-	Source       Source
-	StaleContext StaleContextInput
+	ID             string
+	Kind           JobKind
+	Model          string
+	Source         Source
+	StaleContext   StaleContextInput
+	SummaryRefresh SummaryRefreshInput
 }
 
 // Activity records the primary runtime facts needed for idle-only scheduling.
@@ -115,6 +128,27 @@ type StaleContextCheck struct {
 	SuggestedNextAction string
 }
 
+// SummaryRefreshStatus names the display-only summary refresh outcome.
+type SummaryRefreshStatus string
+
+const (
+	SummaryRefreshRefreshed     SummaryRefreshStatus = "refreshed"
+	SummaryRefreshCurrent       SummaryRefreshStatus = "current"
+	SummaryRefreshLowConfidence SummaryRefreshStatus = "low_confidence"
+)
+
+// SummaryRefresh is display-only refreshed summary output. Foreground work
+// decides whether to use it.
+type SummaryRefresh struct {
+	Status           SummaryRefreshStatus
+	OriginalSummary  string
+	RefreshedSummary string
+	SourceRefIDs     []string
+	ExactDetails     []string
+	Confidence       string
+	Caveats          []string
+}
+
 // SafetyBoundary proves utility output did not perform consequential actions.
 type SafetyBoundary struct {
 	FileMutation            bool
@@ -135,6 +169,7 @@ type JobResult struct {
 	Summary         string
 	PreparedContext PreparedContext
 	StaleContext    StaleContextCheck
+	SummaryRefresh  SummaryRefresh
 	Suggestions     []Suggestion
 	EvidenceRefs    []EvidenceRef
 	Caveats         []string
@@ -174,13 +209,17 @@ func NormalizeJobRequest(request JobRequest) JobRequest {
 	if request.StaleContext.CurrentLabel == "" {
 		request.StaleContext.CurrentLabel = "current context"
 	}
+	request.SummaryRefresh.OriginalSummary = strings.TrimSpace(request.SummaryRefresh.OriginalSummary)
+	request.SummaryRefresh.RequiredDetails = cleanStringSlice(request.SummaryRefresh.RequiredDetails)
+	request.SummaryRefresh.SourceRefIDs = cleanStringSlice(request.SummaryRefresh.SourceRefIDs)
+	request.SummaryRefresh.ConfidenceHint = normalizeSummaryRefreshConfidence(request.SummaryRefresh.ConfidenceHint)
 	return request
 }
 
 // CanRun returns whether a utility job may run in the current activity.
 func CanRun(activity Activity, request JobRequest) Decision {
 	request = NormalizeJobRequest(request)
-	if request.Kind != JobContextPrep && request.Kind != JobStaleContextCheck && request.Kind != JobSuggestion {
+	if request.Kind != JobContextPrep && request.Kind != JobStaleContextCheck && request.Kind != JobSummaryRefresh && request.Kind != JobSuggestion {
 		return Decision{Reason: DenialUnsupportedJobKind, Detail: "unsupported utility job kind"}
 	}
 	status := strings.TrimSpace(activity.PrimaryStatus)
@@ -208,6 +247,9 @@ func RunningResult(request JobRequest) JobResult {
 	}
 	if request.Kind == JobStaleContextCheck {
 		summary = "utility stale-context check running"
+	}
+	if request.Kind == JobSummaryRefresh {
+		summary = "utility summary refresh running"
 	}
 	return JobResult{Request: request, Status: StatusRunning, Summary: summary, Safety: SafetyBoundary{}}
 }
@@ -237,6 +279,9 @@ func RunJob(request JobRequest) JobResult {
 	if request.Kind == JobStaleContextCheck {
 		return staleContextResult(request)
 	}
+	if request.Kind == JobSummaryRefresh {
+		return summaryRefreshResult(request)
+	}
 	return JobResult{
 		Request: request,
 		Status:  StatusCompleted,
@@ -253,6 +298,143 @@ func RunJob(request JobRequest) JobResult {
 		}},
 		Safety: SafetyBoundary{},
 	}
+}
+
+func summaryRefreshResult(request JobRequest) JobResult {
+	input := request.SummaryRefresh
+	original := strings.TrimSpace(input.OriginalSummary)
+	details := cleanStringSlice(input.RequiredDetails)
+	sourceRefIDs := cleanStringSlice(input.SourceRefIDs)
+	confidence := normalizeSummaryRefreshConfidence(input.ConfidenceHint)
+	if confidence == "" {
+		confidence = "medium"
+	}
+
+	missing := missingSummaryDetails(original, details)
+	refreshed := original
+	status := SummaryRefreshCurrent
+	summary := "summary already includes required details"
+	if len(missing) > 0 {
+		status = SummaryRefreshRefreshed
+		summary = "summary refreshed with source-backed details"
+		refreshed = appendSummaryDetails(original, missing)
+	}
+
+	var caveats []string
+	if confidence == "low" || len(details) == 0 || len(sourceRefIDs) == 0 {
+		status = SummaryRefreshLowConfidence
+		summary = "summary refresh confidence low"
+		if len(details) == 0 {
+			caveats = append(caveats, "exact details missing; refreshed summary is advisory")
+		}
+		if len(sourceRefIDs) == 0 {
+			caveats = append(caveats, "source refs missing; refreshed summary must not replace source checks")
+		}
+		if confidence == "low" {
+			caveats = append(caveats, "refresh confidence is low; foreground work must check source refs before using refreshed summary")
+		}
+	}
+
+	refresh := SummaryRefresh{
+		Status:           status,
+		OriginalSummary:  original,
+		RefreshedSummary: refreshed,
+		SourceRefIDs:     sourceRefIDs,
+		ExactDetails:     details,
+		Confidence:       confidence,
+		Caveats:          append([]string(nil), caveats...),
+	}
+	evidence := summaryRefreshEvidence(request.Source.Caller, sourceRefIDs, details)
+	suggestion := summaryRefreshSuggestion(refresh, evidence)
+	return JobResult{
+		Request:        request,
+		Status:         StatusCompleted,
+		Summary:        summary,
+		SummaryRefresh: refresh,
+		Suggestions:    []Suggestion{suggestion},
+		EvidenceRefs:   evidence,
+		Caveats:        append([]string(nil), caveats...),
+		Safety:         SafetyBoundary{},
+	}
+}
+
+func summaryRefreshSuggestion(refresh SummaryRefresh, evidence []EvidenceRef) Suggestion {
+	text := "Keep the current summary; supplied details are already represented."
+	if refresh.Status == SummaryRefreshRefreshed {
+		text = "Use the refreshed summary only with its preserved source refs."
+	}
+	if refresh.Status == SummaryRefreshLowConfidence {
+		text = "Review preserved source refs before using the refreshed summary."
+	}
+	return Suggestion{Text: text, EvidenceRefIDs: evidenceIDs(evidence)}
+}
+
+func summaryRefreshEvidence(source string, sourceRefIDs []string, details []string) []EvidenceRef {
+	var evidence []EvidenceRef
+	for index, refID := range sourceRefIDs {
+		evidence = append(evidence, EvidenceRef{ID: numberedID("summary-refresh-source", index+1), Kind: "source_ref", Source: source, Detail: "source_ref=" + refID})
+	}
+	for index, detail := range details {
+		evidence = append(evidence, EvidenceRef{ID: numberedID("summary-refresh-detail", index+1), Kind: "exact_detail", Source: source, Detail: detail})
+	}
+	return evidence
+}
+
+func missingSummaryDetails(summary string, details []string) []string {
+	lowerSummary := strings.ToLower(summary)
+	var missing []string
+	for _, detail := range details {
+		if !strings.Contains(lowerSummary, strings.ToLower(detail)) {
+			missing = append(missing, detail)
+		}
+	}
+	return missing
+}
+
+func appendSummaryDetails(summary string, details []string) string {
+	joined := "Important details: " + strings.Join(details, "; ")
+	if strings.TrimSpace(summary) == "" {
+		return joined
+	}
+	return strings.TrimSpace(summary) + " " + joined
+}
+
+func normalizeSummaryRefreshConfidence(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low", "medium", "high":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
+func cleanStringSlice(values []string) []string {
+	seen := map[string]struct{}{}
+	cleaned := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		cleaned = append(cleaned, value)
+	}
+	return cleaned
+}
+
+func evidenceIDs(evidence []EvidenceRef) []string {
+	ids := make([]string, 0, len(evidence))
+	for _, ref := range evidence {
+		ids = append(ids, ref.ID)
+	}
+	return ids
+}
+
+func numberedID(prefix string, number int) string {
+	return fmt.Sprintf("%s-%d", prefix, number)
 }
 
 func contextPrepResult(request JobRequest) JobResult {

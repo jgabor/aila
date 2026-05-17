@@ -1,16 +1,22 @@
 package utility
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestSchedulerAllowsUtilityJobsOnlyWhenPrimaryRuntimeIdle(t *testing.T) {
 	t.Parallel()
 
-	request := JobRequest{ID: "status-stale-context-check", Kind: JobStaleContextCheck}
-	decision := CanRun(Activity{PrimaryStatus: "idle"}, request)
-	if !decision.Allowed || decision.Reason != DenialNone {
-		t.Fatalf("idle decision = %+v, want allowed", decision)
+	for _, kind := range []JobKind{JobStaleContextCheck, JobSummaryRefresh} {
+		request := JobRequest{ID: "status-utility", Kind: kind}
+		decision := CanRun(Activity{PrimaryStatus: "idle"}, request)
+		if !decision.Allowed || decision.Reason != DenialNone {
+			t.Fatalf("idle decision for %s = %+v, want allowed", kind, decision)
+		}
 	}
 
+	request := JobRequest{ID: "status-summary-refresh", Kind: JobSummaryRefresh}
 	cases := []struct {
 		name     string
 		activity Activity
@@ -90,12 +96,69 @@ func TestStaleContextResultReportsFreshStaleAndUnknownWithoutMutation(t *testing
 	}
 }
 
+func TestSummaryRefreshResultPreservesSourceRefsDetailsAndSafety(t *testing.T) {
+	t.Parallel()
+
+	result := RunJob(JobRequest{
+		ID:     "status-summary-refresh",
+		Kind:   JobSummaryRefresh,
+		Source: Source{Caller: "app.status"},
+		SummaryRefresh: SummaryRefreshInput{
+			OriginalSummary: "Runtime summary mentions status only.",
+			RequiredDetails: []string{"primary runtime remains idle", "source refs stay visible"},
+			SourceRefIDs:    []string{"summary-refresh-runtime", "summary-refresh-roadmap"},
+			ConfidenceHint:  "high",
+		},
+	})
+	if result.Status != StatusCompleted || result.SummaryRefresh.Status != SummaryRefreshRefreshed {
+		t.Fatalf("summary refresh result = %+v, want refreshed completion", result)
+	}
+	for _, want := range []string{"Runtime summary mentions status only.", "primary runtime remains idle", "source refs stay visible"} {
+		if !strings.Contains(result.SummaryRefresh.RefreshedSummary, want) {
+			t.Fatalf("refreshed summary missing %q: %q", want, result.SummaryRefresh.RefreshedSummary)
+		}
+	}
+	if len(result.SummaryRefresh.SourceRefIDs) != 2 || result.SummaryRefresh.SourceRefIDs[0] != "summary-refresh-runtime" || len(result.SummaryRefresh.ExactDetails) != 2 {
+		t.Fatalf("summary refs/details = %+v", result.SummaryRefresh)
+	}
+	if result.SummaryRefresh.Confidence != "high" || len(result.SummaryRefresh.Caveats) != 0 || len(result.EvidenceRefs) != 4 || len(result.Suggestions) != 1 {
+		t.Fatalf("summary refresh metadata = %+v evidence=%+v suggestions=%+v", result.SummaryRefresh, result.EvidenceRefs, result.Suggestions)
+	}
+	assertReadOnlySafety(t, result.Safety)
+}
+
+func TestSummaryRefreshResultReportsCurrentAndLowConfidenceWithoutFinalJudgment(t *testing.T) {
+	t.Parallel()
+
+	current := RunJob(JobRequest{Kind: JobSummaryRefresh, SummaryRefresh: SummaryRefreshInput{
+		OriginalSummary: "The primary runtime remains idle, and source refs stay visible.",
+		RequiredDetails: []string{"primary runtime remains idle", "source refs stay visible"},
+		SourceRefIDs:    []string{"summary-refresh-runtime"},
+		ConfidenceHint:  "high",
+	}})
+	if current.SummaryRefresh.Status != SummaryRefreshCurrent || current.SummaryRefresh.RefreshedSummary != current.SummaryRefresh.OriginalSummary || len(current.Caveats) != 0 {
+		t.Fatalf("current summary refresh = %+v", current)
+	}
+	assertReadOnlySafety(t, current.Safety)
+
+	low := RunJob(JobRequest{Kind: JobSummaryRefresh, SummaryRefresh: SummaryRefreshInput{
+		OriginalSummary: "Runtime summary mentions status only.",
+		RequiredDetails: []string{"foreground work must check source refs"},
+		SourceRefIDs:    []string{"summary-refresh-runtime"},
+		ConfidenceHint:  "low",
+	}})
+	if low.SummaryRefresh.Status != SummaryRefreshLowConfidence || !strings.Contains(low.SummaryRefresh.RefreshedSummary, "foreground work must check source refs") || len(low.SummaryRefresh.Caveats) == 0 || low.Safety.FinalJudgment {
+		t.Fatalf("low-confidence summary refresh = %+v", low)
+	}
+	assertReadOnlySafety(t, low.Safety)
+}
+
 func TestBlockedUtilityResultPreservesDenialWithoutContextOutput(t *testing.T) {
 	t.Parallel()
 
 	decision := CanRun(Activity{PrimaryStatus: "active"}, JobRequest{Kind: JobStaleContextCheck})
 	result := BlockedResult(JobRequest{Kind: JobStaleContextCheck}, decision)
-	if result.Status != StatusBlocked || result.Denial.Reason != DenialPrimaryBusy || len(result.Suggestions) != 0 || len(result.EvidenceRefs) != 0 || result.PreparedContext.Summary != "" || result.StaleContext.Status != "" {
+	if result.Status != StatusBlocked || result.Denial.Reason != DenialPrimaryBusy || len(result.Suggestions) != 0 || len(result.EvidenceRefs) != 0 || result.PreparedContext.Summary != "" || result.StaleContext.Status != "" || result.SummaryRefresh.Status != "" {
 		t.Fatalf("blocked result = %+v", result)
 	}
 }

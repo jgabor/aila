@@ -299,6 +299,26 @@ func loadUtilityFixture(t *testing.T, name string) renderFixture {
 			{ID: "stale-context-current", Kind: "context_fingerprint", Source: "current runtime status", Detail: "current=current-context:status-runtime"},
 		}
 		state.Utility.Caveats = []string{"stale status is advisory; no context was refreshed, compacted, or rewritten"}
+	case "utility-summary-refresh":
+		state.Utility.Status = "completed"
+		state.Utility.JobID = "status-summary-refresh"
+		state.Utility.JobKind = "summary_refresh"
+		state.Utility.Summary = "summary refreshed with source-backed details"
+		state.Utility.SummaryRefresh = UtilitySummaryRefreshView{
+			Status:           "refreshed",
+			OriginalSummary:  "Runtime summary mentions status only.",
+			RefreshedSummary: "Runtime summary mentions status only. Important details: primary runtime remains idle; source refs stay visible",
+			SourceRefIDs:     []string{"summary-refresh-runtime", "summary-refresh-roadmap"},
+			ExactDetails:     []string{"primary runtime remains idle", "source refs stay visible"},
+			Confidence:       "high",
+		}
+		state.Utility.Suggestions = []UtilitySuggestionView{{Text: "Use the refreshed summary only with its preserved source refs.", EvidenceRefIDs: []string{"summary-refresh-source-1", "summary-refresh-source-2", "summary-refresh-detail-1", "summary-refresh-detail-2"}}}
+		state.Utility.EvidenceRefs = []UtilityEvidenceRefView{
+			{ID: "summary-refresh-source-1", Kind: "source_ref", Source: "app.status", Detail: "source_ref=summary-refresh-runtime"},
+			{ID: "summary-refresh-source-2", Kind: "source_ref", Source: "app.status", Detail: "source_ref=summary-refresh-roadmap"},
+			{ID: "summary-refresh-detail-1", Kind: "exact_detail", Source: "app.status", Detail: "primary runtime remains idle"},
+			{ID: "summary-refresh-detail-2", Kind: "exact_detail", Source: "app.status", Detail: "source refs stay visible"},
+		}
 	default:
 		t.Fatalf("unknown utility fixture %q", name)
 	}
@@ -3629,6 +3649,12 @@ func TestUtilityWorkerFixtureSnapshots(t *testing.T) {
 			status:     "completed",
 			wantRender: []string{"Utility worker:", "job: stale_context_check status-stale-context-check", "summary: saved context appears stale", "stale context: stale", "stale context summary: saved context appears stale", "suggested next action: Rebuild foreground context before relying on saved context.", "context refresh: false"},
 			wantRegion: []string{"status: completed", "job: stale_context_check status-stale-context-check", "stale_context_status: stale", "stale_context_summary: saved context appears stale refs=stale-context-saved,stale-context-current", "suggested_next_action: Rebuild foreground context before relying on saved context.", "context_refresh: false"},
+		},
+		{
+			name:       "utility-summary-refresh",
+			status:     "completed",
+			wantRender: []string{"Utility worker:", "job: summary_refresh status-summary-refresh", "summary: summary refreshed with source-backed details", "summary refresh: refreshed", "refreshed summary: Runtime summary mentions status only.", "summary refresh source refs: summary-refresh-runtime, summary-refresh-roadmap", "summary refresh confidence: high", "summary refresh detail: primary runtime remains idle", "utility evidence: summary-refresh-source-1 source_ref app.status source_ref=summary-refresh-runtime"},
+			wantRegion: []string{"status: completed", "job: summary_refresh status-summary-refresh", "summary_refresh_status: refreshed", "summary_refresh_refreshed: Runtime summary mentions status only. Important details: primary runtime remains idle; source refs stay visible refs=summary-refresh-runtime,summary-refresh-roadmap", "summary_refresh_confidence: high", "summary_refresh_detail: source refs stay visible", "final_judgment: false"},
 		},
 	} {
 		tc := tc

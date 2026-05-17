@@ -862,6 +862,33 @@ func utilityLines(utility *UtilityView) []string {
 			lines = append(lines, "  suggested next action: "+semantic.StaleContext.SuggestedNextAction)
 		}
 	}
+	if semantic.SummaryRefresh != nil {
+		if semantic.SummaryRefresh.Status != "" {
+			lines = append(lines, "  summary refresh: "+semantic.SummaryRefresh.Status)
+		}
+		if semantic.SummaryRefresh.OriginalSummary != "" {
+			lines = append(lines, "  original summary: "+semantic.SummaryRefresh.OriginalSummary)
+		}
+		if semantic.SummaryRefresh.RefreshedSummary != "" {
+			line := "  refreshed summary: " + semantic.SummaryRefresh.RefreshedSummary
+			if len(semantic.SummaryRefresh.SourceRefIDs) > 0 {
+				line += " refs=" + strings.Join(semantic.SummaryRefresh.SourceRefIDs, ", ")
+			}
+			lines = append(lines, line)
+		}
+		if len(semantic.SummaryRefresh.SourceRefIDs) > 0 {
+			lines = append(lines, "  summary refresh source refs: "+strings.Join(semantic.SummaryRefresh.SourceRefIDs, ", "))
+		}
+		if semantic.SummaryRefresh.Confidence != "" {
+			lines = append(lines, "  summary refresh confidence: "+semantic.SummaryRefresh.Confidence)
+		}
+		for _, detail := range semantic.SummaryRefresh.ExactDetails {
+			lines = append(lines, "  summary refresh detail: "+detail)
+		}
+		for _, caveat := range semantic.SummaryRefresh.Caveats {
+			lines = append(lines, "  summary refresh caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range semantic.Suggestions {
 		line := "  suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {
@@ -1573,6 +1600,7 @@ type SemanticUtility struct {
 	Summary         string                          `json:"summary,omitempty"`
 	PreparedContext *SemanticUtilityPreparedContext `json:"prepared_context,omitempty"`
 	StaleContext    *SemanticUtilityStaleContext    `json:"stale_context,omitempty"`
+	SummaryRefresh  *SemanticUtilitySummaryRefresh  `json:"summary_refresh,omitempty"`
 	Suggestions     []SemanticUtilitySuggestion     `json:"suggestions,omitempty"`
 	EvidenceRefs    []SemanticUtilityEvidence       `json:"evidence_refs,omitempty"`
 	Caveats         []string                        `json:"caveats,omitempty"`
@@ -1597,6 +1625,17 @@ type SemanticUtilityStaleContext struct {
 	EvidenceRefIDs      []string `json:"evidence_ref_ids,omitempty"`
 	Caveats             []string `json:"caveats,omitempty"`
 	SuggestedNextAction string   `json:"suggested_next_action,omitempty"`
+}
+
+// SemanticUtilitySummaryRefresh records display-only refreshed summary output.
+type SemanticUtilitySummaryRefresh struct {
+	Status           string   `json:"status"`
+	OriginalSummary  string   `json:"original_summary,omitempty"`
+	RefreshedSummary string   `json:"refreshed_summary,omitempty"`
+	SourceRefIDs     []string `json:"source_ref_ids,omitempty"`
+	ExactDetails     []string `json:"exact_details,omitempty"`
+	Confidence       string   `json:"confidence,omitempty"`
+	Caveats          []string `json:"caveats,omitempty"`
 }
 
 // SemanticUtilitySuggestion records one utility suggestion.
@@ -3138,6 +3177,18 @@ func semanticUtilityItems(utility *UtilityView) []string {
 			items = append(items, "suggested_next_action: "+semantic.StaleContext.SuggestedNextAction)
 		}
 	}
+	if semantic.SummaryRefresh != nil {
+		items = append(items, "summary_refresh_status: "+semantic.SummaryRefresh.Status)
+		items = append(items, "summary_refresh_original: "+semantic.SummaryRefresh.OriginalSummary)
+		items = append(items, "summary_refresh_refreshed: "+semantic.SummaryRefresh.RefreshedSummary+" refs="+strings.Join(semantic.SummaryRefresh.SourceRefIDs, ","))
+		items = append(items, "summary_refresh_confidence: "+semantic.SummaryRefresh.Confidence)
+		for _, detail := range semantic.SummaryRefresh.ExactDetails {
+			items = append(items, "summary_refresh_detail: "+detail)
+		}
+		for _, caveat := range semantic.SummaryRefresh.Caveats {
+			items = append(items, "summary_refresh_caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range semantic.Suggestions {
 		items = append(items, "suggestion: "+suggestion.Text+" refs="+strings.Join(suggestion.EvidenceRefIDs, ","))
 	}
@@ -3176,6 +3227,18 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 			SuggestedNextAction: safeText(utility.StaleContext.SuggestedNextAction),
 		}
 	}
+	var summaryRefresh *SemanticUtilitySummaryRefresh
+	if utility.SummaryRefresh.Status != "" || utility.SummaryRefresh.RefreshedSummary != "" || len(utility.SummaryRefresh.SourceRefIDs) > 0 || len(utility.SummaryRefresh.ExactDetails) > 0 || len(utility.SummaryRefresh.Caveats) > 0 {
+		summaryRefresh = &SemanticUtilitySummaryRefresh{
+			Status:           safeText(utility.SummaryRefresh.Status),
+			OriginalSummary:  safeText(utility.SummaryRefresh.OriginalSummary),
+			RefreshedSummary: safeText(utility.SummaryRefresh.RefreshedSummary),
+			SourceRefIDs:     safeTextSlice(utility.SummaryRefresh.SourceRefIDs),
+			ExactDetails:     safeTextSlice(utility.SummaryRefresh.ExactDetails),
+			Confidence:       safeText(utility.SummaryRefresh.Confidence),
+			Caveats:          safeTextSlice(utility.SummaryRefresh.Caveats),
+		}
+	}
 	suggestions := make([]SemanticUtilitySuggestion, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		suggestions = append(suggestions, SemanticUtilitySuggestion{Text: safeText(suggestion.Text), EvidenceRefIDs: safeTextSlice(suggestion.EvidenceRefIDs)})
@@ -3193,6 +3256,7 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 		Summary:         safeText(utility.Summary),
 		PreparedContext: prepared,
 		StaleContext:    stale,
+		SummaryRefresh:  summaryRefresh,
 		Suggestions:     suggestions,
 		EvidenceRefs:    evidence,
 		Caveats:         safeTextSlice(utility.Caveats),

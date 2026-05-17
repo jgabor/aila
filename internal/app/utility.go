@@ -10,19 +10,22 @@ import (
 
 func defaultUtilityJobRequest(model string) utility.JobRequest {
 	return utility.NormalizeJobRequest(utility.JobRequest{
-		ID:    "status-stale-context-check",
-		Kind:  utility.JobStaleContextCheck,
+		ID:    "status-summary-refresh",
+		Kind:  utility.JobSummaryRefresh,
 		Model: model,
 		Source: utility.Source{
 			Caller:      "app.status",
-			RequestID:   "status-stale-context-check",
-			Description: "idle-only utility stale-context check",
+			RequestID:   "status-summary-refresh",
+			Description: "idle-only utility summary refresh",
 		},
-		StaleContext: utility.StaleContextInput{
-			SavedFingerprint:   "saved-context:utility-context-prep",
-			CurrentFingerprint: "current-context:status-runtime",
-			SavedLabel:         "saved context",
-			CurrentLabel:       "current runtime status",
+		SummaryRefresh: utility.SummaryRefreshInput{
+			OriginalSummary: "Status output is available for the current runtime.",
+			RequiredDetails: []string{
+				"primary runtime remains idle",
+				"utility worker can refresh summaries without final judgment",
+			},
+			SourceRefIDs:   []string{"summary-refresh-runtime", "summary-refresh-roadmap"},
+			ConfidenceHint: "low",
 		},
 	})
 }
@@ -57,6 +60,7 @@ func utilityView(model runtime.Model) *tui.UtilityView {
 		Summary:         strings.TrimSpace(result.Summary),
 		PreparedContext: utilityPreparedContextView(result.PreparedContext),
 		StaleContext:    utilityStaleContextView(result.StaleContext),
+		SummaryRefresh:  utilitySummaryRefreshView(result.SummaryRefresh),
 		Suggestions:     utilitySuggestionViews(result.Suggestions),
 		EvidenceRefs:    utilityEvidenceRefViews(result.EvidenceRefs),
 		Caveats:         append([]string(nil), result.Caveats...),
@@ -93,6 +97,18 @@ func utilityStaleContextView(stale utility.StaleContextCheck) tui.UtilityStaleCo
 		EvidenceRefIDs:      append([]string(nil), stale.EvidenceRefIDs...),
 		Caveats:             append([]string(nil), stale.Caveats...),
 		SuggestedNextAction: strings.TrimSpace(stale.SuggestedNextAction),
+	}
+}
+
+func utilitySummaryRefreshView(refresh utility.SummaryRefresh) tui.UtilitySummaryRefreshView {
+	return tui.UtilitySummaryRefreshView{
+		Status:           string(refresh.Status),
+		OriginalSummary:  strings.TrimSpace(refresh.OriginalSummary),
+		RefreshedSummary: strings.TrimSpace(refresh.RefreshedSummary),
+		SourceRefIDs:     append([]string(nil), refresh.SourceRefIDs...),
+		ExactDetails:     append([]string(nil), refresh.ExactDetails...),
+		Confidence:       strings.TrimSpace(refresh.Confidence),
+		Caveats:          append([]string(nil), refresh.Caveats...),
 	}
 }
 
