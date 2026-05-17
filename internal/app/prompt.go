@@ -183,6 +183,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)
+	turn.Utility = utilityView(runner.model)
 	turn.Compact = compactView(runner.model)
 	if turn.Compact != nil {
 		turn.Context = compactContextView(runner.model.LastCompact)
@@ -199,6 +200,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Command != nil {
 		turn.StatusDetail = "bash tool dispatch"
+	}
+	if turn.Utility != nil {
+		turn.StatusDetail = "utility worker status"
 	}
 	if turn.Compact != nil {
 		turn.StatusDetail = "manual context compaction"

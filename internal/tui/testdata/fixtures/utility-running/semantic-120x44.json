@@ -1,0 +1,122 @@
+{
+  "scenario": "utility-running",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "utility worker status",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "placeholder"
+  },
+  "utility": {
+    "source": "app.status",
+    "status": "running",
+    "job_id": "status-utility-suggestion",
+    "job_kind": "suggestion",
+    "model": "opencode-go/deepseek-v4-flash:max",
+    "summary": "fake utility job running",
+    "read_only": true,
+    "safety": {
+      "file_mutation": false,
+      "git_mutation": false,
+      "project_artifact_mutation": false,
+      "permission_approval": false,
+      "workflow_phase_transition": false,
+      "final_judgment": false
+    }
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: utility worker status",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "utility",
+      "visible": true,
+      "items": [
+        "status: running",
+        "job: suggestion status-utility-suggestion",
+        "model: opencode-go/deepseek-v4-flash:max",
+        "read_only: true",
+        "file_mutation: false",
+        "git_mutation: false",
+        "project_artifact_mutation: false",
+        "permission_approval: false",
+        "workflow_phase_transition: false",
+        "final_judgment: false",
+        "display-only",
+        "summary: fake utility job running"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+[1mAila                                                                                                              120x44[0m
+[2mStage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder            [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: utility worker status                                                                                        |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Utility worker:                                                                                                      |
+| source: app.status                                                                                                   |
+| status: completed                                                                                                    |
+| job: suggestion status-utility-suggestion                                                                            |
+| model: opencode-go/deepseek-v4-flash:max                                                                             |
+| read-only: true                                                                                                      |
+| summary: fake utility suggestion ready                                                                               |
+| suggestion: Review current status before starting new background utility work. refs=utility-evidence-1               |
+| utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only            |
+| file mutation: false                                                                                                 |
+| git mutation: false                                                                                                  |
+| artifact mutation: false                                                                                             |
+| permission approval: false                                                                                           |
+| workflow transition: false                                                                                           |
+| final judgment: false                                                                                                |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

@@ -182,6 +182,8 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
 		controller.runner.routeCommand(recommendation)
+		turn := controller.runner.proposeUtilityJob(defaultUtilityJobRequest(controller.view.UtilityModel))
+		controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 		controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
 		if runtimeModelChanged(before, controller.runner.model) {
 			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
@@ -207,7 +209,21 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 }
 
 func runtimeModelChanged(before runtime.Model, after runtime.Model) bool {
-	return before.Status != after.Status || before.Result != after.Result || before.LastCommand != after.LastCommand || len(before.Queued) != len(after.Queued) || len(before.Transcript) != len(after.Transcript) || len(before.Diagnostics) != len(after.Diagnostics)
+	return before.Status != after.Status || before.Result != after.Result || before.LastCommand != after.LastCommand || len(before.Queued) != len(after.Queued) || len(before.Transcript) != len(after.Transcript) || len(before.Diagnostics) != len(after.Diagnostics) || utilityRuntimeStateChanged(before, after)
+}
+
+func utilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bool {
+	return before.ActiveUtility.ID != after.ActiveUtility.ID ||
+		before.ActiveUtility.Kind != after.ActiveUtility.Kind ||
+		before.ActiveUtility.Model != after.ActiveUtility.Model ||
+		before.LastUtility.Status != after.LastUtility.Status ||
+		before.LastUtility.Summary != after.LastUtility.Summary ||
+		before.LastUtility.Request.ID != after.LastUtility.Request.ID ||
+		before.LastUtility.Request.Kind != after.LastUtility.Request.Kind ||
+		before.LastUtility.Request.Model != after.LastUtility.Request.Model ||
+		len(before.LastUtility.Suggestions) != len(after.LastUtility.Suggestions) ||
+		len(before.LastUtility.EvidenceRefs) != len(after.LastUtility.EvidenceRefs) ||
+		len(before.LastUtility.Caveats) != len(after.LastUtility.Caveats)
 }
 
 func (controller *sessionController) persistCurrentSnapshot(turn tui.TranscriptTurn) tui.TranscriptTurn {
@@ -234,6 +250,10 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	turn.QueuedCount = len(model.Queued)
 	turn.QueuedText = queuedText(model.Queued)
 	turn.Diagnostics = diagnosticViews(model.Diagnostics)
+	turn.Utility = utilityView(model)
+	if turn.Utility != nil {
+		turn.StatusDetail = "utility worker status"
+	}
 	return tui.ApplyTranscriptTurn(view, turn)
 }
 

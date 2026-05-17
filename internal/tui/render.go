@@ -43,6 +43,7 @@ type ViewState struct {
 	Approval           *ApprovalProposalView
 	ApprovalDecision   *ApprovalDecisionView
 	Command            *CommandView
+	Utility            *UtilityView
 	Compact            *CompactView
 	Context            *ContextView
 	Fetch              *FetchView
@@ -430,6 +431,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, compactLines(state.Compact)...)
 	items = append(items, contextLines(state.Context)...)
 	items = append(items, commandLines(state.Command)...)
+	items = append(items, utilityLines(state.Utility)...)
 	items = append(items, fetchLines(state.Fetch)...)
 	items = append(items, recoveryLines(state.Recovery)...)
 	items = append(items, mutationLines(state.Mutation)...)
@@ -813,6 +815,50 @@ func commandLines(command *CommandView) []string {
 	}
 	lines = appendDecisionLines(lines, semantic.Decision)
 	lines = append(lines, "")
+	return lines
+}
+
+func utilityLines(utility *UtilityView) []string {
+	if utility == nil {
+		return nil
+	}
+	semantic := semanticUtility(utility)
+	lines := []string{
+		"  Utility worker:",
+		"  source: " + semantic.Source,
+		"  status: " + semantic.Status,
+		"  job: " + semantic.JobKind + " " + semantic.JobID,
+		"  model: " + semantic.Model,
+		"  read-only: " + boolLabel(semantic.ReadOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	for _, suggestion := range semantic.Suggestions {
+		line := "  suggestion: " + suggestion.Text
+		if len(suggestion.EvidenceRefIDs) > 0 {
+			line += " refs=" + strings.Join(suggestion.EvidenceRefIDs, ", ")
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.EvidenceRefs {
+		lines = append(lines, "  utility evidence: "+ref.ID+" "+ref.Kind+" "+ref.Source+" "+ref.Detail)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	if semantic.DeniedReason != "" {
+		lines = append(lines, "  denied: "+semantic.DeniedReason+" "+semantic.DeniedDetail)
+	}
+	lines = append(lines,
+		"  file mutation: "+boolLabel(semantic.Safety.FileMutation),
+		"  git"+" mutation: "+boolLabel(semantic.Safety.GitMutation),
+		"  artifact mutation: "+boolLabel(semantic.Safety.ProjectArtifactMutation),
+		"  permission approval: "+boolLabel(semantic.Safety.ApprovalGrant),
+		"  workflow transition: "+boolLabel(semantic.Safety.WorkflowPhaseTransition),
+		"  final judgment: "+boolLabel(semantic.Safety.FinalJudgment),
+		"",
+	)
 	return lines
 }
 
@@ -1381,6 +1427,7 @@ type SemanticSnapshot struct {
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
 	Search         *SemanticSearch         `json:"search_tool,omitempty"`
 	Bash           *SemanticBash           `json:"bash_tool,omitempty"`
+	Utility        *SemanticUtility        `json:"utility,omitempty"`
 	Compact        *SemanticCompact        `json:"compact,omitempty"`
 	Context        *SemanticContext        `json:"context,omitempty"`
 	Fetch          *SemanticFetch          `json:"fetch_tool,omitempty"`
@@ -1482,6 +1529,47 @@ type SemanticBash struct {
 	ErrorMessage    string            `json:"error_message,omitempty"`
 	Decision        *SemanticDecision `json:"decision,omitempty"`
 	Completed       bool              `json:"completed"`
+}
+
+// SemanticUtility describes app-injected idle-only utility worker state.
+type SemanticUtility struct {
+	Source       string                      `json:"source"`
+	Status       string                      `json:"status"`
+	JobID        string                      `json:"job_id"`
+	JobKind      string                      `json:"job_kind"`
+	Model        string                      `json:"model"`
+	Summary      string                      `json:"summary,omitempty"`
+	Suggestions  []SemanticUtilitySuggestion `json:"suggestions,omitempty"`
+	EvidenceRefs []SemanticUtilityEvidence   `json:"evidence_refs,omitempty"`
+	Caveats      []string                    `json:"caveats,omitempty"`
+	DeniedReason string                      `json:"denied_reason,omitempty"`
+	DeniedDetail string                      `json:"denied_detail,omitempty"`
+	ReadOnly     bool                        `json:"read_only"`
+	Safety       SemanticUtilitySafety       `json:"safety"`
+}
+
+// SemanticUtilitySuggestion records one fake utility suggestion.
+type SemanticUtilitySuggestion struct {
+	Text           string   `json:"text"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticUtilityEvidence records evidence backing utility output.
+type SemanticUtilityEvidence struct {
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
+	Source string `json:"source"`
+	Detail string `json:"detail"`
+}
+
+// SemanticUtilitySafety records forbidden utility actions; all should remain false.
+type SemanticUtilitySafety struct {
+	FileMutation            bool `json:"file_mutation"`
+	GitMutation             bool `json:"git_mutation"`
+	ProjectArtifactMutation bool `json:"project_artifact_mutation"`
+	ApprovalGrant           bool `json:"permission_approval"`
+	WorkflowPhaseTransition bool `json:"workflow_phase_transition"`
+	FinalJudgment           bool `json:"final_judgment"`
 }
 
 // SemanticFetch describes injected read-only network state for snapshots.
@@ -1980,6 +2068,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Command != nil {
 		regions = append(regions, SemanticRegion{Name: "bash_tool", Visible: true, Items: semanticBashItems(state.Command)})
 	}
+	if state.Utility != nil {
+		regions = append(regions, SemanticRegion{Name: "utility", Visible: true, Items: semanticUtilityItems(state.Utility)})
+	}
 	if state.Compact != nil {
 		regions = append(regions, SemanticRegion{Name: "compact", Visible: true, Items: semanticCompactItems(state.Compact)})
 	}
@@ -2099,6 +2190,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Read:           semanticRead(state.Read),
 		Search:         semanticSearch(state.Search),
 		Bash:           semanticBash(state.Command),
+		Utility:        semanticUtility(state.Utility),
 		Compact:        semanticCompact(state.Compact),
 		Context:        semanticContext(state.Context),
 		Fetch:          semanticFetch(state.Fetch),
@@ -2948,6 +3040,78 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticUtilityItems(utility *UtilityView) []string {
+	semantic := semanticUtility(utility)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"status: " + semantic.Status,
+		"job: " + semantic.JobKind + " " + semantic.JobID,
+		"model: " + semantic.Model,
+		"read_only: " + boolLabel(semantic.ReadOnly),
+		"file_mutation: " + boolLabel(semantic.Safety.FileMutation),
+		"git_mutation: " + boolLabel(semantic.Safety.GitMutation),
+		"project_artifact_mutation: " + boolLabel(semantic.Safety.ProjectArtifactMutation),
+		"permission_approval: " + boolLabel(semantic.Safety.ApprovalGrant),
+		"workflow_phase_transition: " + boolLabel(semantic.Safety.WorkflowPhaseTransition),
+		"final_judgment: " + boolLabel(semantic.Safety.FinalJudgment),
+		"display-only",
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	for _, suggestion := range semantic.Suggestions {
+		items = append(items, "suggestion: "+suggestion.Text+" refs="+strings.Join(suggestion.EvidenceRefIDs, ","))
+	}
+	for _, ref := range semantic.EvidenceRefs {
+		items = append(items, "evidence: "+ref.ID+" "+ref.Kind+" "+ref.Source+" "+ref.Detail)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	if semantic.DeniedReason != "" {
+		items = append(items, "denied: "+semantic.DeniedReason+" "+semantic.DeniedDetail)
+	}
+	return items
+}
+
+func semanticUtility(utility *UtilityView) *SemanticUtility {
+	if utility == nil {
+		return nil
+	}
+	suggestions := make([]SemanticUtilitySuggestion, 0, len(utility.Suggestions))
+	for _, suggestion := range utility.Suggestions {
+		suggestions = append(suggestions, SemanticUtilitySuggestion{Text: safeText(suggestion.Text), EvidenceRefIDs: safeTextSlice(suggestion.EvidenceRefIDs)})
+	}
+	evidence := make([]SemanticUtilityEvidence, 0, len(utility.EvidenceRefs))
+	for _, ref := range utility.EvidenceRefs {
+		evidence = append(evidence, SemanticUtilityEvidence{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Source: safeText(ref.Source), Detail: safeText(ref.Detail)})
+	}
+	return &SemanticUtility{
+		Source:       safeText(defaultString(utility.Source, "app.utility")),
+		Status:       safeText(defaultString(utility.Status, "idle")),
+		JobID:        safeText(utility.JobID),
+		JobKind:      safeText(utility.JobKind),
+		Model:        safeText(utility.Model),
+		Summary:      safeText(utility.Summary),
+		Suggestions:  suggestions,
+		EvidenceRefs: evidence,
+		Caveats:      safeTextSlice(utility.Caveats),
+		DeniedReason: safeText(utility.DeniedReason),
+		DeniedDetail: safeText(utility.DeniedDetail),
+		ReadOnly:     utility.ReadOnly,
+		Safety: SemanticUtilitySafety{
+			FileMutation:            utility.Safety.FileMutation,
+			GitMutation:             utility.Safety.GitMutation,
+			ProjectArtifactMutation: utility.Safety.ProjectArtifactMutation,
+			ApprovalGrant:           utility.Safety.ApprovalGrant,
+			WorkflowPhaseTransition: utility.Safety.WorkflowPhaseTransition,
+			FinalJudgment:           utility.Safety.FinalJudgment,
+		},
+	}
 }
 
 func semanticCompactItems(compact *CompactView) []string {
@@ -4327,6 +4491,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Command != nil {
 		items = append(items, semanticBashItems(state.Command)...)
+	}
+	if state.Utility != nil {
+		items = append(items, semanticUtilityItems(state.Utility)...)
 	}
 	if state.Context != nil {
 		items = append(items, semanticContextItems(state.Context)...)

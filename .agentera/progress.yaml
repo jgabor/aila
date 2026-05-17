@@ -1,4 +1,85 @@
 cycles:
+  - number: 209
+    timestamp: "2026-05-17 07:45"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M41 by adding an idle-only utility worker skeleton with deterministic fake jobs, runtime/app utility state
+      and effect wiring, /status-visible utility suggestion/evidence output, utility render/semantic fixtures, and PTY visibility
+      coverage.
+    commit: "pending local commit: add utility worker skeleton"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 41; ARCHITECTURE runtime/utility/TUI boundaries; docs/workflow-architecture
+      utility boundary; docs/tui-testing fixture guidance; agentera hej --format json --capability-context orkestrera
+    discovered: >-
+      The safe M41 path is a fake deterministic utility slot owned by runtime/app. Utility work can run only while the primary
+      runtime is idle and no active operation, approval, or queued input exists. The TUI remains presentation-only and renders
+      injected utility state. Real context prep, stale-context detection, source ranking/indexing, provider/model calls, summary
+      refresh, background compaction, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, and M42+ behavior
+      remain deferred.
+    verified: >-
+      mage fmt passed. go test ./internal/utility -count=1 passed. Focused runtime/app/TUI/cmd utility and PTY tests passed.
+      go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed in 319.232s. mage check passed with full
+      cmd/internal tests, 0 lint issues, and no vulnerabilities. utility-idle, utility-running, and utility-result plain/ANSI/semantic
+      snapshots were added. TestInspectionCommandFamilyPTYSmoke proves /status displays utility status, suggestion, evidence,
+      and no-file-mutation evidence. ROADMAP.md was updated only after green validation; Agentera plan/progress/lint/hej,
+      git diff --check, home-path hygiene, and TestM<number> hygiene are part of final closeout.
+    next: >-
+      Commit the completed M41 slice, leaving Milestone 42: Utility Context Prep as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M41 roadmap milestone first, preserving the planera -> orkestrera -> commit loop and Agentera
+        closeout artifacts.
+      constraints: >-
+        Execute only M41; preserve statechart-MVU, explicit effect boundaries, fixed-product posture, TUI presentation-only
+        behavior, idle-only fake utility work, behavior-based test names, and no push.
+      unknowns: >-
+        Real utility context prep, stale-context checks, continuous compaction, summary refresh, source ranking/indexing, provider-assisted
+        utility work, and durable utility persistence remain deferred.
+      scope: >-
+        internal/utility contract, runtime utility messages/effects/results, app /status utility scheduling and inspection
+        lines, TUI UtilityView rendering/semantics, utility fixtures/snapshots, PTY smoke, ROADMAP, and Agentera closeout.
+  - number: 208
+    timestamp: "2026-05-17 07:21"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 41: Utility Worker Skeleton as the next roadmap milestone, archived the completed M40 plan, and created
+      a new active plan with six bounded tasks for an idle-only fake utility worker contract, runtime/app utility state slot,
+      visible /status utility evidence, utility render/semantic fixtures, PTY visibility smoke, full validation, roadmap closeout,
+      and commit.
+    commit: "N/A: planning artifact before M41 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 41; AGENTS.md; README utility/status sections; ARCHITECTURE runtime/utility
+      boundaries; docs/workflow-architecture utility boundary; docs/tui-testing utility/model fixture guidance; agentera hej
+      --format json --capability-context planera
+    discovered: >-
+      M41 should stay a skeleton: fake deterministic utility jobs, idle-only scheduling rules, visible status/suggestion/evidence,
+      and hard proofs that utility work cannot mutate files, git state, project artifacts, permissions, workflow phase, or final
+      judgment. Real background compaction, stale-context checks, source ranking/indexing, summary refresh, provider/model utility
+      calls, plugins, MCP, workflow DSLs, hosted control planes, and M42+ behavior remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, ROADMAP.md top status and M41 section, docs/notes/PROMPT.md,
+      AGENTS.md, README utility/status sections, ARCHITECTURE runtime/utility boundaries, docs/workflow-architecture utility
+      boundary, docs/tui-testing utility/model fixture guidance, and current internal/utility/runtime/app/TUI seams were reviewed
+      before writing the plan.
+    next: >-
+      Execute M41 Tasks 2-5: add fake utility job contracts and idle-only scheduler, wire runtime/app state, render utility
+      status/suggestions/semantic evidence, and run /status PTY visibility smoke without adding real background compaction,
+      stale checks, provider/model calls, source ranking/indexing, plugins, MCP, workflow DSLs, hosted control-plane, or M42+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M40, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M41; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, idle-only utility worker
+        behavior, fake deterministic read-only jobs, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Exact utility view field names and fake suggestion wording are implementation-owned; real utility context prep, stale-context
+        checks, continuous compaction, summary refresh, source ranking/indexing, and provider-assisted utility work remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m40.yaml archival, M40 commit-string correction,
+        and progress evidence for the M41 planning handoff.
   - number: 207
     timestamp: "2026-05-17 06:57"
     type: build
@@ -7,7 +88,7 @@ cycles:
       Completed M40 by adding the manual /compact command and ctrl+x k shortcut with closed routing, explicit runtime/app
       compact effects, deterministic source-ref-preserving compaction, app-injected compact/context TUI state, compact-running
       and compact-result fixtures, semantic snapshots, and PTY smoke for manual compaction.
-    commit: "pending local commit: add manual context compaction"
+    commit: "540fc38 add manual context compaction"
     inspiration: >-
       .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 40; README command/context sections; ARCHITECTURE.md context/runtime/state/TUI
       boundaries; docs/workflow-architecture.md manual compact guidance; docs/tui-testing.md compact-running fixture guidance;

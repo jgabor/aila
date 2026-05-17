@@ -706,6 +706,58 @@ func TestStatusCommandRoutesThroughRuntimeOnly(t *testing.T) {
 	}
 }
 
+func TestUtilityJobRoutesThroughRuntimeAndStaysDisplayOnly(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+
+	turn := runner.proposeUtilityJob(defaultUtilityJobRequest("test/utility"))
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("utility dispatches = %#v, want one utility effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.UtilityJobEffect); !ok {
+		t.Fatalf("utility dispatch = %T, want runtime.UtilityJobEffect", dispatched[0][0])
+	}
+	if turn.Utility == nil || turn.Utility.Status != "completed" || turn.Utility.Model != "test/utility" || !turn.Utility.ReadOnly {
+		t.Fatalf("utility view = %+v, want completed display-only result", turn.Utility)
+	}
+	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 1 {
+		t.Fatalf("utility view missing suggestion/evidence: %+v", turn.Utility)
+	}
+	if turn.Utility.Safety.FileMutation || turn.Utility.Safety.GitMutation || turn.Utility.Safety.ProjectArtifactMutation || turn.Utility.Safety.ApprovalGrant || turn.Utility.Safety.WorkflowPhaseTransition || turn.Utility.Safety.FinalJudgment {
+		t.Fatalf("utility view crossed safety boundary: %+v", turn.Utility.Safety)
+	}
+	if runner.model.Status != runtime.StatusIdle || runner.model.Result != "" || len(runner.model.Transcript) != 0 {
+		t.Fatalf("utility changed primary model = %+v", runner.model)
+	}
+}
+
+func TestUtilityJobBlockedByPendingApprovalWithoutDispatch(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return nil
+	})
+	runner.model = runtime.Model{Status: runtime.StatusIdle, PendingApproval: runtime.ApprovalProposal{ID: "approval-1"}}
+
+	turn := runner.proposeUtilityJob(defaultUtilityJobRequest("test/utility"))
+	if turn.Utility == nil || turn.Utility.Status != "blocked" || turn.Utility.DeniedReason != "approval_pending" {
+		t.Fatalf("blocked utility view = %+v", turn.Utility)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 0 {
+		t.Fatalf("blocked utility dispatches = %#v, want one empty effect dispatch", dispatched)
+	}
+	if runner.model.Status != runtime.StatusIdle || runner.model.PendingApproval.ID != "approval-1" || runner.model.ActiveUtility.ID != "" {
+		t.Fatalf("blocked utility changed primary model = %+v", runner.model)
+	}
+}
+
 func TestOtherCommandRoutesStayBoundedOutsideRuntime(t *testing.T) {
 	t.Parallel()
 

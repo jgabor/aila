@@ -46,10 +46,22 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 		"source: app.status",
 		"read-only: true",
 		"runtime source: runtime.dispatch",
-		"runtime detail: fake in-memory runtime loop",
+		"runtime detail: utility worker status",
 		"runtime result: fake command result: status",
 		"last command: status",
 		"project store: initialized (state.open; project store ready)",
+		"utility worker: completed",
+		"utility source: app.status",
+		"utility job: suggestion status-utility-suggestion",
+		"utility summary: fake utility suggestion ready",
+		"utility suggestion: Review current status before starting new background utility work. refs=utility-evidence-1",
+		"utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only",
+		"utility file mutation: false",
+		"utility git mutation: false",
+		"utility artifact mutation: false",
+		"utility permission approval: false",
+		"utility workflow transition: false",
+		"utility final judgment: false",
 		"inspection: app-owned display data",
 	} {
 		if !strings.Contains(lines, want) {
@@ -61,14 +73,17 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 			t.Fatalf("status inspection leaked forbidden marker %q in:\n%s", forbidden, lines)
 		}
 	}
-	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
-		t.Fatalf("status dispatches = %#v, want one runtime command effect", dispatched)
+	if len(dispatched) != 2 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 {
+		t.Fatalf("status dispatches = %#v, want command effect then utility effect", dispatched)
 	}
 	if _, ok := dispatched[0][0].(runtime.FakeCommandEffect); !ok {
 		t.Fatalf("status dispatch = %T, want runtime.FakeCommandEffect", dispatched[0][0])
 	}
-	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result != "fake command result: status" {
-		t.Fatalf("status snapshots = %#v, want one snapshot with runtime result", snapshots)
+	if _, ok := dispatched[1][0].(runtime.UtilityJobEffect); !ok {
+		t.Fatalf("utility dispatch = %T, want runtime.UtilityJobEffect", dispatched[1][0])
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result != "fake command result: status" || got.Utility == nil || got.Utility.Status != "completed" {
+		t.Fatalf("status snapshots/view = %#v / %+v, want one snapshot with runtime result and completed utility view", snapshots, got.Utility)
 	}
 	if len(historyEvents) != 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
 		t.Fatalf("status history events = %#v, want command then runtime event", historyEvents)

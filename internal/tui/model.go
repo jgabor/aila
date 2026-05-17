@@ -52,6 +52,7 @@ type TranscriptTurn struct {
 	Read               *ReadView
 	Search             *SearchView
 	Command            *CommandView
+	Utility            *UtilityView
 	Compact            *CompactView
 	Context            *ContextView
 	Fetch              *FetchView
@@ -178,6 +179,48 @@ type CommandView struct {
 	ErrorKind       string
 	ErrorMessage    string
 	Decision        *DecisionView
+}
+
+// UtilityView is app-injected idle-only utility worker state. It is display-only;
+// TUI code must never schedule jobs, mutate files, run git, or change workflow phase.
+type UtilityView struct {
+	Source       string
+	Status       string
+	JobID        string
+	JobKind      string
+	Model        string
+	Summary      string
+	Suggestions  []UtilitySuggestionView
+	EvidenceRefs []UtilityEvidenceRefView
+	Caveats      []string
+	DeniedReason string
+	DeniedDetail string
+	ReadOnly     bool
+	Safety       UtilitySafetyView
+}
+
+// UtilitySuggestionView records one display-only utility suggestion.
+type UtilitySuggestionView struct {
+	Text           string
+	EvidenceRefIDs []string
+}
+
+// UtilityEvidenceRefView records evidence supporting utility output.
+type UtilityEvidenceRefView struct {
+	ID     string
+	Kind   string
+	Source string
+	Detail string
+}
+
+// UtilitySafetyView records negative evidence for forbidden utility actions.
+type UtilitySafetyView struct {
+	FileMutation            bool
+	GitMutation             bool
+	ProjectArtifactMutation bool
+	ApprovalGrant           bool
+	WorkflowPhaseTransition bool
+	FinalJudgment           bool
 }
 
 // CompactView is app-injected manual context compaction state. It is display-only;
@@ -577,6 +620,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
+	state.Utility = cloneUtilityView(turn.Utility)
 	state.Compact = cloneCompactView(turn.Compact)
 	state.Context = cloneContextView(turn.Context)
 	if state.Context != nil && state.Context.Meter != "" {
@@ -638,6 +682,22 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
 	clone.Decision = cloneDecisionView(command.Decision)
+	return &clone
+}
+
+func cloneUtilityView(utility *UtilityView) *UtilityView {
+	if utility == nil {
+		return nil
+	}
+	clone := *utility
+	clone.Suggestions = make([]UtilitySuggestionView, 0, len(utility.Suggestions))
+	for _, suggestion := range utility.Suggestions {
+		item := suggestion
+		item.EvidenceRefIDs = append([]string(nil), suggestion.EvidenceRefIDs...)
+		clone.Suggestions = append(clone.Suggestions, item)
+	}
+	clone.EvidenceRefs = append([]UtilityEvidenceRefView(nil), utility.EvidenceRefs...)
+	clone.Caveats = append([]string(nil), utility.Caveats...)
 	return &clone
 }
 
@@ -804,6 +864,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	}
 	if recommendation.Route != policy.CommandRouteEditor {
 		state.PromptEditor = nil
+	}
+	if recommendation.Route != policy.CommandRouteStatus {
+		state.Utility = nil
 	}
 	state.FileReference = nil
 	switch recommendation.Route {

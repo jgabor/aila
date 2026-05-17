@@ -232,6 +232,46 @@ func loadCompactFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadUtilityFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = name
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "utility worker status"
+	state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+	state.Utility = &UtilityView{
+		Source:   "app.status",
+		Status:   "idle",
+		JobID:    "status-utility-suggestion",
+		JobKind:  "suggestion",
+		Model:    state.UtilityModel,
+		Summary:  "idle utility worker ready",
+		ReadOnly: true,
+	}
+	switch name {
+	case "utility-idle":
+	case "utility-running":
+		state.Utility.Status = "running"
+		state.Utility.Summary = "fake utility job running"
+	case "utility-result":
+		state.Utility.Status = "completed"
+		state.Utility.Summary = "fake utility suggestion ready"
+		state.Utility.Suggestions = []UtilitySuggestionView{{Text: "Review current status before starting new background utility work.", EvidenceRefIDs: []string{"utility-evidence-1"}}}
+		state.Utility.EvidenceRefs = []UtilityEvidenceRefView{{ID: "utility-evidence-1", Kind: "runtime_state", Source: "app.status", Detail: "primary runtime idle; fake utility job only"}}
+	default:
+		t.Fatalf("unknown utility fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
+func utilityFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "120x44", Width: 120, Height: 44}}
+}
+
 func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
@@ -3511,6 +3551,84 @@ func commandFixtureMarker(route string) string {
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
 		return "Deterministic placeholder"
+	}
+}
+
+func TestUtilityWorkerFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		status     string
+		wantRender []string
+		wantRegion []string
+	}{
+		{
+			name:       "utility-idle",
+			status:     "idle",
+			wantRender: []string{"Utility worker:", "status: idle", "model: opencode-go/deepseek-v4-flash:max", "read-only: true", "summary: idle utility worker ready"},
+			wantRegion: []string{"status: idle", "model: opencode-go/deepseek-v4-flash:max", "read_only: true", "file_mutation: false", "display-only"},
+		},
+		{
+			name:       "utility-running",
+			status:     "running",
+			wantRender: []string{"Utility worker:", "status: running", "summary: fake utility job running", "file mutation: false", "workflow transition: false"},
+			wantRegion: []string{"status: running", "summary: fake utility job running", "permission_approval: false", "final_judgment: false"},
+		},
+		{
+			name:       "utility-result",
+			status:     "completed",
+			wantRender: []string{"Utility worker:", "status: completed", "summary: fake utility suggestion ready", "suggestion: Review current status before starting new background utility work. refs=utility-evidence-1", "utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only"},
+			wantRegion: []string{"status: completed", "summary: fake utility suggestion ready", "suggestion: Review current status before starting new background utility work. refs=utility-evidence-1", "evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only"},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadUtilityFixture(t, tc.name)
+			assertFixtureSizes(t, fixture, utilityFixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, tc.wantRender) {
+						t.Fatalf("%s utility render missing evidence %v:\n%s", tc.name, tc.wantRender, plain)
+					}
+					if containsAny(plain, []string{"provider call", "workflow phase changed", "git write"}) {
+						t.Fatalf("%s utility render leaked forbidden capability:\n%s", tc.name, plain)
+					}
+				})
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Utility == nil || snapshot.Utility.Status != tc.status || snapshot.Utility.Model != "opencode-go/deepseek-v4-flash:max" || !snapshot.Utility.ReadOnly {
+						t.Fatalf("utility semantic = %+v", snapshot.Utility)
+					}
+					if snapshot.Utility.Safety.FileMutation || snapshot.Utility.Safety.GitMutation || snapshot.Utility.Safety.ProjectArtifactMutation || snapshot.Utility.Safety.ApprovalGrant || snapshot.Utility.Safety.WorkflowPhaseTransition || snapshot.Utility.Safety.FinalJudgment {
+						t.Fatalf("utility semantic crossed safety boundary: %+v", snapshot.Utility.Safety)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					utilityRegion := strings.Join(regions["utility"].Items, "\n")
+					if !containsAll(utilityRegion, tc.wantRegion) {
+						t.Fatalf("%s utility semantic region missing %v in %v", tc.name, tc.wantRegion, regions["utility"].Items)
+					}
+				})
+			}
+		})
 	}
 }
 

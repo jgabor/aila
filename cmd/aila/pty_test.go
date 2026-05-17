@@ -1690,13 +1690,16 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		t.Fatalf("send ctrl+x s command input: %v", err)
 	}
 	status := readUntilAll(t, terminal, []string{
-		"status:",
-		"command route: status",
-		"route source: policy.command",
+		"Runtime status:",
+		"detail: utility worker status",
+		"result: fake command result: status",
+		"Utility worker:",
 		"source: app.status",
-		"runtime result: fake command result: status",
-		"last command: status",
-		"inspection: app-owned display data",
+		"status: completed",
+		"summary: fake utility suggestion ready",
+		"suggestion: Review current status before starting new background utility work. refs=utility-evidence-1",
+		"utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only",
+		"file mutation: false",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, status, env, workspace)
 	for _, forbidden := range []string{"Deterministic placeholder status", "real status sources: deferred", "provider review"} {

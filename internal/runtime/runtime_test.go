@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/aila/internal/diagnostic"
+	"github.com/jgabor/aila/internal/utility"
 )
 
 func TestUpdateHandlesPromptDeterministically(t *testing.T) {
@@ -154,6 +155,88 @@ func TestUpdateAppliesCompactContextResult(t *testing.T) {
 	}
 	if got := model.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "result", Text: result.Summary}}) {
 		t.Fatalf("transcript = %#v", got)
+	}
+}
+
+func TestUpdateStartsUtilityJobOnlyWhileRuntimeIdle(t *testing.T) {
+	t.Parallel()
+
+	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-utility", Kind: utility.JobSuggestion, Model: "test/utility", Source: utility.Source{Caller: "test.utility"}})
+	model := Model{Status: StatusIdle, NextOperation: 5, Result: "previous result", Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}}}
+	firstModel, firstEffects := Update(model, UtilityJobProposed{Request: request})
+	secondModel, secondEffects := Update(model, UtilityJobProposed{Request: request})
+
+	if !reflect.DeepEqual(firstModel, secondModel) || !reflect.DeepEqual(firstEffects, secondEffects) {
+		t.Fatalf("utility update not deterministic:\nfirst:  %#v %#v\nsecond: %#v %#v", firstModel, firstEffects, secondModel, secondEffects)
+	}
+	if firstModel.Status != StatusIdle || firstModel.Result != model.Result || !reflect.DeepEqual(firstModel.Transcript, model.Transcript) {
+		t.Fatalf("utility changed primary runtime state = %+v", firstModel)
+	}
+	if !reflect.DeepEqual(firstModel.ActiveUtility, request) || firstModel.LastUtility.Status != utility.StatusRunning {
+		t.Fatalf("utility state = active %+v last %+v", firstModel.ActiveUtility, firstModel.LastUtility)
+	}
+	if firstModel.ActiveOperation.Kind != "" || firstModel.NextOperation != 6 {
+		t.Fatalf("primary operation changed = active %+v next %d", firstModel.ActiveOperation, firstModel.NextOperation)
+	}
+	if len(firstEffects) != 1 {
+		t.Fatalf("len(effects) = %d, want one utility effect", len(firstEffects))
+	}
+	effect, ok := firstEffects[0].(UtilityJobEffect)
+	if !ok || !reflect.DeepEqual(effect.Request, request) {
+		t.Fatalf("utility effect = %#v", firstEffects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-6", Kind: OperationUtility, Subject: "suggestion status-utility", Source: "runtime.utility"})
+}
+
+func TestUpdateBlocksUtilityJobWhenPrimaryRuntimeCannotYield(t *testing.T) {
+	t.Parallel()
+
+	request := utility.JobRequest{ID: "status-utility", Kind: utility.JobSuggestion}
+	cases := []struct {
+		name  string
+		model Model
+		want  utility.DenialReason
+	}{
+		{name: "primary active", model: Model{Status: StatusActive}, want: utility.DenialPrimaryBusy},
+		{name: "active operation", model: Model{Status: StatusIdle, ActiveOperation: OperationMetadata{Kind: OperationBash}}, want: utility.DenialActiveOperation},
+		{name: "approval pending", model: Model{Status: StatusIdle, PendingApproval: ApprovalProposal{ID: "approval-1"}}, want: utility.DenialApprovalPending},
+		{name: "queued input", model: Model{Status: StatusIdle, Queued: []QueuedEntry{{Kind: "prompt", Text: "queued"}}}, want: utility.DenialQueuedUserInput},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			updated, effects := Update(tc.model, UtilityJobProposed{Request: request})
+			if len(effects) != 0 {
+				t.Fatalf("utility effects = %#v, want none", effects)
+			}
+			if updated.LastUtility.Status != utility.StatusBlocked || updated.LastUtility.Denial.Reason != tc.want {
+				t.Fatalf("blocked utility = %+v, want reason %s", updated.LastUtility, tc.want)
+			}
+			if updated.Status != tc.model.Status || !reflect.DeepEqual(updated.Transcript, tc.model.Transcript) || updated.ActiveUtility.ID != "" {
+				t.Fatalf("blocked utility changed primary state = %+v", updated)
+			}
+		})
+	}
+}
+
+func TestUpdateAppliesUtilityResultWithoutPrimaryRuntimeMutation(t *testing.T) {
+	t.Parallel()
+
+	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-utility", Kind: utility.JobSuggestion, Model: "test/utility"})
+	result := utility.RunFakeJob(request)
+	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "suggestion status-utility", Source: "runtime.utility"}
+	base := Model{Status: StatusIdle, Result: "previous result", ActiveUtility: request, LastUtility: utility.RunningResult(request), Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}}}
+	updated, effects := Update(base, UtilityJobCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 {
+		t.Fatalf("utility completion effects = %#v, want none", effects)
+	}
+	if updated.Status != base.Status || updated.Result != base.Result || !reflect.DeepEqual(updated.Transcript, base.Transcript) || updated.ActiveOperation.Kind != "" {
+		t.Fatalf("utility completion changed primary state = %+v", updated)
+	}
+	if updated.ActiveUtility.ID != "" || !reflect.DeepEqual(updated.LastUtility, result) {
+		t.Fatalf("utility completion state = active %+v last %+v", updated.ActiveUtility, updated.LastUtility)
 	}
 }
 
@@ -682,6 +765,24 @@ func TestDispatchHandlesCompactContextEffect(t *testing.T) {
 	completed, ok := messages[0].(CompactContextCompleted)
 	if !ok || completed.Operation != operation || completed.Result.Status != "completed" || len(completed.Result.SourceRefs) != 1 {
 		t.Fatalf("compact dispatch = %#v", messages[0])
+	}
+}
+
+func TestDispatchHandlesUtilityJobEffect(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "suggestion status-utility", Source: "runtime.utility"}
+	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-utility", Kind: utility.JobSuggestion, Source: utility.Source{Caller: "test.utility"}})
+	messages := Dispatch([]Effect{UtilityJobEffect{Operation: operation, Request: request}})
+	if len(messages) != 1 {
+		t.Fatalf("messages = %#v, want one utility completion", messages)
+	}
+	completed, ok := messages[0].(UtilityJobCompleted)
+	if !ok || completed.Operation != operation || completed.Result.Status != utility.StatusCompleted || len(completed.Result.Suggestions) != 1 || len(completed.Result.EvidenceRefs) != 1 {
+		t.Fatalf("utility dispatch = %#v", messages[0])
+	}
+	if completed.Result.Safety.FileMutation || completed.Result.Safety.GitMutation || completed.Result.Safety.ProjectArtifactMutation || completed.Result.Safety.PermissionApproval || completed.Result.Safety.WorkflowPhaseTransition || completed.Result.Safety.FinalJudgment {
+		t.Fatalf("utility dispatch crossed safety boundary: %+v", completed.Result.Safety)
 	}
 }
 

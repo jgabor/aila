@@ -3,52 +3,53 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M40 must implement only the manual /compact command slice. Add closed /compact and ctrl+x k routing, explicit
-    runtime/app compaction effects, deterministic source-ref-preserving compaction, visible running/result/caveat state, fixtures,
-    semantics, and PTY smoke if terminal behavior changes. Keep background continuous compaction, utility worker scheduling,
-    stale-context checks, provider/model summarization, source indexing/ranking, plugins, MCP, workflow DSLs, generic graph
-    engines, hosted control planes, and M41+ behavior out of scope.
-  title: 'Milestone 40: Manual Compact Command'
-what: Deliver ROADMAP.md Milestone 40 by adding /compact and ctrl+x k as user-triggered manual context compaction with explicit
-  effects, preserved source refs, exact critical details, visible TUI state, and validated command parity.
-why: M39 introduced source-backed context assembly. M40 lets users intentionally compact the current conversation before any
-  background utility worker exists, while keeping compaction visible, inspectable, and bounded by existing runtime/app/TUI
-  architecture.
-constraints: 'Execute only Milestone 40. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may route the closed command, render injected compact running/result/caveat state, and expose semantic compact evidence,
-  but it must not assemble or compact context, call providers, persist state, inspect files, mutate workflow phase, or start
-  utility work. Manual compaction must run through a typed explicit effect path owned by runtime/app code and deterministic
-  internal/context compaction. Preserve source refs and exact paths, diffs, commands, errors, and user constraints when correctness
-  may depend on them. Do not add background continuous compaction, utility worker scheduling, stale-context checks, summary
-  refresh jobs, provider/model summarization, source indexing/ranking, plugins, MCP, workflow DSLs, generic graph engines,
-  hosted control planes, config writes, or M41+ behavior. Use behavior-based test names; do not introduce new TestM<number>
-  symbols. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m39.yaml
+  critic_issues: M41 must add only an idle-only utility worker skeleton with fake jobs and visible status/suggestion evidence.
+    It must not enable real background compaction, stale-context checks, source ranking, provider/model calls, file writes,
+    git mutations, project artifact writes, permission approvals, workflow phase transitions, final judgment, plugins, MCP,
+    workflow DSLs, generic graph engines, hosted control planes, or M42+ behavior.
+  title: 'Milestone 41: Utility Worker Skeleton'
+what: Deliver ROADMAP.md Milestone 41 by adding a safe runtime/app slot for idle-only utility jobs, fake utility job execution,
+  visible utility status/suggestion output, semantic evidence references, and tests proving utility work cannot mutate files,
+  git state, project artifacts, permissions, workflow phase, or final judgment.
+why: M40 added foreground manual compaction. M41 creates the safe utility-worker skeleton needed before real background compaction,
+  stale-context checks, source ranking, or summary refresh work can be introduced later.
+constraints: 'Execute only Milestone 41. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected utility state and semantic evidence, but it must not schedule utility work, inspect files, mutate
+  state, call providers, persist project artifacts, change permissions, or change workflow phase. Utility jobs must be idle-only,
+  fake/deterministic, and read-only. They may report status, suggestions, caveats, and evidence refs, but must not write files,
+  mutate git state, write project artifacts, approve permissions, transition workflow phase, make final judgments, run real
+  compaction, run stale-context checks, rank/index sources, refresh summaries, call providers/models, add plugins, add MCP,
+  add workflow DSLs, add generic graph engines, add hosted control-plane assumptions, or add M42+ behavior. Use behavior-based
+  test names; do not introduce new TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m40.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:16-110
-- ROADMAP.md:1624-1645
-- README.md:230-304
-- ARCHITECTURE.md:180-224
-- ARCHITECTURE.md:520-641
-- docs/workflow-architecture.md:633-644
+- ROADMAP.md:1648-1668
+- README.md:217-224
+- README.md:262-268
+- README.md:299-306
+- ARCHITECTURE.md:210-225
+- ARCHITECTURE.md:645-674
+- ARCHITECTURE.md:862-879
+- docs/workflow-architecture.md:527-548
 - docs/tui-testing.md:60-80
-- docs/tui-testing.md:185-195
-- internal/context/context.go
-- internal/app/session_snapshot.go
-- internal/app/prompt.go
+- docs/tui-testing.md:136-145
+- internal/utility/utility.go
 - internal/runtime/runtime.go
+- internal/app/inspection.go
+- internal/app/prompt.go
 - internal/tui/model.go
 - internal/tui/render.go
-- internal/policy/command.go
-- cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/context -count=1
-- go test ./internal/policy ./internal/runtime ./internal/app -run 'Test.*Compact.*|Test.*Command.*|Test.*Status.*' -count=1
-- go test ./internal/tui -run 'Test.*Compact.*|Test.*Command.*|Test.*Help.*|Test.*Semantic.*|Test.*Fixture.*' -count=1
-- go test ./cmd/aila -run 'Test.*Compact.*PTYSmoke|Test.*Command.*PTYSmoke' -count=1
+- go test ./internal/utility -count=1
+- go test ./internal/runtime -run 'Test.*Utility.*|TestUpdateHandlesCommandDeterministically' -count=1
+- go test ./internal/app -run 'Test.*Utility.*|TestStatusCommandRoutesThroughRuntimeOnly|TestOtherCommandRoutesStayBoundedOutsideRuntime'
+  -count=1
+- go test ./internal/tui -run 'Test.*Utility.*|Test.*Status.*|Test.*Semantic.*|Test.*Fixture.*' -count=1
+- go test ./cmd/aila -run 'Test.*Utility.*PTYSmoke|Test.*Status.*PTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
@@ -56,148 +57,147 @@ verification_commands:
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m39.yaml cmd/aila
-  internal/app internal/context internal/policy internal/runtime internal/state internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m40.yaml cmd/aila
+  internal/app internal/runtime internal/utility internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 scope:
   included:
-  - Add closed policy routing for /compact and ctrl+x k with help and shortcut parity.
-  - Add explicit runtime/app manual compaction request/effect/result state that is not a workflow phase and does not run in
-    the TUI.
-  - Add deterministic internal/context compaction over current visible context/transcript evidence while preserving source
-    refs and exact critical details.
-  - Expose app-injected compact running/result/caveat view state, context meter updates, and semantic source-ref evidence.
-  - Add compact command/keybinding tests plus render, ANSI, and semantic fixtures for compact-running and compact result/caveat
-    state.
-  - Run PTY smoke for /compact and ctrl+x k if interactive terminal behavior changes.
+  - Add internal/utility worker state, fake job definitions, scheduling decisions, result/suggestion/evidence types, and guard
+    tests.
+  - Add runtime/app-owned utility scheduling/result slot that runs deterministic fake jobs only when the primary runtime is
+    idle.
+  - Expose utility idle/running/result/suggestion status through app-injected TUI state and existing /status evidence.
+  - Add utility fixtures with plain, ANSI, and semantic snapshots showing utility model state, idle/running status, suggestions,
+    and evidence refs.
+  - Add tests proving utility jobs cannot mutate files, git state, project artifacts, permissions, workflow phase, or final
+    judgment.
+  - Run PTY smoke for utility visibility through /status because utility status is visible interactively.
   excluded:
-  - Background continuous compaction, utility worker scheduling, stale-context checks, summary refresh jobs, provider/model
-    summarization, source indexing/ranking, generic registries, plugins, MCP, workflow DSLs, hosted control planes, config
-    writes, and M41+ behavior.
+  - Real background compaction, stale-context checks, source ranking/indexing, provider/model calls, summary refresh, hidden
+    long-running jobs, file writes, git mutations, project artifact writes, permission approval, workflow phase mutation,
+    final judgment, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, and M42+ behavior.
   deferred:
-  - Idle utility worker integration, background compaction, stale context detection, source ranking/indexing, provider-assisted
-    summarization, and durable compaction policy tuning.
-design: Extend the fixed command policy with /compact and ctrl+x k. Add a compact request/result/effect path in runtime/app
-  so manual compaction is explicit state around the workflow rather than a phase. Implement internal/context deterministic
-  compaction that condenses blocks/claims, carries every supporting SourceRef forward, and keeps exact critical excerpts.
-  The app builds a CompactView/ContextView from the result and persists the current snapshot; the TUI only renders and snapshots
-  that injected state.
+  - Real utility context prep, stale context detection, continuous compaction, summary refresh, source ranking/indexing, provider-assisted
+    utility work, and durable utility persistence policy.
+design: Add a small internal/utility package that owns fake job specs, eligibility decisions, immutable result/suggestion/evidence
+  records, and denial reasons. Runtime/app code owns the explicit start/result slot and only schedules when runtime state
+  is idle and no approval/tool/agent work is active. The app maps utility state to TUI view data and /status lines. The TUI
+  only renders injected utility state and semantic evidence; it never schedules jobs or mutates anything.
 overall_acceptance:
-- Policy tests prove /compact and ctrl+x k route to the same closed compact command, and help/keybinding text includes both
-  without exposing background utility behavior.
-- Runtime/app tests prove manual compaction runs through an explicit effect/result path, updates visible compact state, records
-  command/history/snapshot state where existing command surfaces do, and never mutates workflow phase.
-- Context tests prove compacted context preserves source refs and exact critical details for prompts, tool results, diffs,
-  commands, errors, and user constraints.
-- TUI render and semantic snapshots show compact-running plus compact result/caveat state with machine-readable source refs
-  and context meter information while keeping TUI presentation-only.
-- PTY smoke covers manual /compact and shortcut parity if terminal behavior changes.
-- No background continuous compaction, utility worker scheduling, stale-context check, provider/model summarization, source
-  indexing/ranking, plugin, MCP, workflow DSL, generic graph engine, hosted control plane, or M41+ behavior is added.
+- Utility scheduler tests prove fake jobs run only when idle and are denied while runtime/tool/approval/queued work is active.
+- Runtime/app tests prove utility start/result handling is an explicit state slot around the workflow, never a workflow phase,
+  and never emits mutation, permission, git, artifact, or final-judgment effects.
+- Utility package tests prove fake job results are read-only status/suggestion/evidence records with no mutation operation
+  fields.
+- TUI render and semantic snapshots show utility idle/running/result state, utility model identity, fake suggestion/status
+  output, and evidence references while keeping TUI presentation-only.
+- PTY smoke proves utility status is visible through the existing /status command, or documents a precise skip if no interactive
+  visibility changed.
+- No real compaction, stale-context check, source ranking/indexing, provider/model call, summary refresh, plugin, MCP, workflow
+  DSL, generic graph engine, hosted control plane, or M42+ behavior is added.
 - Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
   updated.
-surprises: []
+surprises:
+- The first /status PTY check showed utility status was visible in the runtime panel while lower status-surface utility lines
+  could be below the viewport, so the smoke now asserts visible panel markers.
+- The status utility panel initially persisted into /review and pushed review evidence off-screen; command routing now clears
+  stale utility display state when leaving /status.
 tasks:
 - number: 1
-  name: Plan and confirm the manual compact slice
+  name: Plan and confirm the utility skeleton slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M40 only and excludes
-    background continuous compaction, utility workers, stale-context checks, provider summarization, plugins, MCP, workflow
-    DSLs, hosted control-plane, and M41+ behavior.
-  - GIVEN command, context, runtime, app, state, and TUI seams are inspected WHEN implementation starts THEN the plan routes
-    manual compaction through explicit runtime/app effects and pure internal/context compaction.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M41 only and excludes
+    real background compaction, stale-context checks, source ranking, provider/model calls, plugins, MCP, workflow DSLs, hosted
+    control planes, and M42+ behavior.
+  - GIVEN utility/runtime/app/TUI seams are inspected WHEN implementation starts THEN the plan routes fake utility work through
+    runtime/app-owned state and keeps the TUI rendering-only.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - Agentera hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M40 section, docs/notes/PROMPT.md,
-    AGENTS.md, README command/context sections, ARCHITECTURE context/state/runtime boundaries, docs/workflow-architecture
-    compact command notes, docs/tui-testing compact-running fixture guidance, and current policy/app/runtime/context/TUI seams
-    were reviewed.
-  - The plan keeps manual /compact on a typed explicit effect path and keeps TUI rendering-only.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to manual compaction only.
+  - Agentera hej with planera capability context, ROADMAP.md top status and M41 section, docs/notes/PROMPT.md, AGENTS.md,
+    README utility/status sections, ARCHITECTURE runtime/utility boundaries, docs/workflow-architecture utility boundary,
+    docs/tui-testing utility/model/compact fixture guidance, and current internal/utility/runtime/app/TUI seams were reviewed.
+  - The plan keeps M41 fake, idle-only, read-only, visible, and bounded before real utility work lands.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to utility skeleton only.
 - number: 2
-  name: Add deterministic source-ref compaction contract
+  name: Define utility worker contract and idle-only scheduler
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN a BuiltContext with blocks, claims, source refs, warnings, and budget data WHEN compaction runs THEN it returns
-    compacted blocks/claims plus all supporting source refs.
-  - GIVEN exact paths, commands, diffs, errors, and user constraints are present WHEN compacted THEN those details remain
-    available through SourceRef or compacted text.
-  - GIVEN empty or over-budget context is compacted WHEN the result is built THEN caveats make the condition visible without
-    fabricating provider summaries.
+  - GIVEN fake utility job specs and runtime activity facts WHEN eligibility is checked THEN jobs are allowed only while the
+    primary runtime is idle.
+  - GIVEN active agent/tool/approval/queued work exists WHEN scheduling is attempted THEN the scheduler returns a typed denial
+    reason and no result.
+  - GIVEN a fake job completes WHEN results are inspected THEN output is limited to status, suggestions, caveats, and evidence
+    refs.
   evidence:
-  - Added deterministic internal/context Compact input/result handling that condenses blocks and claims into a compacted_context
-    block, carries every SourceRef forward, records original and compacted budgets, and reports caveats for empty or truncated
-    context without fabricating provider summaries.
-  - TestCompactPreservesSourceRefsAndExactCriticalDetails and TestCompactReportsEmptyContextCaveat cover source-ref preservation,
-    exact command/path/error/user-constraint detail retention, budget truncation, and empty-context caveats.
-  - Verified with go test ./internal/context -count=1.
+  - internal/utility defines deterministic fake job requests, source metadata, scheduling decisions, denial reasons, result/suggestion/evidence
+    records, and safety-boundary fields.
+  - TestSchedulerAllowsFakeJobsOnlyWhenPrimaryRuntimeIdle proves idle-only allowance and denial while primary runtime, active
+    operation, approval, or queued input prevents utility work.
+  - TestFakeUtilityResultIsReadOnlyEvidenceOnly and TestBlockedUtilityResultPreservesDenialWithoutOutput prove fake output
+    is limited to status, suggestions, caveats, evidence refs, and all mutation/final-judgment safety flags remain false.
 - number: 3
-  name: Wire manual compact through policy runtime and app effects
+  name: Wire fake utility jobs through runtime and app state
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN /compact or ctrl+x k is submitted WHEN routed THEN policy selects the same closed compact route and runtime/app
-    code emits and handles an explicit compact effect/result.
-  - GIVEN current visible context/transcript evidence exists WHEN compact runs THEN the app compacts that evidence and injects
-    visible compact state plus a context meter/result into the TUI.
-  - GIVEN compaction cannot produce useful context WHEN the command completes THEN the visible result carries a caveat and
-    preserves exact supporting refs where available.
+  - GIVEN utility work is requested while idle WHEN runtime/app dispatch runs THEN a typed utility running state and completed
+    result are recorded without changing workflow phase.
+  - GIVEN utility work is blocked WHEN dispatch runs THEN visible denial/caveat state is recorded without emitting file, git,
+    artifact, permission, or mutation effects.
+  - GIVEN /status is opened WHEN utility state exists THEN status lines include utility model state, last fake job, suggestion,
+    and evidence source.
   evidence:
-  - Added closed policy route CommandRouteCompact for /compact and ctrl+x k, plus runtime CompactContextProposed, CompactContextEffect,
-    and CompactContextCompleted messages/results through the explicit runtime dispatcher path.
-  - Added app-owned compact request/result mapping from visible context or transcript evidence, dispatchCompactEffect using
-    internal/context.Compact, CompactView/ContextView injection, command history recording, runtime model history, and current-session
-    snapshot persistence.
-  - Verified with focused policy, runtime, and app compact tests including TestCompactCommandRoutesSlashAndShortcutToSameClosedRoute,
-    TestUpdateHandlesCompactContextProposalDeterministically, TestDispatchHandlesCompactContextEffect, TestCompactCommandRoutesThroughExplicitEffectHistorySnapshotAndContext,
-    and TestCompactCommandReportsVisibleCaveatWithoutContext.
+  - runtime.UtilityJobProposed and UtilityJobCompleted add an explicit utility operation slot without changing primary runtime
+    status, transcript, result, active operation, or workflow phase.
+  - internal/app maps completed and blocked utility results into display-only tui.UtilityView state and injects the fake utility
+    job from /status using the configured utility model label.
+  - Status inspection lines include utility status, job kind/id, model, summary, suggestion, evidence source, denial/caveat
+    data, and safety booleans; runtime/app utility tests pass.
 - number: 4
-  name: Add compact TUI view semantics and fixtures
+  name: Add utility TUI state semantics and fixtures
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN compact-running renders WHEN fixture tests run THEN plain, ANSI, and semantic snapshots show compacting status without
-    inventing a workflow phase.
-  - GIVEN compact result/caveat renders WHEN semantic snapshots are inspected THEN machine-readable source refs and context
-    meter information are present.
-  - GIVEN help and keybinding surfaces render WHEN tests run THEN /compact and ctrl+x k appear in stable order and route parity
-    is covered.
+  - GIVEN utility idle/running/result states render WHEN fixture tests run THEN plain, ANSI, and semantic snapshots expose
+    utility model state and fake suggestion/status output.
+  - GIVEN semantic snapshots are inspected WHEN utility evidence exists THEN machine-readable evidence refs, status, job kind,
+    and caveats are present.
+  - GIVEN TUI code is inspected WHEN utility state is rendered THEN no scheduling, filesystem, git, provider, permission,
+    or workflow mutation logic is present in TUI.
   evidence:
-  - Added TUI CompactView rendering plus SemanticCompact with source refs, meters, caveats, and display-only/app-owned semantic
-    region evidence; the TUI only renders injected compact state.
-  - Added compact-running and compact-result fixtures with plain, ANSI, and semantic snapshots showing running status, flagged
-    result/caveat state, context meter, source refs, and preserved compacted context claims.
-  - Updated help and keybinding tests so /compact and ctrl+x k appear in stable order, while shortcut parity is covered at
-    both policy and TUI boundaries.
+  - TUI receives only app-injected UtilityView data, renders a Utility worker panel, and exposes SemanticUtility with status,
+    job id/kind, model, suggestions, evidence refs, caveats, read-only state, and safety flags.
+  - utility-idle, utility-running, and utility-result fixtures were added with plain, ANSI, and semantic snapshots at 120x44.
+  - TestUtilityWorkerFixtureSnapshots validates visible status/suggestion/evidence output and semantic safety flags while
+    boundary tests continue to reject TUI ownership markers.
 - number: 5
-  name: Add terminal smoke and regression coverage
+  name: Add regression and PTY visibility coverage
   depends_on:
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN the interactive TUI runs WHEN /compact is submitted THEN the terminal shows manual compaction status/result/caveat
-    and quits cleanly.
-  - GIVEN the interactive TUI runs WHEN ctrl+x k is submitted THEN the same compact command path is visible or covered by
-    a bounded shortcut PTY assertion.
-  - GIVEN existing context and shell-prefix behavior is tested WHEN compact support lands THEN M39 summarized-shell context
-    behavior remains stable.
+  - GIVEN the interactive TUI runs WHEN /status is submitted THEN utility model status, fake suggestion, and evidence are
+    visible and the app quits cleanly.
+  - GIVEN runtime is active or approval-pending WHEN utility scheduling is requested THEN tests prove the fake worker does
+    not run.
+  - GIVEN current compact/status behavior is tested WHEN utility support lands THEN manual /compact and existing /status behavior
+    remain stable.
   evidence:
-  - Added TestManualCompactCommandPTYSmoke, which creates source-backed summarized-shell context in an isolated temp git workspace,
-    submits /compact, verifies compact status/result, compact source refs, compacted context, and source detail, drains the
-    large PTY frame, and exits through /quit.
-  - Re-ran TestSummarizedShellContextPTYSmoke to prove M39 summarized-shell context behavior remains stable beside manual
-    compact.
-  - Verified with go test ./cmd/aila -run 'TestManualCompactCommandPTYSmoke|TestSummarizedShellContextPTYSmoke' -count=1 and
-    full go test ./cmd/aila -count=1.
+  - TestInspectionCommandFamilyPTYSmoke now proves /status displays the fake utility worker status, suggestion, evidence,
+    and file-mutation false marker in an isolated temp workspace.
+  - Runtime and app tests prove utility work is denied without effects while active work, approval, or queued input prevents
+    idle scheduling.
+  - Clearing stale utility display state when routing away from /status keeps existing /review evidence visible; full cmd
+    package tests pass.
 - number: 6
   name: Run full validation roadmap closeout and commit
   depends_on:
@@ -208,19 +208,18 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M40 is
-    recorded complete, M41 is next, and Active milestone is none.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M41 is
+    recorded complete, M42 is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and M39 plan archive are included in one meaningful local commit.
+    and M40 plan archive are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
     validation evidence.
   evidence:
-  - Validated with mage fmt, go test ./internal/context -count=1, focused compact policy/runtime/app/TUI/cmd tests, go test
-    ./internal/... -count=1, go test ./cmd/aila -count=1, and final mage check.
-  - Final mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities after staticcheck cleanup.
-  - ROADMAP.md now records M40 complete, M41 next, active milestone none; Agentera plan/progress and hygiene validators are
-    run after artifact update before commit.
-complete: 6
-total: 6
-active: false
-complete_plan: true
+  - mage fmt passed.
+  - go test ./internal/utility -count=1 passed.
+  - Focused runtime/app/TUI/cmd utility and PTY tests passed.
+  - go test ./internal/... -count=1 passed.
+  - go test ./cmd/aila -count=1 passed in 319.232s.
+  - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md was updated only after green validation; Agentera plan/progress/lint/hej, git diff --check, home-path hygiene,
+    and TestM<number> hygiene are part of final closeout.

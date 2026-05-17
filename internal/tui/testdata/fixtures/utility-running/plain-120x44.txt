@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: utility worker status                                                                                        |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Utility worker:                                                                                                      |
+| source: app.status                                                                                                   |
+| status: running                                                                                                      |
+| job: suggestion status-utility-suggestion                                                                            |
+| model: opencode-go/deepseek-v4-flash:max                                                                             |
+| read-only: true                                                                                                      |
+| summary: fake utility job running                                                                                    |
+| file mutation: false                                                                                                 |
+| git mutation: false                                                                                                  |
+| artifact mutation: false                                                                                             |
+| permission approval: false                                                                                           |
+| workflow transition: false                                                                                           |
+| final judgment: false                                                                                                |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

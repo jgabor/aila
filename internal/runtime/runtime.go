@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jgabor/aila/internal/diagnostic"
+	"github.com/jgabor/aila/internal/utility"
 )
 
 // Status describes whether the runtime is waiting for user input or an operation
@@ -47,6 +48,13 @@ type CompactContextProposed struct {
 }
 
 func (CompactContextProposed) runtimeMessage() {}
+
+// UtilityJobProposed records caller intent to run an idle-only fake utility job.
+type UtilityJobProposed struct {
+	Request utility.JobRequest
+}
+
+func (UtilityJobProposed) runtimeMessage() {}
 
 // ReadToolProposed records caller intent to read a workspace file.
 // Update turns it into an effect; app-owned dispatch performs validation and IO.
@@ -206,6 +214,14 @@ type CompactContextCompleted struct {
 
 func (CompactContextCompleted) runtimeMessage() {}
 
+// UtilityJobCompleted reports a deterministic fake utility job result.
+type UtilityJobCompleted struct {
+	Operation OperationMetadata
+	Result    utility.JobResult
+}
+
+func (UtilityJobCompleted) runtimeMessage() {}
+
 // FetchToolCompleted reports a network read effect result.
 type FetchToolCompleted struct {
 	Operation OperationMetadata
@@ -245,6 +261,8 @@ type Model struct {
 	Queued               []QueuedEntry
 	Result               string
 	LastCommand          string
+	ActiveUtility        utility.JobRequest
+	LastUtility          utility.JobResult
 	ActiveCompact        CompactContextRequest
 	LastCompact          CompactContextResult
 	ActiveRead           ReadToolRequest
@@ -338,6 +356,18 @@ type CompactContextEffect struct {
 func (CompactContextEffect) runtimeEffect() {}
 
 func (effect CompactContextEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// UtilityJobEffect requests a deterministic idle-only fake utility job.
+type UtilityJobEffect struct {
+	Operation OperationMetadata
+	Request   utility.JobRequest
+}
+
+func (UtilityJobEffect) runtimeEffect() {}
+
+func (effect UtilityJobEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -472,6 +502,11 @@ func dispatchOne(effect Effect) (messages []Message) {
 			Operation: typed.Operation,
 			Result:    fakeCompactContextResult(typed.Request),
 		}}
+	case UtilityJobEffect:
+		return []Message{UtilityJobCompleted{
+			Operation: typed.Operation,
+			Result:    utility.RunFakeJob(typed.Request),
+		}}
 	case FakeInterruptEffect:
 		return []Message{FakeInterruptResolved(typed)}
 	case interface{ dispatchPanic() }:
@@ -521,6 +556,7 @@ type OperationKind string
 const (
 	OperationPrompt   OperationKind = "prompt"
 	OperationCommand  OperationKind = "command"
+	OperationUtility  OperationKind = "utility"
 	OperationCompact  OperationKind = "compact"
 	OperationRead     OperationKind = "read"
 	OperationFind     OperationKind = "find"
@@ -1118,6 +1154,19 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
+	case UtilityJobProposed:
+		request := utility.NormalizeJobRequest(msg.Request)
+		decision := utility.CanRun(utilityActivity(next), request)
+		if !decision.Allowed {
+			next.LastUtility = utility.BlockedResult(request, decision)
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationUtility, utilitySubjectLabel(request))
+		operation.Source = "runtime.utility"
+		next.ActiveUtility = request
+		next.LastUtility = utility.RunningResult(request)
+		return next, []Effect{UtilityJobEffect{Operation: operation, Request: request}}
 	case CompactContextProposed:
 		request := msg.Request
 		if hasActiveWork(next.Status) {
@@ -1492,6 +1541,10 @@ func Update(model Model, message Message) (Model, []Effect) {
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
 		return next, nil
+	case UtilityJobCompleted:
+		next.ActiveUtility = utility.JobRequest{}
+		next.LastUtility = msg.Result
+		return next, nil
 	case CompactContextCompleted:
 		summary := compactResultSummary(msg.Result)
 		next.Status = StatusIdle
@@ -1586,6 +1639,20 @@ func hasActiveFakeWork(model Model) bool {
 
 func isToolOperation(kind OperationKind) bool {
 	return kind == OperationCompact || kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch || kind == OperationEdit || kind == OperationWrite
+}
+
+func utilityActivity(model Model) utility.Activity {
+	return utility.Activity{
+		PrimaryStatus:       string(model.Status),
+		ActiveOperationKind: string(model.ActiveOperation.Kind),
+		ApprovalPending:     model.PendingApproval.ID != "",
+		QueuedCount:         len(model.Queued),
+	}
+}
+
+func utilitySubjectLabel(request utility.JobRequest) string {
+	request = utility.NormalizeJobRequest(request)
+	return string(request.Kind) + " " + request.ID
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {

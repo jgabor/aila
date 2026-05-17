@@ -66,6 +66,7 @@ func statusInspectionLines(view tui.ViewState, model runtime.Model) []string {
 	if view.QueuedCount > 0 {
 		lines = append(lines, fmt.Sprintf("queued messages: %d", view.QueuedCount))
 	}
+	lines = append(lines, utilityStatusLines(view.Utility, model)...)
 	lines = append(lines, fmt.Sprintf("diagnostics: %d", len(view.Diagnostics)))
 	lines = append(lines, "git: "+valueOr(view.FooterGit, "unknown"), "context: "+valueOr(view.FooterContext, "unknown"))
 	lines = append(lines, "inspection: app-owned display data")
@@ -183,4 +184,48 @@ func boolText(value bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {
+	if view == nil {
+		view = utilityView(model)
+	}
+	if view == nil {
+		return nil
+	}
+	lines := []string{
+		"utility worker: " + valueOr(view.Status, "idle"),
+		"utility source: " + valueOr(view.Source, "unknown"),
+		"utility job: " + strings.Join(nonEmptyParts(view.JobKind, view.JobID), " "),
+		"utility job model: " + valueOr(view.Model, "unknown"),
+		"utility read-only: " + boolText(view.ReadOnly),
+	}
+	if view.Summary != "" {
+		lines = append(lines, "utility summary: "+view.Summary)
+	}
+	for _, suggestion := range view.Suggestions {
+		line := "utility suggestion: " + suggestion.Text
+		if len(suggestion.EvidenceRefIDs) > 0 {
+			line += " refs=" + strings.Join(suggestion.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range view.EvidenceRefs {
+		lines = append(lines, "utility evidence: "+strings.Join(nonEmptyParts(ref.ID, ref.Kind, ref.Source, ref.Detail), " "))
+	}
+	for _, caveat := range view.Caveats {
+		lines = append(lines, "utility caveat: "+caveat)
+	}
+	if view.DeniedReason != "" {
+		lines = append(lines, "utility denied: "+strings.Join(nonEmptyParts(view.DeniedReason, view.DeniedDetail), " "))
+	}
+	lines = append(lines,
+		"utility file mutation: "+boolText(view.Safety.FileMutation),
+		"utility git mutation: "+boolText(view.Safety.GitMutation),
+		"utility artifact mutation: "+boolText(view.Safety.ProjectArtifactMutation),
+		"utility permission approval: "+boolText(view.Safety.ApprovalGrant),
+		"utility workflow transition: "+boolText(view.Safety.WorkflowPhaseTransition),
+		"utility final judgment: "+boolText(view.Safety.FinalJudgment),
+	)
+	return lines
 }
