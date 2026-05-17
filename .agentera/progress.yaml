@@ -1,4 +1,75 @@
 cycles:
+  - number: 247
+    timestamp: 2026-05-17 20:30
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 55 by adding runtime-owned subagent spawn effects, typed progress/completion/failure/cancellation
+      messages, observable supervised child state, app-owned status inspection lines, multi-agent TUI render/semantic snapshots,
+      behavior-named coverage, ROADMAP closeout, and Agentera task completion without adding orchestration policy.
+    commit: "same local commit: add subagent supervision"
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 55; ARCHITECTURE.md subagent/orchestration rules; docs/workflow-architecture BUILD/orchestrate boundaries; focused runtime/app/TUI tests; go test ./internal/...; go test ./cmd/aila; mage check
+    discovered: >-
+      Subagent supervision can stay a runtime visibility contract: spawn is an explicit effect, lifecycle updates are typed messages,
+      active and terminal child records remain visible with parent run, purpose, status, summary, and evidence links, and TUI snapshots
+      can prove display-only supervision before M56 adds orchestration dispatch, retries, evaluation, or cancellation commands.
+    verified: >-
+      `mage fmt` passed. Focused runtime/app/TUI subagent checks passed. `go test ./internal/... -count=1` passed.
+      `go test ./cmd/aila -count=1` passed with cmd/aila in 361.440s. Final `mage check` passed with cmd/aila in
+      367.786s, 0 lint issues, and no vulnerabilities. PTY smoke for visible subagent progress was skipped because M55 introduces
+      no interactive subagent spawn command; M56 orchestration owns that path. No major visual language change was made, so human
+      visual review was not required; render and semantic snapshots prove the display contract. Agentera plan/progress/lint/hej validation passed after metadata closeout; git diff --check passed; changed-line home-path
+      hygiene and added func TestM<number> hygiene returned no matches.
+    next: >-
+      Milestone 56: Orchestration is the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: >-
+        Execute only M55; no orchestration policy, retry/evaluation loop, provider-backed child execution, new interactive spawn
+        command, source incorporation, direct workflow phase mutation, plugins, MCP, dynamic tools, workflow DSLs, generic graph
+        engines, hosted control planes, or push.
+      unknowns: >-
+        Orchestrate command routing, dispatch strategy, retry budgets, evaluation/audit loops, provider-run child agents, cancellation
+        UI commands, and source incorporation remain deferred to M56 or later human-owned work.
+      scope: >-
+        internal/runtime, internal/app, internal/tui, multi-agent active work fixtures, ROADMAP.md, .agentera/plan.yaml,
+        .agentera/progress.yaml, and archived M54 plan.
+  - number: 246
+    timestamp: 2026-05-17 20:05
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 55: Subagent Spawn And Completion as the next roadmap milestone, archived the completed M54 plan,
+      and created a new active plan with six bounded tasks for typed subagent spawn effects, lifecycle messages, supervised
+      runtime visibility, multi-agent TUI fixtures and semantic snapshots, validation, roadmap closeout, and commit.
+    commit: 'N/A: planning artifact before M55 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 55; AGENTS.md; README subagent and orchestrate mentions; ARCHITECTURE subagent/orchestration and anti-pattern rules; docs/workflow-architecture BUILD/orchestrate boundaries; docs/tui-testing validation rules; installed Agentera CLI hej/plan/progress state
+    discovered: >-
+      M55 can stay narrow by establishing supervised child-work visibility before M56 orchestration: runtime records spawn as an
+      explicit effect and lifecycle updates as typed messages, app/TUI surfaces parent run, purpose, status, summary, and evidence
+      links, and orchestration policy, retry/evaluation loops, provider-backed child execution, new commands, and source incorporation
+      decisions remain deferred.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress passed from $HOME/.local/share/agentera; ROADMAP.md top status and M55 section,
+      docs/notes/PROMPT.md, AGENTS.md, README subagent/orchestrate mentions, ARCHITECTURE subagent/orchestration rules and
+      anti-patterns, docs/workflow-architecture BUILD/orchestrate boundaries, docs/tui-testing validation guidance, and current
+      runtime/app/TUI seams were reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids
+      new TestM<number> symbols.
+    next: >-
+      Execute M55 Tasks 2-5: add runtime subagent spawn effects and lifecycle messages, preserve observable supervised state,
+      render multi-agent active work in TUI fixtures and semantic snapshots, and validate visible progress without adding orchestration.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M54, selecting M55 and preparing an executable plan before implementation.
+      constraints: >-
+        Execute only M55; preserve statechart-MVU, runtime/effect/message boundaries, TUI presentation-only behavior, fixed product
+        posture, behavior-based test names, no orchestration policy, no provider-backed child execution, no new commands, no direct
+        workflow phase mutation, no plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, hosted control planes, or push.
+      unknowns: >-
+        Exact runtime record names, TUI subagent view shape, and whether any existing interactive path can show subagent progress are
+        implementation-owned; orchestrate command routing, retry budgets, evaluation loops, provider-run child agents, cancellation
+        UI commands, and source incorporation remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m54.yaml archival, and progress evidence for the M55 planning handoff.
   - number: 245
     timestamp: 2026-05-17 19:52
     type: build

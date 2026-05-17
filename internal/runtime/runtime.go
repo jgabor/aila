@@ -72,6 +72,15 @@ type CapabilityProposed struct {
 
 func (CapabilityProposed) runtimeMessage() {}
 
+// SubagentSpawnProposed records caller intent to start supervised child work.
+// Update records the child as observable state and emits a spawn effect; it
+// does not choose orchestration policy.
+type SubagentSpawnProposed struct {
+	Request SubagentRequest
+}
+
+func (SubagentSpawnProposed) runtimeMessage() {}
+
 // ReadToolProposed records caller intent to read a workspace file.
 // Update turns it into an effect; app-owned dispatch performs validation and IO.
 type ReadToolProposed struct {
@@ -246,6 +255,50 @@ type CapabilityCompleted struct {
 
 func (CapabilityCompleted) runtimeMessage() {}
 
+// SubagentProgressed reports visible supervised child progress.
+type SubagentProgressed struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Status        SubagentStatus
+	Summary       string
+	EvidenceLinks []SubagentEvidenceLink
+}
+
+func (SubagentProgressed) runtimeMessage() {}
+
+// SubagentCompleted reports a supervised child result.
+type SubagentCompleted struct {
+	ParentRunID string
+	Result      SubagentResult
+}
+
+func (SubagentCompleted) runtimeMessage() {}
+
+// SubagentFailed reports supervised child failure metadata.
+type SubagentFailed struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Failure       FailureMetadata
+	Summary       string
+	EvidenceLinks []SubagentEvidenceLink
+}
+
+func (SubagentFailed) runtimeMessage() {}
+
+// SubagentCanceled reports supervised child cancellation metadata.
+type SubagentCanceled struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Cancel        CancelMetadata
+	Summary       string
+	EvidenceLinks []SubagentEvidenceLink
+}
+
+func (SubagentCanceled) runtimeMessage() {}
+
 // FetchToolCompleted reports a network read effect result.
 type FetchToolCompleted struct {
 	Operation OperationMetadata
@@ -289,6 +342,7 @@ type Model struct {
 	LastUtility          utility.JobResult
 	ActiveCapability     capability.Request
 	LastCapability       capability.ExitPayload
+	Subagents            []SubagentRun
 	ActiveCompact        CompactContextRequest
 	LastCompact          CompactContextResult
 	ActiveRead           ReadToolRequest
@@ -406,6 +460,18 @@ type CapabilityEffect struct {
 func (CapabilityEffect) runtimeEffect() {}
 
 func (effect CapabilityEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// SpawnSubagentEffect requests supervised child work outside Update.
+type SpawnSubagentEffect struct {
+	Operation OperationMetadata
+	Request   SubagentRequest
+}
+
+func (SpawnSubagentEffect) runtimeEffect() {}
+
+func (effect SpawnSubagentEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -556,6 +622,15 @@ func dispatchOne(effect Effect) (messages []Message) {
 			}
 		}
 		return []Message{CapabilityCompleted{Operation: typed.Operation, Payload: payload}}
+	case SpawnSubagentEffect:
+		return []Message{SubagentProgressed{
+			ID:            typed.Request.ID,
+			ParentRunID:   typed.Request.ParentRunID,
+			Purpose:       typed.Request.Purpose,
+			Status:        SubagentStatusRunning,
+			Summary:       "subagent running: " + typed.Request.Purpose,
+			EvidenceLinks: typed.Request.EvidenceLinks,
+		}}
 	case FakeInterruptEffect:
 		return []Message{FakeInterruptResolved(typed)}
 	case interface{ dispatchPanic() }:
@@ -616,6 +691,7 @@ const (
 	OperationEdit       OperationKind = "edit"
 	OperationWrite      OperationKind = "write"
 	OperationApproval   OperationKind = "approval"
+	OperationSubagent   OperationKind = "subagent"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -640,6 +716,83 @@ type FailureMetadata struct {
 type CancelMetadata struct {
 	Requested bool
 	Reason    string
+}
+
+// SubagentStatus records the supervised child lifecycle.
+type SubagentStatus string
+
+const (
+	SubagentStatusQueued    SubagentStatus = "queued"
+	SubagentStatusRunning   SubagentStatus = "running"
+	SubagentStatusCompleted SubagentStatus = "completed"
+	SubagentStatusFailed    SubagentStatus = "failed"
+	SubagentStatusCanceled  SubagentStatus = "canceled"
+)
+
+// Active reports whether the child still needs supervision.
+func (status SubagentStatus) Active() bool {
+	return status == SubagentStatusQueued || status == SubagentStatusRunning
+}
+
+// SubagentBudget records bounded child-work limits.
+type SubagentBudget struct {
+	MaxTurns      int
+	MaxTokens     int
+	TimeoutMillis int
+}
+
+// SubagentSourceMetadata records caller-visible child-work provenance.
+type SubagentSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// SubagentEvidenceLink records evidence exposed by supervised child work.
+type SubagentEvidenceLink struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// SubagentRequest is runtime-owned child-work proposal data. It is inert and
+// contains constraints only; execution policy remains outside this slice.
+type SubagentRequest struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Input         string
+	Tools         []string
+	Budget        SubagentBudget
+	EvidenceLinks []SubagentEvidenceLink
+	Source        SubagentSourceMetadata
+}
+
+// SubagentResult records the terminal child output summary.
+type SubagentResult struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Summary       string
+	EvidenceLinks []SubagentEvidenceLink
+}
+
+// SubagentRun records supervised child work kept visible to callers.
+type SubagentRun struct {
+	ID            string
+	ParentRunID   string
+	Purpose       string
+	Input         string
+	Tools         []string
+	Budget        SubagentBudget
+	Status        SubagentStatus
+	Summary       string
+	EvidenceLinks []SubagentEvidenceLink
+	Failure       FailureMetadata
+	Cancel        CancelMetadata
+	Source        SubagentSourceMetadata
 }
 
 // CompactContextRequest is primitive context data for compaction.
@@ -1163,6 +1316,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 	next.Transcript = append([]TranscriptEntry(nil), model.Transcript...)
 	next.Queued = append([]QueuedEntry(nil), model.Queued...)
 	next.Diagnostics = append([]diagnostic.Diagnostic(nil), model.Diagnostics...)
+	next.Subagents = cloneSubagentRuns(model.Subagents)
 	next.PendingApproval = cloneApprovalProposal(model.PendingApproval)
 	next.LastApprovalDecision = model.LastApprovalDecision
 
@@ -1254,6 +1408,24 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "capability", Text: capabilitySubjectLabel(request)})
 		return next, []Effect{CapabilityEffect{Operation: operation, Request: request}}
+	case SubagentSpawnProposed:
+		operation := nextOperation(&next, OperationSubagent, subagentSubjectLabel(msg.Request))
+		operation.Source = "runtime.subagent"
+		request := normalizeSubagentRequest(msg.Request, next.ActiveOperation.ID, operation.ID)
+		next.Subagents = upsertSubagentRun(next.Subagents, SubagentRun{
+			ID:            request.ID,
+			ParentRunID:   request.ParentRunID,
+			Purpose:       request.Purpose,
+			Input:         request.Input,
+			Tools:         append([]string(nil), request.Tools...),
+			Budget:        request.Budget,
+			Status:        SubagentStatusRunning,
+			Summary:       "spawn requested: " + request.Purpose,
+			EvidenceLinks: cloneSubagentEvidenceLinks(request.EvidenceLinks),
+			Source:        request.Source,
+		})
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "subagent", Text: request.Purpose})
+		return next, []Effect{SpawnSubagentEffect{Operation: operation, Request: request}}
 	case BackgroundCompactContextProposed:
 		request := normalizeCompactRequest(msg.Request, CompactModeBackground)
 		decision := utility.CanRun(utilityActivity(next), backgroundCompactGateRequest(request))
@@ -1645,6 +1817,26 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveUtility = utility.JobRequest{}
 		next.LastUtility = msg.Result
 		return next, nil
+	case SubagentProgressed:
+		status := normalizeSubagentStatus(msg.Status, SubagentStatusRunning)
+		next.Subagents = updateSubagentRun(next.Subagents, subagentProgressRun(msg, status))
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "subagent_" + string(status), Text: subagentLifecycleSummary(msg.Purpose, msg.Summary)})
+		return next, nil
+	case SubagentCompleted:
+		run := subagentCompletedRun(msg)
+		next.Subagents = updateSubagentRun(next.Subagents, run)
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "subagent_completed", Text: subagentLifecycleSummary(run.Purpose, run.Summary)})
+		return next, nil
+	case SubagentFailed:
+		run := subagentFailedRun(msg)
+		next.Subagents = updateSubagentRun(next.Subagents, run)
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "subagent_failed", Text: subagentLifecycleSummary(run.Purpose, run.Summary)})
+		return next, nil
+	case SubagentCanceled:
+		run := subagentCanceledRun(msg)
+		next.Subagents = updateSubagentRun(next.Subagents, run)
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "subagent_canceled", Text: subagentLifecycleSummary(run.Purpose, run.Summary)})
+		return next, nil
 	case CapabilityCompleted:
 		summary := capabilityResultSummary(msg.Payload)
 		next.Status = StatusIdle
@@ -1745,6 +1937,243 @@ func Update(model Model, message Message) (Model, []Effect) {
 	default:
 		return next, nil
 	}
+}
+
+func normalizeSubagentRequest(request SubagentRequest, activeParentID string, fallbackID string) SubagentRequest {
+	request.ID = strings.TrimSpace(request.ID)
+	if request.ID == "" {
+		request.ID = fallbackID
+	}
+	request.ParentRunID = strings.TrimSpace(request.ParentRunID)
+	if request.ParentRunID == "" {
+		request.ParentRunID = strings.TrimSpace(activeParentID)
+	}
+	if request.ParentRunID == "" {
+		request.ParentRunID = request.ID
+	}
+	request.Purpose = strings.TrimSpace(request.Purpose)
+	if request.Purpose == "" {
+		request.Purpose = "supervised subagent"
+	}
+	request.Input = strings.TrimSpace(request.Input)
+	request.Tools = trimStringSlice(request.Tools)
+	request.EvidenceLinks = cloneSubagentEvidenceLinks(request.EvidenceLinks)
+	request.Source.Caller = strings.TrimSpace(request.Source.Caller)
+	if request.Source.Caller == "" {
+		request.Source.Caller = "runtime.subagent"
+	}
+	request.Source.RequestID = strings.TrimSpace(request.Source.RequestID)
+	request.Source.Description = strings.TrimSpace(request.Source.Description)
+	return request
+}
+
+func subagentSubjectLabel(request SubagentRequest) string {
+	purpose := strings.TrimSpace(request.Purpose)
+	if purpose != "" {
+		return purpose
+	}
+	if request.ID != "" {
+		return request.ID
+	}
+	return "supervised subagent"
+}
+
+func normalizeSubagentStatus(status SubagentStatus, fallback SubagentStatus) SubagentStatus {
+	switch status {
+	case SubagentStatusQueued, SubagentStatusRunning, SubagentStatusCompleted, SubagentStatusFailed, SubagentStatusCanceled:
+		return status
+	}
+	return fallback
+}
+
+func subagentProgressRun(msg SubagentProgressed, status SubagentStatus) SubagentRun {
+	return SubagentRun{
+		ID:            strings.TrimSpace(msg.ID),
+		ParentRunID:   strings.TrimSpace(msg.ParentRunID),
+		Purpose:       strings.TrimSpace(msg.Purpose),
+		Status:        status,
+		Summary:       strings.TrimSpace(msg.Summary),
+		EvidenceLinks: cloneSubagentEvidenceLinks(msg.EvidenceLinks),
+	}
+}
+
+func subagentCompletedRun(msg SubagentCompleted) SubagentRun {
+	result := msg.Result
+	parentRunID := strings.TrimSpace(result.ParentRunID)
+	if parentRunID == "" {
+		parentRunID = strings.TrimSpace(msg.ParentRunID)
+	}
+	return SubagentRun{
+		ID:            strings.TrimSpace(result.ID),
+		ParentRunID:   parentRunID,
+		Purpose:       strings.TrimSpace(result.Purpose),
+		Status:        SubagentStatusCompleted,
+		Summary:       strings.TrimSpace(result.Summary),
+		EvidenceLinks: cloneSubagentEvidenceLinks(result.EvidenceLinks),
+	}
+}
+
+func subagentFailedRun(msg SubagentFailed) SubagentRun {
+	summary := strings.TrimSpace(msg.Summary)
+	if summary == "" {
+		summary = strings.TrimSpace(msg.Failure.Message)
+	}
+	return SubagentRun{
+		ID:            strings.TrimSpace(msg.ID),
+		ParentRunID:   strings.TrimSpace(msg.ParentRunID),
+		Purpose:       strings.TrimSpace(msg.Purpose),
+		Status:        SubagentStatusFailed,
+		Summary:       summary,
+		EvidenceLinks: cloneSubagentEvidenceLinks(msg.EvidenceLinks),
+		Failure:       msg.Failure,
+	}
+}
+
+func subagentCanceledRun(msg SubagentCanceled) SubagentRun {
+	summary := strings.TrimSpace(msg.Summary)
+	if summary == "" {
+		summary = strings.TrimSpace(msg.Cancel.Reason)
+	}
+	return SubagentRun{
+		ID:            strings.TrimSpace(msg.ID),
+		ParentRunID:   strings.TrimSpace(msg.ParentRunID),
+		Purpose:       strings.TrimSpace(msg.Purpose),
+		Status:        SubagentStatusCanceled,
+		Summary:       summary,
+		EvidenceLinks: cloneSubagentEvidenceLinks(msg.EvidenceLinks),
+		Cancel:        msg.Cancel,
+	}
+}
+
+func upsertSubagentRun(runs []SubagentRun, run SubagentRun) []SubagentRun {
+	return mergeSubagentRun(runs, run, false)
+}
+
+func updateSubagentRun(runs []SubagentRun, update SubagentRun) []SubagentRun {
+	return mergeSubagentRun(runs, update, true)
+}
+
+func mergeSubagentRun(runs []SubagentRun, update SubagentRun, preserveExisting bool) []SubagentRun {
+	update.ID = strings.TrimSpace(update.ID)
+	update.ParentRunID = strings.TrimSpace(update.ParentRunID)
+	update.Purpose = strings.TrimSpace(update.Purpose)
+	if update.Status == "" {
+		update.Status = SubagentStatusRunning
+	}
+	if update.ID == "" && update.ParentRunID == "" && update.Purpose == "" {
+		update.ID = "subagent"
+	}
+	next := cloneSubagentRuns(runs)
+	for index := range next {
+		if !sameSubagentRun(next[index], update) {
+			continue
+		}
+		if preserveExisting {
+			next[index] = mergeExistingSubagentRun(next[index], update)
+		} else {
+			next[index] = cloneSubagentRun(update)
+		}
+		return next
+	}
+	return append(next, cloneSubagentRun(update))
+}
+
+func sameSubagentRun(existing SubagentRun, update SubagentRun) bool {
+	if update.ID != "" && existing.ID == update.ID {
+		return true
+	}
+	return update.ID == "" && update.ParentRunID != "" && update.Purpose != "" && existing.ParentRunID == update.ParentRunID && existing.Purpose == update.Purpose
+}
+
+func mergeExistingSubagentRun(existing SubagentRun, update SubagentRun) SubagentRun {
+	merged := cloneSubagentRun(existing)
+	if update.ID != "" {
+		merged.ID = update.ID
+	}
+	if update.ParentRunID != "" {
+		merged.ParentRunID = update.ParentRunID
+	}
+	if update.Purpose != "" {
+		merged.Purpose = update.Purpose
+	}
+	if update.Input != "" {
+		merged.Input = update.Input
+	}
+	if len(update.Tools) > 0 {
+		merged.Tools = append([]string(nil), update.Tools...)
+	}
+	if update.Budget != (SubagentBudget{}) {
+		merged.Budget = update.Budget
+	}
+	if update.Status != "" {
+		merged.Status = update.Status
+	}
+	if update.Summary != "" {
+		merged.Summary = update.Summary
+	}
+	if len(update.EvidenceLinks) > 0 {
+		merged.EvidenceLinks = cloneSubagentEvidenceLinks(update.EvidenceLinks)
+	}
+	if update.Failure != (FailureMetadata{}) {
+		merged.Failure = update.Failure
+	}
+	if update.Cancel != (CancelMetadata{}) {
+		merged.Cancel = update.Cancel
+	}
+	if update.Source != (SubagentSourceMetadata{}) {
+		merged.Source = update.Source
+	}
+	return merged
+}
+
+func cloneSubagentRuns(runs []SubagentRun) []SubagentRun {
+	if len(runs) == 0 {
+		return nil
+	}
+	clones := make([]SubagentRun, 0, len(runs))
+	for _, run := range runs {
+		clones = append(clones, cloneSubagentRun(run))
+	}
+	return clones
+}
+
+func cloneSubagentRun(run SubagentRun) SubagentRun {
+	run.Tools = append([]string(nil), run.Tools...)
+	run.EvidenceLinks = cloneSubagentEvidenceLinks(run.EvidenceLinks)
+	return run
+}
+
+func cloneSubagentEvidenceLinks(links []SubagentEvidenceLink) []SubagentEvidenceLink {
+	if len(links) == 0 {
+		return nil
+	}
+	return append([]SubagentEvidenceLink(nil), links...)
+}
+
+func trimStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	trimmed := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			trimmed = append(trimmed, value)
+		}
+	}
+	return trimmed
+}
+
+func subagentLifecycleSummary(purpose string, summary string) string {
+	purpose = strings.TrimSpace(purpose)
+	summary = strings.TrimSpace(summary)
+	if purpose == "" {
+		purpose = "subagent"
+	}
+	if summary == "" {
+		return purpose
+	}
+	return purpose + ": " + summary
 }
 
 func hasActiveWork(status Status) bool {

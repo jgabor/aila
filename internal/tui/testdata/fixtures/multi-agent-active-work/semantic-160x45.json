@@ -1,0 +1,199 @@
+{
+  "scenario": "multi-agent-active-work",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "active",
+    "status_source": "runtime.fixture",
+    "status_detail": "subagent supervision",
+    "runtime_result": "Parent run supervising visible child work.",
+    "active": true,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-primary",
+    "utility_model": "fake/fake-utility",
+    "autonomy": "read"
+  },
+  "subagents": {
+    "visible": true,
+    "display_only": true,
+    "transition_claimed": false,
+    "runs": [
+      {
+        "id": "child-runtime",
+        "parent_run_id": "parent-build",
+        "purpose": "Inspect runtime spawn effect",
+        "status": "running",
+        "summary": "Reading runtime effect and message contracts.",
+        "evidence_links": [
+          {
+            "id": "runtime-source",
+            "kind": "file",
+            "path": "internal[path-redacted]",
+            "excerpt": "SpawnSubagentEffect is runtime-owned."
+          }
+        ],
+        "display_only": true,
+        "transition_claimed": false
+      },
+      {
+        "id": "child-complete",
+        "parent_run_id": "parent-build",
+        "purpose": "Collect semantic proof",
+        "status": "completed",
+        "summary": "Semantic snapshot evidence collected.",
+        "evidence_links": [
+          {
+            "id": "semantic-proof",
+            "kind": "test",
+            "command": "go test .[path-redacted]"
+          }
+        ],
+        "display_only": true,
+        "transition_claimed": false
+      },
+      {
+        "id": "child-failed",
+        "parent_run_id": "parent-build",
+        "purpose": "Check missing fixture branch",
+        "status": "failed",
+        "summary": "Fixture was missing before snapshot creation.",
+        "evidence_links": [
+          {
+            "id": "fixture-proof",
+            "kind": "file",
+            "path": "internal[path-redacted]"
+          }
+        ],
+        "display_only": true,
+        "transition_claimed": false
+      },
+      {
+        "id": "child-canceled",
+        "parent_run_id": "parent-build",
+        "purpose": "Stop duplicate review",
+        "status": "canceled",
+        "summary": "Parent canceled duplicate child work.",
+        "evidence_links": [
+          {
+            "id": "cancel-event",
+            "kind": "event",
+            "excerpt": "cancellation remains visible"
+          }
+        ],
+        "display_only": true,
+        "transition_claimed": false
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-primary",
+        "utility: fake/fake-utility",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-primary",
+        "utility model: fake/fake-utility",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: active",
+        "status source: runtime.fixture",
+        "detail: subagent supervision",
+        "active: true",
+        "result: Parent run supervising visible child work.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "subagents",
+      "visible": true,
+      "items": [
+        "display_only: true",
+        "transition_claimed: false",
+        "subagent: child-runtime parent=parent-build status=running purpose=Inspect runtime spawn effect",
+        "summary: child-runtime Reading runtime effect and message contracts.",
+        "evidence_link: child-runtime runtime-source kind=file path=internal[path-redacted] excerpt=SpawnSubagentEffect is runtime-owned.",
+        "subagent: child-complete parent=parent-build status=completed purpose=Collect semantic proof",
+        "summary: child-complete Semantic snapshot evidence collected.",
+        "evidence_link: child-complete semantic-proof kind=test command=go test .[path-redacted]",
+        "subagent: child-failed parent=parent-build status=failed purpose=Check missing fixture branch",
+        "summary: child-failed Fixture was missing before snapshot creation.",
+        "evidence_link: child-failed fixture-proof kind=file path=internal[path-redacted]",
+        "subagent: child-canceled parent=parent-build status=canceled purpose=Stop duplicate review",
+        "summary: child-canceled Parent canceled duplicate child work.",
+        "evidence_link: child-canceled cancel-event kind=event excerpt=cancellation remains visible"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: subagents visible", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: build",
+        "primary model: fake/fake-primary",
+        "utility model: fake/fake-utility",
+        "autonomy: read",
+        "status: active",
+        "status source: runtime.fixture",
+        "detail: subagent supervision",
+        "active: true",
+        "result: Parent run supervising visible child work.",
+        "display-only",
+        "git: placeholder",
+        "context: subagents visible"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -178,7 +178,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.RuntimeStatus = string(runner.model.Status)
 	turn.StatusSource = "runtime.dispatch"
 	turn.StatusDetail = "fake in-memory runtime loop"
-	turn.RuntimeActive = runner.model.Status == runtime.StatusActive || runner.model.Status == runtime.StatusApprovalPending || runner.model.Status == runtime.StatusCanceling
+	turn.RuntimeActive = runtimeActive(runner.model)
 	turn.RuntimeResult = runner.model.Result
 	if runner.model.AssistantDraft != "" && turn.AssistantText == "" {
 		turn.AssistantText = runner.model.AssistantDraft
@@ -187,6 +187,7 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.QueuedCount = len(runner.model.Queued)
 	turn.QueuedText = queuedText(runner.model.Queued)
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
+	turn.Subagents = subagentViews(runner.model)
 	runner.applyAgentState(turn)
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
@@ -226,6 +227,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Approval != nil {
 		turn.StatusDetail = "approval pending"
+	}
+	if len(turn.Subagents) > 0 && turn.StatusDetail == "fake in-memory runtime loop" {
+		turn.StatusDetail = "subagent supervision"
 	}
 }
 

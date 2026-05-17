@@ -66,6 +66,7 @@ func statusInspectionLines(view tui.ViewState, model runtime.Model) []string {
 	if view.QueuedCount > 0 {
 		lines = append(lines, fmt.Sprintf("queued messages: %d", view.QueuedCount))
 	}
+	lines = append(lines, subagentStatusLines(view.Subagents, model)...)
 	lines = append(lines, utilityStatusLines(view.Utility, model)...)
 	lines = append(lines, briefStatusLines(view.Brief)...)
 	lines = append(lines, planStatusLines(view.Plan)...)
@@ -189,6 +190,34 @@ func boolText(value bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func subagentStatusLines(views []tui.SubagentView, model runtime.Model) []string {
+	if len(views) == 0 {
+		views = subagentViews(model)
+	}
+	if len(views) == 0 {
+		return nil
+	}
+	lines := []string{fmt.Sprintf("subagents: %d", len(views))}
+	for _, view := range views {
+		line := "subagent: " + valueOr(view.ID, "unknown") + " parent=" + valueOr(view.ParentRunID, "unknown") + " status=" + valueOr(view.Status, "unknown") + " purpose=" + valueOr(view.Purpose, "unknown")
+		lines = append(lines, line)
+		if view.Summary != "" {
+			lines = append(lines, "subagent summary: "+view.ID+" "+view.Summary)
+		}
+		for _, evidence := range view.EvidenceLinks {
+			evidenceLine := "subagent evidence: " + view.ID + " " + valueOr(evidence.ID, "unknown") + " kind=" + valueOr(evidence.Kind, "unknown")
+			if evidence.Path != "" {
+				evidenceLine += " path=" + evidence.Path
+			}
+			if evidence.Command != "" {
+				evidenceLine += " command=" + evidence.Command
+			}
+			lines = append(lines, evidenceLine)
+		}
+	}
+	return lines
 }
 
 func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {

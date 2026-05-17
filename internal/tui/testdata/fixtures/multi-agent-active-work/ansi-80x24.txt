@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime active | Model fake/fake-primary | Utility fake/fake-util~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-primary                                             |
+| utility model: fake/fake-utility                                             |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: active                                                               |
+| status source: runtime.fixture                                               |
+| detail: subagent supervision                                                 |
+| active: true                                                                 |
+| result: Parent run supervising visible child work.                           |
+|                                                                              |
+| Subagents:                                                                   |
+| display-only: true                                                           |
+| transition claimed: false                                                    |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                          git: placeholder | context: subagents visible | q quit[0m

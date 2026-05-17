@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime active | Model fake/fake-primary | Utility fake/fake-utility | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-primary                                                                                     |
+| utility model: fake/fake-utility                                                                                     |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: active                                                                                                       |
+| status source: runtime.fixture                                                                                       |
+| detail: subagent supervision                                                                                         |
+| active: true                                                                                                         |
+| result: Parent run supervising visible child work.                                                                   |
+|                                                                                                                      |
+| Subagents:                                                                                                           |
+| display-only: true                                                                                                   |
+| transition claimed: false                                                                                            |
+| subagent: child-runtime parent=parent-build status=running purpose=Inspect runtime spawn effect                      |
+| summary: child-runtime Reading runtime effect and message contracts.                                                 |
+| evidence link: child-runtime runtime-source kind=file path=internal[path-redacted] excerpt=SpawnSubagentEffect is r~ |
+| subagent: child-complete parent=parent-build status=completed purpose=Collect semantic proof                         |
+| summary: child-complete Semantic snapshot evidence collected.                                                        |
+| evidence link: child-complete semantic-proof kind=test command=go test .[path-redacted]                              |
+| subagent: child-failed parent=parent-build status=failed purpose=Check missing fixture branch                        |
+| summary: child-failed Fixture was missing before snapshot creation.                                                  |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                  git: placeholder | context: subagents visible | q quit

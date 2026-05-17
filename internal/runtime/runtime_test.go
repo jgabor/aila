@@ -1632,6 +1632,185 @@ func TestFailureAndCancelMetadataAreInert(t *testing.T) {
 	}
 }
 
+func TestUpdateSpawnsSubagentAsSupervisedEffect(t *testing.T) {
+	t.Parallel()
+
+	parent := OperationMetadata{ID: "op-parent", Kind: OperationCapability, Subject: "build", Source: "runtime.capability"}
+	request := SubagentRequest{
+		Purpose: "inspect runtime tests",
+		Input:   "collect evidence for supervised child work",
+		Tools:   []string{"read", "grep"},
+		Budget:  SubagentBudget{MaxTurns: 3, MaxTokens: 1200, TimeoutMillis: 5000},
+		EvidenceLinks: []SubagentEvidenceLink{{
+			ID:      "source-doc",
+			Kind:    "doc",
+			Path:    "ARCHITECTURE.md",
+			Excerpt: "Subagents are supervised concurrent work",
+		}},
+		Source: SubagentSourceMetadata{Caller: "test", RequestID: "spawn-1"},
+	}
+
+	model, effects := Update(Model{Status: StatusActive, ActiveOperation: parent, NextOperation: 4}, SubagentSpawnProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveOperation != parent {
+		t.Fatalf("primary operation changed = status:%q active:%+v", model.Status, model.ActiveOperation)
+	}
+	if model.NextOperation != 5 {
+		t.Fatalf("NextOperation = %d, want 5", model.NextOperation)
+	}
+	run, ok := findSubagentRun(model.Subagents, "op-5")
+	if !ok {
+		t.Fatalf("subagents = %+v, want op-5", model.Subagents)
+	}
+	if run.ParentRunID != parent.ID || run.Purpose != request.Purpose || run.Status != SubagentStatusRunning || run.Budget != request.Budget || !reflect.DeepEqual(run.Tools, request.Tools) || len(run.EvidenceLinks) != 1 {
+		t.Fatalf("spawned subagent = %+v", run)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(SpawnSubagentEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want SpawnSubagentEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-5", Kind: OperationSubagent, Subject: request.Purpose, Source: "runtime.subagent"})
+	if effect.Request.ID != "op-5" || effect.Request.ParentRunID != parent.ID || effect.Request.Source.Caller != "test" {
+		t.Fatalf("effect request = %+v", effect.Request)
+	}
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	progress, ok := messages[0].(SubagentProgressed)
+	if !ok {
+		t.Fatalf("message type = %T, want SubagentProgressed", messages[0])
+	}
+	model, effects = Update(model, progress)
+	if len(effects) != 0 {
+		t.Fatalf("len(effects) = %d, want 0", len(effects))
+	}
+	run, ok = findSubagentRun(model.Subagents, "op-5")
+	if !ok || run.Status != SubagentStatusRunning || !strings.Contains(run.Summary, "subagent running") {
+		t.Fatalf("progressed subagent = %+v found=%v", run, ok)
+	}
+}
+
+func TestUpdateKeepsSubagentLifecycleObservable(t *testing.T) {
+	t.Parallel()
+
+	base := Model{Subagents: []SubagentRun{{
+		ID:          "child-active",
+		ParentRunID: "parent-run",
+		Purpose:     "collect evidence",
+		Status:      SubagentStatusRunning,
+		Summary:     "spawn requested",
+	}}}
+	progressed, effects := Update(base, SubagentProgressed{
+		ID:          "child-active",
+		ParentRunID: "parent-run",
+		Purpose:     "collect evidence",
+		Status:      SubagentStatusRunning,
+		Summary:     "read source docs",
+		EvidenceLinks: []SubagentEvidenceLink{{
+			ID:   "runtime-src",
+			Kind: "file",
+			Path: "internal/runtime/runtime.go",
+		}},
+	})
+	if len(effects) != 0 {
+		t.Fatalf("progress effects = %d, want 0", len(effects))
+	}
+	run, ok := findSubagentRun(progressed.Subagents, "child-active")
+	if !ok || run.Status != SubagentStatusRunning || run.Summary != "read source docs" || len(run.EvidenceLinks) != 1 {
+		t.Fatalf("progressed run = %+v found=%v", run, ok)
+	}
+
+	completed, effects := Update(progressed, SubagentCompleted{ParentRunID: "parent-run", Result: SubagentResult{
+		ID:      "child-active",
+		Purpose: "collect evidence",
+		Summary: "evidence ready",
+		EvidenceLinks: []SubagentEvidenceLink{{
+			ID:      "completion-log",
+			Kind:    "log",
+			Command: "go test ./internal/runtime",
+		}},
+	}})
+	if len(effects) != 0 {
+		t.Fatalf("completion effects = %d, want 0", len(effects))
+	}
+	run, ok = findSubagentRun(completed.Subagents, "child-active")
+	if !ok || run.Status != SubagentStatusCompleted || run.Summary != "evidence ready" || len(run.EvidenceLinks) != 1 {
+		t.Fatalf("completed run = %+v found=%v", run, ok)
+	}
+
+	failed, effects := Update(completed, SubagentFailed{
+		ID:          "child-failed",
+		ParentRunID: "parent-run",
+		Purpose:     "try alternate proof",
+		Failure:     FailureMetadata{Code: "fixture_missing", Message: "fixture not found", Retryable: true},
+	})
+	if len(effects) != 0 {
+		t.Fatalf("failure effects = %d, want 0", len(effects))
+	}
+	run, ok = findSubagentRun(failed.Subagents, "child-failed")
+	if !ok || run.Status != SubagentStatusFailed || run.Failure.Code != "fixture_missing" || run.Summary != "fixture not found" {
+		t.Fatalf("failed run = %+v found=%v", run, ok)
+	}
+
+	canceled, effects := Update(failed, SubagentCanceled{
+		ID:          "child-canceled",
+		ParentRunID: "parent-run",
+		Purpose:     "bounded review",
+		Cancel:      CancelMetadata{Requested: true, Reason: "parent stopped"},
+	})
+	if len(effects) != 0 {
+		t.Fatalf("cancellation effects = %d, want 0", len(effects))
+	}
+	run, ok = findSubagentRun(canceled.Subagents, "child-canceled")
+	if !ok || run.Status != SubagentStatusCanceled || !run.Cancel.Requested || run.Summary != "parent stopped" {
+		t.Fatalf("canceled run = %+v found=%v", run, ok)
+	}
+}
+
+func TestActiveSubagentCannotBecomeUnobservable(t *testing.T) {
+	t.Parallel()
+
+	activeChild := SubagentRun{
+		ID:          "child-active",
+		ParentRunID: "parent-run",
+		Purpose:     "watch build",
+		Status:      SubagentStatusRunning,
+		Summary:     "running",
+		EvidenceLinks: []SubagentEvidenceLink{{
+			ID:   "active-evidence",
+			Kind: "runtime",
+		}},
+	}
+	primary := OperationMetadata{ID: "op-parent", Kind: OperationPrompt, Subject: "parent", Source: "user"}
+	base := Model{Status: StatusActive, ActiveOperation: primary, Subagents: []SubagentRun{activeChild}}
+
+	messages := []Message{
+		PromptSubmitted{Text: "queued follow-up"},
+		RuntimeDiagnostic{Diagnostic: diagnostic.New(diagnostic.Spec{Category: diagnostic.CategoryRuntime, Source: diagnostic.SourceRuntime, Severity: diagnostic.SeverityWarning, Message: "bounded diagnostic"})},
+		FakeEffectCompleted{Operation: primary, Result: "parent done"},
+	}
+	for _, message := range messages {
+		updated, _ := Update(base, message)
+		run, ok := findSubagentRun(updated.Subagents, activeChild.ID)
+		if !ok || !run.Status.Active() || run.ParentRunID != activeChild.ParentRunID || run.Purpose != activeChild.Purpose || len(run.EvidenceLinks) != 1 {
+			t.Fatalf("%T hid active subagent: %+v found=%v", message, run, ok)
+		}
+	}
+}
+
+func findSubagentRun(runs []SubagentRun, id string) (SubagentRun, bool) {
+	for _, run := range runs {
+		if run.ID == id {
+			return run, true
+		}
+	}
+	return SubagentRun{}, false
+}
+
 func TestRuntimeProductionFilesHaveNoForbiddenImportsOrTokens(t *testing.T) {
 	t.Parallel()
 

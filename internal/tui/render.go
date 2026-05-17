@@ -38,6 +38,7 @@ type ViewState struct {
 	RuntimeResult      string
 	QueuedCount        int
 	QueuedText         []string
+	Subagents          []SubagentView
 	Read               *ReadView
 	Search             *SearchView
 	Approval           *ApprovalProposalView
@@ -1158,6 +1159,7 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	items = append(items, subagentLines(state.Subagents)...)
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	items = append(items, briefLines(state.Brief)...)
 	items = append(items, visionLines(state.Vision)...)
@@ -1394,6 +1396,39 @@ func runtimeStatusLines(state ViewState) []string {
 	lines = append(lines, interruptStatusLines(state)...)
 	lines = append(lines, "")
 	return lines
+}
+
+func subagentLines(subagents []SubagentView) []string {
+	semantic := semanticSubagents(subagents)
+	if semantic == nil {
+		return nil
+	}
+	lines := []string{
+		"  Subagents:",
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+	}
+	for _, run := range semantic.Runs {
+		line := "  subagent: " + run.ID + " parent=" + run.ParentRunID + " status=" + run.Status + " purpose=" + run.Purpose
+		lines = append(lines, line)
+		if run.Summary != "" {
+			lines = append(lines, "  summary: "+run.ID+" "+run.Summary)
+		}
+		for _, evidence := range run.EvidenceLinks {
+			evidenceLine := "  evidence link: " + run.ID + " " + evidence.ID + " kind=" + evidence.Kind
+			if evidence.Path != "" {
+				evidenceLine += " path=" + evidence.Path
+			}
+			if evidence.Command != "" {
+				evidenceLine += " command=" + evidence.Command
+			}
+			if evidence.Excerpt != "" {
+				evidenceLine += " excerpt=" + evidence.Excerpt
+			}
+			lines = append(lines, evidenceLine)
+		}
+	}
+	return append(lines, "")
 }
 
 func approvalLines(approval *ApprovalProposalView) []string {
@@ -3267,6 +3302,7 @@ type SemanticSnapshot struct {
 	Optimize       *SemanticOptimize       `json:"optimize,omitempty"`
 	Document       *SemanticDocument       `json:"document,omitempty"`
 	Design         *SemanticDesign         `json:"design,omitempty"`
+	Subagents      *SemanticSubagents      `json:"subagents,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3284,6 +3320,35 @@ type SemanticSnapshot struct {
 	Approval       *SemanticApproval       `json:"approval,omitempty"`
 	Regions        []SemanticRegion        `json:"regions"`
 	Actions        []SemanticAction        `json:"actions"`
+}
+
+// SemanticSubagents describes app-injected supervised child-work state.
+type SemanticSubagents struct {
+	Visible           bool               `json:"visible"`
+	DisplayOnly       bool               `json:"display_only"`
+	TransitionClaimed bool               `json:"transition_claimed"`
+	Runs              []SemanticSubagent `json:"runs"`
+}
+
+// SemanticSubagent records one supervised child run.
+type SemanticSubagent struct {
+	ID                string                         `json:"id"`
+	ParentRunID       string                         `json:"parent_run_id"`
+	Purpose           string                         `json:"purpose"`
+	Status            string                         `json:"status"`
+	Summary           string                         `json:"summary,omitempty"`
+	EvidenceLinks     []SemanticSubagentEvidenceLink `json:"evidence_links,omitempty"`
+	DisplayOnly       bool                           `json:"display_only"`
+	TransitionClaimed bool                           `json:"transition_claimed"`
+}
+
+// SemanticSubagentEvidenceLink records one machine-readable child evidence link.
+type SemanticSubagentEvidenceLink struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
 }
 
 // SemanticApproval describes app-injected risky-operation review state.
@@ -4698,6 +4763,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.RuntimeStatus != "" {
 		regions = append(regions, SemanticRegion{Name: "runtime_status", Visible: true, Items: semanticRuntimeStatusItems(state)})
 	}
+	if len(state.Subagents) > 0 {
+		regions = append(regions, SemanticRegion{Name: "subagents", Visible: true, Items: semanticSubagentItems(state.Subagents)})
+	}
 	if state.Approval != nil {
 		regions = append(regions, SemanticRegion{Name: "approval", Visible: true, Items: semanticApprovalItems(state.Approval)})
 	}
@@ -4872,6 +4940,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Optimize:       semanticOptimize(state.Optimize),
 		Document:       semanticDocument(state.Document),
 		Design:         semanticDesign(state.Design),
+		Subagents:      semanticSubagents(state.Subagents),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -6610,6 +6679,61 @@ func semanticDocument(document *DocumentView) *SemanticDocument {
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}
+}
+
+func semanticSubagentItems(subagents []SubagentView) []string {
+	semantic := semanticSubagents(subagents)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+	}
+	for _, run := range semantic.Runs {
+		items = append(items, "subagent: "+run.ID+" parent="+run.ParentRunID+" status="+run.Status+" purpose="+run.Purpose)
+		if run.Summary != "" {
+			items = append(items, "summary: "+run.ID+" "+run.Summary)
+		}
+		for _, evidence := range run.EvidenceLinks {
+			item := "evidence_link: " + run.ID + " " + evidence.ID + " kind=" + evidence.Kind
+			if evidence.Path != "" {
+				item += " path=" + evidence.Path
+			}
+			if evidence.Command != "" {
+				item += " command=" + evidence.Command
+			}
+			if evidence.Excerpt != "" {
+				item += " excerpt=" + evidence.Excerpt
+			}
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+func semanticSubagents(subagents []SubagentView) *SemanticSubagents {
+	if len(subagents) == 0 {
+		return nil
+	}
+	runs := make([]SemanticSubagent, 0, len(subagents))
+	for _, subagent := range subagents {
+		evidenceLinks := make([]SemanticSubagentEvidenceLink, 0, len(subagent.EvidenceLinks))
+		for _, link := range subagent.EvidenceLinks {
+			evidenceLinks = append(evidenceLinks, SemanticSubagentEvidenceLink{ID: safeText(link.ID), Kind: safeText(link.Kind), Path: safeText(link.Path), Command: safeText(link.Command), Excerpt: safeText(link.Excerpt)})
+		}
+		runs = append(runs, SemanticSubagent{
+			ID:                safeText(subagent.ID),
+			ParentRunID:       safeText(subagent.ParentRunID),
+			Purpose:           safeText(subagent.Purpose),
+			Status:            safeText(subagent.Status),
+			Summary:           safeText(subagent.Summary),
+			EvidenceLinks:     evidenceLinks,
+			DisplayOnly:       subagent.DisplayOnly,
+			TransitionClaimed: subagent.TransitionClaimed,
+		})
+	}
+	return &SemanticSubagents{Visible: true, DisplayOnly: true, TransitionClaimed: false, Runs: runs}
 }
 
 func semanticDesignItems(design *DesignView) []string {

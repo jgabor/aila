@@ -49,6 +49,7 @@ type TranscriptTurn struct {
 	QueuedCount        int
 	QueuedText         []string
 	Diagnostics        []DiagnosticView
+	Subagents          []SubagentView
 	Read               *ReadView
 	Search             *SearchView
 	Command            *CommandView
@@ -97,6 +98,28 @@ type ApprovalDecisionView struct {
 	ProposalID string
 	Action     string
 	Stale      bool
+}
+
+// SubagentView is app-injected supervised child-work state. It is display-only;
+// the TUI must never spawn, cancel, incorporate, or evaluate child work itself.
+type SubagentView struct {
+	ID                string
+	ParentRunID       string
+	Purpose           string
+	Status            string
+	Summary           string
+	EvidenceLinks     []SubagentEvidenceLinkView
+	DisplayOnly       bool
+	TransitionClaimed bool
+}
+
+// SubagentEvidenceLinkView records one child-work evidence link.
+type SubagentEvidenceLinkView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
 }
 
 // ReadView is app-injected read presentation data. It is display-only;
@@ -663,6 +686,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.QueuedCount = turn.QueuedCount
 	state.QueuedText = append([]string(nil), turn.QueuedText...)
 	state.Diagnostics = mergeDiagnosticViews(state.Diagnostics, turn.Diagnostics)
+	state.Subagents = cloneSubagentViews(turn.Subagents)
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
@@ -730,6 +754,19 @@ func cloneApprovalDecisionView(decision *ApprovalDecisionView) *ApprovalDecision
 	}
 	clone := *decision
 	return &clone
+}
+
+func cloneSubagentViews(subagents []SubagentView) []SubagentView {
+	if len(subagents) == 0 {
+		return nil
+	}
+	clones := make([]SubagentView, 0, len(subagents))
+	for _, subagent := range subagents {
+		clone := subagent
+		clone.EvidenceLinks = append([]SubagentEvidenceLinkView(nil), subagent.EvidenceLinks...)
+		clones = append(clones, clone)
+	}
+	return clones
 }
 
 func cloneReadView(read *ReadView) *ReadView {

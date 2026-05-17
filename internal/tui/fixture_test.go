@@ -4843,6 +4843,148 @@ func documentWaitingFixtureState() ViewState {
 	return state
 }
 
+func TestMultiAgentActiveWorkFixtureShowsSubagentStatusAndEvidence(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "multi-agent-active-work", multiAgentActiveWorkFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Subagents:", "display-only: true", "transition claimed: false"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "subagent: child-runtime parent=parent-build status=running purpose=Inspect runtime spawn effect")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "subagent: child-complete parent=parent-build status=completed purpose=Collect semantic proof", "evidence link: child-failed fixture-proof kind=file")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("multi-agent render missing subagent evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Subagents == nil || len(snapshot.Subagents.Runs) != 4 || !snapshot.Subagents.DisplayOnly || snapshot.Subagents.TransitionClaimed {
+			t.Fatalf("subagent semantic = %+v", snapshot.Subagents)
+		}
+		first := snapshot.Subagents.Runs[0]
+		if first.ParentRunID != "parent-build" || first.Purpose != "Inspect runtime spawn effect" || first.Status != "running" || len(first.EvidenceLinks) != 1 {
+			t.Fatalf("first subagent semantic = %+v", first)
+		}
+		if !containsSubagentStatus(snapshot.Subagents.Runs, "completed") || !containsSubagentStatus(snapshot.Subagents.Runs, "failed") || !containsSubagentStatus(snapshot.Subagents.Runs, "canceled") {
+			t.Fatalf("subagent statuses = %+v", snapshot.Subagents.Runs)
+		}
+		regions := semanticRegionsByName(t, snapshot)
+		items := strings.Join(regions["subagents"].Items, "\n")
+		if !containsAll(items, []string{"subagent: child-runtime parent=parent-build status=running", "evidence_link: child-complete semantic-proof kind=test", "display_only: true", "transition_claimed: false"}) {
+			t.Fatalf("subagent semantic region = %v", regions["subagents"].Items)
+		}
+	}
+}
+
+func TestSubagentActiveWorkAddsNoInteractiveSelectionActions(t *testing.T) {
+	t.Parallel()
+
+	snapshot := Semantic(multiAgentActiveWorkFixtureState(), Size{Width: 120, Height: 32})
+	for _, action := range snapshot.Actions {
+		if strings.Contains(action.Name, "subagent") {
+			t.Fatalf("subagent action = %+v, want no interactive selection behavior in M55", action)
+		}
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	items := strings.Join(regions["subagents"].Items, "\n")
+	if !containsAll(items, []string{"display_only: true", "transition_claimed: false"}) {
+		t.Fatalf("subagent region = %v, want display-only supervision", regions["subagents"].Items)
+	}
+}
+
+func containsSubagentStatus(runs []SemanticSubagent, status string) bool {
+	for _, run := range runs {
+		if run.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+func multiAgentActiveWorkFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "multi-agent-active-work"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-primary"
+	state.UtilityModel = "fake/fake-utility"
+	state.Autonomy = "read"
+	state.RuntimeStatus = "active"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "subagent supervision"
+	state.RuntimeActive = true
+	state.RuntimeResult = "Parent run supervising visible child work."
+	state.FooterContext = "subagents visible"
+	state.Subagents = []SubagentView{
+		{
+			ID:          "child-runtime",
+			ParentRunID: "parent-build",
+			Purpose:     "Inspect runtime spawn effect",
+			Status:      "running",
+			Summary:     "Reading runtime effect and message contracts.",
+			EvidenceLinks: []SubagentEvidenceLinkView{{
+				ID:      "runtime-source",
+				Kind:    "file",
+				Path:    "internal/runtime/runtime.go",
+				Excerpt: "SpawnSubagentEffect is runtime-owned.",
+			}},
+			DisplayOnly: true,
+		},
+		{
+			ID:          "child-complete",
+			ParentRunID: "parent-build",
+			Purpose:     "Collect semantic proof",
+			Status:      "completed",
+			Summary:     "Semantic snapshot evidence collected.",
+			EvidenceLinks: []SubagentEvidenceLinkView{{
+				ID:      "semantic-proof",
+				Kind:    "test",
+				Command: "go test ./internal/tui",
+			}},
+			DisplayOnly: true,
+		},
+		{
+			ID:          "child-failed",
+			ParentRunID: "parent-build",
+			Purpose:     "Check missing fixture branch",
+			Status:      "failed",
+			Summary:     "Fixture was missing before snapshot creation.",
+			EvidenceLinks: []SubagentEvidenceLinkView{{
+				ID:   "fixture-proof",
+				Kind: "file",
+				Path: "internal/tui/testdata/fixtures/multi-agent-active-work/fixture.json",
+			}},
+			DisplayOnly: true,
+		},
+		{
+			ID:          "child-canceled",
+			ParentRunID: "parent-build",
+			Purpose:     "Stop duplicate review",
+			Status:      "canceled",
+			Summary:     "Parent canceled duplicate child work.",
+			EvidenceLinks: []SubagentEvidenceLinkView{{
+				ID:      "cancel-event",
+				Kind:    "event",
+				Excerpt: "cancellation remains visible",
+			}},
+			DisplayOnly: true,
+		},
+	}
+	return state
+}
+
 func TestDesignOutputFixtureShowsDecisionsReviewPromptsAndCaveats(t *testing.T) {
 	t.Parallel()
 

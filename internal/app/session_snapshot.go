@@ -440,11 +440,12 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	turn.RuntimeStatus = string(model.Status)
 	turn.StatusSource = "runtime.dispatch"
 	turn.StatusDetail = "fake in-memory runtime loop"
-	turn.RuntimeActive = model.Status == runtime.StatusActive || model.Status == runtime.StatusApprovalPending || model.Status == runtime.StatusCanceling
+	turn.RuntimeActive = runtimeActive(model)
 	turn.RuntimeResult = model.Result
 	turn.QueuedCount = len(model.Queued)
 	turn.QueuedText = queuedText(model.Queued)
 	turn.Diagnostics = diagnosticViews(model.Diagnostics)
+	turn.Subagents = subagentViews(model)
 	turn.Utility = utilityView(model)
 	turn.Brief = briefView(model.LastCapability, model.Status)
 	if turn.Utility != nil {
@@ -452,6 +453,9 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	}
 	if turn.Brief != nil {
 		turn.StatusDetail = "brief capability status"
+	}
+	if len(turn.Subagents) > 0 && turn.StatusDetail == "fake in-memory runtime loop" {
+		turn.StatusDetail = "subagent supervision"
 	}
 	return tui.ApplyTranscriptTurn(view, turn)
 }
