@@ -1,0 +1,45 @@
+Aila                                                                                                                                                      160x45
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto yolo                                                     
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| No messages yet.                                                                                                 |  | phase source: idle                     |
+|                                                                                                                  |  | primary model: opencode-go/deepseek-v~ |
+| model:                                                                                                           |  | utility model: opencode-go/deepseek-v~ |
+| command route: model                                                                                             |  | autonomy: yolo                         |
+| route source: policy.command                                                                                     |  | git: placeholder                       |
+| source: app.model                                                                                                |  | context: placeholder                   |
+| target: primary_model                                                                                            |  |                                        |
+| status: ready                                                                                                    |  |                                        |
+| current primary: opencode-go/deepseek-v4-pro:high                                                                |  |                                        |
+| current utility: opencode-go/deepseek-v4-flash:max                                                               |  |                                        |
+| selected: 1                                                                                                      |  |                                        |
+| detail: session-scoped model selection; config file unchanged                                                    |  |                                        |
+| models:                                                                                                          |  |                                        |
+| > opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=device_code class=reasonin~ |  |                                        |
+|   openai/gpt-4.1 provider=openai model=gpt-4.1 family=api_key class=general status=degraded credential_source=O~ |  |                                        |
+|   custom/deepseek-chat provider=custom model=deepseek-chat family=custom class=general status=unavailable crede~ |  |                                        |
+|   opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=device_code class=utility s~ |  |                                        |
+| focus: model                                                                                                     |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit
+                                                                                                                                                                

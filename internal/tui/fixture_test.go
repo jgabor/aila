@@ -199,6 +199,55 @@ func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadSwitchFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+	state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+	state.Autonomy = "yolo"
+	switch name {
+	case "model-switch":
+		state = ApplyModelSwitchView(state, &ModelSwitchView{
+			Target:         string(policy.CommandTargetPrimaryModel),
+			Source:         "app.model",
+			Status:         "ready",
+			CurrentPrimary: state.PrimaryModel,
+			CurrentUtility: state.UtilityModel,
+			Detail:         "session-scoped model selection; config file unchanged",
+			Focus:          true,
+			Items: []ModelSwitchItemView{
+				{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Reasoning: "high", Family: "device_code", Class: "reasoning", Status: "available", CredentialSource: "device-code", Detail: "current session primary model", Current: true},
+				{Label: "openai/gpt-4.1", SourceName: "openai", Model: "gpt-4.1", Family: "api_key", Class: "general", Status: "degraded", CredentialSource: "OPENAI_API_KEY", Detail: "readiness timeout"},
+				{Label: "custom/deepseek-chat", SourceName: "custom", Model: "deepseek-chat", Family: "custom", Class: "general", Status: "unavailable", CredentialSource: "OPENAI_API_KEY", Detail: "provider unavailable"},
+				{Label: "opencode-go/deepseek-v4-flash", SourceName: "opencode-go", Model: "deepseek-v4-flash", Family: "device_code", Class: "utility", Status: "available", CredentialSource: "device-code", Detail: "deterministic readiness row"},
+			},
+		})
+	case "autonomy-switch":
+		state.Autonomy = "read"
+		state = ApplyAutonomySwitchView(state, &AutonomySwitchView{
+			Source:   "app.autonomy",
+			Status:   "ready",
+			Current:  "read",
+			Detail:   "session-scoped autonomy selection; config file unchanged",
+			Selected: 1,
+			Focus:    true,
+			Items: []AutonomySwitchItemView{
+				{Level: "off", Status: "available", Detail: "approval required before read or write operations"},
+				{Level: "read", Status: "available", Detail: "read-only operations may run automatically", Current: true},
+				{Level: "write", Status: "available", Detail: "workspace write operations may run automatically"},
+				{Level: "yolo", Status: "available", Detail: "highest autonomy for classified operations"},
+			},
+		})
+	default:
+		t.Fatalf("unknown switch fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
 func loadProjectStoreFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
@@ -2893,6 +2942,69 @@ func sameStringSet(first []string, second []string) bool {
 		}
 	}
 	return true
+}
+
+func TestModelAndAutonomySwitchFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"model-switch", "autonomy-switch"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadSwitchFixture(t, name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("switch fixture metadata = %+v", fixture)
+			}
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if name == "model-switch" && !containsAll(plain, []string{"model:", "source: app.model", "target: primary_model", "current primary: opencode-go/deepseek-v4-pro:high", "models:"}) {
+						t.Fatalf("model switch fixture missing visible evidence:\n%s", plain)
+					}
+					if name == "autonomy-switch" && !containsAll(plain, []string{"auto:", "source: app.autonomy", "current: read", "levels:", "read status=available current=true"}) {
+						t.Fatalf("autonomy switch fixture missing visible evidence:\n%s", plain)
+					}
+				})
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					if name == "model-switch" {
+						if snapshot.ModelSwitch == nil || snapshot.Screen.Focus != "model_switch" || snapshot.ModelSwitch.SelectedLabel != "opencode-go/deepseek-v4-pro:high" {
+							t.Fatalf("model switch semantic = focus %q switch %+v", snapshot.Screen.Focus, snapshot.ModelSwitch)
+						}
+						if !containsAll(strings.Join(regions["model_switch"].Items, "\n"), []string{"current_primary: opencode-go/deepseek-v4-pro:high", "status=degraded", "status=unavailable", "app-owned", "display-only"}) {
+							t.Fatalf("model switch semantic region = %v", regions["model_switch"].Items)
+						}
+					}
+					if name == "autonomy-switch" {
+						if snapshot.AutonomySwitch == nil || snapshot.Screen.Focus != "autonomy_switch" || snapshot.AutonomySwitch.SelectedLevel != "read" || snapshot.Session.Autonomy != "read" {
+							t.Fatalf("autonomy switch semantic = focus %q switch %+v session %+v", snapshot.Screen.Focus, snapshot.AutonomySwitch, snapshot.Session)
+						}
+						if !containsAll(strings.Join(regions["autonomy_switch"].Items, "\n"), []string{"current: read", "selected_level: read", "item: read status=available current=true selected=true", "app-owned", "display-only"}) {
+							t.Fatalf("autonomy switch semantic region = %v", regions["autonomy_switch"].Items)
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestSessionCommandFixtureSnapshots(t *testing.T) {

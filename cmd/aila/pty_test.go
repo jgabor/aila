@@ -1505,6 +1505,123 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestModelAndAutonomyCommandFamilyPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 60, env.vars, nil)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"Model opencode-go/deepseek-v4-pro:high",
+		"Utility opencode-go/deepseek-v4-flash:max",
+		"Auto yolo",
+		"Prompt",
+	}, 20*time.Second)
+
+	if _, err := terminal.Write([]byte("/model\r")); err != nil {
+		t.Fatalf("send /model command input: %v", err)
+	}
+	modelOpen := readUntilAll(t, terminal, []string{
+		"model:",
+		"command route: model",
+		"route source: policy.command",
+		"source: app.model",
+		"target: primary_model",
+		"current primary: opencode-go/deepseek-v4-pro:high",
+		"current utility: opencode-go/deepseek-v4-flash:max",
+		"codex/codex-high provider=codex",
+		"focus: model",
+	}, 10*time.Second)
+	assertNoModelAutonomySmokeLeaks(t, modelOpen, env, workspace)
+	for _, forbidden := range []string{"marketplace", "provider execution", "config path", "config.toml"} {
+		if strings.Contains(modelOpen, forbidden) {
+			t.Fatalf("model switch PTY output exposed forbidden marker %q: %q", forbidden, modelOpen)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("\x1b[B\r")); err != nil {
+		t.Fatalf("send model down and enter input: %v", err)
+	}
+	modelApplied := readUntilAll(t, terminal, []string{
+		"Model codex/codex-high",
+		"current primary: codex/codex-high",
+		"detail: applied codex/codex-high to current session; config file unchanged",
+	}, 10*time.Second)
+	assertNoModelAutonomySmokeLeaks(t, modelApplied, env, workspace)
+
+	if _, err := terminal.Write([]byte("/auto\r")); err != nil {
+		t.Fatalf("send /auto command input: %v", err)
+	}
+	autoOpen := readUntilAll(t, terminal, []string{
+		"auto:",
+		"command route: auto",
+		"source: app.autonomy",
+		"current: yolo",
+		"levels:",
+		"read status=available current=false",
+		"yolo status=available current=true",
+		"focus: auto",
+	}, 10*time.Second)
+	assertNoModelAutonomySmokeLeaks(t, autoOpen, env, workspace)
+
+	if _, err := terminal.Write([]byte("\x1b[A\x1b[A\x1b[A\r")); err != nil {
+		t.Fatalf("send autonomy up navigation and enter input: %v", err)
+	}
+	autoApplied := readUntilAll(t, terminal, []string{
+		"Auto off",
+		"current: off",
+		"off status=available current=true",
+		"detail: applied off autonomy to current session; config file unchanged",
+	}, 10*time.Second)
+	assertNoModelAutonomySmokeLeaks(t, autoApplied, env, workspace)
+
+	configPath := filepath.Join(env.xdgConfigHome, "aila", "config.toml")
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read temp XDG config after model/autonomy smoke: %v", err)
+	}
+	configText := string(config)
+	for _, marker := range []string{`model = "opencode-go/deepseek-v4-pro:high"`, `model = "opencode-go/deepseek-v4-flash:max"`, `level = "yolo"`} {
+		if !strings.Contains(configText, marker) {
+			t.Fatalf("temp config lost default marker %q after session-scoped switch: %s", marker, configText)
+		}
+	}
+	for _, forbidden := range []string{"codex/codex-high", "level = \"off\""} {
+		if strings.Contains(configText, forbidden) {
+			t.Fatalf("temp config persisted session selection %q: %s", forbidden, configText)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after model/autonomy smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("model/autonomy PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("model/autonomy PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
+func assertNoModelAutonomySmokeLeaks(t *testing.T, output string, env ailaPTYTestEnv, workspace string) {
+	t.Helper()
+	for _, forbidden := range []string{env.home, env.xdgConfigHome, workspace, ".config/aila", "config.toml", "oauth", "password=", "secret=", "token="} {
+		if forbidden != "" && strings.Contains(output, forbidden) {
+			t.Fatalf("model/autonomy PTY output leaked %q: %q", forbidden, output)
+		}
+	}
+}
+
 func TestSessionCommandFamilyPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

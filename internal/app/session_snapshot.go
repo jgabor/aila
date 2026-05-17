@@ -129,6 +129,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		diagnostics = append(diagnostics, controller.openContinueSessionView()...)
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		return controller.view
+	case policy.CommandRouteModel:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		controller.openModelSwitchView(recommendation)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
+	case policy.CommandRouteAuto:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		controller.openAutonomySwitchView(recommendation)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRouteHistory:
 		controller.openHistoryView()
 		return controller.view

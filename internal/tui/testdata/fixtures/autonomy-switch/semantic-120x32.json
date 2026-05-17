@@ -1,0 +1,182 @@
+{
+  "scenario": "autonomy-switch",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "autonomy_switch"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "opencode-go/deepseek-v4-pro:high",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "read"
+  },
+  "autonomy_switch": {
+    "visible": true,
+    "source": "app.autonomy",
+    "status": "ready",
+    "current": "read",
+    "detail": "session-scoped autonomy selection; config file unchanged",
+    "focus": true,
+    "selected_index": 1,
+    "selected_level": "read",
+    "items": [
+      {
+        "level": "off",
+        "status": "available",
+        "detail": "approval required before read or write operations",
+        "current": false,
+        "selected": false
+      },
+      {
+        "level": "read",
+        "status": "available",
+        "detail": "read-only operations may run automatically",
+        "current": true,
+        "selected": true
+      },
+      {
+        "level": "write",
+        "status": "available",
+        "detail": "workspace write operations may run automatically",
+        "current": false,
+        "selected": false
+      },
+      {
+        "level": "yolo",
+        "status": "available",
+        "detail": "highest autonomy for classified operations",
+        "current": false,
+        "selected": false
+      }
+    ]
+  },
+  "command": {
+    "route": "auto",
+    "route_source": "policy.command",
+    "surface": "auto",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: opencode-go/deepseek-v4-pro:high",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: opencode-go/deepseek-v4-pro:high",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "autonomy_switch",
+      "visible": true,
+      "items": [
+        "source: app.autonomy",
+        "status: ready",
+        "current: read",
+        "focus: true",
+        "selected_index: 1",
+        "selected_level: read",
+        "detail: session-scoped autonomy selection; config file unchanged",
+        "item: off status=available current=false selected=false detail=approval required before read or write operations",
+        "item: read status=available current=true selected=true detail=read-only operations may run automatically",
+        "item: write status=available current=false selected=false detail=workspace write operations may run automatically",
+        "item: yolo status=available current=false selected=false detail=highest autonomy for classified operations",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "auto",
+        "command route: auto",
+        "route source: policy.command",
+        "source: app.autonomy",
+        "status: ready",
+        "current: read",
+        "selected: 2",
+        "detail: session-scoped autonomy selection; config file unchanged",
+        "levels:",
+        "  off status=available current=false detail=approval required before read or write operations",
+        "> read status=available current=true detail=read-only operations may run automatically",
+        "  write status=available current=false detail=workspace write operations may run automatically",
+        "  yolo status=available current=false detail=highest autonomy for classified operations",
+        "focus: auto",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "move selection up",
+      "input": "up",
+      "presentation_only": true
+    },
+    {
+      "name": "move selection down",
+      "input": "down",
+      "presentation_only": true
+    },
+    {
+      "name": "apply autonomy selection",
+      "input": "enter",
+      "default": true,
+      "presentation_only": true
+    },
+    {
+      "name": "release selection focus",
+      "input": "esc",
+      "presentation_only": true
+    }
+  ]
+}

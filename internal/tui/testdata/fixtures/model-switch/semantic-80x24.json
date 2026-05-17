@@ -1,0 +1,209 @@
+{
+  "scenario": "model-switch",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "model_switch"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "opencode-go/deepseek-v4-pro:high",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "yolo"
+  },
+  "model_switch": {
+    "visible": true,
+    "target": "primary_model",
+    "source": "app.model",
+    "status": "ready",
+    "current_primary": "opencode-go/deepseek-v4-pro:high",
+    "current_utility": "opencode-go/deepseek-v4-flash:max",
+    "detail": "session-scoped model selection; config file unchanged",
+    "focus": true,
+    "selected_index": 0,
+    "selected_label": "opencode-go/deepseek-v4-pro:high",
+    "items": [
+      {
+        "label": "opencode-go/deepseek-v4-pro:high",
+        "provider": "opencode-go",
+        "model": "deepseek-v4-pro",
+        "reasoning": "high",
+        "family": "device_code",
+        "class": "reasoning",
+        "status": "available",
+        "credential_source": "device-code",
+        "detail": "current session primary model",
+        "current": true,
+        "selected": true
+      },
+      {
+        "label": "openai/gpt-4.1",
+        "provider": "openai",
+        "model": "gpt-4.1",
+        "family": "api_key",
+        "class": "general",
+        "status": "degraded",
+        "credential_source": "OPENAI_API_KEY",
+        "detail": "readiness timeout",
+        "current": false,
+        "selected": false
+      },
+      {
+        "label": "custom/deepseek-chat",
+        "provider": "custom",
+        "model": "deepseek-chat",
+        "family": "custom",
+        "class": "general",
+        "status": "unavailable",
+        "credential_source": "OPENAI_API_KEY",
+        "detail": "provider unavailable",
+        "current": false,
+        "selected": false
+      },
+      {
+        "label": "opencode-go/deepseek-v4-flash",
+        "provider": "opencode-go",
+        "model": "deepseek-v4-flash",
+        "family": "device_code",
+        "class": "utility",
+        "status": "available",
+        "credential_source": "device-code",
+        "detail": "deterministic readiness row",
+        "current": false,
+        "selected": false
+      }
+    ]
+  },
+  "command": {
+    "route": "model",
+    "route_source": "policy.command",
+    "surface": "model",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: opencode-go/deepseek-v4-pro:high",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: yolo"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: opencode-go/deepseek-v4-pro:high",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: yolo",
+        "display-only"
+      ]
+    },
+    {
+      "name": "model_switch",
+      "visible": true,
+      "items": [
+        "target: primary_model",
+        "source: app.model",
+        "status: ready",
+        "current_primary: opencode-go/deepseek-v4-pro:high",
+        "current_utility: opencode-go/deepseek-v4-flash:max",
+        "focus: true",
+        "selected_index: 0",
+        "selected_label: opencode-go/deepseek-v4-pro:high",
+        "detail: session-scoped model selection; config file unchanged",
+        "item: opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=device_code class=reasoning status=available credential_source=device-code current=true selected=true reasoning=high detail=current session primary model",
+        "item: openai/gpt-4.1 provider=openai model=gpt-4.1 family=api_key class=general status=degraded credential_source=OPENAI_API_KEY current=false selected=false detail=readiness timeout",
+        "item: custom/deepseek-chat provider=custom model=deepseek-chat family=custom class=general status=unavailable credential_source=OPENAI_API_KEY current=false selected=false detail=provider unavailable",
+        "item: opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=device_code class=utility status=available credential_source=device-code current=false selected=false detail=deterministic readiness row",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "model",
+        "command route: model",
+        "route source: policy.command",
+        "source: app.model",
+        "target: primary_model",
+        "status: ready",
+        "current primary: opencode-go/deepseek-v4-pro:high",
+        "current utility: opencode-go/deepseek-v4-flash:max",
+        "selected: 1",
+        "detail: session-scoped model selection; config file unchanged",
+        "models:",
+        "> opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=device_code class=reasoning status=available credential_source=device-code current=true reasoning=high detail=current session primary model",
+        "  openai/gpt-4.1 provider=openai model=gpt-4.1 family=api_key class=general status=degraded credential_source=OPENAI_API_KEY current=false detail=readiness timeout",
+        "  custom/deepseek-chat provider=custom model=deepseek-chat family=custom class=general status=unavailable credential_source=OPENAI_API_KEY current=false detail=provider unavailable",
+        "  opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=device_code class=utility status=available credential_source=device-code current=false detail=deterministic readiness row",
+        "focus: model",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "move selection up",
+      "input": "up",
+      "presentation_only": true
+    },
+    {
+      "name": "move selection down",
+      "input": "down",
+      "presentation_only": true
+    },
+    {
+      "name": "apply model selection",
+      "input": "enter",
+      "default": true,
+      "presentation_only": true
+    },
+    {
+      "name": "release selection focus",
+      "input": "esc",
+      "presentation_only": true
+    }
+  ]
+}

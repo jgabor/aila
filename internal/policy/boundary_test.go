@@ -23,6 +23,9 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "new", input: "/new", want: CommandRouteNew},
 		{name: "clear", input: "/clear", want: CommandRouteClear},
 		{name: "continue", input: "/continue", want: CommandRouteContinue},
+		{name: "model", input: "/model", want: CommandRouteModel},
+		{name: "model utility", input: "/model --utility", want: CommandRouteModel},
+		{name: "auto", input: "/auto", want: CommandRouteAuto},
 		{name: "status", input: "/status", want: CommandRouteStatus},
 		{name: "review", input: "/review", want: CommandRouteReview},
 		{name: "help", input: "/help", want: CommandRouteHelp},
@@ -45,6 +48,31 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 				t.Fatalf("RecommendSlashCommand(%q) = %+v, want route %q slash", tc.input, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestModelAndAutonomyRoutesCarryClosedTargets(t *testing.T) {
+	t.Parallel()
+
+	model, ok := RecommendSlashCommand("/model")
+	if !ok || model.Route != CommandRouteModel || model.Target != CommandTargetPrimaryModel || model.Kind != CommandInputSlash {
+		t.Fatalf("/model recommendation = %+v, want primary model slash route", model)
+	}
+	utility, ok := RecommendSlashCommand("/model --utility")
+	if !ok || utility.Route != CommandRouteModel || utility.Target != CommandTargetUtilityModel || utility.Kind != CommandInputSlash {
+		t.Fatalf("/model --utility recommendation = %+v, want utility model slash route", utility)
+	}
+	auto, ok := RecommendSlashCommand("/auto")
+	if !ok || auto.Route != CommandRouteAuto || auto.Target != CommandTargetAutonomy || auto.Kind != CommandInputSlash {
+		t.Fatalf("/auto recommendation = %+v, want autonomy slash route", auto)
+	}
+	modelShortcut, ok := RecommendShortcut("ctrl+x", "m")
+	if !ok || modelShortcut.Route != CommandRouteModel || modelShortcut.Target != CommandTargetPrimaryModel || modelShortcut.Kind != CommandInputShortcut {
+		t.Fatalf("ctrl+x m recommendation = %+v, want primary model shortcut route", modelShortcut)
+	}
+	autoShortcut, ok := RecommendShortcut("ctrl+x", "a")
+	if !ok || autoShortcut.Route != CommandRouteAuto || autoShortcut.Target != CommandTargetAutonomy || autoShortcut.Kind != CommandInputShortcut {
+		t.Fatalf("ctrl+x a recommendation = %+v, want autonomy shortcut route", autoShortcut)
 	}
 }
 
@@ -79,6 +107,30 @@ func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 	if clearSlash.Route != CommandRouteClear || clearSlash.Kind != CommandInputSlash {
 		t.Fatalf("clear route = %+v, want slash-only clear route", clearSlash)
+	}
+
+	modelSlash, ok := RecommendSlashCommand("/model")
+	if !ok {
+		t.Fatal("/model did not match")
+	}
+	modelShortcut, ok := RecommendShortcut("ctrl+x", "m")
+	if !ok {
+		t.Fatal("ctrl+x m did not match")
+	}
+	if modelSlash.Route != modelShortcut.Route || modelSlash.Target != modelShortcut.Target || modelSlash.Route != CommandRouteModel {
+		t.Fatalf("model route mismatch: slash=%+v shortcut=%+v", modelSlash, modelShortcut)
+	}
+
+	autoSlash, ok := RecommendSlashCommand("/auto")
+	if !ok {
+		t.Fatal("/auto did not match")
+	}
+	autoShortcut, ok := RecommendShortcut("ctrl+x", "a")
+	if !ok {
+		t.Fatal("ctrl+x a did not match")
+	}
+	if autoSlash.Route != autoShortcut.Route || autoSlash.Target != autoShortcut.Target || autoSlash.Route != CommandRouteAuto {
+		t.Fatalf("auto route mismatch: slash=%+v shortcut=%+v", autoSlash, autoShortcut)
 	}
 
 	statusSlash, ok := RecommendSlashCommand("/status")
@@ -172,6 +224,10 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		"/clear now",
 		"/continue latest",
 		"/status now",
+		"/model deepseek",
+		"/model --primary",
+		"/model --utility now",
+		"/auto read",
 		"/help commands",
 		"/review now",
 		"/quit --force",
@@ -196,6 +252,8 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		{prefix: "ctrl+x", key: "clear"},
 		{prefix: "ctrl+x", key: "continue"},
 		{prefix: "ctrl+x", key: "status"},
+		{prefix: "ctrl+x", key: "model"},
+		{prefix: "ctrl+x", key: "auto"},
 		{prefix: "ctrl+x", key: "review"},
 		{prefix: "ctrl+x", key: "undo"},
 		{prefix: "ctrl+c", key: "q"},

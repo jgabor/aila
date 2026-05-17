@@ -58,6 +58,8 @@ type ViewState struct {
 	MemoryConcerns     []string
 	RunMemory          *RunMemoryView
 	Session            *SessionView
+	ModelSwitch        *ModelSwitchView
+	AutonomySwitch     *AutonomySwitchView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
@@ -216,6 +218,54 @@ type SessionItemView struct {
 	Status       string
 	MemoryStatus string
 	Detail       string
+}
+
+// ModelSwitchView is app-injected model selection data. It is display-only;
+// TUI code must never read config, call providers, or inspect credentials.
+type ModelSwitchView struct {
+	Target         string
+	Source         string
+	Status         string
+	CurrentPrimary string
+	CurrentUtility string
+	Detail         string
+	Items          []ModelSwitchItemView
+	Selected       int
+	Focus          bool
+}
+
+// ModelSwitchItemView records one app-injected model choice row.
+type ModelSwitchItemView struct {
+	Label            string
+	SourceName       string
+	Model            string
+	Reasoning        string
+	Family           string
+	Class            string
+	Status           string
+	CredentialSource string
+	Detail           string
+	Current          bool
+}
+
+// AutonomySwitchView is app-injected autonomy selection data. It is display-only;
+// TUI code must never classify or execute operations itself.
+type AutonomySwitchView struct {
+	Source   string
+	Status   string
+	Current  string
+	Detail   string
+	Items    []AutonomySwitchItemView
+	Selected int
+	Focus    bool
+}
+
+// AutonomySwitchItemView records one app-injected autonomy choice row.
+type AutonomySwitchItemView struct {
+	Level   string
+	Status  string
+	Detail  string
+	Current bool
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -475,6 +525,69 @@ func sessionSurfaceLines(session SessionView) []string {
 	}
 	if session.Focus {
 		lines = append(lines, "focus: session")
+	}
+	return append(lines, "app-owned", "display-only")
+}
+
+func modelSwitchSurfaceLines(modelSwitch ModelSwitchView) []string {
+	selected := clampModelSwitchSelection(modelSwitch)
+	lines := []string{
+		"source: " + safeText(defaultString(modelSwitch.Source, "app.model")),
+		"target: " + safeText(defaultString(modelSwitch.Target, "primary_model")),
+		"status: " + safeText(defaultString(modelSwitch.Status, "ready")),
+		"current primary: " + safeText(modelSwitch.CurrentPrimary),
+		"current utility: " + safeText(modelSwitch.CurrentUtility),
+		fmt.Sprintf("selected: %d", selected+1),
+	}
+	if modelSwitch.Detail != "" {
+		lines = append(lines, "detail: "+safeText(modelSwitch.Detail))
+	}
+	if len(modelSwitch.Items) > 0 {
+		lines = append(lines, "models:")
+		for index, item := range modelSwitch.Items {
+			marker := " "
+			if index == selected {
+				marker = ">"
+			}
+			line := marker + " " + safeText(item.Label) + " provider=" + safeText(item.SourceName) + " model=" + safeText(item.Model) + " family=" + safeText(item.Family) + " class=" + safeText(item.Class) + " status=" + safeText(item.Status) + " credential_source=" + safeText(item.CredentialSource) + " current=" + boolLabel(item.Current)
+			if item.Reasoning != "" {
+				line += " reasoning=" + safeText(item.Reasoning)
+			}
+			if item.Detail != "" {
+				line += " detail=" + safeText(item.Detail)
+			}
+			lines = append(lines, line)
+		}
+	}
+	if modelSwitch.Focus {
+		lines = append(lines, "focus: model")
+	}
+	return append(lines, "app-owned", "display-only")
+}
+
+func autonomySwitchSurfaceLines(autonomySwitch AutonomySwitchView) []string {
+	selected := clampAutonomySwitchSelection(autonomySwitch)
+	lines := []string{
+		"source: " + safeText(defaultString(autonomySwitch.Source, "app.autonomy")),
+		"status: " + safeText(defaultString(autonomySwitch.Status, "ready")),
+		"current: " + safeText(autonomySwitch.Current),
+		fmt.Sprintf("selected: %d", selected+1),
+	}
+	if autonomySwitch.Detail != "" {
+		lines = append(lines, "detail: "+safeText(autonomySwitch.Detail))
+	}
+	if len(autonomySwitch.Items) > 0 {
+		lines = append(lines, "levels:")
+		for index, item := range autonomySwitch.Items {
+			marker := " "
+			if index == selected {
+				marker = ">"
+			}
+			lines = append(lines, marker+" "+safeText(item.Level)+" status="+safeText(item.Status)+" current="+boolLabel(item.Current)+" detail="+safeText(item.Detail))
+		}
+	}
+	if autonomySwitch.Focus {
+		lines = append(lines, "focus: auto")
 	}
 	return append(lines, "app-owned", "display-only")
 }
@@ -1158,26 +1271,28 @@ func stripANSI(text string) string {
 
 // SemanticSnapshot is the agent-readable meaning of the rendered static shell.
 type SemanticSnapshot struct {
-	Scenario    string               `json:"scenario"`
-	Screen      SemanticScreen       `json:"screen"`
-	Layout      SemanticLayout       `json:"layout"`
-	Session     SemanticSession      `json:"session"`
-	Memory      *SemanticMemory      `json:"memory,omitempty"`
-	SessionView *SemanticSessionView `json:"session_view,omitempty"`
-	Diagnostics []SemanticDiagnostic `json:"diagnostics,omitempty"`
-	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
-	Command     *SemanticCommand     `json:"command,omitempty"`
-	History     *SemanticHistory     `json:"history,omitempty"`
-	Diff        *SemanticDiff        `json:"diff,omitempty"`
-	Read        *SemanticRead        `json:"read_tool,omitempty"`
-	Search      *SemanticSearch      `json:"search_tool,omitempty"`
-	Bash        *SemanticBash        `json:"bash_tool,omitempty"`
-	Fetch       *SemanticFetch       `json:"fetch_tool,omitempty"`
-	Mutation    *SemanticMutation    `json:"mutation_tool,omitempty"`
-	Recovery    *SemanticRecovery    `json:"recovery,omitempty"`
-	Approval    *SemanticApproval    `json:"approval,omitempty"`
-	Regions     []SemanticRegion     `json:"regions"`
-	Actions     []SemanticAction     `json:"actions"`
+	Scenario       string                  `json:"scenario"`
+	Screen         SemanticScreen          `json:"screen"`
+	Layout         SemanticLayout          `json:"layout"`
+	Session        SemanticSession         `json:"session"`
+	Memory         *SemanticMemory         `json:"memory,omitempty"`
+	SessionView    *SemanticSessionView    `json:"session_view,omitempty"`
+	ModelSwitch    *SemanticModelSwitch    `json:"model_switch,omitempty"`
+	AutonomySwitch *SemanticAutonomySwitch `json:"autonomy_switch,omitempty"`
+	Diagnostics    []SemanticDiagnostic    `json:"diagnostics,omitempty"`
+	Interrupt      *SemanticInterrupt      `json:"interrupt,omitempty"`
+	Command        *SemanticCommand        `json:"command,omitempty"`
+	History        *SemanticHistory        `json:"history,omitempty"`
+	Diff           *SemanticDiff           `json:"diff,omitempty"`
+	Read           *SemanticRead           `json:"read_tool,omitempty"`
+	Search         *SemanticSearch         `json:"search_tool,omitempty"`
+	Bash           *SemanticBash           `json:"bash_tool,omitempty"`
+	Fetch          *SemanticFetch          `json:"fetch_tool,omitempty"`
+	Mutation       *SemanticMutation       `json:"mutation_tool,omitempty"`
+	Recovery       *SemanticRecovery       `json:"recovery,omitempty"`
+	Approval       *SemanticApproval       `json:"approval,omitempty"`
+	Regions        []SemanticRegion        `json:"regions"`
+	Actions        []SemanticAction        `json:"actions"`
 }
 
 // SemanticApproval describes app-injected risky-operation review state.
@@ -1501,6 +1616,58 @@ type SemanticSessionItem struct {
 	Selected     bool   `json:"selected"`
 }
 
+// SemanticModelSwitch describes app-injected model selection state.
+type SemanticModelSwitch struct {
+	Visible        bool                      `json:"visible"`
+	Target         string                    `json:"target"`
+	Source         string                    `json:"source"`
+	Status         string                    `json:"status"`
+	CurrentPrimary string                    `json:"current_primary"`
+	CurrentUtility string                    `json:"current_utility"`
+	Detail         string                    `json:"detail,omitempty"`
+	Focus          bool                      `json:"focus"`
+	Selected       int                       `json:"selected_index"`
+	SelectedLabel  string                    `json:"selected_label,omitempty"`
+	Items          []SemanticModelSwitchItem `json:"items"`
+}
+
+// SemanticModelSwitchItem describes one app-injected model choice row.
+type SemanticModelSwitchItem struct {
+	Label            string `json:"label"`
+	SourceName       string `json:"provider"`
+	Model            string `json:"model"`
+	Reasoning        string `json:"reasoning,omitempty"`
+	Family           string `json:"family"`
+	Class            string `json:"class"`
+	Status           string `json:"status"`
+	CredentialSource string `json:"credential_source"`
+	Detail           string `json:"detail,omitempty"`
+	Current          bool   `json:"current"`
+	Selected         bool   `json:"selected"`
+}
+
+// SemanticAutonomySwitch describes app-injected autonomy selection state.
+type SemanticAutonomySwitch struct {
+	Visible       bool                         `json:"visible"`
+	Source        string                       `json:"source"`
+	Status        string                       `json:"status"`
+	Current       string                       `json:"current"`
+	Detail        string                       `json:"detail,omitempty"`
+	Focus         bool                         `json:"focus"`
+	Selected      int                          `json:"selected_index"`
+	SelectedLevel string                       `json:"selected_level,omitempty"`
+	Items         []SemanticAutonomySwitchItem `json:"items"`
+}
+
+// SemanticAutonomySwitchItem describes one app-injected autonomy choice row.
+type SemanticAutonomySwitchItem struct {
+	Level    string `json:"level"`
+	Status   string `json:"status"`
+	Detail   string `json:"detail"`
+	Current  bool   `json:"current"`
+	Selected bool   `json:"selected"`
+}
+
 // SemanticHistory describes app-injected read-only history presentation state.
 type SemanticHistory struct {
 	Visible       bool                  `json:"visible"`
@@ -1685,6 +1852,12 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Session != nil {
 		regions = append(regions, SemanticRegion{Name: "session", Visible: true, Items: semanticSessionViewItems(state.Session)})
 	}
+	if state.ModelSwitch != nil {
+		regions = append(regions, SemanticRegion{Name: "model_switch", Visible: true, Items: semanticModelSwitchItems(state.ModelSwitch)})
+	}
+	if state.AutonomySwitch != nil {
+		regions = append(regions, SemanticRegion{Name: "autonomy_switch", Visible: true, Items: semanticAutonomySwitchItems(state.AutonomySwitch)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -1724,6 +1897,12 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			Executed:         false,
 		})
 	}
+	if state.ModelSwitch != nil && state.ModelSwitch.Focus {
+		actions = append(actions, switchActions("apply model selection")...)
+	}
+	if state.AutonomySwitch != nil && state.AutonomySwitch.Focus {
+		actions = append(actions, switchActions("apply autonomy selection")...)
+	}
 	snapshot := SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
@@ -1753,21 +1932,23 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			SessionID:          semanticSessionID(state),
 			MemoryStatus:       semanticSessionMemoryStatus(state),
 		},
-		Memory:      semanticMemory(state),
-		SessionView: semanticSessionView(state.Session),
-		Diagnostics: semanticDiagnostics(state.Diagnostics),
-		Command:     command,
-		History:     semanticHistory(state),
-		Diff:        semanticDiff(state),
-		Read:        semanticRead(state.Read),
-		Search:      semanticSearch(state.Search),
-		Bash:        semanticBash(state.Command),
-		Fetch:       semanticFetch(state.Fetch),
-		Mutation:    semanticMutation(state.Mutation),
-		Recovery:    semanticRecovery(state.Recovery),
-		Approval:    semanticApproval(state.Approval),
-		Regions:     regions,
-		Actions:     actions,
+		Memory:         semanticMemory(state),
+		SessionView:    semanticSessionView(state.Session),
+		ModelSwitch:    semanticModelSwitch(state.ModelSwitch),
+		AutonomySwitch: semanticAutonomySwitch(state.AutonomySwitch),
+		Diagnostics:    semanticDiagnostics(state.Diagnostics),
+		Command:        command,
+		History:        semanticHistory(state),
+		Diff:           semanticDiff(state),
+		Read:           semanticRead(state.Read),
+		Search:         semanticSearch(state.Search),
+		Bash:           semanticBash(state.Command),
+		Fetch:          semanticFetch(state.Fetch),
+		Mutation:       semanticMutation(state.Mutation),
+		Recovery:       semanticRecovery(state.Recovery),
+		Approval:       semanticApproval(state.Approval),
+		Regions:        regions,
+		Actions:        actions,
 	}
 	if hasInterruptState(state) {
 		snapshot.Interrupt = semanticInterrupt(state)
@@ -1951,6 +2132,135 @@ func semanticSessionViewItems(session *SessionView) []string {
 	}
 	for _, item := range view.Items {
 		items = append(items, "item: "+item.ID+" status="+item.Status+" memory="+item.MemoryStatus+" selected="+boolLabel(item.Selected))
+	}
+	return append(items, "app-owned", "display-only")
+}
+
+func semanticModelSwitch(modelSwitch *ModelSwitchView) *SemanticModelSwitch {
+	if modelSwitch == nil {
+		return nil
+	}
+	selected := clampModelSwitchSelection(*modelSwitch)
+	items := make([]SemanticModelSwitchItem, 0, len(modelSwitch.Items))
+	selectedLabel := ""
+	for index, item := range modelSwitch.Items {
+		if index == selected {
+			selectedLabel = safeText(item.Label)
+		}
+		items = append(items, SemanticModelSwitchItem{
+			Label:            safeText(item.Label),
+			SourceName:       safeText(item.SourceName),
+			Model:            safeText(item.Model),
+			Reasoning:        safeText(item.Reasoning),
+			Family:           safeText(item.Family),
+			Class:            safeText(item.Class),
+			Status:           safeText(item.Status),
+			CredentialSource: safeText(item.CredentialSource),
+			Detail:           safeText(item.Detail),
+			Current:          item.Current,
+			Selected:         index == selected,
+		})
+	}
+	return &SemanticModelSwitch{
+		Visible:        true,
+		Target:         safeText(modelSwitch.Target),
+		Source:         safeText(defaultString(modelSwitch.Source, "app.model")),
+		Status:         safeText(defaultString(modelSwitch.Status, "ready")),
+		CurrentPrimary: safeText(modelSwitch.CurrentPrimary),
+		CurrentUtility: safeText(modelSwitch.CurrentUtility),
+		Detail:         safeText(modelSwitch.Detail),
+		Focus:          modelSwitch.Focus,
+		Selected:       selected,
+		SelectedLabel:  selectedLabel,
+		Items:          items,
+	}
+}
+
+func semanticModelSwitchItems(modelSwitch *ModelSwitchView) []string {
+	semantic := semanticModelSwitch(modelSwitch)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"target: " + semantic.Target,
+		"source: " + semantic.Source,
+		"status: " + semantic.Status,
+		"current_primary: " + semantic.CurrentPrimary,
+		"current_utility: " + semantic.CurrentUtility,
+		"focus: " + boolLabel(semantic.Focus),
+		fmt.Sprintf("selected_index: %d", semantic.Selected),
+	}
+	if semantic.SelectedLabel != "" {
+		items = append(items, "selected_label: "+semantic.SelectedLabel)
+	}
+	if semantic.Detail != "" {
+		items = append(items, "detail: "+semantic.Detail)
+	}
+	for _, item := range semantic.Items {
+		line := "item: " + item.Label + " provider=" + item.SourceName + " model=" + item.Model + " family=" + item.Family + " class=" + item.Class + " status=" + item.Status + " credential_source=" + item.CredentialSource + " current=" + boolLabel(item.Current) + " selected=" + boolLabel(item.Selected)
+		if item.Reasoning != "" {
+			line += " reasoning=" + item.Reasoning
+		}
+		if item.Detail != "" {
+			line += " detail=" + item.Detail
+		}
+		items = append(items, line)
+	}
+	return append(items, "app-owned", "display-only")
+}
+
+func semanticAutonomySwitch(autonomySwitch *AutonomySwitchView) *SemanticAutonomySwitch {
+	if autonomySwitch == nil {
+		return nil
+	}
+	selected := clampAutonomySwitchSelection(*autonomySwitch)
+	items := make([]SemanticAutonomySwitchItem, 0, len(autonomySwitch.Items))
+	selectedLevel := ""
+	for index, item := range autonomySwitch.Items {
+		if index == selected {
+			selectedLevel = safeText(item.Level)
+		}
+		items = append(items, SemanticAutonomySwitchItem{
+			Level:    safeText(item.Level),
+			Status:   safeText(item.Status),
+			Detail:   safeText(item.Detail),
+			Current:  item.Current,
+			Selected: index == selected,
+		})
+	}
+	return &SemanticAutonomySwitch{
+		Visible:       true,
+		Source:        safeText(defaultString(autonomySwitch.Source, "app.autonomy")),
+		Status:        safeText(defaultString(autonomySwitch.Status, "ready")),
+		Current:       safeText(autonomySwitch.Current),
+		Detail:        safeText(autonomySwitch.Detail),
+		Focus:         autonomySwitch.Focus,
+		Selected:      selected,
+		SelectedLevel: selectedLevel,
+		Items:         items,
+	}
+}
+
+func semanticAutonomySwitchItems(autonomySwitch *AutonomySwitchView) []string {
+	semantic := semanticAutonomySwitch(autonomySwitch)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"status: " + semantic.Status,
+		"current: " + semantic.Current,
+		"focus: " + boolLabel(semantic.Focus),
+		fmt.Sprintf("selected_index: %d", semantic.Selected),
+	}
+	if semantic.SelectedLevel != "" {
+		items = append(items, "selected_level: "+semantic.SelectedLevel)
+	}
+	if semantic.Detail != "" {
+		items = append(items, "detail: "+semantic.Detail)
+	}
+	for _, item := range semantic.Items {
+		items = append(items, "item: "+item.Level+" status="+item.Status+" current="+boolLabel(item.Current)+" selected="+boolLabel(item.Selected)+" detail="+item.Detail)
 	}
 	return append(items, "app-owned", "display-only")
 }
@@ -2176,6 +2486,15 @@ func approvalActions(approval *ApprovalProposalView) []SemanticAction {
 		{Name: "approve proposal", Input: "a", Default: defaultAction == "approve", PresentationOnly: true, Executed: false},
 		{Name: "deny proposal", Input: "n", Default: defaultAction == "deny", PresentationOnly: true, Executed: false},
 		{Name: "defer proposal", Input: "d", Default: defaultAction == "defer", PresentationOnly: true, Executed: false},
+	}
+}
+
+func switchActions(defaultName string) []SemanticAction {
+	return []SemanticAction{
+		{Name: "move selection up", Input: "up", PresentationOnly: true, Executed: false},
+		{Name: "move selection down", Input: "down", PresentationOnly: true, Executed: false},
+		{Name: defaultName, Input: "enter", Default: true, PresentationOnly: true, Executed: false},
+		{Name: "release selection focus", Input: "esc", PresentationOnly: true, Executed: false},
 	}
 }
 
@@ -2978,6 +3297,12 @@ func safeSearchTarget(value string) string {
 }
 
 func semanticFocus(state ViewState) string {
+	if state.ModelSwitch != nil && state.ModelSwitch.Focus {
+		return "model_switch"
+	}
+	if state.AutonomySwitch != nil && state.AutonomySwitch.Focus {
+		return "autonomy_switch"
+	}
 	if state.Session != nil && state.Session.Focus {
 		return "session"
 	}

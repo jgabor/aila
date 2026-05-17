@@ -1,0 +1,32 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | Auto yolo             [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+| model:                                                                                                               |
+| command route: model                                                                                                 |
+| route source: policy.command                                                                                         |
+| source: app.model                                                                                                    |
+| target: primary_model                                                                                                |
+| status: ready                                                                                                        |
+| current primary: opencode-go/deepseek-v4-pro:high                                                                    |
+| current utility: opencode-go/deepseek-v4-flash:max                                                                   |
+| selected: 1                                                                                                          |
+| detail: session-scoped model selection; config file unchanged                                                        |
+| models:                                                                                                              |
+| > opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=device_code class=reasoning st~ |
+|   openai/gpt-4.1 provider=openai model=gpt-4.1 family=api_key class=general status=degraded credential_source=OPENA~ |
+|   custom/deepseek-chat provider=custom model=deepseek-chat family=custom class=general status=unavailable credentia~ |
+|   opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=device_code class=utility statu~ |
+| focus: model                                                                                                         |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m
+                                                                                                                        

@@ -10,6 +10,8 @@ const (
 	CommandRouteNew      CommandRoute = "new"
 	CommandRouteClear    CommandRoute = "clear"
 	CommandRouteContinue CommandRoute = "continue"
+	CommandRouteModel    CommandRoute = "model"
+	CommandRouteAuto     CommandRoute = "auto"
 	CommandRouteStatus   CommandRoute = "status"
 	CommandRouteReview   CommandRoute = "review"
 	CommandRouteHelp     CommandRoute = "help"
@@ -20,18 +22,31 @@ const (
 	CommandRouteQuit     CommandRoute = "quit"
 )
 
+// CommandTarget identifies the closed command target selected by a fixed route.
+type CommandTarget string
+
+const (
+	CommandTargetNone         CommandTarget = ""
+	CommandTargetPrimaryModel CommandTarget = "primary_model"
+	CommandTargetUtilityModel CommandTarget = "utility_model"
+	CommandTargetAutonomy     CommandTarget = "autonomy"
+)
+
 // CommandInputKind identifies the closed command input family that produced a route.
 type CommandInputKind string
 
 const (
-	CommandInputSlash    CommandInputKind = "slash"
-	CommandInputShortcut CommandInputKind = "shortcut"
+	CommandInputSlash     CommandInputKind = "slash"
+	CommandInputShortcut  CommandInputKind = "shortcut"
+	CommandInputSelection CommandInputKind = "selection"
 )
 
 // CommandRecommendation is a policy-owned recommendation for a fixed command route.
 type CommandRecommendation struct {
-	Route CommandRoute
-	Kind  CommandInputKind
+	Route     CommandRoute
+	Kind      CommandInputKind
+	Target    CommandTarget
+	Selection string
 }
 
 // RecommendSlashCommand maps exact slash commands to closed command routes.
@@ -43,6 +58,12 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteClear, Kind: CommandInputSlash}, true
 	case "/continue":
 		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputSlash}, true
+	case "/model":
+		return CommandRecommendation{Route: CommandRouteModel, Kind: CommandInputSlash, Target: CommandTargetPrimaryModel}, true
+	case "/model --utility":
+		return CommandRecommendation{Route: CommandRouteModel, Kind: CommandInputSlash, Target: CommandTargetUtilityModel}, true
+	case "/auto":
+		return CommandRecommendation{Route: CommandRouteAuto, Kind: CommandInputSlash, Target: CommandTargetAutonomy}, true
 	case "/status":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputSlash}, true
 	case "/review":
@@ -75,6 +96,10 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteNew, Kind: CommandInputShortcut}, true
 	case "c":
 		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputShortcut}, true
+	case "m":
+		return CommandRecommendation{Route: CommandRouteModel, Kind: CommandInputShortcut, Target: CommandTargetPrimaryModel}, true
+	case "a":
+		return CommandRecommendation{Route: CommandRouteAuto, Kind: CommandInputShortcut, Target: CommandTargetAutonomy}, true
 	case "s":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputShortcut}, true
 	case "i":

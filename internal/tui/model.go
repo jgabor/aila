@@ -390,6 +390,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Approval != nil {
 			return m, m.handleApprovalKey(msg)
 		}
+		if m.modelSwitchFocused() {
+			return m.handleModelSwitchKey(msg)
+		}
+		if m.autonomySwitchFocused() {
+			return m.handleAutonomySwitchKey(msg)
+		}
 		if m.sessionFocused() {
 			return m.handleSessionKey(msg), nil
 		}
@@ -663,6 +669,12 @@ func (m *Model) requestInterrupt(reason string) tea.Cmd {
 func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRecommendation) ViewState {
 	state.CommandRoute = string(recommendation.Route)
 	state.RouteSource = "policy.command"
+	if recommendation.Route != policy.CommandRouteModel {
+		state.ModelSwitch = nil
+	}
+	if recommendation.Route != policy.CommandRouteAuto {
+		state.AutonomySwitch = nil
+	}
 	switch recommendation.Route {
 	case policy.CommandRouteNew:
 		state = ApplySessionView(state, &SessionView{
@@ -691,6 +703,10 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			MemoryStatus: "no_memory",
 			Detail:       "app-owned continue session unavailable in presentation-only fallback",
 		})
+	case policy.CommandRouteModel:
+		state = applyModelCommandFallback(state, recommendation)
+	case policy.CommandRouteAuto:
+		state = applyAutonomyCommandFallback(state, recommendation)
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -717,6 +733,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/new - Start a fresh session and preserve project memory.",
 			"/clear - Clear visible session state and current memory.",
 			"/continue - Restore the current saved session.",
+			"/model - Choose the active primary model for this session.",
+			"/model --utility - Choose the active utility model for this session.",
+			"/auto - Choose the active autonomy level for this session.",
 			"/status - Inspect current runtime and state.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
@@ -728,6 +747,8 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"shortcuts:",
 			"ctrl+x n - Start a fresh session and preserve project memory.",
 			"ctrl+x c - Restore the current saved session.",
+			"ctrl+x m - Choose the active primary model for this session.",
+			"ctrl+x a - Choose the active autonomy level for this session.",
 			"ctrl+x s - Inspect current runtime and state.",
 			"ctrl+x i - Inspect current changes, risks, and sources.",
 			"ctrl+x h - Browse runs, edits, checks, and undo data.",
@@ -787,6 +808,169 @@ func clampSessionSelection(session SessionView) int {
 		return len(session.Items) - 1
 	}
 	return session.Selected
+}
+
+func applyModelCommandFallback(state ViewState, recommendation policy.CommandRecommendation) ViewState {
+	target := recommendation.Target
+	if target == policy.CommandTargetNone {
+		target = policy.CommandTargetPrimaryModel
+	}
+	if recommendation.Selection != "" {
+		switch target {
+		case policy.CommandTargetUtilityModel:
+			state.UtilityModel = recommendation.Selection
+		default:
+			state.PrimaryModel = recommendation.Selection
+		}
+	}
+	modelSwitch := state.ModelSwitch
+	if modelSwitch == nil {
+		current := state.PrimaryModel
+		if target == policy.CommandTargetUtilityModel {
+			current = state.UtilityModel
+		}
+		modelSwitch = &ModelSwitchView{
+			Target:         string(target),
+			Source:         "policy.command",
+			Status:         "fallback",
+			CurrentPrimary: state.PrimaryModel,
+			CurrentUtility: state.UtilityModel,
+			Detail:         "app-owned model selection unavailable in presentation-only fallback",
+			Focus:          true,
+			Items: []ModelSwitchItemView{{
+				Label:            current,
+				SourceName:       "current",
+				Model:            current,
+				Family:           "session",
+				Class:            "current",
+				Status:           "current",
+				CredentialSource: "not inspected",
+				Current:          true,
+			}},
+		}
+	} else {
+		cloned := cloneModelSwitchView(modelSwitch)
+		modelSwitch = cloned
+		modelSwitch.Target = string(target)
+		modelSwitch.CurrentPrimary = state.PrimaryModel
+		modelSwitch.CurrentUtility = state.UtilityModel
+		if recommendation.Selection != "" {
+			for index := range modelSwitch.Items {
+				modelSwitch.Items[index].Current = modelSwitch.Items[index].Label == recommendation.Selection
+				if modelSwitch.Items[index].Label == recommendation.Selection {
+					modelSwitch.Selected = index
+				}
+			}
+		}
+	}
+	return ApplyModelSwitchView(state, modelSwitch)
+}
+
+func applyAutonomyCommandFallback(state ViewState, recommendation policy.CommandRecommendation) ViewState {
+	if recommendation.Selection != "" {
+		state.Autonomy = recommendation.Selection
+	}
+	autonomySwitch := state.AutonomySwitch
+	if autonomySwitch == nil {
+		autonomySwitch = &AutonomySwitchView{
+			Source:  "policy.command",
+			Status:  "fallback",
+			Current: state.Autonomy,
+			Detail:  "app-owned autonomy selection unavailable in presentation-only fallback",
+			Focus:   true,
+			Items: []AutonomySwitchItemView{{
+				Level:   state.Autonomy,
+				Status:  "current",
+				Detail:  "current session autonomy",
+				Current: true,
+			}},
+		}
+	} else {
+		cloned := cloneAutonomySwitchView(autonomySwitch)
+		autonomySwitch = cloned
+		autonomySwitch.Current = state.Autonomy
+		if recommendation.Selection != "" {
+			for index := range autonomySwitch.Items {
+				autonomySwitch.Items[index].Current = autonomySwitch.Items[index].Level == recommendation.Selection
+				if autonomySwitch.Items[index].Level == recommendation.Selection {
+					autonomySwitch.Selected = index
+				}
+			}
+		}
+	}
+	return ApplyAutonomySwitchView(state, autonomySwitch)
+}
+
+// ApplyModelSwitchView injects app-owned model selection display data into the TUI state.
+func ApplyModelSwitchView(state ViewState, modelSwitch *ModelSwitchView) ViewState {
+	if modelSwitch == nil {
+		return state
+	}
+	state.CommandRoute = string(policy.CommandRouteModel)
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = "model"
+	state.ModelSwitch = cloneModelSwitchView(modelSwitch)
+	state.ModelSwitch.Selected = clampModelSwitchSelection(*state.ModelSwitch)
+	state.SurfaceLines = modelSwitchSurfaceLines(*state.ModelSwitch)
+	return state
+}
+
+func cloneModelSwitchView(modelSwitch *ModelSwitchView) *ModelSwitchView {
+	if modelSwitch == nil {
+		return nil
+	}
+	clone := *modelSwitch
+	clone.Items = append([]ModelSwitchItemView(nil), modelSwitch.Items...)
+	return &clone
+}
+
+func clampModelSwitchSelection(modelSwitch ModelSwitchView) int {
+	if len(modelSwitch.Items) == 0 {
+		return 0
+	}
+	if modelSwitch.Selected < 0 {
+		return 0
+	}
+	if modelSwitch.Selected >= len(modelSwitch.Items) {
+		return len(modelSwitch.Items) - 1
+	}
+	return modelSwitch.Selected
+}
+
+// ApplyAutonomySwitchView injects app-owned autonomy selection display data into the TUI state.
+func ApplyAutonomySwitchView(state ViewState, autonomySwitch *AutonomySwitchView) ViewState {
+	if autonomySwitch == nil {
+		return state
+	}
+	state.CommandRoute = string(policy.CommandRouteAuto)
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = "auto"
+	state.AutonomySwitch = cloneAutonomySwitchView(autonomySwitch)
+	state.AutonomySwitch.Selected = clampAutonomySwitchSelection(*state.AutonomySwitch)
+	state.SurfaceLines = autonomySwitchSurfaceLines(*state.AutonomySwitch)
+	return state
+}
+
+func cloneAutonomySwitchView(autonomySwitch *AutonomySwitchView) *AutonomySwitchView {
+	if autonomySwitch == nil {
+		return nil
+	}
+	clone := *autonomySwitch
+	clone.Items = append([]AutonomySwitchItemView(nil), autonomySwitch.Items...)
+	return &clone
+}
+
+func clampAutonomySwitchSelection(autonomySwitch AutonomySwitchView) int {
+	if len(autonomySwitch.Items) == 0 {
+		return 0
+	}
+	if autonomySwitch.Selected < 0 {
+		return 0
+	}
+	if autonomySwitch.Selected >= len(autonomySwitch.Items) {
+		return len(autonomySwitch.Items) - 1
+	}
+	return autonomySwitch.Selected
 }
 
 // ApplyHistoryView injects app-owned read-only history display data into the TUI state.
@@ -887,6 +1071,76 @@ func cloneHistoryItems(items []HistoryItem) []HistoryItem {
 		clone = append(clone, itemClone)
 	}
 	return clone
+}
+
+func (m Model) modelSwitchFocused() bool {
+	return m.state.ModelSwitch != nil && m.state.ModelSwitch.Focus && m.state.SurfaceTitle == "model"
+}
+
+func (m Model) handleModelSwitchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.state.ModelSwitch == nil {
+		return m, nil
+	}
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.ModelSwitch.Selected--
+	case tea.KeyDown:
+		m.state.ModelSwitch.Selected++
+	case tea.KeyHome:
+		m.state.ModelSwitch.Selected = 0
+	case tea.KeyEnd:
+		m.state.ModelSwitch.Selected = len(m.state.ModelSwitch.Items) - 1
+	case tea.KeyEsc:
+		m.state.ModelSwitch.Focus = false
+	case tea.KeyEnter:
+		selected := clampModelSwitchSelection(*m.state.ModelSwitch)
+		if len(m.state.ModelSwitch.Items) == 0 {
+			m.state.ModelSwitch.Focus = false
+			break
+		}
+		selection := m.state.ModelSwitch.Items[selected].Label
+		target := policy.CommandTarget(m.state.ModelSwitch.Target)
+		if target == policy.CommandTargetNone {
+			target = policy.CommandTargetPrimaryModel
+		}
+		return m, m.routeRecommendation(policy.CommandRecommendation{Route: policy.CommandRouteModel, Kind: policy.CommandInputSelection, Target: target, Selection: selection})
+	}
+	m.state.ModelSwitch.Selected = clampModelSwitchSelection(*m.state.ModelSwitch)
+	m.state.SurfaceLines = modelSwitchSurfaceLines(*m.state.ModelSwitch)
+	return m, nil
+}
+
+func (m Model) autonomySwitchFocused() bool {
+	return m.state.AutonomySwitch != nil && m.state.AutonomySwitch.Focus && m.state.SurfaceTitle == "auto"
+}
+
+func (m Model) handleAutonomySwitchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.state.AutonomySwitch == nil {
+		return m, nil
+	}
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.AutonomySwitch.Selected--
+	case tea.KeyDown:
+		m.state.AutonomySwitch.Selected++
+	case tea.KeyHome:
+		m.state.AutonomySwitch.Selected = 0
+	case tea.KeyEnd:
+		m.state.AutonomySwitch.Selected = len(m.state.AutonomySwitch.Items) - 1
+	case tea.KeyEsc:
+		m.state.AutonomySwitch.Focus = false
+	case tea.KeyEnter:
+		selected := clampAutonomySwitchSelection(*m.state.AutonomySwitch)
+		if len(m.state.AutonomySwitch.Items) == 0 {
+			m.state.AutonomySwitch.Focus = false
+			break
+		}
+		selection := m.state.AutonomySwitch.Items[selected].Level
+		return m, m.routeRecommendation(policy.CommandRecommendation{Route: policy.CommandRouteAuto, Kind: policy.CommandInputSelection, Target: policy.CommandTargetAutonomy, Selection: selection})
+	}
+	m.state.AutonomySwitch.Selected = clampAutonomySwitchSelection(*m.state.AutonomySwitch)
+	m.state.SurfaceLines = autonomySwitchSurfaceLines(*m.state.AutonomySwitch)
+	return m, nil
 }
 
 func (m Model) sessionFocused() bool {

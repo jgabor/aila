@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deeps~
++ Conversation ----------------------------------------------------------------+
+| No messages yet.                                                             |
+|                                                                              |
+| auto:                                                                        |
+| command route: auto                                                          |
+| route source: policy.command                                                 |
+| source: app.autonomy                                                         |
+| status: ready                                                                |
+| current: read                                                                |
+| selected: 2                                                                  |
+| detail: session-scoped autonomy selection; config file unchanged             |
+| levels:                                                                      |
+|   off status=available current=false detail=approval required before read o~ |
+| > read status=available current=true detail=read-only operations may run au~ |
+|   write status=available current=false detail=workspace write operations ma~ |
+|   yolo status=available current=false detail=highest autonomy for classifie~ |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

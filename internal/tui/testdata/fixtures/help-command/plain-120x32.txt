@@ -11,6 +11,9 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | /new - Start a fresh session and preserve project memory.                                                            |
 | /clear - Clear visible session state and current memory.                                                             |
 | /continue - Restore the current saved session.                                                                       |
+| /model - Choose the active primary model for this session.                                                           |
+| /model --utility - Choose the active utility model for this session.                                                 |
+| /auto - Choose the active autonomy level for this session.                                                           |
 | /status - Inspect current runtime and state.                                                                         |
 | /review - Inspect current changes, risks, and sources.                                                               |
 | /history - Browse runs, edits, checks, and undo data.                                                                |
@@ -21,9 +24,6 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | /quit - Quit Aila.                                                                                                   |
 | shortcuts:                                                                                                           |
 | ctrl+x n - Start a fresh session and preserve project memory.                                                        |
-| ctrl+x c - Restore the current saved session.                                                                        |
-| ctrl+x s - Inspect current runtime and state.                                                                        |
-| ctrl+x i - Inspect current changes, risks, and sources.                                                              |
 +----------------------------------------------------------------------------------------------------------------------+
 + Prompt --------------------------------------------------------------------------------------------------------------+
 | >                                                                                                                    |

@@ -1,0 +1,30 @@
+Aila                                                                                          100x30
+Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepseek-v4-flash:max | A~
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| auto:                                                                                            |
+| command route: auto                                                                              |
+| route source: policy.command                                                                     |
+| source: app.autonomy                                                                             |
+| status: ready                                                                                    |
+| current: read                                                                                    |
+| selected: 2                                                                                      |
+| detail: session-scoped autonomy selection; config file unchanged                                 |
+| levels:                                                                                          |
+|   off status=available current=false detail=approval required before read or write operations    |
+| > read status=available current=true detail=read-only operations may run automatically           |
+|   write status=available current=false detail=workspace write operations may run automatically   |
+|   yolo status=available current=false detail=highest autonomy for classified operations          |
+| focus: auto                                                                                      |
+| app-owned                                                                                        |
+| display-only                                                                                     |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit
+                                                                                                    

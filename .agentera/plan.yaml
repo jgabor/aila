@@ -3,171 +3,182 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M36 must add only the session command family, resolve the existing ctrl+x c conflict deliberately, preserve
-    state-store ownership, and keep the TUI presentation-only while avoiding undo/redo, model switching, compaction, editor,
-    plugins, MCP, workflow DSL, generic command registry, and hosted control-plane behavior.
-  title: 'Milestone 36: Session Command Family'
-what: Deliver ROADMAP.md Milestone 36 by adding stable TUI paths for `/new`, `/clear`, and `/continue`, backed by app-owned
-  session lifecycle effects over the existing current-session snapshot store, with fixtures, semantic snapshots, command/keybinding
-  parity, focused session selection behavior, bounded PTY smoke, and no expansion into later command families.
-why: M16 introduced current-session snapshot persistence and M31-M35 made stored run memory, history, diff, and inspection
-  surfaces visible. M36 should let users start fresh, clear visible session state, and resume the stored current session from
-  the TUI itself instead of relying only on CLI startup paths.
-constraints: 'Execute only Milestone 36. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may render app-injected session lifecycle state and update focus/selection over inert session rows, but it must not read
-  `.aila`, delete snapshots, persist session state, choose resume targets from storage, run git, or own runtime/model prompts.
-  Use closed policy routes and app-owned store operations for session lifecycle behavior. Keep undo/redo, model switching,
-  autonomy switching, editor integration, compaction, provider-backed review, arbitrary shell command surfaces, source indexing,
-  multi-session browsing beyond current store support, plugins, MCP servers, workflow DSLs, generic command registries, hosted
-  control planes, and M37+ behavior out of scope. Use behavior-based test names; do not introduce new `TestM<number>` symbols.
-  Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m35.yaml
+  critic_issues: M37 must add only the model and autonomy command family, keep selections session-scoped unless existing config
+    behavior explicitly requires persistence, use provider readiness as display data only, preserve app-owned routing and
+    TUI presentation-only behavior, and avoid provider execution, config UI expansion, editor, compaction, plugin, MCP, workflow
+    DSL, generic registry, marketplace, and hosted control-plane behavior.
+  title: 'Milestone 37: Model And Autonomy Command Family'
+what: Deliver ROADMAP.md Milestone 37 by adding stable TUI paths for /model, /model --utility, and /auto, backed by app-owned
+  session selection state, deterministic provider readiness display data, selection/focus behavior, fixtures, semantic snapshots,
+  PTY smoke where interactive, and no provider execution changes.
+why: M8-M9 established config display and loading, M24 added provider readiness/fake model diagnostics, and M35-M36 established
+  app-owned command surfaces. M37 should let users see and change the active model, utility model, and autonomy labels in
+  the current session without turning Aila into a model marketplace or config editor.
+constraints: 'Execute only Milestone 37. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected model/autonomy selection state and update focus/selection over inert rows, but it must not read
+  config files, write config files, call providers, inspect credentials, mutate permissions, run git, or own runtime/model
+  prompts. Use closed policy routes and app-owned session selection handlers. Treat /auto as current-session scope per README.
+  Treat /model and /model --utility as current-session active labels for this slice; do not persist config or add interactive
+  config editing. Keep editor, compaction, shell prefixes, source indexing, provider-backed execution, model marketplace/catalog
+  APIs, plugins, MCP servers, workflow DSLs, generic command registries, hosted control planes, and M37A+ behavior out of
+  scope. Use behavior-based test names; do not introduce new TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m36.yaml
 source_anchors:
 - ROADMAP.md:16-110
-- ROADMAP.md:1486-1508
+- ROADMAP.md:1510-1531
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
-- README.md:292-299
-- ARCHITECTURE.md:448-610
-- docs/workflow-architecture.md:183-190
-- docs/workflow-architecture.md:343-361
-- docs/tui-testing.md:145-185
+- README.md:115-151
+- README.md:292-307
+- ARCHITECTURE.md:681-746
+- ARCHITECTURE.md:489-496
+- docs/workflow-architecture.md:641-655
+- docs/tui-testing.md:54-82
+- docs/tui-testing.md:140-185
 - internal/policy/command.go
+- internal/app/config.go
+- internal/app/display_config.go
+- internal/app/models.go
+- internal/agent/readiness.go
 - internal/app/session_snapshot.go
 - internal/tui/model.go
 - internal/tui/render.go
 verification_commands:
 - mage fmt
-- go test ./internal/state -run 'Test.*CurrentSession.*|Test.*Session.*Clear.*' -count=1
-- go test ./internal/policy -run 'Test.*Command.*|Test.*Shortcut.*|Test.*Session.*' -count=1
-- go test ./internal/app -run 'Test.*Session.*|Test.*Continue.*|Test.*Clear.*|Test.*New.*|Test.*Command.*' -count=1
-- go test ./internal/tui -run 'Test.*Session.*|Test.*Command.*|Test.*Shortcut.*|Test.*Help.*|Test.*Fixture.*|Test.*Semantic.*'
+- go test ./internal/policy -run 'Test.*Command.*|Test.*Shortcut.*|Test.*Model.*|Test.*Autonomy.*|Test.*Auto.*' -count=1
+- go test ./internal/app -run 'Test.*Model.*|Test.*Autonomy.*|Test.*Auto.*|Test.*Command.*|Test.*Config.*' -count=1
+- go test ./internal/tui -run 'Test.*Model.*|Test.*Autonomy.*|Test.*Auto.*|Test.*Command.*|Test.*Shortcut.*|Test.*Help.*|Test.*Fixture.*|Test.*Semantic.*'
   -count=1
-- go test ./cmd/aila -run 'Test.*Session.*PTYSmoke|Test.*Continue.*PTYSmoke|Test.*Clear.*PTYSmoke|Test.*New.*PTYSmoke' -count=1
+- go test ./cmd/aila -run 'Test.*Model.*PTYSmoke|Test.*Autonomy.*PTYSmoke|Test.*Auto.*PTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m35.yaml cmd/aila
-  internal/app internal/policy internal/state internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m36.yaml cmd/aila
+  internal/app internal/policy internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context planera --fields plan,progress,state_presence,next_action
 scope:
   included:
-  - Add closed `/new`, `/clear`, and `/continue` slash routes in `internal/policy`, with `ctrl+x n` opening the new-session
-    route and `ctrl+x c` opening the continue route per README. Direct Ctrl-C remains the interrupt path.
-  - 'Add app-owned session lifecycle handlers: `/new` resets visible session state and persists a fresh current snapshot,
-    `/clear` clears visible state and removes the current snapshot when present, and `/continue` reads/restores the current
-    snapshot through the state store.'
-  - Add a presentation-only TUI session surface for fresh, cleared, loaded, no-memory, and recovery states, including inert
-    selection/focus over app-injected session rows.
-  - Refresh help text, route/keybinding tests, session fixtures, semantic snapshots, render snapshots, and PTY smoke for new,
-    clear, continue, session selection, focus, and quit.
-  - Close the milestone with targeted tests, full `mage check`, ROADMAP status, Agentera progress, and one meaningful local
+  - Add closed /model, /model --utility, /auto, ctrl+x m, and ctrl+x a routes in internal/policy without adding a generic
+    command registry.
+  - Add app-owned session selection handlers that open model and autonomy selection surfaces, apply selected active primary/utility/autonomy
+    values to current session state, and keep config files unchanged in this slice.
+  - Use deterministic provider readiness/model diagnostic data to show available, degraded, and unavailable model choices
+    without provider execution or credential probing.
+  - Add presentation-only TUI model/autonomy selection surfaces with inert navigation/focus and app-owned apply callbacks
+    for selected rows.
+  - Refresh help text, route/keybinding tests, model-switch and autonomy-switch fixtures, semantic snapshots, render snapshots,
+    and PTY smoke for selection and quit where interactive.
+  - Close the milestone with targeted tests, full mage check, ROADMAP status, Agentera progress, and one meaningful local
     commit.
   excluded:
-  - Undo/redo changes, model switching, autonomy switching, editor integration, compaction, provider-backed review, arbitrary
-    shell command surfaces, source indexing, multi-session indexing beyond the existing current-session store contract, command
-    palettes, generic command registries, plugins, MCP, workflow DSLs, hosted control planes, and M37+ command behavior.
+  - Persistent config editing, provider execution path changes, live credential checks, provider/model marketplace APIs, arbitrary
+    model catalogs, editor integration, compaction, shell prefixes, source indexing, command palettes, generic command registries,
+    plugins, MCP, workflow DSLs, hosted control planes, and M37A+ prompt-input behavior.
   deferred:
-  - Full multi-session listing and restore UI, named session IDs beyond the current snapshot contract, compaction-aware continuation,
-    richer source index summaries, model/autonomy/editor commands, and expanded command discovery.
-design: Keep command routing closed in `internal/policy`. Add store-owned clear semantics beside the existing current-session
-  read/write contract. Keep app-owned lifecycle functions in `internal/app`, where `/new`, `/clear`, and `/continue` may call
-  state store operations and inject a bounded session view into TUI state. The TUI only renders that inert view and updates
-  local focus/selection; it never reads, deletes, writes, or discovers session files. Because README.md:296-297 already assigns
-  `ctrl+x c` to `/continue`, M36 moves the chord to continue while preserving direct Ctrl-C as interrupt.
+  - Persistent model configuration UI, richer model search/filtering, live provider authentication, provider-backed model
+    switching in real agent turns, context-window budgeting, editor/file-reference/paste affordances, compaction commands,
+    and shell prefixes.
+design: Keep command routing closed in internal/policy. Add narrow app-owned selection builders in internal/app that derive
+  current values from loaded display config/session state and model readiness rows from internal/agent deterministic diagnostics.
+  The TUI renders typed model/autonomy selection views, owns only cursor movement and focus state, and calls the app-owned
+  route callback with a closed selection recommendation when Enter applies a row. Applying /auto updates controller.autonomyLevel
+  and the runtime dispatch autonomy for subsequent tool decisions; applying /model updates active session display labels and
+  fake agent provider/model metadata only. No config file write, provider call, credential check, or marketplace/catalog abstraction
+  is introduced.
 overall_acceptance:
-- '`/new` and `ctrl+x n` start a fresh visible session, preserve app display/config/store labels, reset prompt/transcript/runtime/memory
-  surfaces, and persist a fresh current-session snapshot through app-owned state code.'
-- '`/clear` clears visible session state, removes current-session memory through an app-owned state operation when present,
-  and reports cleared/no-memory status without deleting project store or history artifacts.'
-- '`/continue` and `ctrl+x c` restore the existing current-session snapshot through the state store, show the selected current
-  session in a focused session surface, and expose visible memory status without leaking `.aila` paths.'
-- Direct Ctrl-C remains the interrupt shortcut; `ctrl+x c` no longer interrupts because it is the documented continue shortcut
-  in this command family.
-- Fresh, resumed, cleared, no-memory, and recovery states have deterministic render and semantic coverage, and command/keybinding
-  tests prove supported slash/shortcut parity.
-- Representative PTY smoke navigates new, continue, clear, and quit over an isolated temp workspace without undo/redo, model/autonomy/editor,
-  compaction, plugins, MCP, workflow DSL, hosted control-plane, or M37+ behavior.
+- /model and ctrl+x m open a primary-model selection surface sourced from app-owned current config/session state and deterministic
+  provider readiness data.
+- /model --utility opens the utility-model selection surface and applies the selected utility label to the current session
+  without changing the primary model.
+- /auto and ctrl+x a open autonomy choices off/read/write/yolo, and applying a choice updates current session autonomy plus
+  subsequent app-owned permission dispatch decisions.
+- Model/autonomy selection rows expose selected/current value, provider, model, family/class/status, credential source or
+  readiness detail where available, focus, and app-owned/display-only markers without leaking config paths or credentials.
+- model-switch and autonomy-switch fixtures have deterministic render and semantic coverage for selection and active-value
+  states, and command/keybinding tests prove slash/shortcut parity.
+- Representative PTY smoke switches model/autonomy values in an isolated temp config workspace and exits cleanly without provider
+  execution, config persistence, editor/compaction/shell-prefix behavior, plugins, MCP, workflow DSL, hosted control-plane,
+  or M37A+ behavior.
 surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the session command slice
+  name: Plan and confirm the model/autonomy command slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera state and roadmap docs are reviewed WHEN planning finishes THEN the active plan names M36 only and excludes
-    undo/redo, model, autonomy, editor, compaction, plugin, MCP, workflow DSL, generic registry, hosted control-plane, and
-    M37+ behavior.
+  - GIVEN Agentera state and roadmap docs are reviewed WHEN planning finishes THEN the active plan names M37 only and excludes
+    editor, compaction, shell prefixes, provider execution, persistence UI, marketplace, plugin, MCP, workflow DSL, hosted
+    control-plane, and M37A+ behavior.
   - GIVEN current code is inspected WHEN implementation starts THEN the smallest path is closed policy routing plus app-owned
-    current-session store operations and inert TUI session rendering.
+    session selection handlers and inert TUI selection rendering.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - Agentera hej with planera capability context, plan/progress/describe state, ROADMAP.md top status and M36 section, docs/notes/PROMPT.md,
-    README command table, ARCHITECTURE.md state plane, docs/workflow-architecture.md IDLE/state rules, docs/tui-testing.md
-    semantic rules, and current policy/app/state/TUI/cmd seams were reviewed.
-  - The plan resolves the README.md:296-297 shortcut conflict by assigning ctrl+x c to `/continue` while preserving direct
-    Ctrl-C interrupt behavior.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to the session command family.
+  - Agentera hej with planera capability context, ROADMAP.md top status and M37 section, docs/notes/PROMPT.md, AGENTS.md,
+    README config and slash command tables, ARCHITECTURE command/TUI/permission rules, docs/workflow-architecture command
+    vocabulary, docs/tui-testing model/autonomy fixture guidance, and current policy/app/config/readiness/TUI seams were reviewed.
+  - The plan scopes /model and /auto to current-session active selection for this slice and leaves persistent config editing
+    deferred.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to the model/autonomy command family.
 - number: 2
-  name: Add closed session routes and state-owned clear support
+  name: Add closed model and autonomy routes
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN `/new`, `/clear`, `/continue`, `ctrl+x n`, or `ctrl+x c` is entered WHEN policy routes it THEN the recommendation
-    is closed, exact, and does not create a generic command registry.
-  - GIVEN direct Ctrl-C is pressed WHEN active work exists THEN the interrupt path still routes as interrupt, while `ctrl+x
-    c` routes to continue.
-  - GIVEN current-session memory must be cleared WHEN the app asks the state store to clear it THEN the store removes only
-    the validated current snapshot path and treats missing memory as a successful no-op.
+  - GIVEN /model, /model --utility, /auto, ctrl+x m, or ctrl+x a is entered WHEN policy routes it THEN the recommendation
+    is closed, exact, target-aware where needed, and does not create a generic command registry.
+  - GIVEN deferred commands are not in M37 WHEN command routing runs THEN editor, compact, shell prefix, marketplace, plugin,
+    MCP, and M37A+ behavior remain unavailable.
+  - GIVEN help text is rendered WHEN M37 commands are supported THEN /model, /model --utility, /auto, ctrl+x m, and ctrl+x
+    a appear in stable order.
   evidence:
-  - Closed policy routes were added for /new, /clear, /continue, ctrl+x n, and ctrl+x c; direct Ctrl-C remains the interrupt
-    path.
-  - Store-owned ClearCurrentSessionSnapshot removes only the validated sessions/current.json path and treats missing memory
-    as a no-op.
-  - go test ./internal/state and go test ./internal/policy targeted session command runs passed.
+  - internal/policy/command.go now has closed CommandRouteModel and CommandRouteAuto recommendations for /model, /model
+    --utility, /auto, ctrl+x m, and ctrl+x a with target-aware model/autonomy selection metadata and no generic registry.
+  - internal/policy/boundary_test.go and internal/tui/input_test.go prove slash/shortcut parity, help visibility, closed routing,
+    and unchanged deferred command behavior.
 - number: 3
-  name: Implement app-owned new clear and continue handlers
+  name: Implement app-owned session selection handlers
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN `/new` or `ctrl+x n` is routed WHEN the app handles it THEN visible conversation, queue, memory, focused surfaces,
-    and runtime activity reset to IDLE while config/store labels remain and a fresh current snapshot is persisted.
-  - GIVEN `/clear` is routed WHEN the app handles it THEN visible session state resets, current memory is cleared through
-    the state store, and the UI reports cleared/no-memory status without deleting project store or history artifacts.
-  - GIVEN `/continue` or `ctrl+x c` is routed WHEN current memory exists THEN the app reads and applies the snapshot, opens
-    a focused selected current-session surface, and records command/session evidence without TUI IO.
+  - GIVEN a model command is routed WHEN the app opens it THEN the model selection surface includes current primary/utility
+    values and deterministic readiness rows without provider calls or credential inspection.
+  - GIVEN a model row is applied WHEN the app handles the selection THEN the current session primary or utility label changes
+    while config files remain untouched and provider execution behavior is unchanged.
+  - GIVEN an autonomy row is applied WHEN the app handles the selection THEN the current session autonomy label and subsequent
+    permission dispatch autonomy change together.
   evidence:
-  - App-owned /new resets visible session state, persists a fresh current snapshot, and reports a fresh app.session surface.
-  - App-owned /clear removes current memory through the state store, resets visible state, and reports cleared/no-memory status
-    without deleting the project store.
-  - App-owned /continue reads and applies current-session memory, opens a focused selected current-session surface, and keeps
-    the TUI free of storage IO.
-  - go test ./internal/app targeted session command run passed.
+  - internal/app/model_autonomy_commands.go adds app-owned current-session model and autonomy selectors sourced from loaded
+    session/config labels and deterministic fake model readiness diagnostics, without provider calls, credential probing, or
+    config writes.
+  - internal/app/model_autonomy_commands_test.go proves primary and utility model selections update only session labels, and
+    autonomy selection updates both the visible session label and subsequent permission dispatch autonomy.
 - number: 4
-  name: Refresh session TUI fixtures semantics and keybinding coverage
+  name: Refresh model/autonomy TUI fixtures semantics and keybinding coverage
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN deterministic fixtures render WHEN tests run THEN fresh session, resumed session, and cleared session states have
-    plain, ANSI, and semantic snapshots.
-  - GIVEN session selection keys are pressed WHEN the session surface is focused THEN selection clamps, Enter/Escape focus
-    behavior is deterministic, and no IO or app command is emitted by the TUI.
-  - GIVEN help and command tests run THEN `/new`, `/clear`, `/continue`, `ctrl+x n`, and `ctrl+x c` are visible where supported
-    and no new TestM<number> names are introduced.
+  - GIVEN deterministic fixtures render WHEN tests run THEN model-switch and autonomy-switch states have plain, ANSI, and
+    semantic snapshots for selection and active values.
+  - GIVEN selection keys are pressed WHEN a model or autonomy selector is focused THEN movement clamps, Enter applies through
+    app-owned callback, Escape releases focus, and no IO is performed by the TUI.
+  - GIVEN command/keybinding tests run THEN /model, /model --utility, /auto, ctrl+x m, and ctrl+x a parity and help visibility
+    are proven without new TestM<number> names.
   evidence:
-  - fresh-session, resumed-session, and cleared-session fixtures now have plain, ANSI, and semantic snapshots at 80x24, 100x30,
-    120x32, and 160x45.
-  - TUI tests cover slash/shortcut parity, help entries, and presentation-only session selection/focus behavior with behavior-based
-    test names.
-  - go test ./internal/tui targeted and full package runs passed.
+  - internal/tui/render.go and internal/tui/model.go now expose presentation-only model_switch and autonomy_switch views,
+    selector movement, Enter apply callbacks, Escape focus release, and semantic snapshots with provider JSON kept as display
+    data only.
+  - model-switch and autonomy-switch fixture directories include plain, ANSI, and semantic snapshots, and help snapshots were
+    refreshed for /model, /model --utility, /auto, ctrl+x m, and ctrl+x a.
+  - Behavior-named TUI tests prove selector callbacks, command/keybinding parity, help rendering, and fixture snapshots without
+    adding new TestM<number> names.
 - number: 5
   name: Run PTY smoke full validation roadmap closeout and commit
   depends_on:
@@ -177,19 +188,18 @@ tasks:
   - 4
   status: complete
   acceptance:
-  - GIVEN an isolated temp workspace with seeded current-session memory WHEN PTY smoke navigates `/continue`, `/clear`, `/new`,
-    and quit THEN the expected session evidence appears and the process exits cleanly.
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M36 is
-    recorded complete, M37 is next, and Active milestone is none.
+  - GIVEN an isolated temp config/workspace WHEN PTY smoke navigates /model, applies a selection, navigates /auto, applies
+    a selection, and quits THEN active labels update and no provider/config-path/credential leakage appears.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M37 is
+    recorded complete, M37A is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
     and plan archive are included in one meaningful local commit.
   evidence:
-  - TestSessionCommandFamilyPTYSmoke navigates /continue, Enter focus release, /clear, /new, and quit in an isolated temp
-    workspace with seeded current memory.
-  - mage fmt, targeted state/policy/app/TUI/cmd tests, go test ./internal/... -count=1, go test ./cmd/aila -count=1, and mage
-    check passed with 0 lint issues and no vulnerabilities.
-  - ROADMAP.md was updated only after green validation; Agentera plan/progress, diff, home-path, and changed-line TestM<number>
-    hygiene are part of final closeout.
+  - cmd/aila/pty_test.go includes a behavior-named model/autonomy PTY smoke that switches model and autonomy in isolated temp
+    config/workspace state, verifies session-scoped labels, and checks for provider/config/credential leakage.
+  - Final closeout validation passed with mage fmt, focused app selection tests, go test ./internal/... -count=1, go test ./cmd/aila
+    -count=1, and mage check with 0 lint issues and no vulnerabilities. The local commit includes implementation, validation
+    evidence, ROADMAP, plan, progress, and the M36 plan archive.
 complete: 5
 total: 5
 active: false

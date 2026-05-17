@@ -232,6 +232,12 @@ func (controller *sessionController) persistCommandHistory(recommendation policy
 		return nil
 	}
 	display := string(recommendation.Route)
+	if recommendation.Target != "" {
+		display += " target " + string(recommendation.Target)
+	}
+	if recommendation.Selection != "" {
+		display += " select " + recommendation.Selection
+	}
 	if recommendation.Kind != "" {
 		display += " via " + string(recommendation.Kind)
 	}

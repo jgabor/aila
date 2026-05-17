@@ -1,4 +1,80 @@
 cycles:
+  - number: 199
+    timestamp: "2026-05-17 04:18"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M37 by adding the model/autonomy command family: closed /model, /model --utility, /auto, ctrl+x m,
+      and ctrl+x a routes; app-owned session-scoped primary/utility model and autonomy selectors; deterministic provider
+      readiness display data; presentation-only model_switch and autonomy_switch TUI surfaces; render and semantic snapshots;
+      and PTY smoke for switching model/autonomy values in isolated temp config/workspace state.
+    commit: "pending local commit for M37 model/autonomy command family"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 37; README model/autonomy command table; ARCHITECTURE.md app/TUI/permission boundaries; docs/tui-testing.md fixture/semantic/PTY gates; agentera hej --format json --capability-context planera"
+    discovered: >-
+      The durable test-name fix is to keep new and touched coverage behavior-named rather than creating new TestM<number>
+      symbols. The model/autonomy slice can stay session-scoped and app-owned: /auto updates subsequent permission dispatch,
+      /model and /model --utility update active session labels, and deterministic readiness rows stay display-only. No provider
+      execution path, credential probe, config writer, generic registry, marketplace, editor, compaction, shell prefix, plugin,
+      MCP, workflow DSL, hosted control-plane, or M37A+ prompt-input behavior was added.
+    verified: >-
+      mage fmt passed. Focused app model/autonomy selection tests passed. go test ./internal/... -count=1 passed. go test
+      ./cmd/aila -count=1 passed. mage check passed with 0 lint issues and no vulnerabilities. ROADMAP.md was updated only
+      after green validation. Agentera plan/progress/lint validation, git diff --check, changed-line home-path hygiene, and
+      changed-line TestM<number> hygiene are included in final closeout.
+    next: >-
+      Commit the completed M37 slice, leaving Milestone 37A: Prompt Input UX Family as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M37 roadmap milestone first after the accidental interrupt, preserving the planera -> orkestrera
+        -> commit loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M37; preserve statechart-MVU, explicit effect boundaries, TUI presentation-only behavior, closed policy
+        routing, app-owned session-scoped model/autonomy selection, deterministic readiness display, behavior-based test names,
+        and no push.
+      unknowns: >-
+        Persistent model configuration UI, live provider authentication, richer model search/filtering, context-window budgeting,
+        editor/file-reference/paste affordances, compaction commands, and shell prefixes remain deferred to later roadmap milestones.
+      scope: >-
+        internal/policy model/autonomy routes, internal/app session-scoped selection handlers, internal/tui selector surfaces,
+        cmd/aila PTY smoke, snapshots, ROADMAP, and Agentera closeout.
+  - number: 198
+    timestamp: "2026-05-17 03:48"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 37: Model And Autonomy Command Family as the next roadmap milestone, archived the completed M36 plan,
+      and created a new active full plan with five bounded tasks for closed /model, /model --utility, and /auto routing, app-owned
+      session-scoped selection handlers, deterministic provider readiness display data, presentation-only model/autonomy selector
+      focus, fixture and semantic coverage, PTY smoke, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M37 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 37; AGENTS.md; README config and slash-command tables; ARCHITECTURE.md command/TUI/permission rules; docs/workflow-architecture.md command vocabulary; docs/tui-testing.md model/autonomy fixture guidance; agentera hej --format json --capability-context planera"
+    discovered: >-
+      M37 should stay session-scoped for interactive /model and /auto selections: /auto is documented for the current session,
+      and no persistent config editing surface exists yet. Provider readiness can reuse deterministic fake model diagnostics and
+      ClassifyFakeReadiness without calling providers or probing credentials. The narrow implementation should not add a model
+      marketplace, generic command registry, config editor, provider execution path, editor, compaction, shell prefixes, plugins,
+      MCP, workflow DSL, hosted control-plane, or M37A+ prompt-input behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, agentera describe artifact mapping, ROADMAP.md top status and M37
+      section, docs/notes/PROMPT.md, AGENTS.md, README config and command tables, ARCHITECTURE command/TUI/permission rules,
+      docs/workflow-architecture command vocabulary, docs/tui-testing model/autonomy fixture guidance, and current policy/app/config/readiness/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M37 Tasks 2-4: add closed model/autonomy routes, implement app-owned session-scoped model/autonomy selection handlers,
+      and refresh TUI fixtures, semantics, keybinding, and PTY coverage without adding provider execution, persistent config editing,
+      editor, compaction, shell prefixes, plugins, MCP, workflow DSL, generic registry, hosted control-plane, or M37A+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M36, selecting the next roadmap milestone from
+        ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M37; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, closed policy routing,
+        app-owned session selection handlers, deterministic provider readiness display, behavior-based test names, and commit only
+        after implementation and validation complete.
+      unknowns: >-
+        Persistent config editing, live provider authentication, richer model search/filtering, context-window budgeting, editor,
+        compaction, and shell prefix commands remain deferred until later roadmap milestones.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m36.yaml archival, and progress evidence for the M37 planning handoff.
   - number: 197
     timestamp: "2026-05-17 03:43"
     type: build

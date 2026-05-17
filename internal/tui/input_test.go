@@ -366,6 +366,56 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 		t.Fatalf("clear session surface missing: %+v", clearSlashModel.state.Session)
 	}
 
+	modelSlash, ok := policy.RecommendSlashCommand("/model")
+	if !ok {
+		t.Fatal("/model did not match")
+	}
+	modelShortcut, ok := policy.RecommendShortcut("ctrl+x", "m")
+	if !ok {
+		t.Fatal("ctrl+x m did not match")
+	}
+	if modelSlash.Route != modelShortcut.Route || modelSlash.Target != modelShortcut.Target || modelSlash.Route != policy.CommandRouteModel {
+		t.Fatalf("model policy route mismatch: slash=%+v shortcut=%+v", modelSlash, modelShortcut)
+	}
+	utilitySlash, ok := policy.RecommendSlashCommand("/model --utility")
+	if !ok || utilitySlash.Route != policy.CommandRouteModel || utilitySlash.Target != policy.CommandTargetUtilityModel {
+		t.Fatalf("/model --utility route = %+v matched=%v, want utility model", utilitySlash, ok)
+	}
+	modelSlashModel, modelSlashCmd := routeSlashCommandForParity(t, "/model")
+	modelShortcutModel, modelShortcutCmd := routeShortcutForParity(t, "m")
+	if modelSlashCmd != nil || modelShortcutCmd != nil {
+		t.Fatal("model parity routes should not emit Bubble Tea commands")
+	}
+	if modelSlashModel.state.CommandRoute != modelShortcutModel.state.CommandRoute || modelSlashModel.state.RouteSource != modelShortcutModel.state.RouteSource {
+		t.Fatalf("model TUI route mismatch: slash=%+v shortcut=%+v", modelSlashModel.state, modelShortcutModel.state)
+	}
+	if modelSlashModel.state.ModelSwitch == nil || modelShortcutModel.state.ModelSwitch == nil || modelSlashModel.state.ModelSwitch.Target != string(policy.CommandTargetPrimaryModel) || modelShortcutModel.state.ModelSwitch.Target != string(policy.CommandTargetPrimaryModel) {
+		t.Fatalf("model switch surfaces missing: slash=%+v shortcut=%+v", modelSlashModel.state.ModelSwitch, modelShortcutModel.state.ModelSwitch)
+	}
+	utilitySlashModel, utilitySlashCmd := routeSlashCommandForParity(t, "/model --utility")
+	if utilitySlashCmd != nil || utilitySlashModel.state.ModelSwitch == nil || utilitySlashModel.state.ModelSwitch.Target != string(policy.CommandTargetUtilityModel) {
+		t.Fatalf("utility model surface mismatch: cmd=%v switch=%+v", utilitySlashCmd, utilitySlashModel.state.ModelSwitch)
+	}
+	autoSlash, ok := policy.RecommendSlashCommand("/auto")
+	if !ok {
+		t.Fatal("/auto did not match")
+	}
+	autoShortcut, ok := policy.RecommendShortcut("ctrl+x", "a")
+	if !ok {
+		t.Fatal("ctrl+x a did not match")
+	}
+	if autoSlash.Route != autoShortcut.Route || autoSlash.Target != autoShortcut.Target || autoSlash.Route != policy.CommandRouteAuto {
+		t.Fatalf("auto policy route mismatch: slash=%+v shortcut=%+v", autoSlash, autoShortcut)
+	}
+	autoSlashModel, autoSlashCmd := routeSlashCommandForParity(t, "/auto")
+	autoShortcutModel, autoShortcutCmd := routeShortcutForParity(t, "a")
+	if autoSlashCmd != nil || autoShortcutCmd != nil {
+		t.Fatal("auto parity routes should not emit Bubble Tea commands")
+	}
+	if autoSlashModel.state.CommandRoute != autoShortcutModel.state.CommandRoute || autoSlashModel.state.AutonomySwitch == nil || autoShortcutModel.state.AutonomySwitch == nil {
+		t.Fatalf("auto TUI route mismatch: slash=%+v shortcut=%+v", autoSlashModel.state, autoShortcutModel.state)
+	}
+
 	statusSlashModel, statusSlashCmd := routeSlashCommandForParity(t, "/status")
 	statusShortcutModel, statusShortcutCmd := routeShortcutForParity(t, "s")
 	if statusSlashCmd != nil || statusShortcutCmd != nil {
@@ -579,6 +629,9 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"/new - Start a fresh session and preserve project memory.",
 		"/clear - Clear visible session state and current memory.",
 		"/continue - Restore the current saved session.",
+		"/model - Choose the active primary model for this session.",
+		"/model --utility - Choose the active utility model for this session.",
+		"/auto - Choose the active autonomy level for this session.",
 		"/status - Inspect current runtime and state.",
 		"/review - Inspect current changes, risks, and sources.",
 		"/history - Browse runs, edits, checks, and undo data.",
@@ -590,6 +643,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"shortcuts:",
 		"ctrl+x n - Start a fresh session and preserve project memory.",
 		"ctrl+x c - Restore the current saved session.",
+		"ctrl+x m - Choose the active primary model for this session.",
+		"ctrl+x a - Choose the active autonomy level for this session.",
 		"ctrl+x s - Inspect current runtime and state.",
 		"ctrl+x i - Inspect current changes, risks, and sources.",
 		"ctrl+x h - Browse runs, edits, checks, and undo data.",
@@ -604,7 +659,10 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	}
 	assertOrdered(t, first, "/new - Start a fresh session and preserve project memory.", "/clear - Clear visible session state and current memory.")
 	assertOrdered(t, first, "/clear - Clear visible session state and current memory.", "/continue - Restore the current saved session.")
-	assertOrdered(t, first, "/continue - Restore the current saved session.", "/status - Inspect current runtime and state.")
+	assertOrdered(t, first, "/continue - Restore the current saved session.", "/model - Choose the active primary model for this session.")
+	assertOrdered(t, first, "/model - Choose the active primary model for this session.", "/model --utility - Choose the active utility model for this session.")
+	assertOrdered(t, first, "/model --utility - Choose the active utility model for this session.", "/auto - Choose the active autonomy level for this session.")
+	assertOrdered(t, first, "/auto - Choose the active autonomy level for this session.", "/status - Inspect current runtime and state.")
 	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/review - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "/review - Inspect current changes, risks, and sources.", "/history - Browse runs, edits, checks, and undo data.")
 	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/help - Show this deterministic placeholder help.")
@@ -614,7 +672,9 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
 	assertOrdered(t, first, "ctrl+x n - Start a fresh session and preserve project memory.", "ctrl+x c - Restore the current saved session.")
-	assertOrdered(t, first, "ctrl+x c - Restore the current saved session.", "ctrl+x s - Inspect current runtime and state.")
+	assertOrdered(t, first, "ctrl+x c - Restore the current saved session.", "ctrl+x m - Choose the active primary model for this session.")
+	assertOrdered(t, first, "ctrl+x m - Choose the active primary model for this session.", "ctrl+x a - Choose the active autonomy level for this session.")
+	assertOrdered(t, first, "ctrl+x a - Choose the active autonomy level for this session.", "ctrl+x s - Inspect current runtime and state.")
 	assertOrdered(t, first, "ctrl+x s - Inspect current runtime and state.", "ctrl+x i - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "ctrl+x i - Inspect current changes, risks, and sources.", "ctrl+x h - Browse runs, edits, checks, and undo data.")
 	assertOrdered(t, first, "ctrl+x h - Browse runs, edits, checks, and undo data.", "ctrl+x d - Review current changes.")
@@ -622,8 +682,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
 	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
-		"ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
+		"/editor", "/compact", "/exit -", "/q -",
+		"ctrl+x e", "ctrl+x k", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {
@@ -767,6 +827,119 @@ func TestSessionSurfaceSelectionFocusIsPresentationOnly(t *testing.T) {
 	}
 	if got.state.Session == nil || got.state.Session.Focus {
 		t.Fatalf("session enter should release focus: %+v", got.state.Session)
+	}
+}
+
+func TestModelSwitchSelectionAppliesThroughAppCallback(t *testing.T) {
+	t.Parallel()
+
+	state := IdleEmptyState()
+	state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
+	state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+	state = ApplyModelSwitchView(state, &ModelSwitchView{
+		Target:         string(policy.CommandTargetPrimaryModel),
+		Source:         "app.model",
+		Status:         "ready",
+		CurrentPrimary: "opencode-go/deepseek-v4-pro:high",
+		CurrentUtility: "opencode-go/deepseek-v4-flash:max",
+		Focus:          true,
+		Items: []ModelSwitchItemView{
+			{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Family: "device_code", Class: "reasoning", Status: "available", CredentialSource: "device-code", Current: true},
+			{Label: "openai/o4-mini", SourceName: "openai", Model: "o4-mini", Family: "api_key", Class: "reasoning", Status: "available", CredentialSource: "OPENAI_API_KEY"},
+		},
+	})
+	var commands []policy.CommandRecommendation
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
+		commands = append(commands, recommendation)
+		state.PrimaryModel = recommendation.Selection
+		return ApplyModelSwitchView(state, &ModelSwitchView{
+			Target:         string(recommendation.Target),
+			Source:         "app.model",
+			Status:         "ready",
+			CurrentPrimary: state.PrimaryModel,
+			CurrentUtility: state.UtilityModel,
+			Items:          state.ModelSwitch.Items,
+			Selected:       state.ModelSwitch.Selected,
+			Focus:          true,
+		})
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("model switch down emitted a command")
+	}
+	if got.state.ModelSwitch == nil || got.state.ModelSwitch.Selected != 1 || !got.state.ModelSwitch.Focus {
+		t.Fatalf("model switch after down = %+v, want focused second row", got.state.ModelSwitch)
+	}
+	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
+	if semantic.Screen.Focus != "model_switch" || semantic.ModelSwitch == nil || semantic.ModelSwitch.SelectedLabel != "openai/o4-mini" {
+		t.Fatalf("model switch semantic after down = focus %q switch %+v", semantic.Screen.Focus, semantic.ModelSwitch)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("model switch enter emitted a Bubble Tea command")
+	}
+	if len(commands) != 1 || commands[0].Route != policy.CommandRouteModel || commands[0].Kind != policy.CommandInputSelection || commands[0].Target != policy.CommandTargetPrimaryModel || commands[0].Selection != "openai/o4-mini" {
+		t.Fatalf("model switch commands = %+v, want selected primary model", commands)
+	}
+	if got.state.PrimaryModel != "openai/o4-mini" || got.state.UtilityModel != "opencode-go/deepseek-v4-flash:max" {
+		t.Fatalf("model switch state labels = primary %q utility %q", got.state.PrimaryModel, got.state.UtilityModel)
+	}
+}
+
+func TestAutonomySwitchSelectionAppliesThroughAppCallback(t *testing.T) {
+	t.Parallel()
+
+	state := IdleEmptyState()
+	state.Autonomy = "yolo"
+	state = ApplyAutonomySwitchView(state, &AutonomySwitchView{
+		Source:  "app.autonomy",
+		Status:  "ready",
+		Current: "yolo",
+		Focus:   true,
+		Items: []AutonomySwitchItemView{
+			{Level: "off", Status: "available", Detail: "approval required before read or write operations"},
+			{Level: "read", Status: "available", Detail: "read-only operations may run automatically"},
+			{Level: "write", Status: "available", Detail: "workspace write operations may run automatically"},
+			{Level: "yolo", Status: "available", Detail: "highest autonomy for classified operations", Current: true},
+		},
+		Selected: 3,
+	})
+	var commands []policy.CommandRecommendation
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
+		commands = append(commands, recommendation)
+		state.Autonomy = recommendation.Selection
+		return ApplyAutonomySwitchView(state, &AutonomySwitchView{
+			Source:   "app.autonomy",
+			Status:   "ready",
+			Current:  state.Autonomy,
+			Items:    state.AutonomySwitch.Items,
+			Selected: state.AutonomySwitch.Selected,
+			Focus:    true,
+		})
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyHome})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("autonomy switch home emitted a command")
+	}
+	if got.state.AutonomySwitch == nil || got.state.AutonomySwitch.Selected != 0 || !got.state.AutonomySwitch.Focus {
+		t.Fatalf("autonomy switch after home = %+v, want focused first row", got.state.AutonomySwitch)
+	}
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("autonomy switch enter emitted a Bubble Tea command")
+	}
+	if len(commands) != 1 || commands[0].Route != policy.CommandRouteAuto || commands[0].Kind != policy.CommandInputSelection || commands[0].Target != policy.CommandTargetAutonomy || commands[0].Selection != "off" {
+		t.Fatalf("autonomy switch commands = %+v, want selected off autonomy", commands)
+	}
+	if got.state.Autonomy != "off" {
+		t.Fatalf("autonomy label = %q, want off", got.state.Autonomy)
 	}
 }
 
