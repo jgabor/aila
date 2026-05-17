@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: policy routing evidence                                                                                      |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Policy routing:                                                                                                      |
+| source: policy.capability.waiting                                                                                    |
+| candidate: brief                                                                                                     |
+| confidence: 42                                                                                                       |
+| current phase: plan                                                                                                  |
+| transition claimed: false                                                                                            |
+| executed: false                                                                                                      |
+| input: help                                                                                                          |
+| reason: low confidence capability route                                                                              |
+| runtime status: waiting                                                                                              |
+| needed input: Clarify whether you want a brief, discussion, plan, build, or audit.                                   |
+| source ref: policy-low-confidence-route kind=prompt excerpt=help                                                     |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

@@ -1,0 +1,212 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  reviewed: '2026-05-17'
+  critic_issues: M45 must add only idle-only summary refresh for weak summaries. It must preserve source refs and exact critical
+    details, surface low-confidence caveats, reuse the existing UtilityJob runtime/app path, keep the TUI presentation-only,
+    and avoid hidden final judgment, file writes, git mutations, project artifact writes, permission approvals, workflow phase
+    changes, provider/model calls, context compaction expansion, stale-context policy changes, plugins, MCP, workflow DSLs,
+    generic graph engines, hosted control planes, and M45A+ behavior.
+  title: 'Milestone 45: Utility Summary Refresh'
+what: Deliver ROADMAP.md Milestone 45 by adding a deterministic idle-only utility summary-refresh job that identifies weak
+  summaries, refreshes them with preserved source refs and exact details, and exposes confidence caveats without becoming
+  hidden final judgment.
+why: M42-M44 proved the idle-only utility path for context prep, stale checks, and background compaction. M45 adds the next
+  bounded utility capability so summaries can improve while foreground capabilities remain responsible for decisions.
+constraints: 'Execute only Milestone 45. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected summary-refresh state and semantic evidence, but it must not schedule refresh work, inspect files,
+  mutate state, call providers, persist project artifacts, change permissions, refresh summaries itself, or change workflow
+  phase. Summary refresh must run only through the existing UtilityJob proposal/effect/result path while the primary runtime
+  can yield. Preserve source refs and exact critical details. Surface caveats when confidence is low. Do not write files,
+  mutate git state, write project artifacts, approve permissions, transition workflow phase, make final judgments, compact
+  context, expand stale-context policy, call providers/models, add plugins, add MCP, add workflow DSLs, add generic graph
+  engines, add hosted control-plane assumptions, or add M45A+ behavior. Use behavior-based test names; do not introduce new
+  TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m44.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:16-110
+- ROADMAP.md:1739-1756
+- README.md:217-269
+- ARCHITECTURE.md:613-674
+- docs/workflow-architecture.md:539-548
+- docs/workflow-architecture.md:640-646
+- docs/tui-testing.md:60-90
+- docs/tui-testing.md:136-170
+- internal/utility/utility.go
+- internal/runtime/runtime.go
+- internal/app/utility.go
+- internal/app/inspection.go
+- internal/app/prompt.go
+- internal/tui/model.go
+- internal/tui/render.go
+- internal/tui/fixture_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/utility -count=1
+- go test ./internal/runtime -run 'Test.*Utility.*|Test.*Summary.*' -count=1
+- go test ./internal/app -run 'Test.*Utility.*|Test.*Status.*|Test.*Summary.*' -count=1
+- go test ./internal/tui -run 'TestUtilityWorkerFixtureSnapshots|Test.*Summary.*|Test.*Semantic.*' -count=1
+- go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m44.yaml cmd/aila
+  internal/app internal/runtime internal/utility internal/tui internal/context ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- changed-line home-path and milestone-numbered test-name hygiene returns no matches
+scope:
+  included:
+  - Add a typed summary-refresh utility request/result payload with refreshed/current/low-confidence status, original summary,
+    refreshed summary, source ref IDs, exact detail evidence, confidence, caveats, and suggestions.
+  - Reuse the existing UtilityJob scheduling, runtime effect, and app display mapping so summary refresh remains idle-only
+    and primary-runtime-neutral.
+  - Retarget app-owned /status utility state to summary refresh with bounded deterministic summary/detail/source-ref inputs.
+  - Add summary-refresh render and semantic support plus a summary-refresh fixture proving refreshed summary, source refs,
+    confidence, caveats, and safety evidence.
+  - Update app/status and PTY smoke tests because summary-refresh output will be visible interactively.
+  excluded:
+  - Provider/model-assisted refresh, file writes, git mutations, hidden artifact writes, permission approval, workflow phase
+    mutation, final judgment, context compaction expansion, stale-context policy changes, durable refresh persistence policy,
+    plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, and M45A+ behavior.
+  deferred:
+  - Provider-assisted summary quality scoring, durable refreshed-summary storage, automatic foreground adoption of refreshed
+    summaries, and capability-policy contracts from M45A.
+design: Extend internal/utility with a pure SummaryRefreshInput and SummaryRefresh result. The deterministic job compares
+  a bounded original summary against required exact details and source refs supplied in the request. If details are missing,
+  it emits a refreshed summary carrying the same source refs; if details are already present, it reports current; if source
+  refs or details are insufficient, it reports low confidence with caveats. Runtime continues to gate UtilityJobProposed with
+  utility.CanRun. App maps the result into /status utility display data. TUI renders injected summary-refresh data and semantic
+  items only.
+overall_acceptance:
+- Utility tests prove refreshed, current, and low-confidence summary-refresh outputs preserve source refs, exact details,
+  caveats, and read-only safety boundaries.
+- Runtime/app tests prove summary refresh uses the existing idle-only UtilityJob path and does not mutate primary runtime
+  status, transcript, workflow phase, files, git state, project artifacts, permissions, or final judgment.
+- /status renders summary-refresh status, refreshed summary, confidence, caveats, source refs, suggestions, evidence, and
+  safety output.
+- TUI plain, ANSI, and semantic snapshots include a summary-refresh fixture and prove presentation-only output.
+- PTY smoke proves the visible /status summary-refresh output when interactive behavior changes.
+- No provider/model call, context compaction expansion, stale-context policy expansion, plugin, MCP, workflow DSL, generic
+  graph engine, hosted control plane, or M45A+ behavior is added.
+- Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
+  updated.
+surprises:
+- The PTY smoke needed to wait through the visible utility safety footer after /status so residual status lines did not bleed
+  into the following /review capture.
+tasks:
+- number: 1
+  name: Plan and confirm the summary refresh slice
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M45 only and excludes
+    provider/model calls, durable persistence policy, context compaction expansion, stale-context policy changes, plugins,
+    MCP, workflow DSLs, hosted control planes, and M45A+ behavior.
+  - GIVEN utility/runtime/app/TUI/status seams are inspected WHEN implementation starts THEN the plan routes summary refresh
+    through the existing idle-only UtilityJob path and keeps the TUI rendering-only.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
+    milestone-number names.
+  evidence:
+  - Installed Agentera CLI hej with planera context, ROADMAP.md top status and M45 section, docs/notes/PROMPT.md, AGENTS.md,
+    README utility sections, ARCHITECTURE context/utility boundaries, docs/workflow-architecture utility guidance, docs/tui-testing
+    fixture/semantic guidance, and current internal/utility/runtime/app/TUI/status seams were reviewed.
+  - The plan keeps M45 bounded to deterministic idle-only summary refresh with source refs, exact details, caveats, and no
+    hidden final judgment.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to summary refresh only.
+- number: 2
+  name: Define the summary-refresh utility contract
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN a weak summary missing supplied exact details WHEN the summary-refresh job runs THEN it returns refreshed status,
+    a refreshed summary, preserved source refs, evidence, and a suggestion.
+  - GIVEN a summary already includes supplied exact details WHEN the job runs THEN it returns current status without inventing
+    new content.
+  - GIVEN missing source refs or missing exact details WHEN the job runs THEN it returns low-confidence status with caveats
+    and no hidden final judgment.
+  evidence:
+  - internal/utility now defines JobSummaryRefresh, SummaryRefreshInput, refreshed/current/low_confidence status, preserved
+    SourceRefIDs, ExactDetails, Confidence, Caveats, suggestions, evidence refs, and read-only SafetyBoundary output.
+  - go test ./internal/utility -count=1 passed, covering refreshed, current, low-confidence, blocked, and read-only safety
+    paths.
+- number: 3
+  name: Wire summary refresh through runtime and app status state
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN summary refresh is requested while idle WHEN runtime dispatch runs THEN a typed running state and completed summary-refresh
+    result are recorded without changing primary runtime state or workflow phase.
+  - GIVEN runtime is active, approval-pending, or has queued input WHEN summary refresh is requested THEN visible denial/caveat
+    state is recorded without emitting refresh output.
+  - GIVEN /status is opened WHEN summary-refresh state exists THEN status lines include refresh status, refreshed summary,
+    confidence, caveats, source refs, suggestions, evidence, and read-only safety output.
+  evidence:
+  - Runtime tests route summary_refresh status-summary-refresh through the existing UtilityJob proposal/effect/completion
+    path and prove primary runtime status, transcript, active operation, and workflow state are unchanged.
+  - App tests prove /status maps summary-refresh output into display-only utility state and blocked approval-pending scheduling
+    emits no summary-refresh output.
+- number: 4
+  name: Render summary refresh fixture semantics
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN summary-refresh states render WHEN fixture tests run THEN plain, ANSI, and semantic snapshots expose job status,
+    refresh status, refreshed summary, source refs, confidence, caveats, and utility model state.
+  - GIVEN semantic snapshots are inspected WHEN summary refresh exists THEN machine-readable summary_refresh status, summary
+    fields, source_ref_ids, confidence, caveats, suggestions, evidence refs, read-only state, and safety flags are present.
+  - GIVEN TUI code is inspected WHEN summary-refresh output exists THEN it owns no scheduling, filesystem, git, provider,
+    permission, artifact, workflow, or final-judgment logic.
+  evidence:
+  - Added utility-summary-refresh fixture with plain, ANSI, and semantic snapshots showing refresh status, original/refreshed
+    summary, source_ref_ids, exact_details, confidence, suggestions, evidence refs, and false safety flags.
+  - go test ./internal/tui -run 'TestUtilityWorkerFixtureSnapshots|Test.*Semantic.*|Test.*Utility.*' -count=1 passed after
+    snapshot generation and review.
+- number: 5
+  name: Add regression and PTY visibility coverage
+  depends_on:
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN the interactive TUI runs WHEN /status is submitted THEN summary-refresh status, refreshed summary, source refs,
+    confidence, caveats, suggestions, and safety markers are visible and the app quits cleanly.
+  - GIVEN runtime is active or approval-pending WHEN summary refresh is requested THEN tests prove the worker does not run
+    and no summary-refresh output is emitted.
+  - GIVEN current context prep, stale-context, and compact behavior is tested WHEN summary-refresh support lands THEN no provider/model
+    call, compaction expansion, stale policy expansion, persistence policy, or hidden final judgment occurs.
+  evidence:
+  - cmd/aila PTY smoke now proves /status exposes summary refresh status, refreshed summary, preserved source refs, read-only
+    state, and visible safety footer while quitting cleanly.
+  - go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1 passed.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M45 is
+    recorded complete, M45A is next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    and M44 plan archive are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
+  evidence:
+  - mage fmt, targeted utility/runtime/app/TUI/cmd tests, go test ./internal/... -count=1, go test ./cmd/aila -count=1, and
+    mage check passed; mage check reported 0 lint issues and no vulnerabilities.
+  - Agentera plan/progress/lint/hej validation passed after closeout; ROADMAP.md records M45 complete, M45A next, active milestone
+    none.
+  - git diff --check passed, and changed-line plus new-fixture hygiene found no absolute home paths or new TestM<number> symbols.

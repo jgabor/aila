@@ -65,6 +65,7 @@ type ViewState struct {
 	AutonomySwitch     *AutonomySwitchView
 	PromptEditor       *PromptEditorView
 	FileReference      *FileReferenceView
+	PolicyRoute        *PolicyRouteView
 	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
@@ -321,6 +322,43 @@ type DiagnosticView struct {
 	BoundedMessage   string `json:"bounded_message"`
 }
 
+// PolicyRouteView is app-injected policy routing evidence.
+type PolicyRouteView struct {
+	Source               string
+	Input                string
+	Candidate            string
+	Confidence           int
+	Reason               string
+	NeededInput          string
+	CurrentPhase         string
+	RuntimeStatus        string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	SuccessorRejected    bool
+	SuccessorReason      string
+	TransitionClaimed    bool
+	Executed             bool
+	SourceRefs           []PolicyRouteSourceRefView
+	BoundaryRequests     []PolicyRouteBoundaryRequestView
+}
+
+// PolicyRouteSourceRefView records one policy routing source reference.
+type PolicyRouteSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// PolicyRouteBoundaryRequestView records one inert boundary request descriptor.
+type PolicyRouteBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // IdleEmptyState returns the static first-launch view state.
 func IdleEmptyState() ViewState {
 	return ViewState{
@@ -399,6 +437,7 @@ func contentItems(state ViewState) []string {
 		items = displayLabelLines(state)
 	}
 	items = append(items, runtimeStatusLines(state)...)
+	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	if state.SurfaceTitle == "agent evidence" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 		items = append(items, chatLines(state.Transcript)...)
@@ -917,6 +956,74 @@ func utilityLines(utility *UtilityView) []string {
 		"  context rewrite: "+boolLabel(semantic.Safety.ContextRewrite),
 		"",
 	)
+	return lines
+}
+
+func policyRouteLines(route *PolicyRouteView) []string {
+	if route == nil {
+		return nil
+	}
+	semantic := semanticPolicyRoute(route)
+	lines := []string{
+		"  Policy routing:",
+		"  source: " + semantic.Source,
+		"  candidate: " + semantic.Candidate,
+		fmt.Sprintf("  confidence: %d", semantic.Confidence),
+		"  current phase: " + semantic.CurrentPhase,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  executed: " + boolLabel(semantic.Executed),
+	}
+	if semantic.Input != "" {
+		lines = append(lines, "  input: "+semantic.Input)
+	}
+	if semantic.Reason != "" {
+		lines = append(lines, "  reason: "+semantic.Reason)
+	}
+	if semantic.RuntimeStatus != "" {
+		lines = append(lines, "  runtime status: "+semantic.RuntimeStatus)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.RecommendedSuccessor != "" {
+		lines = append(lines, "  recommended successor: "+semantic.RecommendedSuccessor)
+	}
+	if semantic.SuccessorValid || semantic.SuccessorRejected || semantic.SuccessorReason != "" {
+		lines = append(lines,
+			"  successor valid: "+boolLabel(semantic.SuccessorValid),
+			"  successor rejected: "+boolLabel(semantic.SuccessorRejected),
+		)
+		if semantic.SuccessorReason != "" {
+			lines = append(lines, "  successor reason: "+semantic.SuccessorReason)
+		}
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested effect: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "  app-owned", "  display-only", "")
 	return lines
 }
 
@@ -1481,6 +1588,7 @@ type SemanticSnapshot struct {
 	Diagnostics    []SemanticDiagnostic    `json:"diagnostics,omitempty"`
 	Interrupt      *SemanticInterrupt      `json:"interrupt,omitempty"`
 	Command        *SemanticCommand        `json:"command,omitempty"`
+	PolicyRoute    *SemanticPolicyRoute    `json:"policy_route,omitempty"`
 	History        *SemanticHistory        `json:"history,omitempty"`
 	Diff           *SemanticDiff           `json:"diff,omitempty"`
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
@@ -1921,6 +2029,44 @@ type SemanticCommand struct {
 	Executed    bool   `json:"executed"`
 }
 
+// SemanticPolicyRoute describes app-injected policy routing evidence.
+type SemanticPolicyRoute struct {
+	Visible              bool                                 `json:"visible"`
+	Source               string                               `json:"source"`
+	Input                string                               `json:"input,omitempty"`
+	Candidate            string                               `json:"candidate,omitempty"`
+	Confidence           int                                  `json:"confidence"`
+	Reason               string                               `json:"reason,omitempty"`
+	NeededInput          string                               `json:"needed_input,omitempty"`
+	CurrentPhase         string                               `json:"current_phase,omitempty"`
+	RuntimeStatus        string                               `json:"runtime_status,omitempty"`
+	RecommendedSuccessor string                               `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                                 `json:"successor_valid"`
+	SuccessorRejected    bool                                 `json:"successor_rejected"`
+	SuccessorReason      string                               `json:"successor_reason,omitempty"`
+	TransitionClaimed    bool                                 `json:"transition_claimed"`
+	Executed             bool                                 `json:"executed"`
+	SourceRefs           []SemanticPolicyRouteSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticPolicyRouteBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticPolicyRouteSourceRef records one policy routing source reference.
+type SemanticPolicyRouteSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticPolicyRouteBoundaryRequest records one inert boundary descriptor.
+type SemanticPolicyRouteBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticSessionView describes an app-injected session lifecycle surface.
 type SemanticSessionView struct {
 	Visible      bool                  `json:"visible"`
@@ -2198,6 +2344,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.FileReference != nil {
 		regions = append(regions, SemanticRegion{Name: "file_reference", Visible: true, Items: semanticFileReferenceItems(state.FileReference)})
 	}
+	if state.PolicyRoute != nil {
+		regions = append(regions, SemanticRegion{Name: "policy_route", Visible: true, Items: semanticPolicyRouteItems(state.PolicyRoute)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -2279,6 +2428,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		AutonomySwitch: semanticAutonomySwitch(state.AutonomySwitch),
 		Diagnostics:    semanticDiagnostics(state.Diagnostics),
 		Command:        command,
+		PolicyRoute:    semanticPolicyRoute(state.PolicyRoute),
 		History:        semanticHistory(state),
 		Diff:           semanticDiff(state),
 		Read:           semanticRead(state.Read),
@@ -3134,6 +3284,117 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticPolicyRouteItems(route *PolicyRouteView) []string {
+	semantic := semanticPolicyRoute(route)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"candidate: " + semantic.Candidate,
+		fmt.Sprintf("confidence: %d", semantic.Confidence),
+		"current_phase: " + semantic.CurrentPhase,
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"executed: " + boolLabel(semantic.Executed),
+		"display-only",
+	}
+	if semantic.Input != "" {
+		items = append(items, "input: "+semantic.Input)
+	}
+	if semantic.Reason != "" {
+		items = append(items, "reason: "+semantic.Reason)
+	}
+	if semantic.RuntimeStatus != "" {
+		items = append(items, "runtime_status: "+semantic.RuntimeStatus)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.RecommendedSuccessor != "" {
+		items = append(items, "recommended_successor: "+semantic.RecommendedSuccessor)
+	}
+	if semantic.SuccessorValid || semantic.SuccessorRejected || semantic.SuccessorReason != "" {
+		items = append(items,
+			"successor_valid: "+boolLabel(semantic.SuccessorValid),
+			"successor_rejected: "+boolLabel(semantic.SuccessorRejected),
+		)
+		if semantic.SuccessorReason != "" {
+			items = append(items, "successor_reason: "+semantic.SuccessorReason)
+		}
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticPolicyRoute(route *PolicyRouteView) *SemanticPolicyRoute {
+	if route == nil {
+		return nil
+	}
+	refs := make([]SemanticPolicyRouteSourceRef, 0, len(route.SourceRefs))
+	for _, ref := range route.SourceRefs {
+		refs = append(refs, SemanticPolicyRouteSourceRef{
+			ID:      safeText(ref.ID),
+			Kind:    safeText(ref.Kind),
+			Path:    safeText(ref.Path),
+			Command: safeText(ref.Command),
+			Excerpt: safeText(ref.Excerpt),
+		})
+	}
+	requests := make([]SemanticPolicyRouteBoundaryRequest, 0, len(route.BoundaryRequests))
+	for _, request := range route.BoundaryRequests {
+		requests = append(requests, SemanticPolicyRouteBoundaryRequest{
+			Kind:      safeText(request.Kind),
+			Operation: safeText(request.Operation),
+			Target:    safeText(request.Target),
+			Reason:    safeText(request.Reason),
+		})
+	}
+	return &SemanticPolicyRoute{
+		Visible:              true,
+		Source:               safeText(defaultString(route.Source, "policy.capability")),
+		Input:                safeText(route.Input),
+		Candidate:            safeText(route.Candidate),
+		Confidence:           route.Confidence,
+		Reason:               safeText(route.Reason),
+		NeededInput:          safeText(route.NeededInput),
+		CurrentPhase:         safeText(route.CurrentPhase),
+		RuntimeStatus:        safeText(route.RuntimeStatus),
+		RecommendedSuccessor: safeText(route.RecommendedSuccessor),
+		SuccessorValid:       route.SuccessorValid,
+		SuccessorRejected:    route.SuccessorRejected,
+		SuccessorReason:      safeText(route.SuccessorReason),
+		TransitionClaimed:    route.TransitionClaimed,
+		Executed:             route.Executed,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
 }
 
 func semanticUtilityItems(utility *UtilityView) []string {
@@ -4659,6 +4920,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Utility != nil {
 		items = append(items, semanticUtilityItems(state.Utility)...)
+	}
+	if state.PolicyRoute != nil {
+		items = append(items, semanticPolicyRouteItems(state.PolicyRoute)...)
 	}
 	if state.Context != nil {
 		items = append(items, semanticContextItems(state.Context)...)

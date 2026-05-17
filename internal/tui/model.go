@@ -1024,6 +1024,25 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	return state
 }
 
+// ApplyPolicyRouteView injects app-owned policy routing evidence into visible state.
+func ApplyPolicyRouteView(state ViewState, route *PolicyRouteView) ViewState {
+	if route == nil {
+		return state
+	}
+	state.PolicyRoute = clonePolicyRouteView(route)
+	return state
+}
+
+func clonePolicyRouteView(route *PolicyRouteView) *PolicyRouteView {
+	if route == nil {
+		return nil
+	}
+	clone := *route
+	clone.SourceRefs = append([]PolicyRouteSourceRefView(nil), route.SourceRefs...)
+	clone.BoundaryRequests = append([]PolicyRouteBoundaryRequestView(nil), route.BoundaryRequests...)
+	return &clone
+}
+
 // ApplySessionView injects app-owned session lifecycle display data into the TUI state.
 func ApplySessionView(state ViewState, session *SessionView) ViewState {
 	if session == nil {

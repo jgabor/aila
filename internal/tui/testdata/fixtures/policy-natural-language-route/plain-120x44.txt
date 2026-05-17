@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: policy routing evidence                                                                                      |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Policy routing:                                                                                                      |
+| source: policy.capability.natural_language                                                                           |
+| candidate: audit                                                                                                     |
+| confidence: 86                                                                                                       |
+| current phase: build                                                                                                 |
+| transition claimed: false                                                                                            |
+| executed: false                                                                                                      |
+| input: please audit the boundary risks                                                                               |
+| reason: audit intent matched                                                                                         |
+| recommended successor: audit                                                                                         |
+| successor valid: true                                                                                                |
+| successor rejected: false                                                                                            |
+| successor reason: workflow FSM accepted recommended successor                                                        |
+| source ref: policy-natural-language-route kind=prompt excerpt=please audit the boundary risks                        |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

@@ -1,0 +1,28 @@
+{
+  "name": "policy-explicit-route",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": [
+    "policy_route",
+    "explicit_slash",
+    "successor_valid",
+    "boundary_descriptors"
+  ],
+  "render_sizes": [
+    {
+      "name": "120x44",
+      "width": 120,
+      "height": 44
+    }
+  ],
+  "render_outputs": {
+    "plain_120x44": "plain-120x44.txt",
+    "ansi_120x44": "ansi-120x44.txt",
+    "semantic_120x44": "semantic-120x44.json"
+  },
+  "notes": [
+    "Policy routing fixture; state is app-injected evidence only.",
+    "Semantic policy metadata must not imply execution, permission approval, artifact mutation, or workflow transition."
+  ]
+}

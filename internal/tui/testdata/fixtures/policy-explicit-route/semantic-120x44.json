@@ -1,0 +1,145 @@
+{
+  "scenario": "policy-explicit-route",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "policy routing evidence",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "placeholder"
+  },
+  "policy_route": {
+    "visible": true,
+    "source": "policy.capability.explicit_slash",
+    "input": "/plan",
+    "candidate": "plan",
+    "confidence": 100,
+    "reason": "exact capability slash route",
+    "current_phase": "deliberate",
+    "recommended_successor": "plan",
+    "successor_valid": true,
+    "successor_rejected": false,
+    "successor_reason": "workflow FSM accepted recommended successor",
+    "transition_claimed": false,
+    "executed": false,
+    "source_refs": [
+      {
+        "id": "policy-explicit-route",
+        "kind": "prompt",
+        "excerpt": "/plan"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "model_call",
+        "operation": "model.call",
+        "target": "primary model",
+        "reason": "runtime owns model loop"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "plan artifact",
+        "reason": "state resolver owns artifact access"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: policy routing evidence",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "policy_route",
+      "visible": true,
+      "items": [
+        "source: policy.capability.explicit_slash",
+        "candidate: plan",
+        "confidence: 100",
+        "current_phase: deliberate",
+        "transition_claimed: false",
+        "executed: false",
+        "display-only",
+        "input: /plan",
+        "reason: exact capability slash route",
+        "recommended_successor: plan",
+        "successor_valid: true",
+        "successor_rejected: false",
+        "successor_reason: workflow FSM accepted recommended successor",
+        "boundary_request: model_call operation=model.call target=primary model reason=runtime owns model loop",
+        "boundary_request: artifact_access operation=artifact.access target=plan artifact reason=state resolver owns artifact access",
+        "source_ref: policy-explicit-route kind=prompt excerpt=/plan"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

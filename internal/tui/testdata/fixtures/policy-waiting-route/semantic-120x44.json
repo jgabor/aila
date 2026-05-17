@@ -1,0 +1,127 @@
+{
+  "scenario": "policy-waiting-route",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "policy routing evidence",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "placeholder"
+  },
+  "policy_route": {
+    "visible": true,
+    "source": "policy.capability.waiting",
+    "input": "help",
+    "candidate": "brief",
+    "confidence": 42,
+    "reason": "low confidence capability route",
+    "needed_input": "Clarify whether you want a brief, discussion, plan, build, or audit.",
+    "current_phase": "plan",
+    "runtime_status": "waiting",
+    "successor_valid": false,
+    "successor_rejected": false,
+    "transition_claimed": false,
+    "executed": false,
+    "source_refs": [
+      {
+        "id": "policy-low-confidence-route",
+        "kind": "prompt",
+        "excerpt": "help"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: policy routing evidence",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "policy_route",
+      "visible": true,
+      "items": [
+        "source: policy.capability.waiting",
+        "candidate: brief",
+        "confidence: 42",
+        "current_phase: plan",
+        "transition_claimed: false",
+        "executed: false",
+        "display-only",
+        "input: help",
+        "reason: low confidence capability route",
+        "runtime_status: waiting",
+        "needed_input: Clarify whether you want a brief, discussion, plan, build, or audit.",
+        "source_ref: policy-low-confidence-route kind=prompt excerpt=help"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

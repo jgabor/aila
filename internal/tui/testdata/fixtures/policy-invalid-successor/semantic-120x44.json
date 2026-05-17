@@ -1,0 +1,138 @@
+{
+  "scenario": "policy-invalid-successor",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "policy routing evidence",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "opencode-go/deepseek-v4-flash:max",
+    "autonomy": "placeholder"
+  },
+  "policy_route": {
+    "visible": true,
+    "source": "policy.capability.successor_validation",
+    "input": "capability exit recommended deliberate",
+    "candidate": "build",
+    "confidence": 100,
+    "reason": "capability exit successor requires workflow FSM validation",
+    "current_phase": "build",
+    "recommended_successor": "deliberate",
+    "successor_valid": false,
+    "successor_rejected": true,
+    "successor_reason": "invalid workflow successor from \"build\" to \"deliberate\": invalid_edge",
+    "transition_claimed": false,
+    "executed": false,
+    "source_refs": [
+      {
+        "id": "policy-invalid-successor",
+        "kind": "capability_exit",
+        "excerpt": "build cannot jump back to deliberate"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "permission_check",
+        "operation": "tool.write",
+        "target": "ROADMAP.md",
+        "reason": "permission owns approval"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: opencode-go/deepseek-v4-flash:max",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: policy routing evidence",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "policy_route",
+      "visible": true,
+      "items": [
+        "source: policy.capability.successor_validation",
+        "candidate: build",
+        "confidence: 100",
+        "current_phase: build",
+        "transition_claimed: false",
+        "executed: false",
+        "display-only",
+        "input: capability exit recommended deliberate",
+        "reason: capability exit successor requires workflow FSM validation",
+        "recommended_successor: deliberate",
+        "successor_valid: false",
+        "successor_rejected: true",
+        "successor_reason: invalid workflow successor from \"build\" to \"deliberate\": invalid_edge",
+        "boundary_request: permission_check operation=tool.write target=ROADMAP.md reason=permission owns approval",
+        "source_ref: policy-invalid-successor kind=capability_exit excerpt=build cannot jump back to deliberate"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

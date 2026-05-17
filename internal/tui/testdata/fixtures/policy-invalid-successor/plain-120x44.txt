@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: policy routing evidence                                                                                      |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Policy routing:                                                                                                      |
+| source: policy.capability.successor_validation                                                                       |
+| candidate: build                                                                                                     |
+| confidence: 100                                                                                                      |
+| current phase: build                                                                                                 |
+| transition claimed: false                                                                                            |
+| executed: false                                                                                                      |
+| input: capability exit recommended deliberate                                                                        |
+| reason: capability exit successor requires workflow FSM validation                                                   |
+| recommended successor: deliberate                                                                                    |
+| successor valid: false                                                                                               |
+| successor rejected: true                                                                                             |
+| successor reason: invalid workflow successor from "build" to "deliberate": invalid_edge                              |
+| requested effect: permission_check operation=tool.write target=ROADMAP.md reason=permission owns approval            |
+| source ref: policy-invalid-successor kind=capability_exit excerpt=build cannot jump back to deliberate               |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

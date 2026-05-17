@@ -325,6 +325,91 @@ func loadUtilityFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadPolicyRoutingFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = name
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "policy routing evidence"
+	state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
+	route := &PolicyRouteView{
+		Source:            "policy.capability",
+		CurrentPhase:      "deliberate",
+		TransitionClaimed: false,
+		Executed:          false,
+		SourceRefs: []PolicyRouteSourceRefView{{
+			ID:   "policy-route-source",
+			Kind: "prompt",
+		}},
+	}
+	switch name {
+	case "policy-explicit-route":
+		route.Source = "policy.capability.explicit_slash"
+		route.Input = "/plan"
+		route.Candidate = "plan"
+		route.Confidence = 100
+		route.Reason = "exact capability slash route"
+		route.RecommendedSuccessor = "plan"
+		route.SuccessorValid = true
+		route.SuccessorReason = "workflow FSM accepted recommended successor"
+		route.SourceRefs[0].ID = "policy-explicit-route"
+		route.SourceRefs[0].Excerpt = "/plan"
+		route.BoundaryRequests = []PolicyRouteBoundaryRequestView{
+			{Kind: "model_call", Operation: "model.call", Target: "primary model", Reason: "runtime owns model loop"},
+			{Kind: "artifact_access", Operation: "artifact.access", Target: "plan artifact", Reason: "state resolver owns artifact access"},
+		}
+	case "policy-natural-language-route":
+		route.Source = "policy.capability.natural_language"
+		route.Input = "please audit the boundary risks"
+		route.Candidate = "audit"
+		route.Confidence = 86
+		route.Reason = "audit intent matched"
+		route.CurrentPhase = "build"
+		route.RecommendedSuccessor = "audit"
+		route.SuccessorValid = true
+		route.SuccessorReason = "workflow FSM accepted recommended successor"
+		route.SourceRefs[0].ID = "policy-natural-language-route"
+		route.SourceRefs[0].Excerpt = "please audit the boundary risks"
+	case "policy-waiting-route":
+		route.Source = "policy.capability.waiting"
+		route.Input = "help"
+		route.Candidate = "brief"
+		route.Confidence = 42
+		route.Reason = "low confidence capability route"
+		route.NeededInput = "Clarify whether you want a brief, discussion, plan, build, or audit."
+		route.CurrentPhase = "plan"
+		route.RuntimeStatus = "waiting"
+		route.SourceRefs[0].ID = "policy-low-confidence-route"
+		route.SourceRefs[0].Excerpt = "help"
+	case "policy-invalid-successor":
+		route.Source = "policy.capability.successor_validation"
+		route.Input = "capability exit recommended deliberate"
+		route.Candidate = "build"
+		route.Confidence = 100
+		route.Reason = "capability exit successor requires workflow FSM validation"
+		route.CurrentPhase = "build"
+		route.RecommendedSuccessor = "deliberate"
+		route.SuccessorRejected = true
+		route.SuccessorReason = "invalid workflow successor from \"build\" to \"deliberate\": invalid_edge"
+		route.SourceRefs[0].ID = "policy-invalid-successor"
+		route.SourceRefs[0].Kind = "capability_exit"
+		route.SourceRefs[0].Excerpt = "build cannot jump back to deliberate"
+		route.BoundaryRequests = []PolicyRouteBoundaryRequestView{{Kind: "permission_check", Operation: "tool.write", Target: "ROADMAP.md", Reason: "permission owns approval"}}
+	default:
+		t.Fatalf("unknown policy routing fixture %q", name)
+	}
+	state = ApplyPolicyRouteView(state, route)
+	return loadRenderFixture(t, name, state)
+}
+
+func policyRoutingFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "120x44", Width: 120, Height: 44}}
+}
+
 func utilityFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "120x44", Width: 120, Height: 44}}
 }
@@ -3608,6 +3693,103 @@ func commandFixtureMarker(route string) string {
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
 		return "Deterministic placeholder"
+	}
+}
+
+func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		wantRender []string
+		wantRegion []string
+	}{
+		{
+			name:       "policy-explicit-route",
+			wantRender: []string{"Policy routing:", "source: policy.capability.explicit_slash", "candidate: plan", "confidence: 100", "recommended successor: plan", "successor valid: true", "transition claimed: false", "requested effect: model_call operation=model.call target=primary model reason=runtime owns model loop"},
+			wantRegion: []string{"source: policy.capability.explicit_slash", "candidate: plan", "confidence: 100", "recommended_successor: plan", "successor_valid: true", "transition_claimed: false", "boundary_request: artifact_access operation=artifact.access target=plan artifact reason=state resolver owns artifact access"},
+		},
+		{
+			name:       "policy-natural-language-route",
+			wantRender: []string{"Policy routing:", "source: policy.capability.natural_language", "input: please audit the boundary risks", "candidate: audit", "confidence: 86", "current phase: build", "successor valid: true"},
+			wantRegion: []string{"candidate: audit", "confidence: 86", "reason: audit intent matched", "current_phase: build", "transition_claimed: false", "source_ref: policy-natural-language-route kind=prompt excerpt=please audit the boundary risks"},
+		},
+		{
+			name:       "policy-waiting-route",
+			wantRender: []string{"Policy routing:", "source: policy.capability.waiting", "candidate: brief", "confidence: 42", "runtime status: waiting", "needed input: Clarify whether you want a brief, discussion, plan, build, or audit.", "transition claimed: false"},
+			wantRegion: []string{"candidate: brief", "confidence: 42", "runtime_status: waiting", "needed_input: Clarify whether you want a brief, discussion, plan, build, or audit.", "transition_claimed: false"},
+		},
+		{
+			name:       "policy-invalid-successor",
+			wantRender: []string{"Policy routing:", "source: policy.capability.successor_validation", "candidate: build", "recommended successor: deliberate", "successor rejected: true", "invalid workflow successor from", "transition claimed: false", "requested effect: permission_check operation=tool.write target=ROADMAP.md reason=permission owns approval"},
+			wantRegion: []string{"candidate: build", "recommended_successor: deliberate", "successor_rejected: true", "successor_reason: invalid workflow successor from", "transition_claimed: false", "boundary_request: permission_check operation=tool.write target=ROADMAP.md reason=permission owns approval"},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadPolicyRoutingFixture(t, tc.name)
+			assertFixtureSizes(t, fixture, policyRoutingFixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, tc.wantRender) {
+						t.Fatalf("%s policy routing render missing evidence %v:\n%s", tc.name, tc.wantRender, plain)
+					}
+					if containsAny(plain, []string{"provider call executed", "workflow phase changed", "permission approval: true", "artifact mutation: true"}) {
+						t.Fatalf("%s policy routing render leaked execution or transition:\n%s", tc.name, plain)
+					}
+				})
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.PolicyRoute == nil || snapshot.PolicyRoute.TransitionClaimed || snapshot.PolicyRoute.Executed {
+						t.Fatalf("semantic policy route = %+v, want visible non-executing non-transitioning", snapshot.PolicyRoute)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					policyRoute, ok := regions["policy_route"]
+					if !ok || !containsAll(strings.Join(policyRoute.Items, "\n"), tc.wantRegion) {
+						t.Fatalf("%s semantic policy route missing %v in %+v", tc.name, tc.wantRegion, policyRoute)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestPolicyRoutingSemanticSnapshotExposesCandidateWithoutTransition(t *testing.T) {
+	t.Parallel()
+
+	snapshot := Semantic(loadPolicyRoutingFixture(t, "policy-invalid-successor").State, Size{Width: 120, Height: 44})
+	if snapshot.PolicyRoute == nil {
+		t.Fatal("PolicyRoute semantic snapshot is nil")
+	}
+	if snapshot.PolicyRoute.Candidate != "build" || snapshot.PolicyRoute.Confidence != 100 || snapshot.PolicyRoute.RecommendedSuccessor != "deliberate" {
+		t.Fatalf("policy route candidate = %+v", snapshot.PolicyRoute)
+	}
+	if !snapshot.PolicyRoute.SuccessorRejected || snapshot.PolicyRoute.SuccessorValid || snapshot.PolicyRoute.TransitionClaimed || snapshot.PolicyRoute.Executed {
+		t.Fatalf("policy route successor/transition fields = %+v", snapshot.PolicyRoute)
+	}
+	if len(snapshot.PolicyRoute.SourceRefs) != 1 || snapshot.PolicyRoute.SourceRefs[0].Kind != "capability_exit" {
+		t.Fatalf("policy route source refs = %+v", snapshot.PolicyRoute.SourceRefs)
+	}
+	if len(snapshot.PolicyRoute.BoundaryRequests) != 1 || snapshot.PolicyRoute.BoundaryRequests[0].Kind != "permission_check" {
+		t.Fatalf("policy route boundary requests = %+v", snapshot.PolicyRoute.BoundaryRequests)
 	}
 }
 

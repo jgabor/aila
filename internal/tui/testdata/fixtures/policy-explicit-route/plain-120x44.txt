@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: policy routing evidence                                                                                      |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Policy routing:                                                                                                      |
+| source: policy.capability.explicit_slash                                                                             |
+| candidate: plan                                                                                                      |
+| confidence: 100                                                                                                      |
+| current phase: deliberate                                                                                            |
+| transition claimed: false                                                                                            |
+| executed: false                                                                                                      |
+| input: /plan                                                                                                         |
+| reason: exact capability slash route                                                                                 |
+| recommended successor: plan                                                                                          |
+| successor valid: true                                                                                                |
+| successor rejected: false                                                                                            |
+| successor reason: workflow FSM accepted recommended successor                                                        |
+| requested effect: model_call operation=model.call target=primary model reason=runtime owns model loop                |
+| requested effect: artifact_access operation=artifact.access target=plan artifact reason=state resolver owns artifac~ |
+| source ref: policy-explicit-route kind=prompt excerpt=/plan                                                          |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

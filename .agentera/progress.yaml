@@ -1,4 +1,123 @@
 cycles:
+  - number: 219
+    timestamp: "2026-05-17 10:25"
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 45A by adding fixed capability contract types, a
+      closed built-in capability registry, descriptor-only boundary request
+      helpers, exactly-one exit payload enforcement, pure policy capability
+      selectors, successor validation recommendations, and policy-routing TUI
+      render/semantic fixtures for explicit, natural-language, waiting, and
+      invalid-successor states.
+    commit: "local commit: add capability policy boundary"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 45A; README
+      capability table; ARCHITECTURE capability and policy boundaries;
+      docs/workflow-architecture routing and exit payload rules;
+      docs/tui-testing semantic guidance; installed Agentera CLI plan/progress
+      state
+    discovered: >-
+      M45A could stay as a contract-only slice. Capabilities now describe model,
+      tool, permission, artifact, context, and state needs as inert boundary
+      requests, while policy selectors recommend candidates and successor
+      validation outcomes without claiming a workflow transition. The TUI can
+      render policy-routing evidence as app-injected display state and semantic
+      snapshots, so no PTY smoke is required until interactive capability routing
+      behavior is introduced.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/capability -count=1` passed. `go
+      test ./internal/policy -count=1` passed. `go test ./internal/workflow -run
+      'Test.*Successor|Test.*Protocol' -count=1` passed. `AILA_UPDATE_TUI_SNAPSHOTS=1
+      go test ./internal/tui -run TestPolicyRoutingFixtureSnapshots -count=1`
+      generated the new snapshots for review, then `go test ./internal/tui -run
+      'TestPolicyRoutingFixtureSnapshots|TestPolicyRoutingSemanticSnapshotExposesCandidateWithoutTransition|Test.*Policy.*Routing|Test.*Capability.*Routing'
+      -count=1` passed. `go test ./internal/tui -count=1` passed. `go test
+      ./internal/... -count=1` passed. `go test ./cmd/aila -count=1` passed in
+      287.740s. Final `mage check` passed with cmd/aila in 294.208s, internal
+      packages green, 0 lint issues, and no vulnerabilities. ROADMAP.md records
+      M45A complete, M46 next, active milestone none. Installed Agentera CLI
+      plan/progress/lint/hej validation passed after closeout. `git diff --check`
+      passed, and changed-line hygiene found no absolute home paths or new
+      TestM<number> symbols.
+    next: >-
+      Commit the completed M45A slice locally, leaving Milestone 46: Brief
+      Capability as the next roadmap milestone.
+    context:
+      intent: >-
+        Finish the current roadmap milestone first while preserving the
+        planera -> orkestrera -> commit loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M45A; preserve statechart-MVU, runtime/effect/store/FSM
+        authority boundaries, TUI presentation-only behavior, fixed product
+        posture, behavior-based test names, no interactive capability routing,
+        no concrete capability behavior, and no push.
+      unknowns: >-
+        Concrete brief behavior, provider-backed capability loops, capability
+        slash command activation and parity tests, state-store persistence of
+        capability runs, and richer policy scoring remain deferred to M46+.
+      scope: >-
+        internal/capability, internal/policy, internal/tui policy-routing view
+        and fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml,
+        and archived M45 plan inclusion.
+  - number: 218
+    timestamp: "2026-05-17 10:07"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 45A: Capability Contract And Policy Boundary as the next
+      roadmap milestone, archived the completed M45 plan, and created a new
+      active plan with six bounded tasks for capability contracts, policy
+      selectors, TUI routing evidence, boundary regression coverage, validation,
+      roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M45A implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 45A; AGENTS.md; README
+      capability table; ARCHITECTURE capability/policy boundaries;
+      docs/workflow-architecture routing and exit payload sections;
+      docs/tui-testing semantic guidance; installed Agentera CLI hej --format
+      json with planera context
+    discovered: >-
+      M45A should be a contract slice, not a concrete capability implementation.
+      The capability package needs fixed names, registry metadata,
+      request/boundary descriptors, exit signals, and an exactly-once exit guard.
+      The policy package can recommend explicit slash candidates,
+      high-confidence natural-language candidates, low-confidence waiting states,
+      and successor validation outcomes while leaving workflow phase unchanged.
+      TUI evidence can be app-injected policy-routing state and semantic
+      snapshots without interactive command behavior changes.
+    verified: >-
+      Installed Agentera CLI hej with planera context passed; ROADMAP.md top
+      status and M45A section, docs/notes/PROMPT.md, AGENTS.md, README
+      capability table, ARCHITECTURE capability/policy sections,
+      docs/workflow-architecture routing/exit-boundary sections,
+      docs/tui-testing semantic guidance, and current internal/capability,
+      internal/policy, internal/workflow, and internal/tui seams were reviewed
+      before writing the plan. The plan explicitly uses behavior-based test names
+      and forbids new TestM<number> symbols.
+    next: >-
+      Execute M45A Tasks 2-5: add capability contract types and single-exit
+      guard, add pure policy capability selectors and successor validation
+      recommendations, add policy-routing TUI fixture semantics, and add boundary
+      regression tests before validation and roadmap closeout.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after
+        completing M45, selecting M45A and preparing an executable plan before
+        implementation.
+      constraints: >-
+        Execute only M45A; preserve statechart-MVU, runtime/effect/store/FSM
+        authority boundaries, TUI presentation-only behavior, fixed product
+        posture, behavior-based test names, and no push.
+      unknowns: >-
+        Concrete capability behavior, provider-backed capability loops,
+        capability slash command activation and parity tests, state-store
+        persistence of capability runs, and richer policy scoring remain
+        deferred.
+      scope: >-
+        .agentera/plan.yaml replacement,
+        .agentera/archive/plan-2026-05-17-m45.yaml archival, and progress
+        evidence for the M45A planning handoff.
   - number: 217
     timestamp: "2026-05-17 09:57"
     type: build
