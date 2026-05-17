@@ -1,0 +1,44 @@
+Aila                                                                                                                                                      160x45
+Stage BUILD | Runtime idle | Model fake/fake-document | Utility placeholder | Auto write
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-document                                                                                |  | primary model: fake/fake-document      |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: write (display-only)                                                                                   |  | autonomy: write                        |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: document capability status                                                                               |  | detail: document capability status     |
+| active: false                                                                                                    |  | active: false                          |
+| result: Document aligned docs/aila-documentation-output.md through normal mutation safety.                       |  | result: Document aligned docs/aila-do~ |
+|                                                                                                                  |  | display-only                           |
+| Document:                                                                                                        |  | git: placeholder                       |
+| source: app.document.fixture                                                                                     |  | context: current document capability   |
+| capability: document                                                                                             |  |                                        |
+| signal: complete                                                                                                 |  |                                        |
+| phase: build                                                                                                     |  |                                        |
+| target: docs/aila-documentation-output.md title=Aila documentation alignment                                     |  |                                        |
+| plan: document-command-safety summary=Record how the document command keeps documentation aligned without bypas~ |  |                                        |
+| mutation: write status=completed path=docs/aila-documentation-output.md                                          |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| recommended successor: audit                                                                                     |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| summary: Document aligned docs/aila-documentation-output.md through normal mutation safety.                      |  |                                        |
+| source behavior: /document routes documentation writes through mutation safety and records history.              |  |                                        |
+| output: Documented the /document command mutation safety path.                                                   |  |                                        |
+| next action: Audit the documentation alignment before continuing.                                                |  |                                        |
+| caveat: deterministic app-supplied documentation evidence only                                                   |  |                                        |
+| caveat: provider-backed documentation generation deferred                                                        |  |                                        |
+| plan step: identify source behavior from app evidence                                                            |  |                                        |
+| plan step: write docs through mutation tool                                                                      |  |                                        |
+| plan step: persist summary artifact through state store                                                          |  |                                        |
+| changed doc: docs/aila-documentation-output.md status=completed summary=Documented the /document command mutati~ |  |                                        |
+| doc diff: + # Aila Documentation Alignment                                                                       |  |                                        |
+| doc diff: + Capability: document                                                                                 |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                git: placeholder | context: current document capability | q quit

@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime waiting | Model fake/fake-document | Utility placeholder | Auto read                                                                      [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-document                                                                                |  | primary model: fake/fake-document      |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: waiting                        |
+| Runtime status:                                                                                                  |  | detail: document capability status     |
+| status: waiting                                                                                                  |  | active: false                          |
+| detail: document capability status                                                                               |  | result: Document needs a target docum~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: Document needs a target document, source behavior, and alignment plan before writing docs.               |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Document:                                                                                                        |  |                                        |
+| source: app.document.fixture                                                                                     |  |                                        |
+| capability: document                                                                                             |  |                                        |
+| signal: waiting                                                                                                  |  |                                        |
+| phase: build                                                                                                     |  |                                        |
+| target:  title=                                                                                                  |  |                                        |
+| plan:  summary=                                                                                                  |  |                                        |
+| mutation:  status= path=                                                                                         |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| recommended successor:                                                                                           |  |                                        |
+| successor valid: false                                                                                           |  |                                        |
+| summary: Document needs a target document, source behavior, and alignment plan before writing docs.              |  |                                        |
+| needed input: Provide a documentation target, source behavior, and alignment plan before documenting.            |  |                                        |
+| next action: Provide documentation alignment evidence, then run document again.                                  |  |                                        |
+| caveat: documentation alignment evidence unavailable until target, behavior source, and plan are provided        |  |                                        |
+| decision allowed: false                                                                                          |  |                                        |
+| approval required: false                                                                                         |  |                                        |
+| bytes written: 0                                                                                                 |  |                                        |
+| requested boundary: state_access operation=state.access target=documentation.current reason=document uses app-s~ |  |                                        |
+| requested boundary: tool_execution operation=write target=planned documentation target reason=document writes d~ |  |                                        |
+| source ref: document-command kind=command command=/document excerpt=waiting for documentation evidence           |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

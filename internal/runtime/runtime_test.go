@@ -493,6 +493,53 @@ func TestUpdateRoutesOptimizeCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesDocumentCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "document-docs",
+		Capability: capability.NameDocument,
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.DocumentMetadataTargetPath:       "docs/aila-documentation-output.md",
+			capability.DocumentMetadataSourceBehavior:   "/document routes docs through mutation safety.",
+			capability.DocumentMetadataPlanSummary:      "Record the document safety path.",
+			capability.DocumentMetadataToolStatus:       "completed",
+			capability.DocumentMetadataDecisionAllowed:  "true",
+			capability.DocumentMetadataDecisionAutonomy: "write",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameDocument {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "document", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameDocument || completed.Payload.RecommendedSuccessor != workflow.PhaseAudit || completed.Payload.Document == nil {
+		t.Fatalf("document payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameDocument || model.LastCapability.Document == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestUpdateRoutesAuditCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

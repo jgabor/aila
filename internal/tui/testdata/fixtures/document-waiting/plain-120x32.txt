@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime waiting | Model fake/fake-document | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-document                                                                                    |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: waiting                                                                                                      |
+| detail: document capability status                                                                                   |
+| active: false                                                                                                        |
+| result: Document needs a target document, source behavior, and alignment plan before writing docs.                   |
+|                                                                                                                      |
+| Document:                                                                                                            |
+| source: app.document.fixture                                                                                         |
+| capability: document                                                                                                 |
+| signal: waiting                                                                                                      |
+| phase: build                                                                                                         |
+| target:  title=                                                                                                      |
+| plan:  summary=                                                                                                      |
+| mutation:  status= path=                                                                                             |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| recommended successor:                                                                                               |
+| successor valid: false                                                                                               |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

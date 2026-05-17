@@ -1,0 +1,166 @@
+{
+  "scenario": "document-waiting",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "waiting",
+    "status_detail": "document capability status",
+    "runtime_result": "Document needs a target document, source behavior, and alignment plan before writing docs.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-document",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "document": {
+    "visible": true,
+    "source": "app.document.fixture",
+    "capability": "document",
+    "signal": "waiting",
+    "current_phase": "build",
+    "summary": "Document needs a target document, source behavior, and alignment plan before writing docs.",
+    "successor_valid": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "target": {
+      "path": ""
+    },
+    "plan": {
+      "id": ""
+    },
+    "mutation": {
+      "tool_name": "",
+      "status": "",
+      "path": "",
+      "decision_allowed": false,
+      "approval_required": false,
+      "bytes_written": 0
+    },
+    "caveats": [
+      "documentation alignment evidence unavailable until target, behavior source, and plan are provided"
+    ],
+    "needed_input": "Provide a documentation target, source behavior, and alignment plan before documenting.",
+    "next_action": "Provide documentation alignment evidence, then run document again.",
+    "source_refs": [
+      {
+        "id": "document-command",
+        "kind": "command",
+        "command": "/document",
+        "excerpt": "waiting for documentation evidence"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "documentation.current",
+        "reason": "document uses app-supplied documentation alignment evidence"
+      },
+      {
+        "kind": "tool_execution",
+        "operation": "write",
+        "target": "planned documentation target",
+        "reason": "document writes docs through the runtime mutation tool effect"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-document",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-document",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: document capability status",
+        "active: false",
+        "result: Document needs a target document, source behavior, and alignment plan before writing docs.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "document",
+      "visible": true,
+      "items": [
+        "source: app.document.fixture",
+        "capability: document",
+        "signal: waiting",
+        "phase: build",
+        "target: ",
+        "source_behavior: ",
+        "plan:  summary=",
+        "mutation:  status= path=",
+        "decision_allowed: false",
+        "approval_required: false",
+        "recommended_successor: ",
+        "successor_valid: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Document needs a target document, source behavior, and alignment plan before writing docs.",
+        "needed_input: Provide a documentation target, source behavior, and alignment plan before documenting.",
+        "next_action: Provide documentation alignment evidence, then run document again.",
+        "caveat: documentation alignment evidence unavailable until target, behavior source, and plan are provided",
+        "boundary_request: state_access operation=state.access target=documentation.current reason=document uses app-supplied documentation alignment evidence",
+        "boundary_request: tool_execution operation=write target=planned documentation target reason=document writes docs through the runtime mutation tool effect",
+        "source_ref: document-command kind=command command=/document excerpt=waiting for documentation evidence"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

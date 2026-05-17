@@ -101,6 +101,11 @@ func (runner *inputRunner) proposeCapability(request capability.Request) tui.Tra
 		if turn.Optimize != nil {
 			turn.StatusDetail = "optimize capability status"
 		}
+	case capability.NameDocument:
+		turn.Document = documentView(runner.model.LastCapability, request.Phase, documentArtifactPersistence{})
+		if turn.Document != nil {
+			turn.StatusDetail = "document capability status"
+		}
 	case capability.NameAudit:
 		turn.Audit = auditView(runner.model.LastCapability, request.Phase)
 		if turn.Audit != nil {

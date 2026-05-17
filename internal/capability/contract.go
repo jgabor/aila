@@ -217,6 +217,7 @@ type ExitPayload struct {
 	Research             *ResearchOutput
 	Profile              *ProfileOutput
 	Optimize             *OptimizeOutput
+	Document             *DocumentOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -350,6 +351,16 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		optimize.Caveats = append([]string(nil), payload.Optimize.Caveats...)
 		optimize.SourceRefs = append([]SourceRef(nil), payload.Optimize.SourceRefs...)
 		payload.Optimize = &optimize
+	}
+
+	if payload.Document != nil {
+		document := *payload.Document
+		document.Plan.Steps = append([]string(nil), payload.Document.Plan.Steps...)
+		document.ChangedDocs = append([]DocumentChange(nil), payload.Document.ChangedDocs...)
+		document.DiffLines = append([]string(nil), payload.Document.DiffLines...)
+		document.Caveats = append([]string(nil), payload.Document.Caveats...)
+		document.SourceRefs = append([]SourceRef(nil), payload.Document.SourceRefs...)
+		payload.Document = &document
 	}
 
 	if payload.Profile != nil {

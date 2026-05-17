@@ -1,0 +1,94 @@
+{
+  "scenario": "document-command",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "command": {
+    "route": "document",
+    "route_source": "policy.command",
+    "surface": "document",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "document",
+        "command route: document",
+        "route source: policy.command",
+        "app-owned document alignment unavailable in presentation-only fallback",
+        "read-only: false",
+        "capability: document"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: idle",
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "git: placeholder",
+        "context: placeholder"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

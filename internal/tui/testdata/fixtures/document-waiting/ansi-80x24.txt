@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime waiting | Model fake/fake-document | Utility placeholder ~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-document                                            |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: document capability status                                           |
+| active: false                                                                |
+| result: Document needs a target document, source behavior, and alignment pl~ |
+|                                                                              |
+| Document:                                                                    |
+| source: app.document.fixture                                                 |
+| capability: document                                                         |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m

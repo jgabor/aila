@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-document | Utility placeholder | Auto write                                [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-document                                                                                    |
+| utility model: placeholder                                                                                           |
+| autonomy: write (display-only)                                                                                       |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: document capability status                                                                                   |
+| active: false                                                                                                        |
+| result: Document aligned docs/aila-documentation-output.md through normal mutation safety.                           |
+|                                                                                                                      |
+| Document:                                                                                                            |
+| source: app.document.fixture                                                                                         |
+| capability: document                                                                                                 |
+| signal: complete                                                                                                     |
+| phase: build                                                                                                         |
+| target: docs/aila-documentation-output.md title=Aila documentation alignment                                         |
+| plan: document-command-safety summary=Record how the document command keeps documentation aligned without bypass wr~ |
+| mutation: write status=completed path=docs/aila-documentation-output.md                                              |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| recommended successor: audit                                                                                         |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                        git: placeholder | context: current document capability | q quit[0m

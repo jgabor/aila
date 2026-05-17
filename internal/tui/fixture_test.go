@@ -2620,7 +2620,7 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3615,6 +3615,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		{name: "plan-command", input: "/plan", route: policy.CommandRoutePlan},
 		{name: "build-command", input: "/build", route: policy.CommandRouteBuild},
 		{name: "optimize-command", input: "/optimize", route: policy.CommandRouteOptimize},
+		{name: "document-command", input: "/document", route: policy.CommandRouteDocument},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3637,7 +3638,7 @@ func TestCommandFixtureSet(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3704,6 +3705,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned build execution unavailable in presentation-only fallback"
 	case "optimize":
 		return "app-owned optimize execution unavailable in presentation-only fallback"
+	case "document":
+		return "app-owned document alignment unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -4698,6 +4701,141 @@ func optimizeWaitingFixtureState() ViewState {
 		DisplayOnly:       true,
 		SourceRefs:        []OptimizeSourceRefView{{ID: "optimize-command", Kind: "command", Command: "/optimize", Excerpt: "waiting for metric evidence"}},
 		BoundaryRequests:  []OptimizeBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "objective.current", Reason: "optimize uses app-supplied objective state"}, {Kind: "tool_execution", Operation: "bash", Target: "locked metric harness", Reason: "optimize execution stays on the normal tool effect path"}},
+	}
+	return state
+}
+
+func TestDocumentOutputFixtureShowsPlanDiffChangedDocsAndCaveats(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "document-output", documentOutputFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Document:", "capability: document"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "target: docs/aila-documentation-output.md", "plan: document-command-safety", "mutation: write status=completed", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "output: Documented the /document command mutation safety path.", "changed doc: docs/aila-documentation-output.md", "doc diff: + # Aila Documentation Alignment", "caveat: deterministic app-supplied documentation evidence only", "next action: Audit the documentation alignment before continuing.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("document-output render missing documentation evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Document == nil || snapshot.Document.Target.Path != "docs/aila-documentation-output.md" || snapshot.Document.Plan.ID != "document-command-safety" || len(snapshot.Document.ChangedDocs) != 1 || len(snapshot.Document.DiffLines) != 3 || len(snapshot.Document.Caveats) != 2 || snapshot.Document.Mutation.Status != "completed" || !snapshot.Document.Mutation.DecisionAllowed || snapshot.Document.RecommendedSuccessor != "audit" || snapshot.Document.TransitionClaimed || !snapshot.Document.DisplayOnly {
+			t.Fatalf("document semantic = %+v", snapshot.Document)
+		}
+	}
+}
+
+func TestDocumentWaitingFixtureShowsNeededInputWithoutChangedDocs(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "document-waiting", documentWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Document:", "capability: document", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "target:  title=", "plan:  summary=", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Provide a documentation target, source behavior, and alignment plan before documenting.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("document-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Document == nil || snapshot.Document.Signal != "waiting" || snapshot.Document.NeededInput == "" || len(snapshot.Document.ChangedDocs) != 0 || len(snapshot.Document.DiffLines) != 0 || snapshot.Document.RecommendedSuccessor != "" || snapshot.Document.TransitionClaimed || !snapshot.Document.DisplayOnly {
+			t.Fatalf("document waiting semantic = %+v", snapshot.Document)
+		}
+	}
+}
+
+func documentOutputFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "document-output"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-document"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "write"
+	state.StatusDetail = "document capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Document aligned docs/aila-documentation-output.md through normal mutation safety."
+	state.FooterContext = "current document capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Document = &DocumentView{
+		Source:               "app.document.fixture",
+		Capability:           "document",
+		Signal:               "complete",
+		CurrentPhase:         "build",
+		Summary:              "Document aligned docs/aila-documentation-output.md through normal mutation safety.",
+		RecommendedSuccessor: "audit",
+		SuccessorValid:       true,
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		Target:               DocumentTargetView{Path: "docs/aila-documentation-output.md", Title: "Aila documentation alignment", SourceBehavior: "/document routes documentation writes through mutation safety and records history."},
+		Plan:                 DocumentPlanView{ID: "document-command-safety", Summary: "Record how the document command keeps documentation aligned without bypass writes.", Steps: []string{"identify source behavior from app evidence", "write docs through mutation tool", "persist summary artifact through state store"}},
+		OutputSummary:        "Documented the /document command mutation safety path.",
+		ChangedDocs:          []DocumentChangeView{{Path: "docs/aila-documentation-output.md", Status: "completed", Summary: "Documented the /document command mutation safety path."}},
+		DiffLines:            []string{"+ # Aila Documentation Alignment", "+ Capability: document", "+ Target behavior: /document routes documentation writes through mutation safety."},
+		Mutation:             DocumentMutationView{Name: "write", Status: "completed", Path: "docs/aila-documentation-output.md", ExpectedEffect: "create bounded documentation alignment output", DecisionSource: "autonomy_policy", DecisionAutonomy: "write", DecisionAllowed: true, ApprovalRequired: false, BytesWritten: 340},
+		Caveats:              []string{"deterministic app-supplied documentation evidence only", "provider-backed documentation generation deferred"},
+		NextAction:           "Audit the documentation alignment before continuing.",
+		DocumentArtifactPath: ".aila/artifacts/documentation.md",
+		ArtifactStatus:       "written",
+		ArtifactRefs:         []DocumentArtifactRefView{{ID: "document-target", Kind: "workspace_document", Path: "docs/aila-documentation-output.md"}, {ID: "documentation-artifact", Kind: "documentation", Path: ".aila/artifacts/documentation.md"}},
+		SourceRefs:           []DocumentSourceRefView{{ID: "document-command", Kind: "command", Command: "/document", Excerpt: "app-owned document command"}, {ID: "document-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "document is BUILD-owned"}, {ID: "document-mutation-result", Kind: "tool_result", Path: "docs/aila-documentation-output.md", Excerpt: "documentation write completed"}},
+		BoundaryRequests:     []DocumentBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "documentation.current", Reason: "document uses app-supplied documentation alignment evidence"}, {Kind: "tool_execution", Operation: "write", Target: "docs/aila-documentation-output.md", Reason: "document writes docs through the runtime mutation tool effect"}, {Kind: "permission_check", Operation: "write", Target: "docs/aila-documentation-output.md", Reason: "document requires the permission gate before workspace documentation mutation"}, {Kind: "state_write", Operation: "state.write", Target: "documentation", Reason: "state store records durable documentation alignment output"}},
+	}
+	return state
+}
+
+func documentWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "document-waiting"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-document"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "document capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Document needs a target document, source behavior, and alignment plan before writing docs."
+	state.Document = &DocumentView{
+		Source:            "app.document.fixture",
+		Capability:        "document",
+		Signal:            "waiting",
+		CurrentPhase:      "build",
+		Summary:           "Document needs a target document, source behavior, and alignment plan before writing docs.",
+		NeededInput:       "Provide a documentation target, source behavior, and alignment plan before documenting.",
+		Caveats:           []string{"documentation alignment evidence unavailable until target, behavior source, and plan are provided"},
+		NextAction:        "Provide documentation alignment evidence, then run document again.",
+		TransitionClaimed: false,
+		DisplayOnly:       true,
+		SourceRefs:        []DocumentSourceRefView{{ID: "document-command", Kind: "command", Command: "/document", Excerpt: "waiting for documentation evidence"}},
+		BoundaryRequests:  []DocumentBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "documentation.current", Reason: "document uses app-supplied documentation alignment evidence"}, {Kind: "tool_execution", Operation: "write", Target: "planned documentation target", Reason: "document writes docs through the runtime mutation tool effect"}},
 	}
 	return state
 }

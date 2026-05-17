@@ -2370,6 +2370,119 @@ func TestOptimizeCommandPersistsMetricArtifactsPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestDocumentCommandWritesDocsThroughMutationPathPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nDocument command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed document PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/document\r")); err != nil {
+		t.Fatalf("send /document command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Document aligned docs/aila-documentation-output.md",
+		"Document:",
+		"source: app.document",
+		"capability: document",
+		"signal: complete",
+		"phase: build",
+		"target: docs/aila-documentation-output.md",
+		"plan: document-command-safety",
+		"mutation: write status=completed path=docs/aila-documentation-output.md",
+		"transition claimed: false",
+		"display-only: true",
+		"recommended successor: audit",
+		"output: Documented the /document command mutation safety path.",
+		"changed doc: docs/aila-documentation-output.md status=completed",
+		"doc diff: + # Aila Documentation Alignment",
+		"caveat: deterministic app-supplied documentation evidence only",
+		"artifact status: written",
+		"requested boundary: tool_execution operation=write target=docs/aila-documentation-output.md",
+		"requested boundary: permission_check operation=write target=docs/aila-documentation-output.md",
+		"source ref: document-command kind=command command=/document",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "Discuss:", "Research:", "Profile:", "Optimize:", "Design:", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("document PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	document, err := os.ReadFile(filepath.Join(workspace, "docs", "aila-documentation-output.md"))
+	if err != nil {
+		t.Fatalf("read document output: %v", err)
+	}
+	for _, want := range []string{"# Aila Documentation Alignment", "Capability: document", "Target behavior: /document routes documentation writes through mutation safety."} {
+		if !strings.Contains(string(document), want) {
+			t.Fatalf("document output missing %q in:\n%s", want, document)
+		}
+	}
+	artifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "documentation.md"))
+	if err != nil {
+		t.Fatalf("read documentation artifact: %v", err)
+	}
+	for _, want := range []string{"# Documentation Alignment", "Target: docs/aila-documentation-output.md", "Documented the /document command mutation safety path."} {
+		if !strings.Contains(string(artifact), want) {
+			t.Fatalf("documentation artifact missing %q in:\n%s", want, artifact)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("document PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("document PTY changed build output git status: %q", docsStatus)
+	}
+	assertDocumentCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit input after document command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("document command PTY returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatalf("document command PTY did not exit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(2 * time.Second):
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -3521,6 +3634,51 @@ func assertOptimizeCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawOptimizeCommand || !sawOptimizeRuntime {
 		t.Fatalf("optimize command history markers command=%v runtime=%v events=%+v", sawOptimizeCommand, sawOptimizeRuntime, history.Events)
+	}
+}
+
+func assertDocumentCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open document command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read document command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("document command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || snapshot.Snapshot.Runtime.Detail != "document capability status" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Document aligned docs/aila-documentation-output.md") {
+		t.Fatalf("document command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read document command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("document command history state = %q, want loaded", history.State)
+	}
+	var sawDocumentCommand, sawDocumentRuntime, sawMutation bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "document via slash" {
+			sawDocumentCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Document aligned docs/aila-documentation-output.md") {
+			sawDocumentRuntime = true
+		}
+		if event.Kind == historypkg.EventKindMutation && event.Mutation != nil && event.Mutation.RequestID == "document-alignment" {
+			sawMutation = true
+			if event.Mutation.ToolName != "write" || event.Mutation.Status != "completed" || !reflect.DeepEqual(event.Mutation.ChangedPaths, []string{"docs/aila-documentation-output.md"}) || event.Mutation.CommandSource != "document" || event.Undo == nil || !event.Undo.Available || event.Undo.Action != "delete_created_file" {
+				t.Fatalf("document command mutation history = mutation=%+v undo=%+v", event.Mutation, event.Undo)
+			}
+		}
+	}
+	if !sawDocumentCommand || !sawDocumentRuntime || !sawMutation {
+		t.Fatalf("document command history markers command=%v runtime=%v mutation=%v events=%+v", sawDocumentCommand, sawDocumentRuntime, sawMutation, history.Events)
 	}
 }
 

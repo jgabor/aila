@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model fake/fake-document | Utility placeholder | A~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-document                                            |
+| utility model: placeholder                                                   |
+| autonomy: write (display-only)                                               |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: document capability status                                           |
+| active: false                                                                |
+| result: Document aligned docs/aila-documentation-output.md through normal m~ |
+|                                                                              |
+| Document:                                                                    |
+| source: app.document.fixture                                                 |
+| capability: document                                                         |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                git: placeholder | context: current document capability | q quit

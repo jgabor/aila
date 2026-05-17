@@ -72,6 +72,7 @@ type ViewState struct {
 	Research           *ResearchView
 	Profile            *ProfileView
 	Optimize           *OptimizeView
+	Document           *DocumentView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -484,6 +485,93 @@ type OptimizeSourceRefView struct {
 
 // OptimizeBoundaryRequestView records one inert optimize boundary descriptor.
 type OptimizeBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
+// DocumentView is app-injected documentation alignment output.
+type DocumentView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	CurrentPhase         string
+	Summary              string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	Target               DocumentTargetView
+	Plan                 DocumentPlanView
+	OutputSummary        string
+	ChangedDocs          []DocumentChangeView
+	DiffLines            []string
+	Mutation             DocumentMutationView
+	Caveats              []string
+	NeededInput          string
+	NextAction           string
+	DocumentArtifactPath string
+	ArtifactStatus       string
+	ArtifactRefs         []DocumentArtifactRefView
+	SourceRefs           []DocumentSourceRefView
+	BoundaryRequests     []DocumentBoundaryRequestView
+}
+
+// DocumentTargetView records the bounded documentation target.
+type DocumentTargetView struct {
+	Path           string
+	Title          string
+	SourceBehavior string
+}
+
+// DocumentPlanView records the documentation alignment plan.
+type DocumentPlanView struct {
+	ID      string
+	Summary string
+	Steps   []string
+}
+
+// DocumentChangeView records one changed documentation file.
+type DocumentChangeView struct {
+	Path    string
+	Status  string
+	Summary string
+}
+
+// DocumentMutationView records mutation safety evidence for a doc write.
+type DocumentMutationView struct {
+	Name             string
+	Status           string
+	Path             string
+	ExpectedEffect   string
+	DecisionSource   string
+	DecisionAutonomy string
+	DecisionAllowed  bool
+	ApprovalRequired bool
+	BytesWritten     int
+	ErrorKind        string
+	ErrorMessage     string
+}
+
+// DocumentArtifactRefView records one document artifact reference.
+type DocumentArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// DocumentSourceRefView records one source reference supporting document output.
+type DocumentSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// DocumentBoundaryRequestView records one inert document boundary descriptor.
+type DocumentBoundaryRequestView struct {
 	Kind      string
 	Operation string
 	Target    string
@@ -1005,6 +1093,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, researchLines(state.Research)...)
 	items = append(items, profileLines(state.Profile)...)
 	items = append(items, optimizeLines(state.Optimize)...)
+	items = append(items, documentLines(state.Document)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1723,6 +1812,114 @@ func planLines(plan *PlanView) []string {
 	}
 	lines = append(lines, "  app-owned", "  display-only", "")
 	return lines
+}
+
+func documentLines(document *DocumentView) []string {
+	if document == nil {
+		return nil
+	}
+	semantic := semanticDocument(document)
+	lines := []string{
+		"  Document:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  phase: " + semantic.CurrentPhase,
+		"  target: " + semantic.Target.Path + " title=" + semantic.Target.Title,
+		"  plan: " + semantic.Plan.ID + " summary=" + semantic.Plan.Summary,
+		"  mutation: " + semantic.Mutation.Name + " status=" + semantic.Mutation.Status + " path=" + semantic.Mutation.Path,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.Target.SourceBehavior != "" {
+		lines = append(lines, "  source behavior: "+semantic.Target.SourceBehavior)
+	}
+	if semantic.OutputSummary != "" {
+		lines = append(lines, "  output: "+semantic.OutputSummary)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	for _, step := range semantic.Plan.Steps {
+		lines = append(lines, "  plan step: "+step)
+	}
+	for _, change := range semantic.ChangedDocs {
+		lines = append(lines, "  changed doc: "+change.Path+" status="+change.Status+" summary="+change.Summary)
+	}
+	for _, line := range semantic.DiffLines {
+		lines = append(lines, "  doc diff: "+line)
+	}
+	if semantic.Mutation.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.Mutation.ExpectedEffect)
+	}
+	if semantic.Mutation.DecisionSource != "" {
+		lines = append(lines, "  decision source: "+semantic.Mutation.DecisionSource)
+	}
+	if semantic.Mutation.DecisionAutonomy != "" {
+		lines = append(lines, "  decision autonomy: "+semantic.Mutation.DecisionAutonomy)
+	}
+	lines = append(lines,
+		"  decision allowed: "+boolLabel(semantic.Mutation.DecisionAllowed),
+		"  approval required: "+boolLabel(semantic.Mutation.ApprovalRequired),
+		"  bytes written: "+fmt.Sprint(semantic.Mutation.BytesWritten),
+	)
+	if semantic.Mutation.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.Mutation.ErrorKind)
+	}
+	if semantic.Mutation.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.Mutation.ErrorMessage)
+	}
+	if semantic.ArtifactStatus != "" {
+		lines = append(lines, "  artifact status: "+semantic.ArtifactStatus)
+	}
+	if semantic.DocumentArtifactPath != "" {
+		lines = append(lines, "  documentation artifact: "+semantic.DocumentArtifactPath)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "")
 }
 
 func optimizeLines(optimize *OptimizeView) []string {
@@ -2910,6 +3107,7 @@ type SemanticSnapshot struct {
 	Research       *SemanticResearch       `json:"research,omitempty"`
 	Profile        *SemanticProfile        `json:"profile,omitempty"`
 	Optimize       *SemanticOptimize       `json:"optimize,omitempty"`
+	Document       *SemanticDocument       `json:"document,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3509,6 +3707,94 @@ type SemanticOptimizeSourceRef struct {
 
 // SemanticOptimizeBoundaryRequest records one inert optimize boundary descriptor.
 type SemanticOptimizeBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// SemanticDocument describes app-injected documentation alignment output.
+type SemanticDocument struct {
+	Visible              bool                              `json:"visible"`
+	Source               string                            `json:"source"`
+	Capability           string                            `json:"capability"`
+	Signal               string                            `json:"signal"`
+	CurrentPhase         string                            `json:"current_phase,omitempty"`
+	Summary              string                            `json:"summary,omitempty"`
+	RecommendedSuccessor string                            `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                              `json:"successor_valid"`
+	TransitionClaimed    bool                              `json:"transition_claimed"`
+	DisplayOnly          bool                              `json:"display_only"`
+	Target               SemanticDocumentTarget            `json:"target"`
+	Plan                 SemanticDocumentPlan              `json:"plan"`
+	OutputSummary        string                            `json:"output_summary,omitempty"`
+	ChangedDocs          []SemanticDocumentChange          `json:"changed_docs,omitempty"`
+	DiffLines            []string                          `json:"diff_lines,omitempty"`
+	Mutation             SemanticDocumentMutation          `json:"mutation"`
+	Caveats              []string                          `json:"caveats,omitempty"`
+	NeededInput          string                            `json:"needed_input,omitempty"`
+	NextAction           string                            `json:"next_action,omitempty"`
+	DocumentArtifactPath string                            `json:"document_artifact_path,omitempty"`
+	ArtifactStatus       string                            `json:"artifact_status,omitempty"`
+	ArtifactRefs         []SemanticDocumentArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticDocumentSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticDocumentBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticDocumentTarget records the bounded documentation target.
+type SemanticDocumentTarget struct {
+	Path           string `json:"path"`
+	Title          string `json:"title,omitempty"`
+	SourceBehavior string `json:"source_behavior,omitempty"`
+}
+
+// SemanticDocumentPlan records the documentation alignment plan.
+type SemanticDocumentPlan struct {
+	ID      string   `json:"id"`
+	Summary string   `json:"summary,omitempty"`
+	Steps   []string `json:"steps,omitempty"`
+}
+
+// SemanticDocumentChange records one changed documentation file.
+type SemanticDocumentChange struct {
+	Path    string `json:"path"`
+	Status  string `json:"status"`
+	Summary string `json:"summary,omitempty"`
+}
+
+// SemanticDocumentMutation records mutation safety evidence for a doc write.
+type SemanticDocumentMutation struct {
+	Name             string `json:"tool_name"`
+	Status           string `json:"status"`
+	Path             string `json:"path"`
+	ExpectedEffect   string `json:"expected_effect,omitempty"`
+	DecisionSource   string `json:"decision_source,omitempty"`
+	DecisionAutonomy string `json:"decision_autonomy,omitempty"`
+	DecisionAllowed  bool   `json:"decision_allowed"`
+	ApprovalRequired bool   `json:"approval_required"`
+	BytesWritten     int    `json:"bytes_written"`
+	ErrorKind        string `json:"error_kind,omitempty"`
+	ErrorMessage     string `json:"error_message,omitempty"`
+}
+
+// SemanticDocumentArtifactRef records one document artifact ref.
+type SemanticDocumentArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticDocumentSourceRef records one document source reference.
+type SemanticDocumentSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticDocumentBoundaryRequest records one inert document boundary descriptor.
+type SemanticDocumentBoundaryRequest struct {
 	Kind      string `json:"kind"`
 	Operation string `json:"operation,omitempty"`
 	Target    string `json:"target,omitempty"`
@@ -4250,6 +4536,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Optimize != nil {
 		regions = append(regions, SemanticRegion{Name: "optimize", Visible: true, Items: semanticOptimizeItems(state.Optimize)})
 	}
+	if state.Document != nil {
+		regions = append(regions, SemanticRegion{Name: "document", Visible: true, Items: semanticDocumentItems(state.Document)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -4347,6 +4636,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Research:       semanticResearch(state.Research),
 		Profile:        semanticProfile(state.Profile),
 		Optimize:       semanticOptimize(state.Optimize),
+		Document:       semanticDocument(state.Document),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -5938,6 +6228,150 @@ func semanticAudit(audit *AuditView) *SemanticAudit {
 		NextActions:          safeTextSlice(audit.NextActions),
 		Caveats:              safeTextSlice(audit.Caveats),
 		ArtifactRefs:         artifactRefs,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticDocumentItems(document *DocumentView) []string {
+	semantic := semanticDocument(document)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"phase: " + semantic.CurrentPhase,
+		"target: " + semantic.Target.Path,
+		"source_behavior: " + semantic.Target.SourceBehavior,
+		"plan: " + semantic.Plan.ID + " summary=" + semantic.Plan.Summary,
+		"mutation: " + semantic.Mutation.Name + " status=" + semantic.Mutation.Status + " path=" + semantic.Mutation.Path,
+		"decision_allowed: " + boolLabel(semantic.Mutation.DecisionAllowed),
+		"approval_required: " + boolLabel(semantic.Mutation.ApprovalRequired),
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.OutputSummary != "" {
+		items = append(items, "output_summary: "+semantic.OutputSummary)
+	}
+	for _, step := range semantic.Plan.Steps {
+		items = append(items, "plan_step: "+step)
+	}
+	for _, change := range semantic.ChangedDocs {
+		items = append(items, "changed_doc: "+change.Path+" status="+change.Status+" summary="+change.Summary)
+	}
+	for _, line := range semantic.DiffLines {
+		items = append(items, "doc_diff: "+line)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	if semantic.ArtifactStatus != "" {
+		items = append(items, "artifact_status: "+semantic.ArtifactStatus)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticDocument(document *DocumentView) *SemanticDocument {
+	if document == nil {
+		return nil
+	}
+	changes := make([]SemanticDocumentChange, 0, len(document.ChangedDocs))
+	for _, change := range document.ChangedDocs {
+		changes = append(changes, SemanticDocumentChange{Path: safeText(change.Path), Status: safeText(change.Status), Summary: safeText(change.Summary)})
+	}
+	artifacts := make([]SemanticDocumentArtifactRef, 0, len(document.ArtifactRefs))
+	for _, ref := range document.ArtifactRefs {
+		artifacts = append(artifacts, SemanticDocumentArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticDocumentSourceRef, 0, len(document.SourceRefs))
+	for _, ref := range document.SourceRefs {
+		refs = append(refs, SemanticDocumentSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticDocumentBoundaryRequest, 0, len(document.BoundaryRequests))
+	for _, request := range document.BoundaryRequests {
+		requests = append(requests, SemanticDocumentBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticDocument{
+		Visible:              true,
+		Source:               safeText(defaultString(document.Source, "app.document")),
+		Capability:           safeText(defaultString(document.Capability, "document")),
+		Signal:               safeText(defaultString(document.Signal, "complete")),
+		CurrentPhase:         safeText(document.CurrentPhase),
+		Summary:              safeText(document.Summary),
+		RecommendedSuccessor: safeText(document.RecommendedSuccessor),
+		SuccessorValid:       document.SuccessorValid,
+		TransitionClaimed:    document.TransitionClaimed,
+		DisplayOnly:          document.DisplayOnly,
+		Target:               SemanticDocumentTarget{Path: safeText(document.Target.Path), Title: safeText(document.Target.Title), SourceBehavior: safeText(document.Target.SourceBehavior)},
+		Plan:                 SemanticDocumentPlan{ID: safeText(document.Plan.ID), Summary: safeText(document.Plan.Summary), Steps: safeTextSlice(document.Plan.Steps)},
+		OutputSummary:        safeText(document.OutputSummary),
+		ChangedDocs:          changes,
+		DiffLines:            safeTextSlice(document.DiffLines),
+		Mutation: SemanticDocumentMutation{
+			Name:             safeText(document.Mutation.Name),
+			Status:           safeText(document.Mutation.Status),
+			Path:             safeText(document.Mutation.Path),
+			ExpectedEffect:   safeText(document.Mutation.ExpectedEffect),
+			DecisionSource:   safeText(document.Mutation.DecisionSource),
+			DecisionAutonomy: safeText(document.Mutation.DecisionAutonomy),
+			DecisionAllowed:  document.Mutation.DecisionAllowed,
+			ApprovalRequired: document.Mutation.ApprovalRequired,
+			BytesWritten:     document.Mutation.BytesWritten,
+			ErrorKind:        safeText(document.Mutation.ErrorKind),
+			ErrorMessage:     safeText(document.Mutation.ErrorMessage),
+		},
+		Caveats:              safeTextSlice(document.Caveats),
+		NeededInput:          safeText(document.NeededInput),
+		NextAction:           safeText(document.NextAction),
+		DocumentArtifactPath: safeText(document.DocumentArtifactPath),
+		ArtifactStatus:       safeText(document.ArtifactStatus),
+		ArtifactRefs:         artifacts,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}

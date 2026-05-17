@@ -61,6 +61,7 @@ type TranscriptTurn struct {
 	Research           *ResearchView
 	Profile            *ProfileView
 	Optimize           *OptimizeView
+	Document           *DocumentView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -685,6 +686,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Optimize != nil {
 		state.Optimize = cloneOptimizeView(turn.Optimize)
 	}
+	if turn.Document != nil {
+		state.Document = cloneDocumentView(turn.Document)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -830,6 +834,21 @@ func cloneOptimizeView(optimize *OptimizeView) *OptimizeView {
 	clone.ArtifactRefs = append([]OptimizeArtifactRefView(nil), optimize.ArtifactRefs...)
 	clone.SourceRefs = append([]OptimizeSourceRefView(nil), optimize.SourceRefs...)
 	clone.BoundaryRequests = append([]OptimizeBoundaryRequestView(nil), optimize.BoundaryRequests...)
+	return &clone
+}
+
+func cloneDocumentView(document *DocumentView) *DocumentView {
+	if document == nil {
+		return nil
+	}
+	clone := *document
+	clone.Plan.Steps = append([]string(nil), document.Plan.Steps...)
+	clone.ChangedDocs = append([]DocumentChangeView(nil), document.ChangedDocs...)
+	clone.DiffLines = append([]string(nil), document.DiffLines...)
+	clone.Caveats = append([]string(nil), document.Caveats...)
+	clone.ArtifactRefs = append([]DocumentArtifactRefView(nil), document.ArtifactRefs...)
+	clone.SourceRefs = append([]DocumentSourceRefView(nil), document.SourceRefs...)
+	clone.BoundaryRequests = append([]DocumentBoundaryRequestView(nil), document.BoundaryRequests...)
 	return &clone
 }
 
@@ -1098,6 +1117,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"app-owned optimize execution unavailable in presentation-only fallback",
 			"read-only: false",
 			"capability: optimize",
+		}
+	case policy.CommandRouteDocument:
+		state.SurfaceTitle = "document"
+		state.SurfaceLines = []string{
+			"app-owned document alignment unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: document",
 		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"

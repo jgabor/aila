@@ -1,0 +1,29 @@
+[1mAila                                                                                          100x30[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder                             [0m
++ [33mConversation[0m ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| document:                                                                                        |
+| command route: document                                                                          |
+| route source: policy.command                                                                     |
+| app-owned document alignment unavailable in presentation-only fallback                           |
+| read-only: false                                                                                 |
+| capability: document                                                                             |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                |
++--------------------------------------------------------------------------------------------------+
+[2m                                                    git: placeholder | context: placeholder | q quit[0m

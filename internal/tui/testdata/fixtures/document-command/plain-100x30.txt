@@ -1,0 +1,29 @@
+Aila                                                                                          100x30
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| document:                                                                                        |
+| command route: document                                                                          |
+| route source: policy.command                                                                     |
+| app-owned document alignment unavailable in presentation-only fallback                           |
+| read-only: false                                                                                 |
+| capability: document                                                                             |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit

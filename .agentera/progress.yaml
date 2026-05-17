@@ -1,4 +1,75 @@
 cycles:
+  - number: 243
+    timestamp: 2026-05-17 18:54
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 53 by adding deterministic BUILD-owned document payloads, closed /document routing, normal
+      mutation-tool/permission/history doc writes, state-store documentation artifact persistence, TUI doc plan/diff/caveat
+      evidence, behavior-named PTY smoke coverage, ROADMAP closeout, and Agentera task completion.
+    commit: 'same local commit: add document capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 53; focused capability/runtime/state/app/policy/TUI/cmd tests; full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Document can stay BUILD-owned by adapting app-supplied documentation target, source behavior, alignment plan, diff,
+      mutation result, and caveats into one typed exit payload while routing the actual doc write through the existing mutation
+      tool, permission decision, state-store artifact, and fake-history paths instead of provider-backed documentation generation,
+      direct workflow phase mutation, plugins, MCP, workflow DSLs, hosted control planes, or bypass writes.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/state/app/policy/TUI checks passed. `/document` PTY smoke and the
+      inspection-family smoke passed. `go test ./internal/... -count=1` passed. `go test ./cmd/aila -count=1` passed with
+      cmd/aila in 352.784s. Final `mage check` passed with cmd/aila in 360.158s, 0 lint issues, and no vulnerabilities.
+      Pre-closeout and cached `git diff --check` passed; changed-line home-path hygiene and added func TestM<number> hygiene
+      returned no matches. Agentera plan/progress/lint/hej validation passed after this metadata write.
+    next: >-
+      Milestone 54: Design Capability is the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: >-
+        Execute only M53; no provider-backed documentation generation, design/M54 behavior, orchestration, direct workflow phase
+        mutation, bypass writes, plugins, MCP, workflow DSLs, hosted control planes, or push.
+      unknowns: >-
+        Provider-written documentation prose, multi-file doc audits, docs freshness scoring, automated README architecture
+        migrations, design capability behavior, and orchestration-owned documentation campaigns remain deferred.
+      scope: >-
+        internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage,
+        document fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M52 plan.
+  - number: 242
+    timestamp: 2026-05-17 18:24
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 53: Document Capability as the next roadmap milestone, archived the completed M52 plan, and created a
+      new active plan with six bounded tasks for deterministic document payloads, normal mutation-tool/permission/history routing,
+      state-store documentation artifact access, TUI doc plan/diff/caveat evidence, PTY smoke validation, roadmap closeout, and commit.
+    commit: 'N/A: planning artifact before M53 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 53; AGENTS.md; README workflow and capability sections; ARCHITECTURE phase/capability/state-store and mutation rules; docs/workflow-architecture BUILD document and artifact rules; docs/tui-testing render, semantic, and PTY gates; installed Agentera CLI plan/progress state
+    discovered: >-
+      M53 can stay narrow by making document deterministic over app-supplied documentation alignment evidence, marking it
+      BUILD-owned, routing the intended doc write through existing mutation tool, permission, state, and history paths, rendering
+      doc plan/output/diff/caveats, and keeping design, orchestration, provider-backed documentation generation, plugins, MCP,
+      workflow DSLs, hosted control planes, and direct phase mutation out of scope.
+    verified: >-
+      Installed Agentera CLI plan/progress passed from $HOME/.local/share/agentera; ROADMAP.md top status and M53 section,
+      docs/notes/PROMPT.md, AGENTS.md, README workflow/capability sections, ARCHITECTURE capability/state/TUI rules,
+      docs/workflow-architecture BUILD document/tool exposure rules, docs/tui-testing render/semantic/PTY gates, and current
+      build/optimize/state/capability/runtime/app/policy/TUI seams were reviewed before writing the plan. The plan explicitly
+      uses behavior-based test names and forbids new TestM<number> symbols.
+    next: >-
+      Execute M53 Tasks 2-5: add deterministic document payloads, wire /document through normal mutation safety and state-store
+      artifact access, render documentation plan/diff/caveat evidence, and add PTY smoke coverage before validation, roadmap closeout,
+      and commit.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M52, selecting M53 and preparing an executable plan before implementation.
+      constraints: >-
+        Execute only M53; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, mutation-tool and permission
+        paths, state-store artifact ownership, TUI presentation-only behavior, fixed product posture, behavior-based test names,
+        and no push.
+      unknowns: >-
+        Exact DocumentView field shape, durable documentation artifact wording, and smallest bounded documentation target are
+        implementation-owned; provider-backed documentation generation, multi-file docs audits, design capability behavior, and
+        multi-cycle orchestration remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m52.yaml archival, and progress evidence for the M53 planning handoff.
   - number: 241
     timestamp: 2026-05-17 18:07
     type: build

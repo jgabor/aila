@@ -1,0 +1,259 @@
+{
+  "scenario": "document-output",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "document capability status",
+    "runtime_result": "Document aligned docs/aila-documentation-output.md through normal mutation safety.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-document",
+    "utility_model": "placeholder",
+    "autonomy": "write",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "document": {
+    "visible": true,
+    "source": "app.document.fixture",
+    "capability": "document",
+    "signal": "complete",
+    "current_phase": "build",
+    "summary": "Document aligned docs/aila-documentation-output.md through normal mutation safety.",
+    "recommended_successor": "audit",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "target": {
+      "path": "docs/aila-documentation-output.md",
+      "title": "Aila documentation alignment",
+      "source_behavior": "/document routes documentation writes through mutation safety and records history."
+    },
+    "plan": {
+      "id": "document-command-safety",
+      "summary": "Record how the document command keeps documentation aligned without bypass writes.",
+      "steps": [
+        "identify source behavior from app evidence",
+        "write docs through mutation tool",
+        "persist summary artifact through state store"
+      ]
+    },
+    "output_summary": "Documented the /document command mutation safety path.",
+    "changed_docs": [
+      {
+        "path": "docs/aila-documentation-output.md",
+        "status": "completed",
+        "summary": "Documented the /document command mutation safety path."
+      }
+    ],
+    "diff_lines": [
+      "+ # Aila Documentation Alignment",
+      "+ Capability: document",
+      "+ Target behavior: /document routes documentation writes through mutation safety."
+    ],
+    "mutation": {
+      "tool_name": "write",
+      "status": "completed",
+      "path": "docs/aila-documentation-output.md",
+      "expected_effect": "create bounded documentation alignment output",
+      "decision_source": "autonomy_policy",
+      "decision_autonomy": "write",
+      "decision_allowed": true,
+      "approval_required": false,
+      "bytes_written": 340
+    },
+    "caveats": [
+      "deterministic app-supplied documentation evidence only",
+      "provider-backed documentation generation deferred"
+    ],
+    "next_action": "Audit the documentation alignment before continuing.",
+    "document_artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "artifact_refs": [
+      {
+        "id": "document-target",
+        "kind": "workspace_document",
+        "path": "docs/aila-documentation-output.md"
+      },
+      {
+        "id": "documentation-artifact",
+        "kind": "documentation",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "document-command",
+        "kind": "command",
+        "command": "/document",
+        "excerpt": "app-owned document command"
+      },
+      {
+        "id": "document-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "document is BUILD-owned"
+      },
+      {
+        "id": "document-mutation-result",
+        "kind": "tool_result",
+        "path": "docs/aila-documentation-output.md",
+        "excerpt": "documentation write completed"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "documentation.current",
+        "reason": "document uses app-supplied documentation alignment evidence"
+      },
+      {
+        "kind": "tool_execution",
+        "operation": "write",
+        "target": "docs/aila-documentation-output.md",
+        "reason": "document writes docs through the runtime mutation tool effect"
+      },
+      {
+        "kind": "permission_check",
+        "operation": "write",
+        "target": "docs/aila-documentation-output.md",
+        "reason": "document requires the permission gate before workspace documentation mutation"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "documentation",
+        "reason": "state store records durable documentation alignment output"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-document",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-document",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: document capability status",
+        "active: false",
+        "result: Document aligned docs/aila-documentation-output.md through normal mutation safety.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "document",
+      "visible": true,
+      "items": [
+        "source: app.document.fixture",
+        "capability: document",
+        "signal: complete",
+        "phase: build",
+        "target: docs/aila-documentation-output.md",
+        "source_behavior: /document routes documentation writes through mutation safety and records history.",
+        "plan: document-command-safety summary=Record how the document command keeps documentation aligned without bypass writes.",
+        "mutation: write status=completed path=docs/aila-documentation-output.md",
+        "decision_allowed: true",
+        "approval_required: false",
+        "recommended_successor: audit",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Document aligned docs/aila-documentation-output.md through normal mutation safety.",
+        "output_summary: Documented the /document command mutation safety path.",
+        "plan_step: identify source behavior from app evidence",
+        "plan_step: write docs through mutation tool",
+        "plan_step: persist summary artifact through state store",
+        "changed_doc: docs/aila-documentation-output.md status=completed summary=Documented the /document command mutation safety path.",
+        "doc_diff: + # Aila Documentation Alignment",
+        "doc_diff: + Capability: document",
+        "doc_diff: + Target behavior: /document routes documentation writes through mutation safety.",
+        "next_action: Audit the documentation alignment before continuing.",
+        "artifact_status: written",
+        "caveat: deterministic app-supplied documentation evidence only",
+        "caveat: provider-backed documentation generation deferred",
+        "artifact_ref: document-target kind=workspace_document path=docs/aila-documentation-output.md",
+        "artifact_ref: documentation-artifact kind=documentation path=[path-redacted]",
+        "boundary_request: state_access operation=state.access target=documentation.current reason=document uses app-supplied documentation alignment evidence",
+        "boundary_request: tool_execution operation=write target=docs/aila-documentation-output.md reason=document writes docs through the runtime mutation tool effect",
+        "boundary_request: permission_check operation=write target=docs/aila-documentation-output.md reason=document requires the permission gate before workspace documentation mutation",
+        "boundary_request: state_write operation=state.write target=documentation reason=state store records durable documentation alignment output",
+        "source_ref: document-command kind=command command=/document excerpt=app-owned document command",
+        "source_ref: document-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=document is BUILD-owned",
+        "source_ref: document-mutation-result kind=tool_result path=docs/aila-documentation-output.md excerpt=documentation write completed"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: current document capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}
