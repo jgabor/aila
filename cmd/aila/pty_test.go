@@ -1886,6 +1886,95 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestVisionCommandPersistsGoalArtifactPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nVision command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed vision PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/vision\r")); err != nil {
+		t.Fatalf("send /vision command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Vision shaped project direction and long-term goals.",
+		"Vision:",
+		"source: app.vision",
+		"capability: vision",
+		"signal: complete",
+		"phase: envision",
+		"artifact status: written",
+		"recommended successor: plan",
+		"successor valid: true",
+		"transition claimed: false",
+		"display-only: true",
+		"north star: Shape Aila's project direction before planning broad work.",
+		"principle: Keep Aila a fixed terminal coding agent rather than a plugin host.",
+		"long-term goal: Use persisted vision as source material for later plan and build work.",
+		"requested boundary: state_write operation=state.write target=vision",
+		"source ref: vision-command kind=command command=/vision",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Discuss:", "provider-backed strategy", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("vision PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	artifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "vision.md"))
+	if err != nil {
+		t.Fatalf("read vision artifact: %v", err)
+	}
+	for _, want := range []string{"# Vision", "North star: Shape Aila's project direction before planning broad work.", "## Principles", "Next action: Use this vision as source material for planning."} {
+		if !strings.Contains(string(artifact), want) {
+			t.Fatalf("vision artifact missing %q in:\n%s", want, artifact)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("vision PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("vision PTY changed build output git status: %q", docsStatus)
+	}
+	assertVisionCommandStoreState(t, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after vision command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("vision command PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("vision command PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -2842,6 +2931,45 @@ func assertInspectionCommandFamilyStoreState(t *testing.T, workspace string) {
 		if strings.Contains(encoded, leaked) {
 			t.Fatalf("inspection smoke history leaked %q: %s", leaked, encoded)
 		}
+	}
+}
+
+func assertVisionCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open vision command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read vision command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("vision command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Vision shaped project direction and long-term goals") {
+		t.Fatalf("vision command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read vision command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("vision command history state = %q, want loaded", history.State)
+	}
+	var sawVisionCommand, sawVisionRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "vision via slash" {
+			sawVisionCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Vision shaped project direction and long-term goals") {
+			sawVisionRuntime = true
+		}
+	}
+	if !sawVisionCommand || !sawVisionRuntime {
+		t.Fatalf("vision command history markers command=%v runtime=%v events=%+v", sawVisionCommand, sawVisionRuntime, history.Events)
 	}
 }
 

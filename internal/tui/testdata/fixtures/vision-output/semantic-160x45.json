@@ -1,0 +1,212 @@
+{
+  "scenario": "vision-output",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "ENVISION",
+    "phase_source": "envision",
+    "runtime_status": "idle",
+    "status_detail": "vision capability status",
+    "runtime_result": "Vision shaped project direction and long-term goals.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-vision",
+    "utility_model": "placeholder",
+    "autonomy": "read",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "vision": {
+    "visible": true,
+    "source": "app.vision.fixture",
+    "capability": "vision",
+    "signal": "complete",
+    "phase": "envision",
+    "summary": "Vision shaped project direction and long-term goals.",
+    "north_star": "Shape Aila's project direction before planning broad work.",
+    "principles": [
+      "Keep Aila a fixed terminal coding agent rather than a plugin host.",
+      "Preserve statechart-MVU boundaries and explicit effects."
+    ],
+    "long_term_goals": [
+      "Use persisted vision as source material for later plan and build work.",
+      "Keep goal changes explicit before planning or building."
+    ],
+    "next_action": "Use this vision as source material for planning.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "recommended_successor": "plan",
+    "successor_valid": true,
+    "successor_rejected": false,
+    "successor_reason": "workflow FSM accepted recommended successor",
+    "transition_claimed": false,
+    "display_only": true,
+    "artifact_refs": [
+      {
+        "id": "vision-artifact",
+        "kind": "state_artifact",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "vision-command",
+        "kind": "command",
+        "command": "/vision",
+        "excerpt": "app-owned vision command"
+      },
+      {
+        "id": "vision-session-state",
+        "kind": "session_state",
+        "excerpt": "runtime=idle phase=envision context=Milestone 50 vision capability"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "vision",
+        "reason": "vision artifact path must be resolved through the state store"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "vision",
+        "reason": "vision artifact persistence must be app-owned and store-mediated"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["ENVISION", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-vision",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-vision",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: vision capability status",
+        "active: false",
+        "result: Vision shaped project direction and long-term goals.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "vision",
+      "visible": true,
+      "items": [
+        "source: app.vision.fixture",
+        "capability: vision",
+        "signal: complete",
+        "phase: envision",
+        "artifact: [path-redacted]",
+        "artifact_status: written",
+        "recommended_successor: plan",
+        "successor_valid: true",
+        "successor_rejected: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "successor_reason: workflow FSM accepted recommended successor",
+        "summary: Vision shaped project direction and long-term goals.",
+        "north_star: Shape Aila's project direction before planning broad work.",
+        "principle: Keep Aila a fixed terminal coding agent rather than a plugin host.",
+        "principle: Preserve statechart-MVU boundaries and explicit effects.",
+        "long_term_goal: Use persisted vision as source material for later plan and build work.",
+        "long_term_goal: Keep goal changes explicit before planning or building.",
+        "next_action: Use this vision as source material for planning.",
+        "artifact_ref: vision-artifact kind=state_artifact path=[path-redacted]",
+        "boundary_request: artifact_access operation=artifact.access target=vision",
+        "boundary_request: state_write operation=state.write target=vision",
+        "source_ref: vision-command kind=command excerpt=app-owned vision command",
+        "source_ref: vision-session-state kind=session_state excerpt=runtime=idle phase=envision context=Milestone 50 vision capability"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: Milestone 50 vision capability",
+        "quit: q"
+      ]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: envision",
+        "primary model: fake/fake-vision",
+        "utility model: placeholder",
+        "autonomy: read",
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned",
+        "status: idle",
+        "detail: vision capability status",
+        "active: false",
+        "result: Vision shaped project direction and long-term goals.",
+        "display-only",
+        "git: placeholder",
+        "context: Milestone 50 vision capability"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

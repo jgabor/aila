@@ -1,0 +1,234 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  reviewed: '2026-05-17'
+  critic_issues: M49 must add audit feedback without broadening the capability surface. It should reuse /review for interactive
+    display, emit one audit exit payload with findings, source refs, severity, and next actions, validate successors through
+    the workflow FSM, keep optimization/design/profile/orchestration out of scope, and use behavior-based test names rather
+    than TestM<number> names.
+  title: 'Milestone 49: Audit Capability'
+what: Deliver ROADMAP.md Milestone 49 by implementing the audit capability so Aila can check current work, surface findings
+  with severity and source refs, show next action choices, and route follow-up only through valid workflow successors.
+why: M48 can execute one bounded build step and recommends audit as the next quality gate. M49 should make that quality gate
+  observable and deterministic without introducing provider-backed review, optimization, design, profile, orchestration, or
+  a broader command surface.
+constraints: 'Execute only Milestone 49. Preserve statechart-MVU and explicit effect boundaries. Audit may recommend BUILD,
+  PLAN, DELIBERATE, or ENVISION only when the FSM validates that successor from AUDIT; it must not directly mutate workflow
+  phase. Keep audit read-only and app-supplied: capability code emits findings from supplied evidence and boundary descriptors,
+  while app/runtime own inspection, state, and display wiring. Use existing /review for interactive audit display unless a
+  narrower existing seam proves safer; do not add broad capability slash parity. Keep optimization, design, profile, orchestration,
+  provider-backed code review, file/git mutations, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes,
+  M50+ behavior, and pushes out of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m48.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:22-28
+- ROADMAP.md:110-130
+- ROADMAP.md:1890-1910
+- README.md:196-207
+- README.md:230-258
+- README.md:285-302
+- ARCHITECTURE.md:168-206
+- ARCHITECTURE.md:361-399
+- ARCHITECTURE.md:744-771
+- ARCHITECTURE.md:948-973
+- docs/workflow-architecture.md:124-175
+- docs/workflow-architecture.md:193-215
+- docs/workflow-architecture.md:264-279
+- docs/workflow-architecture.md:451-468
+- docs/workflow-architecture.md:609-620
+- docs/workflow-architecture.md:640-646
+- docs/tui-testing.md:63-84
+- docs/tui-testing.md:124-150
+- docs/tui-testing.md:206-227
+- internal/capability/contract.go
+- internal/capability/build.go
+- internal/runtime/runtime.go
+- internal/policy/capability.go
+- internal/policy/command.go
+- internal/app/inspection.go
+- internal/app/build.go
+- internal/tui/render.go
+- cmd/aila/pty_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/capability -run 'Test.*Audit.*|Test.*Capability.*|TestRunBuiltIn' -count=1
+- go test ./internal/runtime -run 'Test.*Audit.*|Test.*Capability.*' -count=1
+- go test ./internal/app -run 'Test.*Audit.*|Test.*Review.*|Test.*Inspection.*' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Audit.*|Test.*Review.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+  -count=1
+- go test ./cmd/aila -run 'Test.*Audit.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m48.yaml internal/capability
+  internal/runtime internal/app internal/policy internal/tui cmd/aila ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- changed-line home-path and added func TestM<number> hygiene returns no matches
+scope:
+  included:
+  - Add deterministic audit capability request metadata and typed audit output for findings, severity, source refs, next action
+    choices, caveats, and one exit payload.
+  - Validate audit successor recommendations through the existing workflow FSM so AUDIT can route only to BUILD, PLAN, DELIBERATE,
+    or ENVISION, and never direct-mutates phase.
+  - Wire the existing /review command to surface audit evidence from app-owned diff/history/diagnostic inspection without
+    provider calls or workspace mutation.
+  - Expose audit display state in the TUI with severity, sources, findings, next actions, successor validation, display-only
+    state, and transition_claimed=false.
+  - Add or update the required audit-findings fixture plus affected review-command snapshots and behavior-named capability/runtime/app/TUI/PTY
+    coverage.
+  excluded:
+  - Optimization, design, profile, orchestration, provider-backed review, autonomous fix loops, broad capability slash/keybinding
+    parity, direct workflow phase mutation, file/git/project mutations from audit, plugins, MCP, workflow DSLs, generic graph
+    engines, hosted control planes, M50+ behavior, and push operations.
+  deferred:
+  - Provider/model-backed audits, dependency scanner integration, automatic fix execution from audit findings, richer audit
+    artifact persistence, multi-cycle audit/build orchestration, and full capability command alias activation.
+design: Keep audit as a deterministic read-only quality gate. internal/capability defines AuditCapability and AuditOutput
+  over app-supplied evidence, with findings carrying ID, severity, title/message, source refs, and recommended next action.
+  internal/runtime reuses CapabilityProposed, CapabilityEffect, and CapabilityCompleted. internal/app reuses the current /review
+  inspection surface to collect diff/history/diagnostic evidence, proposes the audit capability, maps the payload into tui.AuditView,
+  and applies it to the transcript. internal/tui renders injected AuditView state and semantic JSON only; it never reads files,
+  judges workflow transitions, mutates files, approves operations, or runs providers.
+overall_acceptance:
+- Capability tests prove audit emits exactly one payload with deterministic findings, severity, source refs, next action choices,
+  concerns, boundary descriptors, and valid successor recommendations without direct phase mutation.
+- Runtime/app tests prove audit proposals route through typed capability effects and /review displays audit evidence from
+  read-only app-owned inspection while preserving existing review/diff/history behavior.
+- Policy/workflow checks prove audit follow-up recommendations accept only valid AUDIT successors and reject invalid routes
+  through the existing FSM validation path.
+- TUI render and semantic snapshots show severity, source refs, findings, next action choices, successor validation, display_only=true,
+  and transition_claimed=false in the required audit-findings fixture and affected review display fixtures.
+- PTY smoke proves /review or the selected interactive audit display shows audit findings in an isolated workspace without
+  provider calls or workspace mutation.
+- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises:
+- The patch hook failed because /hooks/validate_artifact.py is missing, so narrow scripted edits were used after apply_patch
+  failed.
+- Quiet mage wrapper sessions sometimes stopped reporting output; the final mage check was rerun with an explicit exit print
+  and returned exit=0.
+tasks:
+- number: 1
+  name: Plan and confirm the M49 audit scope
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M49 only and excludes
+    optimization, design, profile, orchestration, provider-backed review, autonomous fix loops, broad command parity, plugins,
+    MCP, workflow DSLs, hosted control planes, and M50+ behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/state/FSM
+    ownership and TUI presentation-only behavior.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
+  evidence:
+  - Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; Agentera plan/progress/describe
+    were reviewed through CLI state surfaces.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M49 section, README workflow/capability/command sections, ARCHITECTURE
+    workflow/capability/command anti-patterns, docs/workflow-architecture audit successor table, docs/tui-testing audit-findings
+    gate, and current capability/runtime/app/policy/TUI seams were reviewed.
+  - The plan keeps M49 bounded to read-only audit feedback through existing /review display and explicit FSM successor validation,
+    and it forbids new TestM<number> symbols.
+- number: 2
+  name: Add deterministic audit capability payloads
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN app-supplied review evidence is provided WHEN audit runs THEN it emits one payload with findings, severity, source
+    refs, concerns, next action choices, boundary descriptors, and a final summary.
+  - GIVEN no findings or insufficient evidence is supplied WHEN audit runs THEN it returns complete or waiting with explicit
+    caveats instead of inventing provider-backed review.
+  - GIVEN audit recommends follow-up WHEN the payload is inspected THEN the successor is valid from AUDIT or omitted, and
+    workflow phase is not directly mutated.
+  evidence:
+  - Added internal/capability/audit.go with deterministic AuditCapability, typed AuditOutput/AuditFinding payloads, evidence-state
+    metadata, caveats, concerns, inert state/context/artifact boundary descriptors, and exactly one emitted payload per run.
+  - Verified by go test ./internal/capability -run 'Test.*Audit.*|Test.*Capability.*|TestRunBuiltIn' -count=1; audit emits
+    flagged findings with severity/source refs/next actions, waits for missing evidence, omits invalid successors, and RunBuiltIn
+    dispatches audit.
+- number: 3
+  name: Wire review display through audit runtime paths
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN /review is invoked WHEN current diff/history/diagnostic evidence exists THEN the app proposes audit through runtime
+    capability effects and displays audit output alongside the read-only inspection surface.
+  - GIVEN audit evidence is built WHEN the app prepares the request THEN it uses app-owned inspection, source refs, and metadata
+    without provider calls, shell calls, file writes, git writes, or capability-side IO.
+  - GIVEN findings recommend action WHEN control returns THEN the recommendation remains display-only and any route is recorded
+    as FSM validation evidence, not a phase mutation.
+  evidence:
+  - Wired /review through app-owned diff/history/diagnostic inspection into runtime CapabilityProposed/CapabilityEffect/CapabilityCompleted,
+    then mapped the audit exit payload into tui.AuditView while keeping the existing read-only inspection surface in app state.
+  - Verified by go test ./internal/runtime -run 'Test.*Audit.*|Test.*Capability.*' -count=1 and go test ./internal/app -run
+    'Test.*Audit.*|Test.*Review.*|Test.*Inspection.*' -count=1; /review dispatches exactly one audit effect, persists command/runtime
+    evidence, and reports transition_claimed=false.
+- number: 4
+  name: Render audit findings and semantic snapshots
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN AuditView state is injected WHEN fixtures render THEN severity, sources, findings, next action choices, caveats,
+    and successor validation are visible.
+  - GIVEN semantic snapshots are inspected WHEN audit exists THEN findings, severity, source refs, next actions, recommended
+    successor, successor_valid/rejected, transition_claimed=false, and display_only=true are machine-readable.
+  - GIVEN required fixtures are regenerated or checked WHEN validation runs THEN audit-findings and affected review-command
+    snapshots remain current at required sizes.
+  evidence:
+  - Added AuditView rendering, semantic audit JSON, cloning, audit-findings fixture snapshots, and stale audit clearing when
+    moving to history/diff surfaces so audit evidence does not mask later command views.
+  - Verified by go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Audit.*|Test.*Review.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+    -count=1; audit-findings plain/ANSI/semantic snapshots expose severity, sources, findings, next actions, caveats, and
+    successor validation.
+- number: 5
+  name: Add PTY smoke for interactive audit display
+  depends_on:
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN an isolated temp workspace with a current change is used WHEN /review is invoked THEN audit findings render with
+    severity, source refs, and next actions.
+  - GIVEN the smoke exits WHEN workspace state is inspected THEN audit did not mutate files, git state, project artifacts,
+    permissions, or workflow phase.
+  - GIVEN the screen is inspected WHEN audit completes THEN the output is held/idle and shows the follow-up route as validated
+    display evidence only.
+  evidence:
+  - Added behavior-named PTY smoke TestReviewCommandShowsAuditFindingsPTYSmoke for /review audit display in an isolated temp
+    git workspace; it checks audit severity/source refs/next actions, tracked git status stability, unchanged file content,
+    and no build output creation.
+  - Verified by go test -v ./cmd/aila -run TestReviewCommandShowsAuditFindingsPTYSmoke -count=1 -timeout=2m and go test ./cmd/aila
+    -run 'TestReviewCommandShowsAuditFindingsPTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M49 is
+    recorded complete, M50 is selected next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    and M49 plan archive are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
+  evidence:
+  - 'Validation passed: mage fmt; focused capability/runtime/app/TUI/cmd checks; go test ./internal/... -count=1; go test
+    -v ./cmd/aila -count=1 -timeout=15m with ok github.com/jgabor/aila/cmd/aila 350.817s; final mage check exit=0 with cmd/aila
+    321.935s, 0 lint issues, and no vulnerabilities.'
+  - 'Direct Mage-equivalent gates also passed: go mod tidy -diff, go vet ./..., golangci-lint run ./... reported 0 issues,
+    and govulncheck ./... reported no vulnerabilities.'
+  - ROADMAP.md, Agentera artifacts, diff checks, home-path hygiene, and added func TestM<number> hygiene are completed in
+    the closeout step before commit.

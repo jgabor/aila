@@ -56,6 +56,7 @@ type TranscriptTurn struct {
 	Compact            *CompactView
 	Context            *ContextView
 	Brief              *BriefView
+	Vision             *VisionView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -665,6 +666,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Brief != nil {
 		state.Brief = cloneBriefView(turn.Brief)
 	}
+	if turn.Vision != nil {
+		state.Vision = cloneVisionView(turn.Vision)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -946,6 +950,9 @@ func (m *Model) requestInterrupt(reason string) tea.Cmd {
 func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRecommendation) ViewState {
 	state.CommandRoute = string(recommendation.Route)
 	state.RouteSource = "policy.command"
+	if recommendation.Route != policy.CommandRouteVision {
+		state.Vision = nil
+	}
 	if recommendation.Route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1007,6 +1014,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 		state = applyModelCommandFallback(state, recommendation)
 	case policy.CommandRouteAuto:
 		state = applyAutonomyCommandFallback(state, recommendation)
+	case policy.CommandRouteVision:
+		state.SurfaceTitle = "vision"
+		state.SurfaceLines = []string{"Deterministic placeholder vision."}
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -1094,6 +1104,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	state.CommandRoute = string(route)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = title
+	if route != policy.CommandRouteVision {
+		state.Vision = nil
+	}
 	if route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1136,6 +1149,20 @@ func cloneBriefView(brief *BriefView) *BriefView {
 	clone.KnownGaps = append([]string(nil), brief.KnownGaps...)
 	clone.SourceRefs = append([]BriefSourceRefView(nil), brief.SourceRefs...)
 	clone.BoundaryRequests = append([]BriefBoundaryRequestView(nil), brief.BoundaryRequests...)
+	return &clone
+}
+
+func cloneVisionView(vision *VisionView) *VisionView {
+	if vision == nil {
+		return nil
+	}
+	clone := *vision
+	clone.Principles = append([]string(nil), vision.Principles...)
+	clone.LongTermGoals = append([]string(nil), vision.LongTermGoals...)
+	clone.Blockers = append([]string(nil), vision.Blockers...)
+	clone.ArtifactRefs = append([]VisionArtifactRefView(nil), vision.ArtifactRefs...)
+	clone.SourceRefs = append([]VisionSourceRefView(nil), vision.SourceRefs...)
+	clone.BoundaryRequests = append([]VisionBoundaryRequestView(nil), vision.BoundaryRequests...)
 	return &clone
 }
 

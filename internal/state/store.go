@@ -42,6 +42,7 @@ type ArtifactName string
 const (
 	ArtifactProjectSummary ArtifactName = "project_summary"
 	ArtifactPlan           ArtifactName = "plan"
+	ArtifactVision         ArtifactName = "vision"
 )
 
 // ArtifactOwner identifies the invoking owner requesting an artifact write.
@@ -105,6 +106,12 @@ var artifactCatalog = map[ArtifactName]artifactSpec{
 	},
 	ArtifactPlan: {
 		relPath: "plan.md",
+		owners: map[ArtifactOwner]bool{
+			OwnerApp: true,
+		},
+	},
+	ArtifactVision: {
+		relPath: "vision.md",
 		owners: map[ArtifactOwner]bool{
 			OwnerApp: true,
 		},

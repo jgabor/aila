@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage ENVISION | Runtime waiting | Model fake/fake-vision | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-vision                                                                                      |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: waiting                                                                                                      |
+| detail: vision capability status                                                                                     |
+| active: false                                                                                                        |
+| result: Vision needs project direction before it can shape goals.                                                    |
+|                                                                                                                      |
+| Vision:                                                                                                              |
+| source: app.vision.fixture                                                                                           |
+| capability: vision                                                                                                   |
+| signal: waiting                                                                                                      |
+| phase: envision                                                                                                      |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: not_written                                                                                         |
+| recommended successor:                                                                                               |
+| successor valid: false                                                                                               |
+| successor rejected: false                                                                                            |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

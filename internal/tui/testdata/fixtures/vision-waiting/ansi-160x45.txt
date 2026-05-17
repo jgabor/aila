@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage ENVISION | Runtime waiting | Model fake/fake-vision | Utility placeholder | Auto read                                                                     [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: envision                 |
+| primary model: fake/fake-vision                                                                                  |  | primary model: fake/fake-vision        |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: waiting                        |
+| Runtime status:                                                                                                  |  | detail: vision capability status       |
+| status: waiting                                                                                                  |  | active: false                          |
+| detail: vision capability status                                                                                 |  | result: Vision needs project directio~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: Vision needs project direction before it can shape goals.                                                |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Vision:                                                                                                          |  |                                        |
+| source: app.vision.fixture                                                                                       |  |                                        |
+| capability: vision                                                                                               |  |                                        |
+| signal: waiting                                                                                                  |  |                                        |
+| phase: envision                                                                                                  |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: not_written                                                                                     |  |                                        |
+| recommended successor:                                                                                           |  |                                        |
+| successor valid: false                                                                                           |  |                                        |
+| successor rejected: false                                                                                        |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| summary: Vision needs project direction before it can shape goals.                                               |  |                                        |
+| needed input: Describe the project direction or long-term goal to shape.                                         |  |                                        |
+| blocker: project direction missing                                                                               |  |                                        |
+| next action: Provide direction, then run vision again.                                                           |  |                                        |
+| requested boundary: state_access operation=state.access target=project.current reason=vision requires app-suppl~ |  |                                        |
+| source ref: vision-command kind=command command=/vision excerpt=waiting for direction                            |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

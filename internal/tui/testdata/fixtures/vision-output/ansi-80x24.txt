@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage ENVISION | Runtime idle | Model fake/fake-vision | Utility placeholder | ~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-vision                                              |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: vision capability status                                             |
+| active: false                                                                |
+| result: Vision shaped project direction and long-term goals.                 |
+|                                                                              |
+| Vision:                                                                      |
+| source: app.vision.fixture                                                   |
+| capability: vision                                                           |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m             git: placeholder | context: Milestone 50 vision capability | q quit[0m

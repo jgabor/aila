@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage ENVISION | Runtime idle | Model fake/fake-vision | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-vision                                                                                      |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: vision capability status                                                                                     |
+| active: false                                                                                                        |
+| result: Vision shaped project direction and long-term goals.                                                         |
+|                                                                                                                      |
+| Vision:                                                                                                              |
+| source: app.vision.fixture                                                                                           |
+| capability: vision                                                                                                   |
+| signal: complete                                                                                                     |
+| phase: envision                                                                                                      |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: written                                                                                             |
+| recommended successor: plan                                                                                          |
+| successor valid: true                                                                                                |
+| successor rejected: false                                                                                            |
+| transition claimed: false                                                                                            |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                     git: placeholder | context: Milestone 50 vision capability | q quit

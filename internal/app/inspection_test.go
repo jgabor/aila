@@ -208,6 +208,77 @@ func TestPlanCommandRunsCapabilityPersistsArtifactAndDisplaysPlan(t *testing.T) 
 	}
 }
 
+func TestVisionCommandRunsCapabilityPersistsArtifactAndDisplaysVision(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	view := snapshotTestView()
+	view.RuntimeStatus = "idle"
+	view.StatusSource = "runtime.dispatch"
+	view.FooterContext = "Milestone 50 vision capability"
+	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		historyEvents = append(historyEvents, command)
+		return HistoryPersistenceResult{}
+	}, nil, func(context.Context, DiffReadCommand) DiffReadResult {
+		t.Fatal("vision command must not read diff state")
+		return DiffReadResult{}
+	})
+	controller.workspacePath = workspace
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteVision, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Vision == nil {
+		t.Fatal("vision view is nil")
+	}
+	if got.SurfaceTitle != "" || got.CommandRoute != "vision" || got.RouteSource != "policy.command" {
+		t.Fatalf("vision command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
+	}
+	if got.Vision.ArtifactStatus != "written" || got.Vision.ArtifactPath == "" {
+		t.Fatalf("vision artifact state = %+v", got.Vision)
+	}
+	content, err := os.ReadFile(got.Vision.ArtifactPath)
+	if err != nil {
+		t.Fatalf("read vision artifact: %v", err)
+	}
+	visionText := string(content)
+	for _, want := range []string{"# Vision", "North star: Shape Aila's project direction for Milestone 50 vision capability.", "## Principles", "Next action: Use this vision as source material for planning."} {
+		if !strings.Contains(visionText, want) {
+			t.Fatalf("vision artifact missing %q in:\n%s", want, visionText)
+		}
+	}
+	if got.Vision.Phase != "envision" || got.Vision.RecommendedSuccessor != "plan" || !got.Vision.SuccessorValid || got.Vision.TransitionClaimed || !got.Vision.DisplayOnly {
+		t.Fatalf("vision successor/display = %+v", got.Vision)
+	}
+	if len(got.Vision.Principles) == 0 || len(got.Vision.LongTermGoals) == 0 || got.Vision.NeededInput != "" {
+		t.Fatalf("vision evidence = %+v", got.Vision)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("vision dispatches = %#v, want one capability effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("vision dispatch = %T, want runtime.CapabilityEffect", dispatched[0][0])
+	}
+	if runner.model.LastCapability.Vision == nil || runner.model.LastCapability.RecommendedSuccessor != workflow.PhasePlan {
+		t.Fatalf("runtime last capability = %+v", runner.model.LastCapability)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result == "" || snapshots[0].Snapshot.Runtime.Result != runner.model.Result {
+		t.Fatalf("vision snapshots = %#v", snapshots)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("vision history events = %#v, want command then runtime", historyEvents)
+	}
+}
+
 func TestReviewCommandRunsReadOnlyAuditOverDiffAndHistoryInspectionSurface(t *testing.T) {
 	t.Parallel()
 

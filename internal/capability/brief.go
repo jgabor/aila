@@ -60,6 +60,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 	switch request.Capability {
 	case NameBrief:
 		return BriefCapability{}.Run(ctx, request)
+	case NameVision:
+		return VisionCapability{}.Run(ctx, request)
 	case NamePlan:
 		return PlanCapability{}.Run(ctx, request)
 	case NameBuild:

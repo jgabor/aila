@@ -3921,6 +3921,141 @@ func planCapabilityFixtureState() ViewState {
 	return state
 }
 
+func TestVisionOutputFixtureShowsArtifactSourcesAndSuccessor(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "vision-output", visionOutputFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage ENVISION", "Vision:", "capability: vision"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "signal: complete", "phase: envision", "successor valid: true", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "north star: Shape Aila's project direction before planning broad work.", "principle: Preserve statechart-MVU boundaries and explicit effects.", "long-term goal: Use persisted vision as source material for later plan and build work.", "requested boundary: state_write operation=state.write target=vision", "source ref: vision-command kind=command")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("vision-output render missing vision evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Vision == nil || snapshot.Vision.Phase != "envision" || snapshot.Vision.RecommendedSuccessor != "plan" || !snapshot.Vision.SuccessorValid || snapshot.Vision.TransitionClaimed || !snapshot.Vision.DisplayOnly || snapshot.Vision.ArtifactStatus != "written" {
+			t.Fatalf("vision semantic = %+v", snapshot.Vision)
+		}
+	}
+}
+
+func TestVisionWaitingFixtureShowsNeededInputAndBlockers(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "vision-waiting", visionWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage ENVISION", "Vision:", "capability: vision", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "artifact status: not_written", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Describe the project direction or long-term goal to shape.", "blocker: project direction missing")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("vision-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Vision == nil || snapshot.Vision.Signal != "waiting" || snapshot.Vision.NeededInput == "" || len(snapshot.Vision.Blockers) != 1 || snapshot.Vision.RecommendedSuccessor != "" || snapshot.Vision.SuccessorValid || snapshot.Vision.TransitionClaimed || !snapshot.Vision.DisplayOnly {
+			t.Fatalf("vision waiting semantic = %+v", snapshot.Vision)
+		}
+	}
+}
+
+func visionOutputFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "vision-output"
+	state.Phase = "ENVISION"
+	state.PhaseSource = "envision"
+	state.PrimaryModel = "fake/fake-vision"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "vision capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Vision shaped project direction and long-term goals."
+	state.FooterContext = "Milestone 50 vision capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Vision = &VisionView{
+		Source:               "app.vision.fixture",
+		Capability:           "vision",
+		Signal:               "complete",
+		Phase:                "envision",
+		Summary:              "Vision shaped project direction and long-term goals.",
+		NorthStar:            "Shape Aila's project direction before planning broad work.",
+		Principles:           []string{"Keep Aila a fixed terminal coding agent rather than a plugin host.", "Preserve statechart-MVU boundaries and explicit effects."},
+		LongTermGoals:        []string{"Use persisted vision as source material for later plan and build work.", "Keep goal changes explicit before planning or building."},
+		NextAction:           "Use this vision as source material for planning.",
+		ArtifactPath:         ".aila/artifacts/vision.md",
+		ArtifactStatus:       "written",
+		RecommendedSuccessor: "plan",
+		SuccessorValid:       true,
+		SuccessorRejected:    false,
+		SuccessorReason:      "workflow FSM accepted recommended successor",
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		ArtifactRefs:         []VisionArtifactRefView{{ID: "vision-artifact", Kind: "state_artifact", Path: ".aila/artifacts/vision.md"}},
+		SourceRefs:           []VisionSourceRefView{{ID: "vision-command", Kind: "command", Command: "/vision", Excerpt: "app-owned vision command"}, {ID: "vision-session-state", Kind: "session_state", Excerpt: "runtime=idle phase=envision context=Milestone 50 vision capability"}},
+		BoundaryRequests:     []VisionBoundaryRequestView{{Kind: "artifact_access", Operation: "artifact.access", Target: "vision", Reason: "vision artifact path must be resolved through the state store"}, {Kind: "state_write", Operation: "state.write", Target: "vision", Reason: "vision artifact persistence must be app-owned and store-mediated"}},
+	}
+	return state
+}
+
+func visionWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "vision-waiting"
+	state.Phase = "ENVISION"
+	state.PhaseSource = "envision"
+	state.PrimaryModel = "fake/fake-vision"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "vision capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Vision needs project direction before it can shape goals."
+	state.Vision = &VisionView{
+		Source:            "app.vision.fixture",
+		Capability:        "vision",
+		Signal:            "waiting",
+		Phase:             "envision",
+		Summary:           "Vision needs project direction before it can shape goals.",
+		NeededInput:       "Describe the project direction or long-term goal to shape.",
+		Blockers:          []string{"project direction missing"},
+		NextAction:        "Provide direction, then run vision again.",
+		ArtifactPath:      ".aila/artifacts/vision.md",
+		ArtifactStatus:    "not_written",
+		TransitionClaimed: false,
+		DisplayOnly:       true,
+		SourceRefs:        []VisionSourceRefView{{ID: "vision-command", Kind: "command", Command: "/vision", Excerpt: "waiting for direction"}},
+		BoundaryRequests:  []VisionBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "project.current", Reason: "vision requires app-supplied project state evidence"}},
+	}
+	return state
+}
+
 func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

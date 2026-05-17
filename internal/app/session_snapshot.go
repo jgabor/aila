@@ -173,6 +173,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	case policy.CommandRouteDiff:
 		controller.openDiffView()
 		return controller.view
+	case policy.CommandRouteVision:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, diagnosticViews(controller.openVisionView())...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRoutePlan:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
@@ -253,7 +265,15 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		len(before.LastCapability.Concerns) != len(after.LastCapability.Concerns) ||
 		len(before.LastCapability.SourceRefs) != len(after.LastCapability.SourceRefs) ||
 		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests) ||
-		auditPayloadChanged(before.LastCapability.Audit, after.LastCapability.Audit)
+		auditPayloadChanged(before.LastCapability.Audit, after.LastCapability.Audit) ||
+		visionPayloadChanged(before.LastCapability.Vision, after.LastCapability.Vision)
+}
+
+func visionPayloadChanged(before, after *capability.VisionOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.NorthStar != after.NorthStar || before.ArtifactPath != after.ArtifactPath || len(before.Principles) != len(after.Principles) || len(before.LongTermGoals) != len(after.LongTermGoals) || len(before.Blockers) != len(after.Blockers) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func auditPayloadChanged(before, after *capability.AuditOutput) bool {

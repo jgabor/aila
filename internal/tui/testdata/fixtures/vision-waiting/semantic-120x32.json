@@ -1,0 +1,143 @@
+{
+  "scenario": "vision-waiting",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "ENVISION",
+    "phase_source": "envision",
+    "runtime_status": "waiting",
+    "status_detail": "vision capability status",
+    "runtime_result": "Vision needs project direction before it can shape goals.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-vision",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "vision": {
+    "visible": true,
+    "source": "app.vision.fixture",
+    "capability": "vision",
+    "signal": "waiting",
+    "phase": "envision",
+    "summary": "Vision needs project direction before it can shape goals.",
+    "blockers": ["project direction missing"],
+    "needed_input": "Describe the project direction or long-term goal to shape.",
+    "next_action": "Provide direction, then run vision again.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "not_written",
+    "successor_valid": false,
+    "successor_rejected": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "vision-command",
+        "kind": "command",
+        "command": "/vision",
+        "excerpt": "waiting for direction"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "project.current",
+        "reason": "vision requires app-supplied project state evidence"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["ENVISION", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-vision",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-vision",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: vision capability status",
+        "active: false",
+        "result: Vision needs project direction before it can shape goals.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "vision",
+      "visible": true,
+      "items": [
+        "source: app.vision.fixture",
+        "capability: vision",
+        "signal: waiting",
+        "phase: envision",
+        "artifact: [path-redacted]",
+        "artifact_status: not_written",
+        "recommended_successor: ",
+        "successor_valid: false",
+        "successor_rejected: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Vision needs project direction before it can shape goals.",
+        "needed_input: Describe the project direction or long-term goal to shape.",
+        "blocker: project direction missing",
+        "next_action: Provide direction, then run vision again.",
+        "boundary_request: state_access operation=state.access target=project.current",
+        "source_ref: vision-command kind=command excerpt=waiting for direction"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

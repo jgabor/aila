@@ -1,4 +1,74 @@
 cycles:
+  - number: 234
+    timestamp: 2026-05-17 15:11
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 50 by adding deterministic vision payloads, state-store vision artifact persistence, /vision routing,
+      TUI vision output and waiting evidence, behavior-named PTY smoke coverage, ROADMAP closeout, and Agentera task completion.
+    commit: 'pending local commit: add vision capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 50; full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      The current milestone can close without starting M50A because /vision only shapes goals and validates display-only
+      follow-up through the workflow FSM. Historical TestM<number> names remain in older tests, but M50 introduced only
+      behavior-named test symbols and the added-line hygiene check is clean.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/state/app/policy/TUI/cmd checks passed. `go test ./internal/... -count=1`
+      passed. `go test ./cmd/aila -count=1` passed with cmd/aila in 324.787s. Final `mage check` passed with cmd/aila
+      in 317.895s, 0 lint issues, and no vulnerabilities. `git diff --check` passed over ROADMAP, Agentera artifacts,
+      and touched code; changed-line home-path and added func TestM<number> hygiene returned no matches, including new vision
+      source and fixture files. Agentera plan/progress/lint/hej validation passed after this metadata write.
+    next: >-
+      Commit the completed M50 slice locally, leaving Milestone 50A: Discuss Capability as the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first and preserve the planera -> orkestrera -> commit loop.
+      constraints: Execute only M50; no M50A discuss behavior, research, optimization, profile/design/orchestration, provider-backed strategy, automatic build execution, direct workflow phase mutation, plugin/MCP/workflow DSL behavior, or push.
+      unknowns: Discuss capability semantics, richer vision inputs, provider-backed vision synthesis, and multi-cycle orchestration remain deferred.
+      scope: internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage, vision fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M49 plan.
+  - number: 233
+    timestamp: 2026-05-17 14:58
+    type: build
+    phase: implementation
+    what: >-
+      Implemented deterministic M50 vision capability behavior, /vision app/runtime/state-store wiring, TUI render and
+      semantic evidence, and behavior-named PTY smoke coverage.
+    commit: 'pending local commit: add vision capability'
+    inspiration: .agentera/plan.yaml tasks 2-5; ROADMAP.md Milestone 50; docs/workflow-architecture ENVISION successor rules; docs/tui-testing vision fixture and PTY gates
+    discovered: >-
+      Vision can stay deterministic over app-supplied project/session evidence while persisting a store-owned artifact and
+      validating follow-up as display-only workflow evidence. Small 80x24 fixtures cannot show the entire vision payload,
+      so render assertions now check compact evidence there and deeper fields at taller sizes while semantic snapshots keep
+      the full machine-readable contract.
+    verified: >-
+      `mage fmt` passed. `go test ./internal/capability -run 'Test.*Vision.*|Test.*Capability.*|TestRunBuiltIn' -count=1`,
+      `go test ./internal/runtime -run 'Test.*Vision.*|Test.*Capability.*' -count=1`, `go test ./internal/state -run
+      'Test.*Vision.*|Test.*Artifact.*' -count=1`, `go test ./internal/app -run 'Test.*Vision.*|Test.*Command.*|Test.*Session.*'
+      -count=1`, `go test ./internal/policy -run 'Test.*Vision.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability'
+      -count=1`, `go test ./internal/tui -run 'TestVision.*Fixture|TestCommandFixtureSet|Test.*Vision.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+      -count=1`, `go test ./cmd/aila -run TestVisionCommandPersistsGoalArtifactPTYSmoke -count=1`, and `go test
+      ./cmd/aila -run 'TestVisionCommandPersistsGoalArtifactPTYSmoke|TestInspectionCommandFamilyPTYSmoke|TestBuildCommandExecutesOnePlannedStepPTYSmoke|TestReviewCommandShowsAuditFindingsPTYSmoke'
+      -count=1` passed.
+    next: Run broad package and full Mage validation, Agentera validation, diff/home-path/TestM hygiene, then update ROADMAP.md and commit M50.
+    context:
+      intent: Complete M50 implementation tasks before roadmap closeout and commit.
+      constraints: Behavior-named new tests only; no discussion, research, optimization, profile/design/orchestration, provider-backed strategy, automatic build execution, direct workflow phase mutation, plugin/MCP/workflow DSL behavior, M50A+ behavior, or push.
+      unknowns: Full-suite, Mage, Agentera, and final diff hygiene remained before completion.
+      scope: internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila, vision fixtures, and M50 Agentera artifacts.
+  - number: 232
+    timestamp: 2026-05-17 14:36
+    type: plan
+    phase: plan
+    what: 'Planned Milestone 50: Vision Capability as the next roadmap milestone, archived the completed M49 plan, and created a new active plan with six bounded tasks for deterministic vision payloads, state-store vision persistence, TUI output/waiting evidence, PTY smoke validation, roadmap closeout, and commit.'
+    commit: 'N/A: planning artifact before M50 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 50; AGENTS.md; README workflow and capability sections; ARCHITECTURE state artifact section; docs/workflow-architecture ENVISION successor, capability, artifact, and tool rules; docs/tui-testing render, semantic, and PTY gates; installed Agentera CLI hej with planera context; Agentera describe artifact locations
+    discovered: M50 can stay narrow by making vision deterministic over app-supplied project/session evidence, persisting .aila vision output through the state store, rendering complete and waiting states, and validating follow-up through the existing FSM without discuss, research, optimization, or orchestration behavior.
+    verified: Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; Agentera describe exposed plan, progress, and vision artifact locations; ROADMAP.md top status and M50 section, docs/notes/PROMPT.md, AGENTS.md, README workflow/capability sections, ARCHITECTURE state artifact section, docs/workflow-architecture ENVISION successor/tool/artifact rules, docs/tui-testing render/semantic/PTY gates, and current capability/runtime/state/app/policy/TUI seams were reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids new TestM<number> symbols.
+    next: 'Execute M50 Tasks 2-5: add deterministic vision capability payloads, persist vision through state-store app paths, render vision output and waiting evidence, and add PTY smoke coverage before validation, roadmap closeout, and commit.'
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M49, selecting M50 and preparing an executable plan before implementation.
+      constraints: Execute only M50; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, state-store artifact ownership, TUI presentation-only behavior, fixed product posture, behavior-based test names, and no push.
+      unknowns: Exact VisionView field shape, whether /vision uses current session context only or accepts richer future arguments, and the smallest persisted document shape are implementation-owned; discussion, research, optimization, provider-backed strategy synthesis, and multi-cycle orchestration remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m49.yaml archival, and progress evidence for the M50 planning handoff.
   - number: 231
     timestamp: 2026-05-17 14:35
     type: build

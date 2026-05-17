@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage ENVISION | Runtime idle | Model fake/fake-vision | Utility placeholder | Auto read                                                                        [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: envision                 |
+| primary model: fake/fake-vision                                                                                  |  | primary model: fake/fake-vision        |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: vision capability status                                                                                 |  | detail: vision capability status       |
+| active: false                                                                                                    |  | active: false                          |
+| result: Vision shaped project direction and long-term goals.                                                     |  | result: Vision shaped project directi~ |
+|                                                                                                                  |  | display-only                           |
+| Vision:                                                                                                          |  | git: placeholder                       |
+| source: app.vision.fixture                                                                                       |  | context: Milestone 50 vision capabili~ |
+| capability: vision                                                                                               |  |                                        |
+| signal: complete                                                                                                 |  |                                        |
+| phase: envision                                                                                                  |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: written                                                                                         |  |                                        |
+| recommended successor: plan                                                                                      |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| successor rejected: false                                                                                        |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| successor reason: workflow FSM accepted recommended successor                                                    |  |                                        |
+| summary: Vision shaped project direction and long-term goals.                                                    |  |                                        |
+| north star: Shape Aila's project direction before planning broad work.                                           |  |                                        |
+| principle: Keep Aila a fixed terminal coding agent rather than a plugin host.                                    |  |                                        |
+| principle: Preserve statechart-MVU boundaries and explicit effects.                                              |  |                                        |
+| long-term goal: Use persisted vision as source material for later plan and build work.                           |  |                                        |
+| long-term goal: Keep goal changes explicit before planning or building.                                          |  |                                        |
+| next action: Use this vision as source material for planning.                                                    |  |                                        |
+| artifact ref: vision-artifact kind=state_artifact path=[path-redacted]                                           |  |                                        |
+| requested boundary: artifact_access operation=artifact.access target=vision reason=vision artifact path must be~ |  |                                        |
+| requested boundary: state_write operation=state.write target=vision reason=vision artifact persistence must be ~ |  |                                        |
+| source ref: vision-command kind=command command=/vision excerpt=app-owned vision command                         |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                             git: placeholder | context: Milestone 50 vision capability | q quit[0m

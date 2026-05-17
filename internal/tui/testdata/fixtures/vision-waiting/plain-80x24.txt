@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage ENVISION | Runtime waiting | Model fake/fake-vision | Utility placeholder~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-vision                                              |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: vision capability status                                             |
+| active: false                                                                |
+| result: Vision needs project direction before it can shape goals.            |
+|                                                                              |
+| Vision:                                                                      |
+| source: app.vision.fixture                                                   |
+| capability: vision                                                           |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
