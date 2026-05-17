@@ -16,12 +16,12 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | /model --utility - Choose the active utility model for this session.                             |
 | /auto - Choose the active autonomy level for this session.                                       |
 | /status - Inspect current runtime and state.                                                     |
+| /plan - Create and display scoped work without executing it.                                     |
 | /review - Inspect current changes, risks, and sources.                                           |
 | /history - Browse runs, edits, checks, and undo data.                                            |
 | /compact - Immediately compact the current conversation.                                         |
 | /diff - Review current changes.                                                                  |
 | /undo - Undo the latest supported mutation.                                                      |
-| /redo - Redo the latest supported recovery.                                                      |
 +--------------------------------------------------------------------------------------------------+
 + Prompt ------------------------------------------------------------------------------------------+
 | >                                                                                                |

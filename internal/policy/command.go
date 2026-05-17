@@ -14,6 +14,7 @@ const (
 	CommandRouteModel    CommandRoute = "model"
 	CommandRouteAuto     CommandRoute = "auto"
 	CommandRouteStatus   CommandRoute = "status"
+	CommandRoutePlan     CommandRoute = "plan"
 	CommandRouteReview   CommandRoute = "review"
 	CommandRouteHelp     CommandRoute = "help"
 	CommandRouteHistory  CommandRoute = "history"
@@ -70,6 +71,8 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteAuto, Kind: CommandInputSlash, Target: CommandTargetAutonomy}, true
 	case "/status":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputSlash}, true
+	case "/plan":
+		return CommandRecommendation{Route: CommandRoutePlan, Kind: CommandInputSlash}, true
 	case "/review":
 		return CommandRecommendation{Route: CommandRouteReview, Kind: CommandInputSlash}, true
 	case "/help":

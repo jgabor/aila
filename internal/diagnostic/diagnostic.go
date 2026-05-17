@@ -59,6 +59,7 @@ const (
 	ArtifactRuntimeEffect     AffectedArtifact = "runtime_effect"
 	ArtifactSessionSnapshot   AffectedArtifact = "session_snapshot"
 	ArtifactFakeHistory       AffectedArtifact = "fake_history"
+	ArtifactPlan              AffectedArtifact = "plan"
 )
 
 // RecoveryAction is a visible recommendation. It does not execute recovery.

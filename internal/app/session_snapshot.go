@@ -172,6 +172,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	case policy.CommandRouteDiff:
 		controller.openDiffView()
 		return controller.view
+	case policy.CommandRoutePlan:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, diagnosticViews(controller.openPlanView())...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRouteReview:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		diagnostics = append(diagnostics, diagnosticViews(controller.openReviewView())...)

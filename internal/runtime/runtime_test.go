@@ -13,6 +13,7 @@ import (
 	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/utility"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 func TestUpdateHandlesPromptDeterministically(t *testing.T) {
@@ -152,6 +153,50 @@ func TestUpdateRoutesBriefCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 	if model.LastCapability.RecommendedSuccessor != "" {
 		t.Fatalf("brief completion recommended successor %q", model.LastCapability.RecommendedSuccessor)
+	}
+}
+
+func TestUpdateRoutesPlanCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "plan-status",
+		Capability: capability.NamePlan,
+		Input:      "prepare the current scoped work",
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.PlanMetadataProjectState: "project store initialized",
+			capability.PlanMetadataSessionState: "runtime idle with roadmap context",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NamePlan {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "plan", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NamePlan || completed.Payload.RecommendedSuccessor != workflow.PhasePlan || completed.Payload.Plan == nil {
+		t.Fatalf("plan payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NamePlan || model.LastCapability.Plan == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
 	}
 }
 

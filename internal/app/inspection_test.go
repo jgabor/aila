@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/state"
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
@@ -130,6 +132,79 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 	}
 	if len(historyEvents) != 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
 		t.Fatalf("status history events = %#v, want command then runtime event", historyEvents)
+	}
+}
+
+func TestPlanCommandRunsCapabilityPersistsArtifactAndDisplaysPlan(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	view := snapshotTestView()
+	view.Phase = "BUILD"
+	view.PhaseSource = "build"
+	view.RuntimeStatus = "idle"
+	view.StatusSource = "runtime.dispatch"
+	view.FooterContext = "Milestone 47 plan capability"
+	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		historyEvents = append(historyEvents, command)
+		return HistoryPersistenceResult{}
+	}, nil, func(context.Context, DiffReadCommand) DiffReadResult {
+		t.Fatal("plan command must not read diff state")
+		return DiffReadResult{}
+	})
+	controller.workspacePath = workspace
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRoutePlan, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Plan == nil {
+		t.Fatal("plan view is nil")
+	}
+	if got.SurfaceTitle != "" || got.CommandRoute != "plan" || got.RouteSource != "policy.command" {
+		t.Fatalf("plan command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
+	}
+	if got.Plan.ArtifactStatus != "written" || got.Plan.ArtifactPath == "" {
+		t.Fatalf("plan artifact state = %+v", got.Plan)
+	}
+	content, err := os.ReadFile(got.Plan.ArtifactPath)
+	if err != nil {
+		t.Fatalf("read plan artifact: %v", err)
+	}
+	planText := string(content)
+	for _, want := range []string{"# Current Session Plan", "Scope: Milestone 47 plan capability", "GIVEN implementation starts WHEN code changes are made", "Next action: Review the plan artifact"} {
+		if !strings.Contains(planText, want) {
+			t.Fatalf("plan artifact missing %q in:\n%s", want, planText)
+		}
+	}
+	if len(got.Plan.Items) != 3 || !got.Plan.Items[0].Done || got.Plan.Items[1].Done {
+		t.Fatalf("plan items = %+v", got.Plan.Items)
+	}
+	if got.Plan.RecommendedSuccessor != "plan" || !got.Plan.SuccessorValid || got.Plan.TransitionClaimed || !got.Plan.DisplayOnly {
+		t.Fatalf("plan successor/display = %+v", got.Plan)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("plan dispatches = %#v, want one capability effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("plan dispatch = %T, want runtime.CapabilityEffect", dispatched[0][0])
+	}
+	if runner.model.LastCapability.Plan == nil || runner.model.LastCapability.RecommendedSuccessor != workflow.PhasePlan {
+		t.Fatalf("runtime last capability = %+v", runner.model.LastCapability)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result == "" || snapshots[0].Snapshot.Runtime.Result != runner.model.Result {
+		t.Fatalf("plan snapshots = %#v", snapshots)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("plan history events = %#v, want command then runtime", historyEvents)
 	}
 }
 

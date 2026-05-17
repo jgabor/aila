@@ -60,15 +60,23 @@ func (runner *inputRunner) proposeCapability(request capability.Request) tui.Tra
 	runner.apply(runtime.CapabilityProposed{Request: request})
 	turn := transcriptTurn(runner.model.Transcript[before:])
 	runner.applyRuntimeState(&turn)
-	turn.Brief = briefView(runner.model.LastCapability, runner.model.Status)
-	if turn.Brief != nil {
-		turn.StatusDetail = "brief capability status"
+	switch runner.model.LastCapability.Capability {
+	case capability.NameBrief:
+		turn.Brief = briefView(runner.model.LastCapability, runner.model.Status)
+		if turn.Brief != nil {
+			turn.StatusDetail = "brief capability status"
+		}
+	case capability.NamePlan:
+		turn.Plan = planView(runner.model.LastCapability, request.Phase, planArtifactPersistence{})
+		if turn.Plan != nil {
+			turn.StatusDetail = "plan capability status"
+		}
 	}
 	return turn
 }
 
 func briefView(payload capability.ExitPayload, runtimeStatus runtime.Status) *tui.BriefView {
-	if payload.Capability == "" {
+	if payload.Capability != capability.NameBrief {
 		return nil
 	}
 	return &tui.BriefView{

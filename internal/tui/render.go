@@ -67,6 +67,7 @@ type ViewState struct {
 	FileReference      *FileReferenceView
 	PolicyRoute        *PolicyRouteView
 	Brief              *BriefView
+	Plan               *PlanView
 	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
@@ -393,6 +394,62 @@ type BriefBoundaryRequestView struct {
 	Reason    string
 }
 
+// PlanView is app-injected scoped planning output.
+type PlanView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	Title                string
+	Scope                string
+	Summary              string
+	ArtifactPath         string
+	ArtifactStatus       string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	Items                []PlanItemView
+	Blockers             []string
+	NextAction           string
+	ArtifactRefs         []PlanArtifactRefView
+	SourceRefs           []PlanSourceRefView
+	BoundaryRequests     []PlanBoundaryRequestView
+}
+
+// PlanItemView records one app-injected plan item.
+type PlanItemView struct {
+	ID           string
+	Text         string
+	Status       string
+	Done         bool
+	Acceptance   []string
+	SourceRefIDs []string
+}
+
+// PlanArtifactRefView records one plan artifact reference.
+type PlanArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// PlanSourceRefView records one source reference supporting plan output.
+type PlanSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// PlanBoundaryRequestView records one inert plan boundary descriptor.
+type PlanBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // IdleEmptyState returns the static first-launch view state.
 func IdleEmptyState() ViewState {
 	return ViewState{
@@ -473,6 +530,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	items = append(items, briefLines(state.Brief)...)
+	items = append(items, planLines(state.Plan)...)
 	if state.SurfaceTitle == "agent evidence" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 		items = append(items, chatLines(state.Transcript)...)
@@ -1116,6 +1174,80 @@ func briefLines(brief *BriefView) []string {
 	return lines
 }
 
+func planLines(plan *PlanView) []string {
+	if plan == nil {
+		return nil
+	}
+	semantic := semanticPlan(plan)
+	lines := []string{
+		"  Plan:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  title: " + semantic.Title,
+		"  scope: " + semantic.Scope,
+		"  artifact: " + semantic.ArtifactPath,
+		"  artifact status: " + semantic.ArtifactStatus,
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	for _, item := range semantic.Items {
+		lines = append(lines, "  item: "+item.ID+" status="+item.Status+" done="+boolLabel(item.Done)+" text="+item.Text)
+		for _, acceptance := range item.Acceptance {
+			lines = append(lines, "  acceptance: "+item.ID+" "+acceptance)
+		}
+		if len(item.SourceRefIDs) > 0 {
+			lines = append(lines, "  item source refs: "+item.ID+" "+strings.Join(item.SourceRefIDs, ","))
+		}
+	}
+	for _, blocker := range semantic.Blockers {
+		lines = append(lines, "  blocker: "+blocker)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "  app-owned", "  display-only", "")
+	return lines
+}
+
 func compactLines(compact *CompactView) []string {
 	if compact == nil {
 		return nil
@@ -1679,6 +1811,7 @@ type SemanticSnapshot struct {
 	Command        *SemanticCommand        `json:"command,omitempty"`
 	PolicyRoute    *SemanticPolicyRoute    `json:"policy_route,omitempty"`
 	Brief          *SemanticBrief          `json:"brief,omitempty"`
+	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	History        *SemanticHistory        `json:"history,omitempty"`
 	Diff           *SemanticDiff           `json:"diff,omitempty"`
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
@@ -2191,6 +2324,63 @@ type SemanticBriefBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticPlan describes app-injected scoped planning output.
+type SemanticPlan struct {
+	Visible              bool                          `json:"visible"`
+	Source               string                        `json:"source"`
+	Capability           string                        `json:"capability"`
+	Signal               string                        `json:"signal"`
+	Title                string                        `json:"title"`
+	Scope                string                        `json:"scope"`
+	Summary              string                        `json:"summary,omitempty"`
+	ArtifactPath         string                        `json:"artifact_path"`
+	ArtifactStatus       string                        `json:"artifact_status"`
+	RecommendedSuccessor string                        `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                          `json:"successor_valid"`
+	TransitionClaimed    bool                          `json:"transition_claimed"`
+	DisplayOnly          bool                          `json:"display_only"`
+	Items                []SemanticPlanItem            `json:"items,omitempty"`
+	Blockers             []string                      `json:"blockers,omitempty"`
+	NextAction           string                        `json:"next_action,omitempty"`
+	ArtifactRefs         []SemanticPlanArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticPlanSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticPlanBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticPlanItem records one machine-readable plan item.
+type SemanticPlanItem struct {
+	ID           string   `json:"id"`
+	Text         string   `json:"text"`
+	Status       string   `json:"status"`
+	Done         bool     `json:"done"`
+	Acceptance   []string `json:"acceptance,omitempty"`
+	SourceRefIDs []string `json:"source_ref_ids,omitempty"`
+}
+
+// SemanticPlanArtifactRef records one plan artifact reference.
+type SemanticPlanArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticPlanSourceRef records one plan source reference.
+type SemanticPlanSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticPlanBoundaryRequest records one inert plan boundary descriptor.
+type SemanticPlanBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticSessionView describes an app-injected session lifecycle surface.
 type SemanticSessionView struct {
 	Visible      bool                  `json:"visible"`
@@ -2474,6 +2664,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Brief != nil {
 		regions = append(regions, SemanticRegion{Name: "brief", Visible: true, Items: semanticBriefItems(state.Brief)})
 	}
+	if state.Plan != nil {
+		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -2557,6 +2750,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Command:        command,
 		PolicyRoute:    semanticPolicyRoute(state.PolicyRoute),
 		Brief:          semanticBrief(state.Brief),
+		Plan:           semanticPlan(state.Plan),
 		History:        semanticHistory(state),
 		Diff:           semanticDiff(state),
 		Read:           semanticRead(state.Read),
@@ -3520,6 +3714,121 @@ func semanticPolicyRoute(route *PolicyRouteView) *SemanticPolicyRoute {
 		SuccessorReason:      safeText(route.SuccessorReason),
 		TransitionClaimed:    route.TransitionClaimed,
 		Executed:             route.Executed,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticPlanItems(plan *PlanView) []string {
+	semantic := semanticPlan(plan)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"title: " + semantic.Title,
+		"scope: " + semantic.Scope,
+		"artifact_path: " + semantic.ArtifactPath,
+		"artifact_status: " + semantic.ArtifactStatus,
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	for _, item := range semantic.Items {
+		items = append(items, "item: "+item.ID+" status="+item.Status+" done="+boolLabel(item.Done)+" text="+item.Text)
+		for _, acceptance := range item.Acceptance {
+			items = append(items, "acceptance: "+item.ID+" "+acceptance)
+		}
+		if len(item.SourceRefIDs) > 0 {
+			items = append(items, "item_source_refs: "+item.ID+" "+strings.Join(item.SourceRefIDs, ","))
+		}
+	}
+	for _, blocker := range semantic.Blockers {
+		items = append(items, "blocker: "+blocker)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticPlan(plan *PlanView) *SemanticPlan {
+	if plan == nil {
+		return nil
+	}
+	items := make([]SemanticPlanItem, 0, len(plan.Items))
+	for _, item := range plan.Items {
+		items = append(items, SemanticPlanItem{ID: safeText(item.ID), Text: safeText(item.Text), Status: safeText(item.Status), Done: item.Done, Acceptance: safeTextSlice(item.Acceptance), SourceRefIDs: safeTextSlice(item.SourceRefIDs)})
+	}
+	artifactRefs := make([]SemanticPlanArtifactRef, 0, len(plan.ArtifactRefs))
+	for _, ref := range plan.ArtifactRefs {
+		artifactRefs = append(artifactRefs, SemanticPlanArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticPlanSourceRef, 0, len(plan.SourceRefs))
+	for _, ref := range plan.SourceRefs {
+		refs = append(refs, SemanticPlanSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticPlanBoundaryRequest, 0, len(plan.BoundaryRequests))
+	for _, request := range plan.BoundaryRequests {
+		requests = append(requests, SemanticPlanBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticPlan{
+		Visible:              true,
+		Source:               safeText(defaultString(plan.Source, "app.plan")),
+		Capability:           safeText(defaultString(plan.Capability, "plan")),
+		Signal:               safeText(defaultString(plan.Signal, "complete")),
+		Title:                safeText(plan.Title),
+		Scope:                safeText(plan.Scope),
+		Summary:              safeText(plan.Summary),
+		ArtifactPath:         safeText(plan.ArtifactPath),
+		ArtifactStatus:       safeText(defaultString(plan.ArtifactStatus, "available")),
+		RecommendedSuccessor: safeText(plan.RecommendedSuccessor),
+		SuccessorValid:       plan.SuccessorValid,
+		TransitionClaimed:    plan.TransitionClaimed,
+		DisplayOnly:          plan.DisplayOnly,
+		Items:                items,
+		Blockers:             safeTextSlice(plan.Blockers),
+		NextAction:           safeText(plan.NextAction),
+		ArtifactRefs:         artifactRefs,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}

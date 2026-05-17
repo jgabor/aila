@@ -63,21 +63,32 @@ func TestResolveKnownArtifactIncludesPathAndProvenance(t *testing.T) {
 	t.Parallel()
 
 	layout := mustDescribeStore(t, filepath.Join(t.TempDir(), "workspace"))
-	artifact, err := NewResolver(layout).ResolveArtifact(ArtifactProjectSummary)
-	if err != nil {
-		t.Fatalf("ResolveArtifact returned error: %v", err)
-	}
+	for _, tc := range []struct {
+		name ArtifactName
+		file string
+	}{
+		{name: ArtifactProjectSummary, file: "project-summary.md"},
+		{name: ArtifactPlan, file: "plan.md"},
+	} {
+		t.Run(string(tc.name), func(t *testing.T) {
+			t.Parallel()
+			artifact, err := NewResolver(layout).ResolveArtifact(tc.name)
+			if err != nil {
+				t.Fatalf("ResolveArtifact returned error: %v", err)
+			}
 
-	wantPath := filepath.Join(layout.ArtifactsRoot, "project-summary.md")
-	if artifact.Path != wantPath {
-		t.Fatalf("artifact path = %q, want %q", artifact.Path, wantPath)
-	}
-	assertPathInside(t, artifact.Path, layout.ArtifactsRoot)
-	if artifact.Provenance.LogicalName != ArtifactProjectSummary {
-		t.Fatalf("provenance logical name = %q, want %q", artifact.Provenance.LogicalName, ArtifactProjectSummary)
-	}
-	if artifact.Provenance.StoreRoot != layout.StoreRoot {
-		t.Fatalf("provenance store root = %q, want %q", artifact.Provenance.StoreRoot, layout.StoreRoot)
+			wantPath := filepath.Join(layout.ArtifactsRoot, tc.file)
+			if artifact.Path != wantPath {
+				t.Fatalf("artifact path = %q, want %q", artifact.Path, wantPath)
+			}
+			assertPathInside(t, artifact.Path, layout.ArtifactsRoot)
+			if artifact.Provenance.LogicalName != tc.name {
+				t.Fatalf("provenance logical name = %q, want %q", artifact.Provenance.LogicalName, tc.name)
+			}
+			if artifact.Provenance.StoreRoot != layout.StoreRoot {
+				t.Fatalf("provenance store root = %q, want %q", artifact.Provenance.StoreRoot, layout.StoreRoot)
+			}
+		})
 	}
 }
 
@@ -137,11 +148,22 @@ func TestResolveArtifactWriteAllowsOwningWriter(t *testing.T) {
 	t.Parallel()
 
 	layout := mustDescribeStore(t, filepath.Join(t.TempDir(), "workspace"))
-	artifact, err := NewResolver(layout).ResolveArtifactWrite(ArtifactProjectSummary, OwnerState)
-	if err != nil {
-		t.Fatalf("ResolveArtifactWrite returned error: %v", err)
+	for _, tc := range []struct {
+		name  ArtifactName
+		owner ArtifactOwner
+	}{
+		{name: ArtifactProjectSummary, owner: OwnerState},
+		{name: ArtifactPlan, owner: OwnerApp},
+	} {
+		t.Run(string(tc.name), func(t *testing.T) {
+			t.Parallel()
+			artifact, err := NewResolver(layout).ResolveArtifactWrite(tc.name, tc.owner)
+			if err != nil {
+				t.Fatalf("ResolveArtifactWrite returned error: %v", err)
+			}
+			assertPathInside(t, artifact.Path, layout.ArtifactsRoot)
+		})
 	}
-	assertPathInside(t, artifact.Path, layout.ArtifactsRoot)
 }
 
 func TestOpenProjectStoreCreatesMinimalLayoutOnCleanWorkspace(t *testing.T) {
@@ -266,21 +288,34 @@ func TestOpenProjectStoreRecoveryDoesNotOverwriteExistingState(t *testing.T) {
 func TestWriteArtifactStoresOwnedContentWithAtomicBoundary(t *testing.T) {
 	t.Parallel()
 
-	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
-	artifact := mustResolveArtifact(t, store.Resolver(), ArtifactProjectSummary)
-	if err := os.WriteFile(artifact.Path, []byte("old content\n"), 0o644); err != nil {
-		t.Fatalf("seed artifact: %v", err)
-	}
+	for _, tc := range []struct {
+		name    ArtifactName
+		owner   ArtifactOwner
+		content string
+	}{
+		{name: ArtifactProjectSummary, owner: OwnerState, content: "complete content\n"},
+		{name: ArtifactPlan, owner: OwnerApp, content: "# Plan\n\n- [ ] inspect the current milestone\n"},
+	} {
+		tc := tc
+		t.Run(string(tc.name), func(t *testing.T) {
+			t.Parallel()
+			store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+			artifact := mustResolveArtifact(t, store.Resolver(), tc.name)
+			if err := os.WriteFile(artifact.Path, []byte("old content\n"), 0o644); err != nil {
+				t.Fatalf("seed artifact: %v", err)
+			}
 
-	written, err := store.WriteArtifact(context.Background(), ArtifactProjectSummary, OwnerState, []byte("complete content\n"))
-	if err != nil {
-		t.Fatalf("WriteArtifact returned error: %v", err)
+			written, err := store.WriteArtifact(context.Background(), tc.name, tc.owner, []byte(tc.content))
+			if err != nil {
+				t.Fatalf("WriteArtifact returned error: %v", err)
+			}
+			if written.Path != artifact.Path {
+				t.Fatalf("written artifact path = %q, want %q", written.Path, artifact.Path)
+			}
+			assertFileContent(t, artifact.Path, tc.content)
+			assertNoTempArtifacts(t, filepath.Dir(artifact.Path))
+		})
 	}
-	if written.Path != artifact.Path {
-		t.Fatalf("written artifact path = %q, want %q", written.Path, artifact.Path)
-	}
-	assertFileContent(t, artifact.Path, "complete content\n")
-	assertNoTempArtifacts(t, filepath.Dir(artifact.Path))
 }
 
 func TestWriteArtifactRejectsUnownedWriteWithoutFinalMutation(t *testing.T) {
@@ -302,6 +337,30 @@ func TestWriteArtifactRejectsUnownedWriteWithoutFinalMutation(t *testing.T) {
 	}
 	if _, err := store.WriteArtifact(context.Background(), ArtifactProjectSummary, OwnerApp, []byte("bad content\n")); !errors.Is(err, ErrUnauthorizedOwn) {
 		t.Fatalf("unowned rewrite error = %v, want ErrUnauthorizedOwn", err)
+	}
+	assertFileContent(t, artifact.Path, existing)
+	assertNoTempArtifacts(t, filepath.Dir(artifact.Path))
+}
+
+func TestWritePlanArtifactRejectsStateOwnerWithoutFinalMutation(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+	artifact := mustResolveArtifact(t, store.Resolver(), ArtifactPlan)
+
+	if _, err := store.WriteArtifact(context.Background(), ArtifactPlan, OwnerState, []byte("bad plan\n")); !errors.Is(err, ErrUnauthorizedOwn) {
+		t.Fatalf("unowned plan write error = %v, want ErrUnauthorizedOwn", err)
+	}
+	if _, err := os.Stat(artifact.Path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unowned plan write created final artifact: stat error = %v", err)
+	}
+
+	const existing = "# Existing plan\n"
+	if err := os.WriteFile(artifact.Path, []byte(existing), 0o644); err != nil {
+		t.Fatalf("seed plan artifact: %v", err)
+	}
+	if _, err := store.WriteArtifact(context.Background(), ArtifactPlan, OwnerState, []byte("bad plan\n")); !errors.Is(err, ErrUnauthorizedOwn) {
+		t.Fatalf("unowned plan rewrite error = %v, want ErrUnauthorizedOwn", err)
 	}
 	assertFileContent(t, artifact.Path, existing)
 	assertNoTempArtifacts(t, filepath.Dir(artifact.Path))
@@ -421,7 +480,7 @@ func assertNoTempArtifacts(t *testing.T, root string) {
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if strings.HasPrefix(name, ".project-summary.md.") && strings.HasSuffix(name, ".tmp") {
+		if strings.HasSuffix(name, ".tmp") {
 			t.Fatalf("temporary artifact %q was left behind", name)
 		}
 	}

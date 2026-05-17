@@ -1,0 +1,258 @@
+{
+  "scenario": "plan-capability",
+  "screen": {
+    "width": 140,
+    "height": 52,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "plan capability status",
+    "runtime_result": "Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "project_store_status": "initialized",
+    "project_store_source": "state.open",
+    "project_store_detail": "project store ready"
+  },
+  "plan": {
+    "visible": true,
+    "source": "app.plan",
+    "capability": "plan",
+    "signal": "complete",
+    "title": "Current Session Plan",
+    "scope": "Milestone 47 plan capability",
+    "summary": "Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "recommended_successor": "plan",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "items": [
+      {
+        "id": "scope",
+        "text": "Confirm the scoped work and evidence",
+        "status": "done",
+        "done": true,
+        "acceptance": [
+          "GIVEN the work is planned WHEN the plan is displayed THEN scope, source refs, blockers, and next action are visible before execution."
+        ],
+        "source_ref_ids": ["roadmap-m47", "project-state"]
+      },
+      {
+        "id": "implement",
+        "text": "Implement only the scoped plan behavior",
+        "status": "pending",
+        "done": false,
+        "acceptance": [
+          "GIVEN implementation starts WHEN code changes are made THEN build execution, audit behavior, provider calls, and tool execution remain out of scope."
+        ],
+        "source_ref_ids": ["roadmap-m47"]
+      },
+      {
+        "id": "validate",
+        "text": "Validate display and semantic evidence before execution",
+        "status": "pending",
+        "done": false,
+        "acceptance": [
+          "GIVEN validation runs WHEN fixtures and semantic snapshots are inspected THEN plan items, done state, blockers, artifact refs, and source refs are machine-readable."
+        ],
+        "source_ref_ids": ["session-state"]
+      }
+    ],
+    "blockers": ["roadmap closeout waits for validation"],
+    "next_action": "Review the plan artifact, then choose the first pending item.",
+    "artifact_refs": [
+      {
+        "id": "plan-artifact",
+        "kind": "state_artifact",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "roadmap-m47",
+        "kind": "roadmap",
+        "path": "ROADMAP.md",
+        "excerpt": "Milestone 47: Plan Capability"
+      },
+      {
+        "id": "project-state",
+        "kind": "project_state",
+        "excerpt": "project store initialized"
+      },
+      {
+        "id": "session-state",
+        "kind": "session_state",
+        "excerpt": "runtime idle with roadmap context"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "project.current",
+        "reason": "plan requires app-supplied project state evidence"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "plan",
+        "reason": "plan artifact path must be resolved through the state store"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "plan",
+        "reason": "plan artifact persistence must be app-owned and store-mediated"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "source: state.open",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: plan capability status",
+        "active: false",
+        "result: Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "plan",
+      "visible": true,
+      "items": [
+        "source: app.plan",
+        "capability: plan",
+        "signal: complete",
+        "title: Current Session Plan",
+        "scope: Milestone 47 plan capability",
+        "artifact_path: [path-redacted]",
+        "artifact_status: written",
+        "recommended_successor: plan",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+        "item: scope status=done done=true text=Confirm the scoped work and evidence",
+        "acceptance: scope GIVEN the work is planned WHEN the plan is displayed THEN scope, source refs, blockers, and next action are visible before execution.",
+        "item_source_refs: scope roadmap-m47,project-state",
+        "item: implement status=pending done=false text=Implement only the scoped plan behavior",
+        "acceptance: implement GIVEN implementation starts WHEN code changes are made THEN build execution, audit behavior, provider calls, and tool execution remain out of scope.",
+        "item_source_refs: implement roadmap-m47",
+        "item: validate status=pending done=false text=Validate display and semantic evidence before execution",
+        "acceptance: validate GIVEN validation runs WHEN fixtures and semantic snapshots are inspected THEN plan items, done state, blockers, artifact refs, and source refs are machine-readable.",
+        "item_source_refs: validate session-state",
+        "blocker: roadmap closeout waits for validation",
+        "next_action: Review the plan artifact, then choose the first pending item.",
+        "artifact_ref: plan-artifact kind=state_artifact path=[path-redacted]",
+        "boundary_request: state_access operation=state.access target=project.current reason=plan requires app-supplied project state evidence",
+        "boundary_request: artifact_access operation=artifact.access target=plan reason=plan artifact path must be resolved through the state store",
+        "boundary_request: state_write operation=state.write target=plan reason=plan artifact persistence must be app-owned and store-mediated",
+        "source_ref: roadmap-m47 kind=roadmap path=ROADMAP.md excerpt=Milestone 47: Plan Capability",
+        "source_ref: project-state kind=project_state excerpt=project store initialized",
+        "source_ref: session-state kind=session_state excerpt=runtime idle with roadmap context"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: clean",
+        "context: Milestone 47 plan capability",
+        "quit: q"
+      ]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: build",
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "status: initialized",
+        "source: state.open",
+        "detail: project store ready",
+        "app-owned",
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: plan capability status",
+        "active: false",
+        "result: Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+        "display-only",
+        "git: clean",
+        "context: Milestone 47 plan capability"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

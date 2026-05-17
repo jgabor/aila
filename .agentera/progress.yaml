@@ -1,4 +1,122 @@
 cycles:
+  - number: 226
+    timestamp: 2026-05-17 13:15
+    type: build
+    phase: closeout
+    what: Completed Milestone 47 by adding deterministic plan capability behavior, state-store plan artifact persistence,
+      exact /plan app routing, TUI render/semantic evidence, and PTY plan display coverage.
+    commit: 'pending local commit: add plan capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 47; mage check; Agentera plan/progress/lint/hej
+      validation; diff and hygiene checks
+    discovered: M47 stays bounded when /plan is the only new interactive command surface, plan output is deterministic
+      and app-supplied, and app-owned store persistence writes the generated artifact through state.Store instead of
+      capability-side IO. The TUI artifact path appears redacted in render/semantic snapshots, while app and PTY tests
+      prove the actual store path is written.
+    verified: mage fmt passed. Focused state/capability/runtime/app/policy/TUI/cmd checks passed. go test ./internal/...
+      -count=1 passed. go test ./cmd/aila -count=1 passed in 286.740s before the state-test isolation fix; final mage
+      check reran cmd/aila in 297.771s after the fix. mage check passed with internal packages green, 0 lint issues,
+      and no vulnerabilities. git diff --check with fixed-width snapshot txt files excluded passed. Added-line home-path
+      hygiene passed, and new M47 files introduced no func TestM<number> names. Installed Agentera CLI plan/progress/lint/hej
+      validation passed after closeout.
+    next: Commit the completed M47 slice locally, leaving Milestone 48: Build Capability as the next roadmap milestone.
+    context:
+      intent: Close the milestone after validation and before local commit.
+      constraints: Execute only M47; no build execution, audit behavior, provider/model planning, broad capability parity,
+        direct workflow phase mutation, or push.
+      unknowns: Build capability execution, provider-backed planning, richer plan editing, and audit feedback remain deferred.
+      scope: internal/state, internal/capability, internal/runtime, internal/app, internal/policy, internal/tui, cmd/aila,
+        ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M46 plan.
+  - number: 225
+    timestamp: 2026-05-17 12:48
+    type: build
+    phase: implementation
+    what: Wired M47 plan through runtime, app-owned store persistence, TUI rendering, semantic snapshots, and PTY display.
+    commit: 'pending local commit: add plan capability'
+    inspiration: .agentera/plan.yaml tasks 4-5; ROADMAP.md Milestone 47 TUI validation; docs/tui-testing semantic snapshot guidance
+    discovered: Exact /plan can be the narrow interactive path for this milestone without adding broad capability command
+      parity. The app owns store persistence and PlanView injection; the TUI only renders and serializes injected data.
+    verified: go test ./internal/runtime -run 'Test.*Plan.*|Test.*Capability.*' -count=1 passed; go test ./internal/app
+      -run 'Test.*Plan.*|Test.*Status.*' -count=1 passed; go test ./internal/tui -run 'TestCommandFixtureSet|TestPlanCapabilityFixtureSnapshots|TestPlanCapabilitySemanticSnapshotExposesItemsAndSourceRefs'
+      -count=1 passed; go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1 passed.
+    next: Run formatting, full targeted/package validation, roadmap closeout, Agentera validation, hygiene checks, and commit.
+    context:
+      intent: Complete the product behavior and display evidence before roadmap closeout.
+      constraints: /plan creates and displays scoped work only; no build execution, audit behavior, provider/model planning,
+        tool execution, permission grant, direct workflow phase mutation, or broad capability parity.
+      unknowns: Full-suite validation and roadmap closeout remain.
+      scope: internal/runtime, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage, and TUI fixtures.
+  - number: 224
+    timestamp: 2026-05-17 12:19
+    type: build
+    phase: implementation
+    what: Implemented deterministic M47 plan capability behavior.
+    commit: 'pending local commit: add plan capability'
+    inspiration: .agentera/plan.yaml task 3; ROADMAP.md Milestone 47; docs/workflow-architecture capability exit and FSM recommendation rules
+    discovered: The plan capability can stay deterministic by using app-supplied scope, project state, and session state,
+      returning typed PlanOutput data on exactly one ExitPayload, and recommending PLAN only when the workflow FSM accepts
+      the request phase.
+    verified: go test ./internal/capability -run 'Test.*Plan.*|Test.*Capability.*|TestBuiltIn.*' -count=1 passed.
+    next: Wire plan through app/runtime routing and persist the generated plan document through the state store.
+    context:
+      intent: Finish deterministic capability behavior before any app or TUI display wiring.
+      constraints: No provider calls, model calls, tool execution, build execution, audit behavior, permission grants, or
+        direct workflow phase mutation.
+      unknowns: App invocation and TUI semantic presentation remain to be wired and validated.
+      scope: internal/capability/plan.go, internal/capability/plan_test.go, internal/capability/contract.go, and
+        internal/capability/brief.go.
+  - number: 223
+    timestamp: 2026-05-17 12:05
+    type: build
+    phase: implementation
+    what: Added M47 state-store support for the logical plan artifact.
+    commit: 'pending local commit: add plan capability'
+    inspiration: .agentera/plan.yaml task 2; ROADMAP.md Milestone 47; ARCHITECTURE artifact resolver rules; docs/workflow-architecture plan artifact ownership
+    discovered: Plan persistence can use the existing artifact catalog and atomic store write path by adding one logical
+      artifact, plan, owned by the app boundary and resolved to .aila/artifacts/plan.md.
+    verified: go test ./internal/state -run 'Test.*Artifact.*|TestResolveKnownArtifactIncludesPathAndProvenance'
+      -count=1 passed.
+    next: Implement deterministic plan capability behavior with one exit payload, plan items, blockers, artifact/source
+      refs, and a PLAN successor recommendation.
+    context:
+      intent: Complete the state-store persistence slice before capability behavior.
+      constraints: Behavior-named tests only; no build execution, audit behavior, provider calls, direct phase mutation,
+        or non-store plan file writes.
+      unknowns: Exact plan display layout and runtime/app persistence wiring are still owned by later M47 tasks.
+      scope: internal/state/store.go and internal/state/store_test.go.
+  - number: 222
+    timestamp: 2026-05-17 11:45
+    type: plan
+    phase: plan
+    what: 'Planned Milestone 47: Plan Capability as the next roadmap milestone, archived the completed M46 plan, and
+      created a new active plan with six bounded tasks for state-store plan artifact support, deterministic plan capability
+      behavior, runtime/app/store persistence wiring, TUI render/semantic evidence, validation, roadmap closeout,
+      and commit.'
+    commit: 'N/A: planning artifact before M47 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 47; AGENTS.md; README capability table; ARCHITECTURE capability
+      and artifact-resolver sections; docs/workflow-architecture capability/artifact sections; docs/tui-testing semantic
+      guidance; installed Agentera CLI hej --format json with planera context; Agentera plan/progress state
+    discovered: M47 can stay minimal by making plan deterministic and app-supplied, adding a store-owned logical plan
+      artifact, and reusing the M46 capability runtime boundary. The milestone should create and display scoped work
+      without executing it, leaving provider-backed planning, build execution, audit feedback, and broad command parity
+      for later milestones.
+    verified: Installed Agentera CLI hej with planera context passed; Agentera plan/progress state, ROADMAP.md top
+      status and M47 section, docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability/state
+      sections, docs/workflow-architecture capability/artifact sections, and current capability/runtime/app/state/TUI
+      seams were reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids
+      new TestM<number> symbols.
+    next: 'Execute M47 Tasks 2-5: add state-store plan artifact support, implement deterministic plan capability behavior,
+      wire plan through runtime/app/store persistence, and add TUI render/semantic plus PTY display validation before
+      roadmap closeout and commit.'
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M46, selecting M47 and preparing
+        an executable plan before implementation.
+      constraints: Execute only M47; preserve statechart-MVU, runtime/effect/store/FSM authority boundaries, TUI presentation-only
+        behavior, fixed product posture, deterministic non-provider planning, behavior-based test names, and no push.
+      unknowns: Exact deterministic plan item wording, display layout, and whether PTY uses /status or a narrow /plan
+        surface are implementation-owned; provider-backed planning, build execution, audit, and full capability command
+        parity remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m46.yaml archival, and progress evidence
+        for the M47 planning handoff.
   - number: 221
     timestamp: 2026-05-17 11:25
     type: build

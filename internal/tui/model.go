@@ -56,6 +56,7 @@ type TranscriptTurn struct {
 	Compact            *CompactView
 	Context            *ContextView
 	Brief              *BriefView
+	Plan               *PlanView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -662,6 +663,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Brief != nil {
 		state.Brief = cloneBriefView(turn.Brief)
 	}
+	if turn.Plan != nil {
+		state.Plan = clonePlanView(turn.Plan)
+	}
 	if state.Context != nil && state.Context.Meter != "" {
 		state.FooterContext = state.Context.Meter
 	}
@@ -913,6 +917,10 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	}
 	if recommendation.Route != policy.CommandRouteStatus {
 		state.Utility = nil
+		state.Brief = nil
+	}
+	if recommendation.Route != policy.CommandRoutePlan {
+		state.Plan = nil
 	}
 	state.FileReference = nil
 	switch recommendation.Route {
@@ -964,6 +972,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"git: " + state.FooterGit,
 			"context: " + state.FooterContext,
 		}
+	case policy.CommandRoutePlan:
+		state.SurfaceTitle = "plan"
+		state.SurfaceLines = []string{
+			"app-owned plan creation unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: plan",
+		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"
 		state.SurfaceLines = []string{
@@ -984,6 +999,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/model --utility - Choose the active utility model for this session.",
 			"/auto - Choose the active autonomy level for this session.",
 			"/status - Inspect current runtime and state.",
+			"/plan - Create and display scoped work without executing it.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
 			"/compact - Immediately compact the current conversation.",
@@ -1037,6 +1053,15 @@ func ApplyBriefView(state ViewState, brief *BriefView) ViewState {
 	return state
 }
 
+// ApplyPlanView injects app-owned plan capability output into visible state.
+func ApplyPlanView(state ViewState, plan *PlanView) ViewState {
+	if plan == nil {
+		return state
+	}
+	state.Plan = clonePlanView(plan)
+	return state
+}
+
 // ApplyPolicyRouteView injects app-owned policy routing evidence into visible state.
 func ApplyPolicyRouteView(state ViewState, route *PolicyRouteView) ViewState {
 	if route == nil {
@@ -1054,6 +1079,23 @@ func cloneBriefView(brief *BriefView) *BriefView {
 	clone.KnownGaps = append([]string(nil), brief.KnownGaps...)
 	clone.SourceRefs = append([]BriefSourceRefView(nil), brief.SourceRefs...)
 	clone.BoundaryRequests = append([]BriefBoundaryRequestView(nil), brief.BoundaryRequests...)
+	return &clone
+}
+
+func clonePlanView(plan *PlanView) *PlanView {
+	if plan == nil {
+		return nil
+	}
+	clone := *plan
+	clone.Items = append([]PlanItemView(nil), plan.Items...)
+	for index := range clone.Items {
+		clone.Items[index].Acceptance = append([]string(nil), plan.Items[index].Acceptance...)
+		clone.Items[index].SourceRefIDs = append([]string(nil), plan.Items[index].SourceRefIDs...)
+	}
+	clone.Blockers = append([]string(nil), plan.Blockers...)
+	clone.ArtifactRefs = append([]PlanArtifactRefView(nil), plan.ArtifactRefs...)
+	clone.SourceRefs = append([]PlanSourceRefView(nil), plan.SourceRefs...)
+	clone.BoundaryRequests = append([]PlanBoundaryRequestView(nil), plan.BoundaryRequests...)
 	return &clone
 }
 

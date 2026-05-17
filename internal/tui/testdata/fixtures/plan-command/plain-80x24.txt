@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder         
++ Conversation ----------------------------------------------------------------+
+| No messages yet.                                                             |
+|                                                                              |
+| plan:                                                                        |
+| command route: plan                                                          |
+| route source: policy.command                                                 |
+| app-owned plan creation unavailable in presentation-only fallback            |
+| read-only: false                                                             |
+| capability: plan                                                             |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

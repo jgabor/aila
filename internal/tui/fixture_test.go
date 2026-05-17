@@ -3609,6 +3609,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		route policy.CommandRoute
 	}{
 		{name: "status-command", input: "/status", route: policy.CommandRouteStatus},
+		{name: "plan-command", input: "/plan", route: policy.CommandRoutePlan},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3689,6 +3690,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned status inspection unavailable in presentation-only fallback"
 	case "review":
 		return "app-owned review inspection unavailable in presentation-only fallback"
+	case "plan":
+		return "app-owned plan creation unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -3789,6 +3792,127 @@ func briefStatusFixtureState() ViewState {
 			{Kind: "state_access", Operation: "state.access", Target: "runtime.current", Reason: "brief requires the current runtime and workflow phase from the runtime boundary"},
 			{Kind: "artifact_access", Operation: "artifact.access", Target: "fake_history", Reason: "brief uses store-resolved recent history when available"},
 			{Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "brief uses app-supplied context evidence when available"},
+		},
+	})
+	return state
+}
+
+func TestPlanCapabilityFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "plan-capability", planCapabilityFixtureState())
+	for _, tc := range fixture.TextCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.render(fixture.State, tc.size)
+			assertTextSnapshot(t, fixture, tc.file, got)
+			plain := RenderPlain(fixture.State, tc.size)
+			for _, want := range []string{
+				"Plan:",
+				"capability: plan",
+				"signal: complete",
+				"scope: Milestone 47 plan capability",
+				"item: scope status=done done=true",
+				"item: implement status=pending done=false",
+				"blocker: roadmap closeout waits for validation",
+				"next action: Review the plan artifact, then choose the first pending item.",
+				"artifact ref: plan-artifact kind=state_artifact path=[path-redacted]",
+				"requested boundary: state_write operation=state.write target=plan",
+				"source ref: roadmap-m47 kind=roadmap",
+				"successor valid: true",
+				"transition claimed: false",
+				"display-only: true",
+			} {
+				if !strings.Contains(plain, want) {
+					t.Fatalf("plan render missing %q in:\n%s", want, plain)
+				}
+			}
+		})
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		t.Run(semanticCase.name, func(t *testing.T) {
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		})
+	}
+}
+
+func TestPlanCapabilitySemanticSnapshotExposesItemsAndSourceRefs(t *testing.T) {
+	t.Parallel()
+
+	snapshot := Semantic(planCapabilityFixtureState(), Size{Width: 140, Height: 52})
+	if snapshot.Plan == nil {
+		t.Fatal("Plan semantic snapshot is nil")
+	}
+	if snapshot.Plan.Scope != "Milestone 47 plan capability" || snapshot.Plan.RecommendedSuccessor != "plan" || !snapshot.Plan.SuccessorValid || snapshot.Plan.TransitionClaimed || !snapshot.Plan.DisplayOnly {
+		t.Fatalf("plan scope/successor/display = %+v", snapshot.Plan)
+	}
+	if len(snapshot.Plan.Items) != 3 || !snapshot.Plan.Items[0].Done || snapshot.Plan.Items[1].Status != "pending" || len(snapshot.Plan.Items[1].Acceptance) == 0 {
+		t.Fatalf("plan items = %+v", snapshot.Plan.Items)
+	}
+	if len(snapshot.Plan.Blockers) != 1 || snapshot.Plan.Blockers[0] != "roadmap closeout waits for validation" {
+		t.Fatalf("plan blockers = %+v", snapshot.Plan.Blockers)
+	}
+	if len(snapshot.Plan.ArtifactRefs) != 1 || snapshot.Plan.ArtifactRefs[0].Path != "[path-redacted]" {
+		t.Fatalf("plan artifact refs = %+v", snapshot.Plan.ArtifactRefs)
+	}
+	if len(snapshot.Plan.SourceRefs) < 2 || snapshot.Plan.SourceRefs[0].ID != "roadmap-m47" {
+		t.Fatalf("plan source refs = %+v", snapshot.Plan.SourceRefs)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	planRegion := regions["plan"].Items
+	if !containsAll(strings.Join(planRegion, "\n"), []string{"item: scope status=done", "blocker: roadmap closeout waits for validation", "artifact_ref: plan-artifact kind=state_artifact path=[path-redacted]", "boundary_request: state_write operation=state.write target=plan"}) {
+		t.Fatalf("plan semantic region missing expected items: %+v", planRegion)
+	}
+}
+
+func planCapabilityFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "plan-capability"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.dispatch"
+	state.StatusDetail = "plan capability status"
+	state.RuntimeResult = "Plan: Milestone 47 plan capability with 3 item(s) ready for review."
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreSource = "state.open"
+	state.ProjectStoreDetail = "project store ready"
+	state.FooterGit = "clean"
+	state.FooterContext = "Milestone 47 plan capability"
+	state = ApplyPlanView(state, &PlanView{
+		Source:               "app.plan",
+		Capability:           "plan",
+		Signal:               "complete",
+		Title:                "Current Session Plan",
+		Scope:                "Milestone 47 plan capability",
+		Summary:              "Plan: Milestone 47 plan capability with 3 item(s) ready for review.",
+		ArtifactPath:         ".aila/artifacts/plan.md",
+		ArtifactStatus:       "written",
+		RecommendedSuccessor: "plan",
+		SuccessorValid:       true,
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		Items: []PlanItemView{
+			{ID: "scope", Text: "Confirm the scoped work and evidence", Status: "done", Done: true, Acceptance: []string{"GIVEN the work is planned WHEN the plan is displayed THEN scope, source refs, blockers, and next action are visible before execution."}, SourceRefIDs: []string{"roadmap-m47", "project-state"}},
+			{ID: "implement", Text: "Implement only the scoped plan behavior", Status: "pending", Acceptance: []string{"GIVEN implementation starts WHEN code changes are made THEN build execution, audit behavior, provider calls, and tool execution remain out of scope."}, SourceRefIDs: []string{"roadmap-m47"}},
+			{ID: "validate", Text: "Validate display and semantic evidence before execution", Status: "pending", Acceptance: []string{"GIVEN validation runs WHEN fixtures and semantic snapshots are inspected THEN plan items, done state, blockers, artifact refs, and source refs are machine-readable."}, SourceRefIDs: []string{"session-state"}},
+		},
+		Blockers:   []string{"roadmap closeout waits for validation"},
+		NextAction: "Review the plan artifact, then choose the first pending item.",
+		ArtifactRefs: []PlanArtifactRefView{{
+			ID:   "plan-artifact",
+			Kind: "state_artifact",
+			Path: ".aila/artifacts/plan.md",
+		}},
+		SourceRefs: []PlanSourceRefView{
+			{ID: "roadmap-m47", Kind: "roadmap", Path: "ROADMAP.md", Excerpt: "Milestone 47: Plan Capability"},
+			{ID: "project-state", Kind: "project_state", Excerpt: "project store initialized"},
+			{ID: "session-state", Kind: "session_state", Excerpt: "runtime idle with roadmap context"},
+		},
+		BoundaryRequests: []PlanBoundaryRequestView{
+			{Kind: "state_access", Operation: "state.access", Target: "project.current", Reason: "plan requires app-supplied project state evidence"},
+			{Kind: "artifact_access", Operation: "artifact.access", Target: "plan", Reason: "plan artifact path must be resolved through the state store"},
+			{Kind: "state_write", Operation: "state.write", Target: "plan", Reason: "plan artifact persistence must be app-owned and store-mediated"},
 		},
 	})
 	return state

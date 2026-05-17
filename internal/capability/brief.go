@@ -60,6 +60,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 	switch request.Capability {
 	case NameBrief:
 		return BriefCapability{}.Run(ctx, request)
+	case NamePlan:
+		return PlanCapability{}.Run(ctx, request)
 	default:
 		return ExitPayload{}, fmt.Errorf("unsupported built-in capability %q", request.Capability)
 	}

@@ -1710,6 +1710,31 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		}
 	}
 
+	if _, err := terminal.Write([]byte("/plan\r")); err != nil {
+		t.Fatalf("send /plan command input: %v", err)
+	}
+	plan := readUntilAll(t, terminal, []string{
+		"Plan:",
+		"capability: plan",
+		"signal: complete",
+		"artifact status: written",
+		"item: scope status=done",
+		"item: implement status=pending",
+		"next action: Review the plan artifact",
+		"successor valid: true",
+		"transition claimed: false",
+		"requested boundary: state_write",
+		"source ref: plan-project-state",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, plan, env, workspace)
+	planArtifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "plan.md"))
+	if err != nil {
+		t.Fatalf("read plan artifact: %v", err)
+	}
+	if !strings.Contains(string(planArtifact), "# Current Session Plan") || !strings.Contains(string(planArtifact), "GIVEN implementation starts WHEN code changes are made") {
+		t.Fatalf("plan artifact content missing expected scope or acceptance criteria:\n%s", planArtifact)
+	}
+
 	if _, err := terminal.Write([]byte("/review\r")); err != nil {
 		t.Fatalf("send /review command input: %v", err)
 	}

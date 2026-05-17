@@ -1,0 +1,52 @@
+Aila                                                                                                                                  140x52
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                                     
++ Conversation --------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                              |  | phase source: build                    |
+| primary model: placeholder                                                                   |  | primary model: placeholder             |
+| utility model: placeholder                                                                   |  | utility model: placeholder             |
+| autonomy: placeholder (display-only)                                                         |  | autonomy: placeholder                  |
+| project store: initialized - project store ready                                             |  | status: initialized                    |
+|                                                                                              |  | source: state.open                     |
+| Runtime status:                                                                              |  | detail: project store ready            |
+| status: idle                                                                                 |  | app-owned                              |
+| status source: runtime.dispatch                                                              |  | status: idle                           |
+| detail: plan capability status                                                               |  | status source: runtime.dispatch        |
+| active: false                                                                                |  | detail: plan capability status         |
+| result: Plan: Milestone 47 plan capability with 3 item(s) ready for review.                  |  | active: false                          |
+|                                                                                              |  | result: Plan: Milestone 47 plan capab~ |
+| Plan:                                                                                        |  | display-only                           |
+| source: app.plan                                                                             |  | git: clean                             |
+| capability: plan                                                                             |  | context: Milestone 47 plan capability  |
+| signal: complete                                                                             |  |                                        |
+| title: Current Session Plan                                                                  |  |                                        |
+| scope: Milestone 47 plan capability                                                          |  |                                        |
+| artifact: [path-redacted]                                                                    |  |                                        |
+| artifact status: written                                                                     |  |                                        |
+| recommended successor: plan                                                                  |  |                                        |
+| successor valid: true                                                                        |  |                                        |
+| transition claimed: false                                                                    |  |                                        |
+| display-only: true                                                                           |  |                                        |
+| summary: Plan: Milestone 47 plan capability with 3 item(s) ready for review.                 |  |                                        |
+| item: scope status=done done=true text=Confirm the scoped work and evidence                  |  |                                        |
+| acceptance: scope GIVEN the work is planned WHEN the plan is displayed THEN scope, source r~ |  |                                        |
+| item source refs: scope roadmap-m47,project-state                                            |  |                                        |
+| item: implement status=pending done=false text=Implement only the scoped plan behavior       |  |                                        |
+| acceptance: implement GIVEN implementation starts WHEN code changes are made THEN build exe~ |  |                                        |
+| item source refs: implement roadmap-m47                                                      |  |                                        |
+| item: validate status=pending done=false text=Validate display and semantic evidence before~ |  |                                        |
+| acceptance: validate GIVEN validation runs WHEN fixtures and semantic snapshots are inspect~ |  |                                        |
+| item source refs: validate session-state                                                     |  |                                        |
+| blocker: roadmap closeout waits for validation                                               |  |                                        |
+| next action: Review the plan artifact, then choose the first pending item.                   |  |                                        |
+| artifact ref: plan-artifact kind=state_artifact path=[path-redacted]                         |  |                                        |
+| requested boundary: state_access operation=state.access target=project.current reason=plan ~ |  |                                        |
+| requested boundary: artifact_access operation=artifact.access target=plan reason=plan artif~ |  |                                        |
+| requested boundary: state_write operation=state.write target=plan reason=plan artifact pers~ |  |                                        |
+| source ref: roadmap-m47 kind=roadmap path=ROADMAP.md excerpt=Milestone 47: Plan Capability   |  |                                        |
+| source ref: project-state kind=project_state excerpt=project store initialized               |  |                                        |
++----------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ----------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                        |
++------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                 git: clean | context: Milestone 47 plan capability | q quit
+                                                                                                                                            
