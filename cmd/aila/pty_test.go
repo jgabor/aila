@@ -1172,6 +1172,45 @@ func TestInteractiveWriteBuildLoopDenialPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestShellPrefixCommandPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+		runPTYGit(t, workspace, "init")
+		if err := os.WriteFile(filepath.Join(workspace, "smoke.txt"), []byte("shell prefix smoke\n"), 0o644); err != nil {
+			t.Fatalf("write shell prefix smoke file: %v", err)
+		}
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("!git status --short\r")); err != nil {
+		t.Fatalf("send shell prefix command: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Bash command:",
+		"status: completed",
+		"command: git status --short",
+		"?? smoke.txt",
+		"decision source: autonomy_policy",
+	}, 10*time.Second)
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after shell prefix smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("shell prefix PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("shell prefix PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
 func TestPromptPastePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

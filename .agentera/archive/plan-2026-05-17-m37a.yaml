@@ -1,0 +1,197 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  reviewed: '2026-05-17'
+  critic_issues: >-
+    M37A must implement only the prompt input UX family: editor command, file-reference picker/insertion,
+    and multiline paste display while preserving exact prompt text. The TUI may own keystroke/focus/display state, but it
+    must not open editors, walk files, mutate files, persist sessions, call providers, assemble model context, execute shell
+    commands, or own workflow transitions. File-reference discovery must use app-owned read-only discovery effects. Do not
+    add shell prefixes, compaction, provider context assembly, generic command registries, plugins, MCP, workflow DSLs,
+    hosted control-plane behavior, or M38+ scope.
+  title: 'Milestone 37A: Prompt Input UX Family'
+what: Deliver ROADMAP.md Milestone 37A by adding the README-promised prompt input affordances for /editor and ctrl+x e,
+  @ file references, and multiline paste summaries through typed input messages, app-owned handlers, deterministic TUI
+  fixtures, semantic snapshots, PTY smoke, and no hidden TUI side effects.
+why: M35-M37 established closed command routing, app-owned command surfaces, and session-scoped model/autonomy selection.
+  M37A makes the prompt box itself usable for real coding-agent input while preserving the architecture boundary that only
+  app/runtime/tool layers perform editor IO, project discovery, persistence, provider context assembly, and shell execution.
+constraints: 'Execute only Milestone 37A. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may update local prompt display, file-reference focus/selection, and paste summaries, but it must emit app-owned messages
+  or callbacks for editor opening and project file discovery. Do not let TUI read or write files, launch editors, inspect git,
+  persist sessions, call providers, assemble model prompts, execute shell commands, or mutate workflow phase. Use closed policy
+  routes for /editor and ctrl+x e. Use existing read-only search/find/tool boundaries for file-reference discovery. Preserve
+  exact pasted text in prompt/session state while rendering a bounded [Pasted lines +X] summary for long pastes. Keep /compact,
+  shell prefixes, provider context assembly, source indexing beyond bounded file discovery, plugins, MCP, workflow DSLs,
+  generic registries, hosted control planes, and M38+ behavior out of scope. Use behavior-based test names; do not introduce
+  new TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m37.yaml
+source_anchors:
+- ROADMAP.md:16-110
+- ROADMAP.md:1536-1567
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- README.md:279-307
+- ARCHITECTURE.md:156-164
+- ARCHITECTURE.md:681-706
+- docs/workflow-architecture.md:63-68
+- docs/tui-testing.md:105-121
+- docs/tui-testing.md:250-263
+- internal/policy/command.go
+- internal/app/session_snapshot.go
+- internal/tools/search.go
+- internal/runtime/runtime.go
+- internal/tui/model.go
+- internal/tui/render.go
+- cmd/aila/pty_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/policy -run 'Test.*Command.*|Test.*Shortcut.*|Test.*Editor.*|Test.*Prompt.*|Test.*FileReference.*|Test.*Paste.*' -count=1
+- go test ./internal/app -run 'Test.*Editor.*|Test.*Prompt.*|Test.*FileReference.*|Test.*Paste.*|Test.*Command.*' -count=1
+- go test ./internal/tui -run 'Test.*Editor.*|Test.*Prompt.*|Test.*FileReference.*|Test.*Paste.*|Test.*Command.*|Test.*Shortcut.*|Test.*Fixture.*|Test.*Semantic.*' -count=1
+- go test ./cmd/aila -run 'Test.*Editor.*PTYSmoke|Test.*FileReference.*PTYSmoke|Test.*Paste.*PTYSmoke|Test.*PromptInput.*PTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m37.yaml cmd/aila internal/app internal/policy internal/runtime internal/tools internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- changed-line home-path and milestone-numbered test-name hygiene returns no matches
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context planera --fields plan,progress,state_presence,next_action
+scope:
+  included:
+  - Add closed /editor and ctrl+x e routes in internal/policy without adding /compact, shell prefixes, or a generic command registry.
+  - Add app-owned editor command handling that opens the current prompt through an injected editor runner, applies edited text
+    back to prompt state through typed messages, and supports result/cancel/failure states without TUI IO.
+  - Add app-owned file-reference discovery using bounded read-only project discovery effects and TUI-only picker focus/selection
+    over injected file-reference rows.
+  - Add prompt state that separates exact prompt text from display text so multiline pastes render a bounded [Pasted lines +X]
+    summary while preserving exact submitted text and session state.
+  - Add editor-open, file-reference-picker, file-reference-inserted, and pasted-lines fixtures with render and semantic snapshots,
+    plus update/keybinding tests for editor, @ focus, insertion, paste formatting, prompt restoration, and slash/shortcut parity.
+  - Close the milestone with targeted tests, full mage check, ROADMAP status, Agentera progress, and one meaningful local commit.
+  excluded:
+  - /compact, ctrl+x k, ! or !! shell prefixes, provider context assembly, source indexing beyond bounded read-only file discovery,
+    config editing, provider calls, file reads for prompt context, file writes, shell execution, plugins, MCP, workflow DSLs,
+    generic command registries, hosted control planes, and M38+ behavior.
+  deferred:
+  - Context-window budgeting, provider prompt source-reference assembly, compact command behavior, summarized shell command behavior,
+    richer fuzzy file search, multi-file context expansion, and persistent prompt draft storage.
+design: Keep policy routing closed. Add a narrow app-owned prompt input handler beside the existing session controller so /editor
+  and ctrl+x e can request an editor operation without TUI IO, and so @ file discovery can reuse the existing read-only find
+  tool path. Extend TUI ViewState with typed prompt input metadata for exact text, display text, paste summaries, editor status,
+  and file-reference picker rows. The TUI updates keystrokes, focus, and selected rows locally, but editor opening and project
+  discovery are app-owned callbacks. Submitting the prompt sends exact text, not the display summary. File-reference insertion
+  adds exact relative links to prompt state without reading file contents.
+overall_acceptance:
+- /editor and ctrl+x e share one closed route and app-owned handler; opening an editor reads the current prompt, applies edited
+  text back to prompt state, and exposes result/cancel/failure state without TUI launching the editor itself.
+- Typing @ opens a file-reference picker populated by app-owned read-only project discovery; selection inserts an exact relative
+  file link into the prompt, and Escape cancels focus without changing exact prompt text.
+- Pasting more than two lines displays [Pasted lines +X] in the input while preserving the exact pasted text for submission,
+  prompt restoration, semantic evidence, and session state.
+- Editor-open, file-reference-picker, file-reference-inserted, and pasted-lines fixtures have deterministic plain, ANSI, and
+  semantic snapshots that expose displayed prompt text, inserted file refs, paste summary, and preserved exact-text reference.
+- Update/keybinding tests prove TUI input remains presentation-only and emits app-owned messages/callbacks for editor and file
+  discovery, with no filesystem, shell, git, provider, workflow, or persistence IO in TUI update paths.
+- Representative PTY smoke uses a fake $EDITOR, selects an @ file reference, pastes multiline text, resizes, and quits cleanly
+  without /compact, shell prefixes, provider calls, file mutation, plugins, MCP, workflow DSL, hosted control-plane, or M38+ behavior.
+surprises: []
+tasks:
+- number: 1
+  name: Plan and confirm the prompt input UX slice
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera state and roadmap docs are reviewed WHEN planning finishes THEN the active plan names M37A only and excludes
+    /compact, shell prefixes, provider context assembly, config editing, plugins, MCP, workflow DSL, hosted control-plane, and M38+ behavior.
+  - GIVEN current prompt, command, search, app, and TUI seams are inspected WHEN implementation starts THEN the smallest path
+    is closed editor routing plus app-owned editor/file-reference handlers and TUI-owned exact/display prompt state.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
+    milestone-number names.
+  evidence:
+  - Agentera hej with planera capability context, ROADMAP.md top status and M37A section, docs/notes/PROMPT.md, AGENTS.md,
+    README prompt input and slash command tables, ARCHITECTURE presentation/app boundaries, docs/workflow-architecture TUI
+    ownership, docs/tui-testing update and PTY gates, and current policy/app/runtime/tools/TUI seams were reviewed.
+  - The plan scopes @ discovery to app-owned read-only find/search effects and leaves provider context assembly, file reads for
+    context, /compact, and shell prefixes deferred.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to editor, file-reference, and paste prompt input UX.
+- number: 2
+  name: Add closed editor route and app-owned editor handler
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN /editor or ctrl+x e is entered WHEN policy routes it THEN the recommendation is closed, exact, and does not enable /compact or generic registry behavior.
+  - GIVEN the editor command is handled WHEN an app editor runner returns edited text THEN prompt state is replaced with the edited exact text and visible editor result state is updated.
+  - GIVEN the editor runner reports cancel or failure WHEN the command returns THEN the prompt is restored unchanged and the result/cancel/failure state is visible without TUI editor IO.
+  evidence:
+  - internal/policy/command.go now routes closed /editor and ctrl+x e recommendations without /compact, shell prefixes, or a generic registry.
+  - internal/app/prompt_input.go adds an app-owned injected editor runner and external $EDITOR adapter; app tests cover applied, canceled, and failed editor results while restoring prompt text outside TUI IO.
+  - internal/tui/input_test.go covers /editor and ctrl+x e parity through the same policy route and editor surface.
+- number: 3
+  name: Add app-owned file-reference discovery and insertion
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN @ is typed WHEN the file-reference picker opens THEN rows come from app-owned read-only project discovery and not from TUI filesystem walking.
+  - GIVEN a file-reference row is selected WHEN Enter is pressed THEN the exact relative file link is inserted into prompt state and picker focus closes.
+  - GIVEN Escape is pressed or discovery fails WHEN the picker is focused THEN prompt exact text remains stable and bounded visible status explains the result.
+  evidence:
+  - internal/app/prompt_input.go discovers @ rows through the existing app-owned read-only find/search effect boundary and filters bounded relative paths without reading file contents.
+  - internal/tui/model.go keeps @ focus, selection, Escape, and Enter insertion presentation-only over injected FileReferenceView rows.
+  - App and TUI tests cover @ focus, read-only discovery rows, exact @docs/guide.md insertion, Escape stability, and no reserved path leakage.
+- number: 4
+  name: Preserve exact prompt text while formatting multiline paste display
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN text is typed normally WHEN rendered or submitted THEN display text and exact prompt text remain identical.
+  - GIVEN more than two lines are pasted WHEN rendered THEN the input shows a bounded [Pasted lines +X] summary instead of flooding the prompt.
+  - GIVEN the summarized paste prompt is submitted or restored WHEN app receives it THEN the exact pasted text is preserved, not the summary label.
+  evidence:
+  - internal/tui/prompt_input.go separates exact PromptInput from PromptDisplayInput, renders [Pasted lines +X] for prompts over two lines, and records exact_text_ref plus sha256 metadata.
+  - internal/runtime/runtime.go now preserves exact submitted prompt text while still rejecting whitespace-only submissions.
+  - TUI and app tests prove multiline paste display is summarized while submitted/restored text remains exact.
+- number: 5
+  name: Refresh prompt input fixtures semantics and keybinding coverage
+  depends_on:
+  - 2
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN deterministic fixtures render WHEN tests run THEN editor-open, file-reference-picker, file-reference-inserted, and pasted-lines have plain, ANSI, and semantic snapshots.
+  - GIVEN update/keybinding tests run THEN editor request/result/cancel, @ search focus, file link insertion, paste formatting, prompt restoration, /editor, and ctrl+x e parity are covered.
+  - GIVEN semantic snapshots are inspected THEN displayed prompt text, inserted file refs, paste summary, and preserved exact-text reference are machine-readable.
+  evidence:
+  - Added editor-open, file-reference-picker, file-reference-inserted, and pasted-lines fixture metadata plus plain, ANSI, and semantic snapshots at 80x24, 100x30, 120x32, and 160x45.
+  - Updated help-command snapshots for the newly live /editor and ctrl+x e command surface.
+  - Behavior-named tests cover editor request/result/cancel, @ picker selection/cancel, prompt restoration, paste formatting, semantic metadata, and presentation-only TUI ownership checks.
+- number: 6
+  name: Run PTY smoke full validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN an isolated temp workspace and fake editor WHEN PTY smoke uses /editor, @ picker selection, multiline paste, resize, and quit THEN expected visible evidence appears and process exits cleanly.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M37A is recorded complete, M38 is next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress, and plan archive are included in one meaningful local commit.
+  evidence:
+  - mage fmt passed.
+  - go test ./internal/... -count=1 passed.
+  - go test ./cmd/aila -count=1 passed.
+  - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+  - TestPromptInputUXFamilyPTYSmoke passed with fake $EDITOR, @ picker selection, bracketed multiline paste, resize, and quit coverage.
+  - ROADMAP.md was updated after validation to mark M37A complete and M38 next.
+complete: 6
+total: 6
+active: false
+complete_plan: true

@@ -1,0 +1,113 @@
+{
+  "scenario": "summarized-shell-deferred",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "bash tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "deferred",
+    "read_only": true,
+    "argv": ["git", "status", "--short"],
+    "working_dir": ".",
+    "command_family": "summarized shell",
+    "expected_effect": "summarize shell output for context in Milestone 39",
+    "exit_code": 0,
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error_kind": "deferred",
+    "error_message": "summarized shell output is deferred until Milestone 39 context builder",
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: bash tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: deferred",
+        "read_only: true",
+        "command: git status --short",
+        "working_dir: .",
+        "completed: true",
+        "command_family: summarized shell",
+        "expected_effect: summarize shell output for context in Milestone 39",
+        "exit_code: 0",
+        "stdout_truncated: false",
+        "stderr_truncated: false",
+        "error_kind: deferred",
+        "error_message: summarized shell output is deferred until Milestone 39 context builder",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

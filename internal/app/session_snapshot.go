@@ -79,6 +79,10 @@ func newSessionControllerWithPersistenceHistoryReadAndDiff(ctx context.Context, 
 }
 
 func (controller *sessionController) submitPrompt(text string) tui.TranscriptTurn {
+	if recommendation, ok := policy.RecommendShellPrefix(text); ok {
+		return controller.submitShellPrefix(recommendation)
+	}
+
 	queuedBefore := controller.view.QueuedCount
 	turn := controller.runner.submitPrompt(text)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)

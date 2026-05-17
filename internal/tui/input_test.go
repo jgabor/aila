@@ -63,6 +63,46 @@ func TestModelAcceptsAppOwnedDisplayStateWithoutChangingInputBehavior(t *testing
 	}
 }
 
+func TestShellPrefixInputSubmitsExactTextThroughAppCallback(t *testing.T) {
+	t.Parallel()
+
+	var submitted []string
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		submitted = append(submitted, text)
+		return TranscriptTurn{
+			UserText:      text,
+			RuntimeStatus: "idle",
+			StatusSource:  "shell.prefix",
+			Command: &CommandView{
+				Name:       "bash",
+				Status:     "deferred",
+				ReadOnly:   true,
+				Argv:       []string{"git", "status", "--short"},
+				WorkingDir: ".",
+			},
+		}
+	}, nil)
+
+	for _, r := range "!!git status --short" {
+		updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		if cmd != nil {
+			t.Fatalf("typing shell prefix emitted command")
+		}
+		model = updated.(Model)
+	}
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("submitting shell prefix emitted Bubble Tea command")
+	}
+	if len(submitted) != 1 || submitted[0] != "!!git status --short" {
+		t.Fatalf("submitted = %#v, want exact shell prefix", submitted)
+	}
+	if got.state.Command == nil || got.state.Command.Status != "deferred" || got.PromptInput() != "" {
+		t.Fatalf("state after shell prefix submit = %+v", got.state)
+	}
+}
+
 func TestPromptSubmitAppliesAppOwnedRuntimeStatus(t *testing.T) {
 	t.Parallel()
 

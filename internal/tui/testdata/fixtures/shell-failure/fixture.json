@@ -1,0 +1,22 @@
+{
+  "name": "shell-failure",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["build", "runtime_idle", "shell_prefix", "shell_failure"],
+  "render_sizes": [
+    {
+      "name": "120x34",
+      "width": 120,
+      "height": 34
+    }
+  ],
+  "render_outputs": {
+    "plain_120x34": "plain-120x34.txt",
+    "ansi_120x34": "ansi-120x34.txt",
+    "semantic_120x34": "semantic-120x34.json"
+  },
+  "notes": [
+    "M38 shell prefix fixture; failed ! command preserves exact failure lines through visible bash result metadata."
+  ]
+}

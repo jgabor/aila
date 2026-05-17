@@ -1,4 +1,80 @@
 cycles:
+  - number: 203
+    timestamp: "2026-05-17 05:33"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M38 by adding shell prefixes: policy-owned `!` and `!!` parsing, app-owned `!` dispatch through the existing
+      runtime bash effect and permission/history/current-snapshot path, reserved `!!` summarized-shell deferred display for
+      Milestone 39, shell-result/shell-failure/deferred fixtures and semantic snapshots, and PTY smoke for `!git status --short`.
+    commit: "pending local commit for M38 shell prefixes"
+    inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 38; README shell prefixes; ARCHITECTURE.md tool/permission and TUI boundaries; docs/workflow-architecture.md event/history boundary; docs/tui-testing.md shell fixture and PTY gates; agentera hej --format json --capability-context orkestrera"
+    discovered: >-
+      The bounded M38 path is to keep the TUI as an exact prompt submitter and route shell prefixes in the app. `!` can reuse
+      BashToolProposed and dispatchBashEffect so validation, permission, visible bash results, and history stay centralized.
+      `!!` should not execute or summarize until M39, so it records history and shows an explicit deferred command surface.
+      No context builder, source refs, provider summarization, /compact, plugin, MCP, workflow DSL, generic registry, hosted
+      control-plane, or M39+ behavior was added.
+    verified: >-
+      mage fmt passed. Focused policy, app, TUI, and cmd shell-prefix tests passed. go test ./internal/... -count=1 passed.
+      go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+      TestShellPrefixCommandPTYSmoke passed with an isolated temp git workspace and visible `!git status --short` output.
+      ROADMAP.md was updated only after green validation. Agentera plan/progress validation, git diff --check, changed-line
+      home-path hygiene, and changed-line TestM<number> hygiene are included in final closeout.
+    next: >-
+      Commit the completed M38 slice, leaving Milestone 39: Context Builder With Source Refs as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M38 roadmap milestone, preserving the planera -> orkestrera -> commit loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M38; preserve statechart-MVU, explicit effect boundaries, TUI presentation-only behavior, app-owned prefix
+        routing, existing bash permission/history paths, reserved `!!` deferred behavior, behavior-based test names, and no push.
+      unknowns: >-
+        Context builder/source refs, actual summarized-shell context feeding, command summarization, model reasoning over shell
+        output, and /compact remain deferred.
+      scope: >-
+        internal/policy shell prefix parsing, internal/app shell-prefix prompt handling/history, internal/tui shell-prefix fixtures
+        and semantic snapshots, cmd/aila PTY smoke, ROADMAP, and Agentera closeout.
+  - number: 202
+    timestamp: "2026-05-17 05:13"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 38: Shell Prefixes as the next roadmap milestone, archived the completed M37A plan, and created a
+      new active plan with six bounded tasks for policy-owned `!` and `!!` prefix parsing, app-owned executable shell-prefix
+      dispatch through the existing bash permission/history path, reserved summarized-shell deferred display, shell-result,
+      shell-failure, and summarized-shell-deferred fixtures, PTY smoke, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M38 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 38; AGENTS.md; README shell prefix and autonomy sections; ARCHITECTURE.md tool/permission and TUI boundaries; docs/workflow-architecture.md event/history boundaries; docs/tui-testing.md shell fixture guidance; agentera hej --format json --capability-context planera"
+    discovered: >-
+      M38 should stay a shell-prefix routing slice. `!command` can reuse the existing runtime BashToolProposed ->
+      dispatchBashEffect -> permission decision -> visible CommandView path, while `!!command` should be recognized and
+      visibly deferred until the M39 context builder exists. The TUI remains presentation-only and should not parse for
+      execution, classify permissions, write history, execute shell, assemble context, call providers, or own workflow phase.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, ROADMAP.md top status and M38 section, docs/notes/PROMPT.md,
+      AGENTS.md, README shell prefix/autonomy sections, ARCHITECTURE tool/permission and TUI boundaries, docs/workflow-architecture
+      event/history boundaries, docs/tui-testing shell fixture guidance, and current policy/app/runtime/tools/TUI seams were
+      reviewed before writing the plan.
+    next: >-
+      Execute M38 Tasks 2-5: add shell prefix parsing, route `!` through the existing bash permission/history path, add the
+      reserved `!!` deferred surface, and refresh shell-prefix fixtures, semantics, key/update coverage, and PTY smoke without
+      adding context builder, /compact, provider summarization, plugins, MCP, workflow DSL, generic registry, hosted control-plane,
+      or M39+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M37A, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M38; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, app-owned prefix routing,
+        existing bash permission/history paths, reserved `!!` deferred behavior, behavior-based test names, and commit only
+        after implementation and validation complete.
+      unknowns: >-
+        The exact argv splitter shape and deferred CommandView fields are implementation-owned; context builder/source refs,
+        command summarization, provider reasoning over output, and /compact remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m37a.yaml archival, and progress evidence for the
+        M38 planning handoff.
   - number: 201
     timestamp: "2026-05-17 05:21"
     type: build

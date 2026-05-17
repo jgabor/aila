@@ -1,0 +1,33 @@
+[1mAila                                                                                                              120x34[0m
+[2mStage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                 [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: bash tool dispatch                                                                                           |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Bash command:                                                                                                        |
+| tool: bash                                                                                                           |
+| status: deferred                                                                                                     |
+| read-only: true                                                                                                      |
+| command: git status --short                                                                                          |
+| working dir: .                                                                                                       |
+| completed: true                                                                                                      |
+| command family: summarized shell                                                                                     |
+| expected effect: summarize shell output for context in Milestone 39                                                  |
+| exit code: 0                                                                                                         |
+| stdout truncated: false                                                                                              |
+| stderr truncated: false                                                                                              |
+| error kind: deferred                                                                                                 |
+| error message: summarized shell output is deferred until Milestone 39 context builder                                |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

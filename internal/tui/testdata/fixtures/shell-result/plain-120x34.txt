@@ -1,0 +1,33 @@
+Aila                                                                                                              120x34
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: bash tool dispatch                                                                                           |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Bash command:                                                                                                        |
+| tool: bash                                                                                                           |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| command: git status --short                                                                                          |
+| working dir: .                                                                                                       |
+| completed: true                                                                                                      |
+| command family: git status                                                                                           |
+| expected effect: inspect git working tree status                                                                     |
+| exit code: 0                                                                                                         |
+| stdout:                                                                                                              |
+| | M internal/app/shell_prefix.go                                                                                     |
+| | ?? docs/example.md                                                                                                 |
+| stdout truncated: false                                                                                              |
+| stderr truncated: false                                                                                              |
+| decision source: autonomy_policy                                                                                     |
+| decision: allowed                                                                                                    |
+| decision automatic: true                                                                                             |
+| approval required: false                                                                                             |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

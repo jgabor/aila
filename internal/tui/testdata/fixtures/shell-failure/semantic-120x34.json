@@ -1,0 +1,117 @@
+{
+  "scenario": "shell-failure",
+  "screen": {
+    "width": 120,
+    "height": 34,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "bash tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "failed",
+    "read_only": true,
+    "argv": ["git", "checkout", "main"],
+    "working_dir": ".",
+    "expected_effect": "run shell prefix command through bash permission boundary",
+    "exit_code": -1,
+    "stderr_lines": [
+      "git subcommand is not allowed",
+      "exact failure line: git checkout main"
+    ],
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error_kind": "unsafe_command",
+    "error_message": "git subcommand is not allowed",
+    "completed": true
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: bash tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: failed",
+        "read_only: true",
+        "command: git checkout main",
+        "working_dir: .",
+        "completed: true",
+        "expected_effect: run shell prefix command through bash permission boundary",
+        "exit_code: -1",
+        "stderr_line: git subcommand is not allowed",
+        "stderr_line: exact failure line: git checkout main",
+        "stdout_truncated: false",
+        "stderr_truncated: false",
+        "error_kind: unsafe_command",
+        "error_message: git subcommand is not allowed",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

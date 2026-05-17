@@ -1,0 +1,33 @@
+[1mAila                                                                                                              120x34[0m
+[2mStage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                 [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: bash tool dispatch                                                                                           |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Bash command:                                                                                                        |
+| tool: bash                                                                                                           |
+| status: failed                                                                                                       |
+| read-only: true                                                                                                      |
+| command: git checkout main                                                                                           |
+| working dir: .                                                                                                       |
+| completed: true                                                                                                      |
+| expected effect: run shell prefix command through bash permission boundary                                           |
+| exit code: -1                                                                                                        |
+| stderr:                                                                                                              |
+| ! git subcommand is not allowed                                                                                      |
+| ! exact failure line: git checkout main                                                                              |
+| stdout truncated: false                                                                                              |
+| stderr truncated: false                                                                                              |
+| error kind: unsafe_command                                                                                           |
+| error message: git subcommand is not allowed                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

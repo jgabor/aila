@@ -1219,6 +1219,23 @@ func TestM19SearchPTYSmokeDecision(t *testing.T) {
 	}
 }
 
+func allowedReadDecisionView(tool string, command []string, workingDir string, expectedEffect string) *DecisionView {
+	return &DecisionView{
+		Autonomy:         "read",
+		Source:           "autonomy_policy",
+		Allowed:          true,
+		Automatic:        true,
+		ApprovalRequired: false,
+		Reason:           "safe read-only operation",
+		OperationKind:    "read",
+		Name:             tool,
+		Command:          append([]string(nil), command...),
+		WorkingDir:       workingDir,
+		ExpectedEffect:   expectedEffect,
+		Reversible:       true,
+	}
+}
+
 func loadCommandToolFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
@@ -1261,11 +1278,117 @@ func loadCommandToolFixture(t *testing.T, name string) renderFixture {
 			ErrorKind:       "execution_error",
 			ErrorMessage:    "command exited with non-zero status for /home/jgabor/.config/aila/config.toml token=secret-value",
 		})
+	case "shell-result":
+		state = commandToolState(&CommandView{
+			Name:           "bash",
+			Status:         "completed",
+			ReadOnly:       true,
+			Argv:           []string{"git", "status", "--short"},
+			WorkingDir:     ".",
+			CommandFamily:  "git status",
+			ExpectedEffect: "inspect git working tree status",
+			ExitCode:       0,
+			StdoutLines:    []string{" M internal/app/shell_prefix.go", "?? docs/example.md"},
+			DurationMillis: 7,
+			Decision:       allowedReadDecisionView("bash", []string{"git", "status", "--short"}, ".", "inspect git working tree status"),
+		})
+	case "shell-failure":
+		state = commandToolState(&CommandView{
+			Name:           "bash",
+			Status:         "failed",
+			ReadOnly:       true,
+			Argv:           []string{"git", "checkout", "main"},
+			WorkingDir:     ".",
+			ExpectedEffect: "run shell prefix command through bash permission boundary",
+			ExitCode:       -1,
+			StderrLines:    []string{"git subcommand is not allowed", "exact failure line: git checkout main"},
+			ErrorKind:      "unsafe_command",
+			ErrorMessage:   "git subcommand is not allowed",
+		})
+	case "summarized-shell-deferred":
+		state = commandToolState(&CommandView{
+			Name:           "bash",
+			Status:         "deferred",
+			ReadOnly:       true,
+			Argv:           []string{"git", "status", "--short"},
+			WorkingDir:     ".",
+			CommandFamily:  "summarized shell",
+			ExpectedEffect: "summarize shell output for context in Milestone 39",
+			ErrorKind:      "deferred",
+			ErrorMessage:   "summarized shell output is deferred until Milestone 39 context builder",
+		})
 	default:
 		t.Fatalf("unknown command fixture %q", name)
 	}
 	state.Scenario = name
 	return loadRenderFixture(t, name, state)
+}
+
+func TestShellPrefixCommandRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		status     string
+		wantRender []string
+	}{
+		{
+			name:   "shell-result",
+			status: "completed",
+			wantRender: []string{
+				"Bash command:",
+				"status: completed",
+				"command: git status --short",
+				"M internal/app/shell_prefix.go",
+				"?? docs/example.md",
+				"decision source: autonomy_policy",
+			},
+		},
+		{
+			name:   "shell-failure",
+			status: "failed",
+			wantRender: []string{
+				"Bash command:",
+				"status: failed",
+				"command: git checkout main",
+				"git subcommand is not allowed",
+				"exact failure line: git checkout main",
+				"error kind: unsafe_command",
+			},
+		},
+		{
+			name:   "summarized-shell-deferred",
+			status: "deferred",
+			wantRender: []string{
+				"Bash command:",
+				"status: deferred",
+				"command: git status --short",
+				"command family: summarized shell",
+				"Milestone 39 context builder",
+				"error kind: deferred",
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			state := loadCommandToolFixture(t, tc.name).State
+			render := RenderPlain(state, Size{Width: 120, Height: 34})
+			if !containsAll(render, tc.wantRender) {
+				t.Fatalf("%s render missing shell-prefix evidence %v:\n%s", tc.name, tc.wantRender, render)
+			}
+			snapshot := Semantic(state, Size{Width: 120, Height: 34})
+			if snapshot.Bash == nil || snapshot.Bash.Status != tc.status || !snapshot.Bash.ReadOnly {
+				t.Fatalf("bash semantic = %+v, want status %s read-only", snapshot.Bash, tc.status)
+			}
+			regions := semanticRegionsByName(t, snapshot)
+			bashRegion := strings.Join(regions["bash_tool"].Items, "\n")
+			if !containsAll(bashRegion, []string{"command: " + strings.Join(snapshot.Bash.Argv, " "), "status: " + tc.status, "app-owned", "display-only"}) {
+				t.Fatalf("bash semantic region = %v", regions["bash_tool"].Items)
+			}
+		})
+	}
 }
 
 func TestM20CommandRenderAndSemantic(t *testing.T) {
@@ -1355,7 +1478,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 func TestCommandToolFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
-	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed"} {
+	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed", "shell-result", "shell-failure", "summarized-shell-deferred"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

@@ -77,6 +77,26 @@ func TestModelAndAutonomyRoutesCarryClosedTargets(t *testing.T) {
 	}
 }
 
+func TestShellPrefixRecommendationsAreClosed(t *testing.T) {
+	t.Parallel()
+
+	executable, ok := RecommendShellPrefix("!git status --short")
+	if !ok || executable.Kind != ShellPrefixExecutable || executable.ExactInput != "!git status --short" || executable.CommandText != "git status --short" {
+		t.Fatalf("executable shell prefix = %+v, ok=%v", executable, ok)
+	}
+
+	summarized, ok := RecommendShellPrefix("!!git status --short")
+	if !ok || summarized.Kind != ShellPrefixSummarized || summarized.ExactInput != "!!git status --short" || summarized.CommandText != "git status --short" {
+		t.Fatalf("summarized shell prefix = %+v, ok=%v", summarized, ok)
+	}
+
+	for _, input := range []string{"hello", "/status", "!", "!!"} {
+		if got, ok := RecommendShellPrefix(input); ok {
+			t.Fatalf("RecommendShellPrefix(%q) = %+v, want no shell prefix", input, got)
+		}
+	}
+}
+
 func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	t.Parallel()
 
