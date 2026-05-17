@@ -245,9 +245,10 @@ type UtilitySafetyView struct {
 	ContextRewrite          bool
 }
 
-// CompactView is app-injected manual context compaction state. It is display-only;
+// CompactView is app-injected context compaction state. It is display-only;
 // TUI code must never compact context, persist state, or call providers itself.
 type CompactView struct {
+	Mode          string
 	Source        string
 	Status        string
 	Summary       string

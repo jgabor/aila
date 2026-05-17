@@ -113,7 +113,7 @@ func TestUpdateHandlesCompactContextProposalDeterministically(t *testing.T) {
 		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "review compact"}},
 		Claims:     []CompactContextClaim{{Text: "manual compact requested", SourceRefIDs: []string{"prompt-1"}}},
 		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, ClaimCount: 1, UsedBytes: 14},
-		Source:     CompactSourceMetadata{Caller: "test.compact", RequestID: "compact-1"},
+		Source:     CompactSourceMetadata{Caller: "test.compact", RequestID: "compact-1", Description: "manual /compact command", Mode: CompactModeManual},
 	}
 	model := Model{Status: StatusIdle, NextOperation: 2}
 	firstModel, firstEffects := Update(model, CompactContextProposed{Request: request})
@@ -155,6 +155,106 @@ func TestUpdateAppliesCompactContextResult(t *testing.T) {
 	}
 	if got := model.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "result", Text: result.Summary}}) {
 		t.Fatalf("transcript = %#v", got)
+	}
+}
+
+func TestUpdateStartsBackgroundCompactOnlyWhilePrimaryRuntimeCanYield(t *testing.T) {
+	t.Parallel()
+
+	request := CompactContextRequest{
+		Blocks:     []CompactContextBlock{{ID: "block-1", Kind: "prompt", Text: "background compact", SourceRefIDs: []string{"prompt-1"}}},
+		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "background compact"}},
+		Claims:     []CompactContextClaim{{Text: "background compact requested", SourceRefIDs: []string{"prompt-1"}}},
+		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, ClaimCount: 1, UsedBytes: 18},
+	}
+	base := Model{Status: StatusIdle, NextOperation: 8, Result: "previous result", Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}}}
+	updated, effects := Update(base, BackgroundCompactContextProposed{Request: request})
+
+	if updated.Status != base.Status || updated.Result != base.Result || !reflect.DeepEqual(updated.Transcript, base.Transcript) || updated.ActiveOperation.Kind != "" {
+		t.Fatalf("background compact changed primary state = %+v", updated)
+	}
+	if updated.ActiveCompact.Source.Mode != CompactModeBackground || updated.LastCompact.Status != "running" || updated.LastCompact.Source.Mode != CompactModeBackground {
+		t.Fatalf("background compact state = active %+v last %+v", updated.ActiveCompact, updated.LastCompact)
+	}
+	if updated.NextOperation != 9 {
+		t.Fatalf("NextOperation = %d, want 9", updated.NextOperation)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want one compact effect", len(effects))
+	}
+	effect, ok := effects[0].(CompactContextEffect)
+	if !ok {
+		t.Fatalf("effect = %#v, want compact effect", effects[0])
+	}
+	if effect.Request.Source.Mode != CompactModeBackground || effect.Request.Source.Caller != "app.compact.background" {
+		t.Fatalf("background effect request source = %+v", effect.Request.Source)
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-9", Kind: OperationCompact, Subject: "background context compaction", Source: "runtime.utility"})
+}
+
+func TestUpdateBlocksBackgroundCompactWhenPrimaryRuntimeCannotYield(t *testing.T) {
+	t.Parallel()
+
+	request := CompactContextRequest{Blocks: []CompactContextBlock{{ID: "block-1", Text: "background compact"}}}
+	cases := []struct {
+		name  string
+		model Model
+		want  utility.DenialReason
+	}{
+		{name: "primary active", model: Model{Status: StatusActive}, want: utility.DenialPrimaryBusy},
+		{name: "active operation", model: Model{Status: StatusIdle, ActiveOperation: OperationMetadata{Kind: OperationBash}}, want: utility.DenialActiveOperation},
+		{name: "approval pending", model: Model{Status: StatusIdle, PendingApproval: ApprovalProposal{ID: "approval-1"}}, want: utility.DenialApprovalPending},
+		{name: "queued input", model: Model{Status: StatusIdle, Queued: []QueuedEntry{{Kind: "prompt", Text: "queued"}}}, want: utility.DenialQueuedUserInput},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			updated, effects := Update(tc.model, BackgroundCompactContextProposed{Request: request})
+			if len(effects) != 0 {
+				t.Fatalf("background compact effects = %#v, want none", effects)
+			}
+			if updated.LastCompact.Status != "blocked" || updated.LastCompact.Source.Mode != CompactModeBackground || len(updated.LastCompact.Caveats) != 1 || !strings.Contains(updated.LastCompact.Caveats[0], string(tc.want)) {
+				t.Fatalf("blocked background compact = %+v, want reason %s", updated.LastCompact, tc.want)
+			}
+			if updated.Status != tc.model.Status || !reflect.DeepEqual(updated.Transcript, tc.model.Transcript) || updated.ActiveCompact.Source.Mode != "" {
+				t.Fatalf("blocked background compact changed primary state = %+v", updated)
+			}
+		})
+	}
+}
+
+func TestUpdateAppliesBackgroundCompactResultWithoutPrimaryRuntimeMutation(t *testing.T) {
+	t.Parallel()
+
+	primaryOperation := OperationMetadata{ID: "op-primary", Kind: OperationPrompt, Subject: "foreground", Source: "user"}
+	backgroundOperation := OperationMetadata{ID: "op-background", Kind: OperationCompact, Subject: "background context compaction", Source: "runtime.utility"}
+	request := CompactContextRequest{Source: CompactSourceMetadata{Mode: CompactModeBackground}}
+	result := CompactContextResult{
+		Status:     "completed",
+		Summary:    "background compaction preserved 1 source refs",
+		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "background compact"}},
+		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, UsedBytes: 64},
+		Source:     CompactSourceMetadata{Mode: CompactModeBackground},
+	}
+	base := Model{
+		Status:          StatusActive,
+		Result:          "foreground still running",
+		ActiveOperation: primaryOperation,
+		ActiveCompact:   request,
+		Transcript:      []TranscriptEntry{{Kind: "prompt", Text: "foreground"}},
+	}
+	updated, effects := Update(base, CompactContextCompleted{Operation: backgroundOperation, Result: result})
+
+	if len(effects) != 0 {
+		t.Fatalf("background compact completion effects = %#v, want none", effects)
+	}
+	if updated.Status != base.Status || updated.Result != base.Result || !reflect.DeepEqual(updated.Transcript, base.Transcript) || updated.ActiveOperation != primaryOperation {
+		t.Fatalf("background compact completion changed primary state = %+v", updated)
+	}
+	if updated.ActiveCompact.Source.Mode != "" || !reflect.DeepEqual(updated.LastCompact, result) {
+		t.Fatalf("background compact completion state = active %+v last %+v", updated.ActiveCompact, updated.LastCompact)
 	}
 }
 

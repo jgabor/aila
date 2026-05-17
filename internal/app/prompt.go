@@ -76,6 +76,14 @@ func (runner *inputRunner) proposeCompactContext(request runtime.CompactContextR
 	return turn
 }
 
+func (runner *inputRunner) proposeBackgroundCompactContext(request runtime.CompactContextRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.BackgroundCompactContextProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) proposeFetchTool(request runtime.FetchToolRequest) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.FetchToolProposed{Request: request})
@@ -206,6 +214,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Compact != nil {
 		turn.StatusDetail = "manual context compaction"
+		if turn.Compact.Mode == string(runtime.CompactModeBackground) {
+			turn.StatusDetail = "background context compaction"
+		}
 	}
 	if turn.Fetch != nil {
 		turn.StatusDetail = "fetch tool dispatch"

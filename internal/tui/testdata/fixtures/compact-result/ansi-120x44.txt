@@ -10,6 +10,7 @@
 |                                                                                                                      |
 | Compact:                                                                                                             |
 | source: app.compact                                                                                                  |
+| mode: manual                                                                                                         |
 | status: flagged                                                                                                      |
 | summary: manual compaction preserved 2 source refs                                                                   |
 | original meter: 1 blocks / 2 refs / 128 bytes of 4096                                                                |
@@ -32,7 +33,6 @@
 | warning: input context warning: shell stdout truncated                                                               |
 |                                                                                                                      |
 | No messages yet.                                                                                                     |
-|                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |

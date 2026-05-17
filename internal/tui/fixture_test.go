@@ -184,14 +184,15 @@ func loadCompactFixture(t *testing.T, name string) renderFixture {
 	state.Scenario = name
 	switch name {
 	case "compact-running":
-		state.RuntimeStatus = "active"
+		state.RuntimeStatus = "idle"
 		state.StatusSource = "runtime.dispatch"
-		state.StatusDetail = "manual context compaction"
-		state.RuntimeActive = true
+		state.StatusDetail = "background context compaction"
+		state.RuntimeActive = false
 		state.Compact = &CompactView{
-			Source:  "app.compact",
+			Mode:    "background",
+			Source:  "app.compact.background",
 			Status:  "running",
-			Summary: "manual context compaction running",
+			Summary: "background context compaction running",
 		}
 	case "compact-result":
 		refs := []ContextSourceRefView{
@@ -203,6 +204,7 @@ func loadCompactFixture(t *testing.T, name string) renderFixture {
 		state.StatusDetail = "manual context compaction"
 		state.RuntimeResult = "manual compaction preserved 2 source refs (1 caveat)"
 		state.Compact = &CompactView{
+			Mode:          "manual",
 			Source:        "app.compact",
 			Status:        "flagged",
 			Summary:       "manual compaction preserved 2 source refs",
@@ -3694,11 +3696,12 @@ func TestCompactFixtureSnapshots(t *testing.T) {
 			status: "running",
 			wantRender: []string{
 				"Compact:",
-				"source: app.compact",
+				"source: app.compact.background",
+				"mode: background",
 				"status: running",
-				"summary: manual context compaction running",
+				"summary: background context compaction running",
 			},
-			wantSemantic: []string{"status: running", "summary: manual context compaction running", "app-owned", "display-only"},
+			wantSemantic: []string{"mode: background", "status: running", "summary: background context compaction running", "app-owned", "display-only"},
 		},
 		{
 			name:   "compact-result",
@@ -3713,7 +3716,7 @@ func TestCompactFixtureSnapshots(t *testing.T) {
 				"status: compacted",
 				"claim: manual compaction preserved 2 source refs",
 			},
-			wantSemantic:   []string{"status: flagged", "summary: manual compaction preserved 2 source refs", "caveat: input context warning: shell stdout truncated", "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short excerpt=M internal[path-redacted]"},
+			wantSemantic:   []string{"mode: manual", "status: flagged", "summary: manual compaction preserved 2 source refs", "caveat: input context warning: shell stdout truncated", "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short excerpt=M internal[path-redacted]"},
 			sourceRefCount: 2,
 		},
 	} {

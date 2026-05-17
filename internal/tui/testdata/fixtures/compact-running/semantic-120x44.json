@@ -12,19 +12,20 @@
   "session": {
     "phase": "IDLE",
     "phase_source": "idle",
-    "runtime_status": "active",
+    "runtime_status": "idle",
     "status_source": "runtime.dispatch",
-    "status_detail": "manual context compaction",
-    "active": true,
+    "status_detail": "background context compaction",
+    "active": false,
     "queued_messages": 0,
     "primary_model": "placeholder",
     "utility_model": "placeholder",
     "autonomy": "placeholder"
   },
   "compact": {
-    "source": "app.compact",
+    "source": "app.compact.background",
+    "mode": "background",
     "status": "running",
-    "summary": "manual context compaction running"
+    "summary": "background context compaction running"
   },
   "regions": [
     {
@@ -55,10 +56,10 @@
       "name": "runtime_status",
       "visible": true,
       "items": [
-        "status: active",
+        "status: idle",
         "status source: runtime.dispatch",
-        "detail: manual context compaction",
-        "active: true",
+        "detail: background context compaction",
+        "active: false",
         "display-only"
       ]
     },
@@ -66,9 +67,10 @@
       "name": "compact",
       "visible": true,
       "items": [
-        "source: app.compact",
+        "source: app.compact.background",
+        "mode: background",
         "status: running",
-        "summary: manual context compaction running",
+        "summary: background context compaction running",
         "app-owned",
         "display-only"
       ]

@@ -49,6 +49,14 @@ type CompactContextProposed struct {
 
 func (CompactContextProposed) runtimeMessage() {}
 
+// BackgroundCompactContextProposed records utility intent to compact context
+// only while primary runtime work can yield.
+type BackgroundCompactContextProposed struct {
+	Request CompactContextRequest
+}
+
+func (BackgroundCompactContextProposed) runtimeMessage() {}
+
 // UtilityJobProposed records caller intent to run an idle-only utility job.
 type UtilityJobProposed struct {
 	Request utility.JobRequest
@@ -206,7 +214,7 @@ type BashToolCompleted struct {
 
 func (BashToolCompleted) runtimeMessage() {}
 
-// CompactContextCompleted reports a manual context compaction result.
+// CompactContextCompleted reports a context compaction result.
 type CompactContextCompleted struct {
 	Operation OperationMetadata
 	Result    CompactContextResult
@@ -347,7 +355,7 @@ func (effect FakeCommandEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
-// CompactContextEffect requests manual context compaction outside Update.
+// CompactContextEffect requests context compaction outside Update.
 type CompactContextEffect struct {
 	Operation OperationMetadata
 	Request   CompactContextRequest
@@ -592,7 +600,7 @@ type CancelMetadata struct {
 	Reason    string
 }
 
-// CompactContextRequest is primitive context data for manual compaction.
+// CompactContextRequest is primitive context data for compaction.
 type CompactContextRequest struct {
 	Blocks     []CompactContextBlock
 	SourceRefs []CompactSourceRef
@@ -641,11 +649,20 @@ type CompactContextBudget struct {
 	Truncated      bool
 }
 
-// CompactSourceMetadata records caller-visible manual compaction provenance.
+// CompactMode names the caller-visible compaction path.
+type CompactMode string
+
+const (
+	CompactModeManual     CompactMode = "manual"
+	CompactModeBackground CompactMode = "background"
+)
+
+// CompactSourceMetadata records caller-visible compaction provenance.
 type CompactSourceMetadata struct {
 	Caller      string
 	RequestID   string
 	Description string
+	Mode        CompactMode
 }
 
 // CompactContextErrorKind is a bounded manual compaction failure category.
@@ -1167,8 +1184,21 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveUtility = request
 		next.LastUtility = utility.RunningResult(request)
 		return next, []Effect{UtilityJobEffect{Operation: operation, Request: request}}
+	case BackgroundCompactContextProposed:
+		request := normalizeCompactRequest(msg.Request, CompactModeBackground)
+		decision := utility.CanRun(utilityActivity(next), backgroundCompactGateRequest(request))
+		if !decision.Allowed {
+			next.LastCompact = blockedBackgroundCompactResult(request, decision)
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationCompact, "background context compaction")
+		operation.Source = "runtime.utility"
+		next.ActiveCompact = request
+		next.LastCompact = runningCompactResult(request)
+		return next, []Effect{CompactContextEffect{Operation: operation, Request: request}}
 	case CompactContextProposed:
-		request := msg.Request
+		request := normalizeCompactRequest(msg.Request, CompactModeManual)
 		if hasActiveWork(next.Status) {
 			next.Queued = append(next.Queued, QueuedEntry{Kind: "compact", Text: "compact context"})
 			return next, nil
@@ -1546,6 +1576,11 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastUtility = msg.Result
 		return next, nil
 	case CompactContextCompleted:
+		if normalizeCompactMode(msg.Result.Source.Mode) == CompactModeBackground {
+			next.ActiveCompact = CompactContextRequest{}
+			next.LastCompact = msg.Result
+			return next, nil
+		}
 		summary := compactResultSummary(msg.Result)
 		next.Status = StatusIdle
 		next.Result = summary
@@ -1655,6 +1690,79 @@ func utilitySubjectLabel(request utility.JobRequest) string {
 	return string(request.Kind) + " " + request.ID
 }
 
+func backgroundCompactGateRequest(request CompactContextRequest) utility.JobRequest {
+	source := normalizeCompactSource(request.Source, CompactModeBackground)
+	return utility.NormalizeJobRequest(utility.JobRequest{
+		ID:    source.RequestID,
+		Kind:  utility.JobSuggestion,
+		Model: "utility",
+		Source: utility.Source{
+			Caller:      source.Caller,
+			RequestID:   source.RequestID,
+			Description: source.Description,
+		},
+	})
+}
+
+func normalizeCompactRequest(request CompactContextRequest, fallback CompactMode) CompactContextRequest {
+	request.Source = normalizeCompactSource(request.Source, fallback)
+	return request
+}
+
+func normalizeCompactSource(source CompactSourceMetadata, fallback CompactMode) CompactSourceMetadata {
+	source.Caller = strings.TrimSpace(source.Caller)
+	source.RequestID = strings.TrimSpace(source.RequestID)
+	source.Description = strings.TrimSpace(source.Description)
+	source.Mode = normalizeCompactMode(source.Mode)
+	if source.Mode == "" {
+		source.Mode = normalizeCompactMode(fallback)
+	}
+	if source.Mode == "" {
+		source.Mode = CompactModeManual
+	}
+	if source.Caller == "" {
+		if source.Mode == CompactModeBackground {
+			source.Caller = "app.compact.background"
+		} else {
+			source.Caller = "app.compact"
+		}
+	}
+	if source.RequestID == "" {
+		if source.Mode == CompactModeBackground {
+			source.RequestID = "background-compact"
+		} else {
+			source.RequestID = "manual-compact"
+		}
+	}
+	if source.Description == "" {
+		if source.Mode == CompactModeBackground {
+			source.Description = "idle-only background context compaction"
+		} else {
+			source.Description = "manual /compact command"
+		}
+	}
+	return source
+}
+
+func normalizeCompactMode(mode CompactMode) CompactMode {
+	switch CompactMode(strings.TrimSpace(string(mode))) {
+	case CompactModeManual:
+		return CompactModeManual
+	case CompactModeBackground:
+		return CompactModeBackground
+	default:
+		return ""
+	}
+}
+
+func compactModeLabel(mode CompactMode) string {
+	mode = normalizeCompactMode(mode)
+	if mode == "" {
+		mode = CompactModeManual
+	}
+	return string(mode)
+}
+
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
 	model.NextOperation++
 	return OperationMetadata{
@@ -1750,14 +1858,54 @@ func agentToolRequestSummary(request AgentToolRequest) string {
 	return "tool request " + request.Name + " " + request.ID
 }
 
+func runningCompactResult(request CompactContextRequest) CompactContextResult {
+	request = normalizeCompactRequest(request, CompactModeBackground)
+	return CompactContextResult{
+		Status:         "running",
+		Summary:        compactModeLabel(request.Source.Mode) + " context compaction running",
+		Blocks:         append([]CompactContextBlock(nil), request.Blocks...),
+		SourceRefs:     append([]CompactSourceRef(nil), request.SourceRefs...),
+		Claims:         append([]CompactContextClaim(nil), request.Claims...),
+		OriginalBudget: request.Budget,
+		Budget:         request.Budget,
+		Source:         request.Source,
+	}
+}
+
+func blockedBackgroundCompactResult(request CompactContextRequest, decision utility.Decision) CompactContextResult {
+	request = normalizeCompactRequest(request, CompactModeBackground)
+	detail := strings.TrimSpace(decision.Detail)
+	if detail == "" {
+		detail = "primary runtime cannot yield"
+	}
+	reason := strings.TrimSpace(string(decision.Reason))
+	if reason == "" || reason == string(utility.DenialNone) {
+		reason = string(utility.DenialPrimaryBusy)
+	}
+	caveat := reason + ": " + detail
+	return CompactContextResult{
+		Status:         "blocked",
+		Summary:        "background compaction blocked: " + caveat,
+		Blocks:         append([]CompactContextBlock(nil), request.Blocks...),
+		SourceRefs:     append([]CompactSourceRef(nil), request.SourceRefs...),
+		Claims:         append([]CompactContextClaim(nil), request.Claims...),
+		OriginalBudget: request.Budget,
+		Budget:         request.Budget,
+		Caveats:        []string{caveat},
+		Source:         request.Source,
+	}
+}
+
 func fakeCompactContextResult(request CompactContextRequest) CompactContextResult {
+	request = normalizeCompactRequest(request, CompactModeManual)
 	status := "completed"
 	if len(request.Blocks) == 0 && len(request.Claims) == 0 {
 		status = "flagged"
 	}
+	mode := compactModeLabel(request.Source.Mode)
 	result := CompactContextResult{
 		Status:         status,
-		Summary:        "manual compaction completed",
+		Summary:        mode + " compaction completed",
 		Blocks:         append([]CompactContextBlock(nil), request.Blocks...),
 		SourceRefs:     append([]CompactSourceRef(nil), request.SourceRefs...),
 		Claims:         append([]CompactContextClaim(nil), request.Claims...),
@@ -1766,7 +1914,7 @@ func fakeCompactContextResult(request CompactContextRequest) CompactContextResul
 		Source:         request.Source,
 	}
 	if status == "flagged" {
-		result.Summary = "manual compaction completed with caveats"
+		result.Summary = mode + " compaction completed with caveats"
 		result.Caveats = []string{"no context blocks were available to compact"}
 	}
 	return result
@@ -1775,7 +1923,7 @@ func fakeCompactContextResult(request CompactContextRequest) CompactContextResul
 func compactResultSummary(result CompactContextResult) string {
 	summary := strings.TrimSpace(result.Summary)
 	if summary == "" {
-		summary = fmt.Sprintf("manual compaction preserved %d source refs", len(result.SourceRefs))
+		summary = fmt.Sprintf("%s compaction preserved %d source refs", compactModeLabel(result.Source.Mode), len(result.SourceRefs))
 	}
 	if result.Error.Kind != "" && result.Error.Kind != CompactContextErrorNone {
 		message := strings.TrimSpace(result.Error.Message)

@@ -3,50 +3,49 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M43 must add only an idle-only stale-context check that surfaces stale/fresh status with evidence and a suggested
-    next action. It must preserve the existing utility scheduling and explicit runtime/app effect path, keep the TUI presentation-only,
-    and avoid refresh, compaction, context rewriting, file writes, git mutations, project artifact writes, permission approvals,
-    workflow phase transitions, final judgment, provider/model calls, plugins, MCP, workflow DSLs, generic graph engines,
-    hosted control planes, and M44+ behavior.
-  title: 'Milestone 43: Utility Stale-Context Check'
-what: Deliver ROADMAP.md Milestone 43 by adding a deterministic idle-only utility stale-context check that returns stale,
-  fresh, or unknown saved-context status with evidence, caveats, and suggested next action as runtime-visible data.
-why: M42 made prepared context visible and non-authoritative. M43 adds the next utility safety signal so Aila can warn when
-  saved context should not be silently trusted, while deferring refresh, compaction, and rewriting to later milestones.
-constraints: 'Execute only Milestone 43. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may render app-injected stale-context state and semantic evidence, but it must not schedule utility work, inspect files,
-  mutate state, call providers, persist project artifacts, change permissions, refresh context, compact context, or change
-  workflow phase. Stale-context checks must run only when the primary runtime is idle and no active operation, approval, or
-  queued user input exists. The check may report stale/fresh/unknown status, evidence, caveats, and a suggested next action,
-  but foreground capabilities decide whether to act. Do not write files, mutate git state, write project artifacts, approve
-  permissions, transition workflow phase, make final judgments, refresh context, compact context, call providers/models, add
-  plugins, add MCP, add workflow DSLs, add generic graph engines, add hosted control-plane assumptions, or add M44+ behavior.
-  Use behavior-based test names; do not introduce new TestM<number> symbols. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m42.yaml
+  critic_issues: M44 must add only idle-only background context compaction. It must preserve the existing manual /compact
+    path, source refs, exact critical details, explicit runtime/app effect boundaries, and TUI presentation-only behavior
+    while avoiding workflow phase changes, file writes, git mutations, hidden artifact writes, permission approvals, provider/model
+    calls, summary refresh, stale-context policy expansion, plugins, MCP, workflow DSLs, generic graph engines, hosted control
+    planes, and M45+ behavior.
+  title: 'Milestone 44: Utility Continuous Compaction'
+what: Deliver ROADMAP.md Milestone 44 by adding a deterministic idle-only background compaction path that preserves source
+  refs and exact critical details while remaining visibly distinct from manual /compact.
+why: M40 proved manual context compaction and M41-M43 proved idle-only utility work. M44 uses those seams so Aila can compact
+  background context without hidden workflow or file mutation and without replacing the user-invoked /compact command.
+constraints: 'Execute only Milestone 44. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected background compaction state and semantic evidence, but it must not schedule compaction, inspect
+  files, mutate state, call providers, persist project artifacts, change permissions, compact context itself, or change workflow
+  phase. Background compaction must run only when the primary runtime is idle and no active operation, approval, or queued
+  user input exists. Keep manual /compact separate and user-initiated. Preserve source refs and exact critical details. Do
+  not write files, mutate git state, write project artifacts, approve permissions, transition workflow phase, make final judgments,
+  refresh summaries, rewrite context policy, call providers/models, add plugins, add MCP, add workflow DSLs, add generic graph
+  engines, add hosted control-plane assumptions, or add M45+ behavior. Use behavior-based test names; do not introduce new
+  TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m43.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:16-110
-- ROADMAP.md:1696-1714
+- ROADMAP.md:1717-1735
 - README.md:217-224
 - README.md:262-268
 - ARCHITECTURE.md:613-674
 - docs/workflow-architecture.md:539-548
-- docs/tui-testing.md:136-145
-- internal/utility/utility.go
+- docs/tui-testing.md:136-170
+- internal/context/context.go
 - internal/runtime/runtime.go
-- internal/app/utility.go
-- internal/app/inspection.go
+- internal/app/compact.go
+- internal/app/session_snapshot.go
 - internal/tui/model.go
 - internal/tui/render.go
-- internal/context/context.go
+- internal/tui/fixture_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/utility -count=1
-- go test ./internal/runtime -run 'Test.*Utility.*|Test.*Stale.*|Test.*Context.*' -count=1
-- go test ./internal/app -run 'Test.*Utility.*|Test.*Status.*|Test.*Stale.*|Test.*Context.*' -count=1
-- go test ./internal/tui -run 'Test.*Utility.*|Test.*Stale.*|Test.*Context.*|Test.*Semantic.*|Test.*Fixture.*' -count=1
-- go test ./cmd/aila -run 'TestInspectionCommandFamilyPTYSmoke|Test.*Stale.*PTYSmoke' -count=1
+- go test ./internal/context -count=1
+- go test ./internal/runtime -run 'Test.*Compact.*|Test.*Background.*' -count=1
+- go test ./internal/app -run 'Test.*Compact.*|Test.*Background.*|Test.*Status.*' -count=1
+- go test ./internal/tui -run 'TestCompactFixtureSnapshots|Test.*Background.*|Test.*Semantic.*' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
@@ -54,153 +53,142 @@ verification_commands:
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m42.yaml cmd/aila
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m43.yaml cmd/aila
   internal/app internal/runtime internal/utility internal/tui internal/context ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 scope:
   included:
-  - Add a typed stale-context result to internal/utility for a fixed stale-context check job, including stale/fresh/unknown
-    status, evidence refs, caveats, and suggested next action.
-  - Reuse the idle-only scheduler and runtime/app UtilityJob effect path so stale checks run only while the primary runtime
-    can yield.
-  - Expose stale-context output through app-injected /status utility state and inspection lines without refreshing, compacting,
-    rewriting, or changing workflow phase.
-  - Add a stale-context fixture with plain, ANSI, and semantic snapshots showing job status, stale/fresh status, evidence,
-    caveats, and suggested next action.
-  - Add tests proving stale checks are read-only, non-authoritative, visible, and blocked when runtime, operation, approval,
-    or queued input prevents utility work.
-  - Run PTY smoke if /status visible behavior changes for stale-context output.
+  - Add typed background compaction provenance so manual and background compaction are distinguishable in runtime, app, and
+    TUI state.
+  - Add an idle-only background compaction proposal/effect path that preserves source refs and exact critical details while
+    leaving primary runtime status, transcript, active operation, workflow phase, files, git state, project artifacts, permissions,
+    and final judgment untouched.
+  - Reuse the existing context Compact implementation for deterministic compaction instead of adding provider/model calls
+    or a second compaction algorithm.
+  - Expose background compaction as app-injected CompactView and semantic data with mode/source evidence while keeping manual
+    /compact user-initiated and separate.
+  - Extend compact-running and compact-result fixtures or add equivalent background compact fixtures so plain, ANSI, and semantic
+    snapshots distinguish manual from background compaction.
+  - Add tests proving background compaction is denied while runtime, operation, approval, or queued input prevents idle work,
+    and proving source refs survive compaction.
   excluded:
-  - Context refresh, context compaction, context rewriting, summary refresh, provider/model utility calls, durable stale-status
-    persistence, file writes, git mutations, project artifact writes, permission approval, workflow phase mutation, final
-    judgment, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, and M44+ behavior.
+  - Timers, goroutines, autonomous loops, provider/model compaction, summary refresh, stale-context policy changes, automatic
+    context rewriting beyond deterministic compaction output, durable background compaction persistence policy, file writes,
+    git mutations, project artifact writes, permission approval, workflow phase mutation, final judgment, plugins, MCP, workflow
+    DSLs, generic graph engines, hosted control planes, and M45+ behavior.
   deferred:
-  - Continuous compaction, summary refresh, provider-assisted stale analysis, durable stale-status persistence policy, automatic
-    context refresh, and any automatic action based on stale status.
-design: Extend the existing utility result shape with a stale-context payload and add a fixed stale_context_check job kind.
-  The utility package stays pure and deterministic by comparing explicit saved/current context fingerprints supplied in the
-  request. Runtime continues to emit UtilityJobEffect only after CanRun allows idle work. App code supplies bounded status
-  fingerprints, maps the result into TUI UtilityView/status lines, and the TUI renders injected stale-context state only.
+  - Scheduler cadence, continuous timer policy, summary refresh, provider-assisted compaction, durable background compaction
+    persistence, and automatic action based on background compaction results.
+design: Add background compaction as a separate runtime/app path over the existing CompactContextRequest/CompactContextResult
+  data. A background proposal reuses the idle-only utility gating rules and dispatches deterministic compaction only when
+  the primary runtime can yield. Manual /compact keeps its current command/transcript/active-operation behavior. Background
+  completion updates visible compact/context data without changing the primary workflow phase or transcript. TUI receives
+  injected mode/source data and renders manual and background compaction distinctly.
 overall_acceptance:
-- Utility tests prove stale-context jobs run only when primary runtime is idle and are denied while runtime/tool/approval/queued
-  work is active.
-- Utility package tests prove stale, fresh, and unknown outputs contain status, evidence refs, caveats, suggested next action,
-  and all safety boundary fields false.
-- Runtime/app tests prove stale-context start/result handling reuses the explicit utility state slot and does not mutate primary
-  runtime status, transcript, workflow phase, files, git state, project artifacts, permissions, context content, or final
-  judgment.
-- TUI render and semantic snapshots show stale-context job status, stale/fresh/unknown status, evidence, caveats, suggested
-  next action, utility model identity, read-only state, and safety evidence while keeping TUI presentation-only.
-- PTY smoke runs if /status visible behavior changes, or the skip reason is documented if behavior remains snapshot-only.
-- No refresh, compaction, context rewriting, summary refresh, provider/model call, durable stale-status persistence, plugin,
-  MCP, workflow DSL, generic graph engine, hosted control plane, or M44+ behavior is added.
+- Runtime tests prove background compaction starts only when primary runtime is idle and is blocked while active work, approval,
+  or queued input exists.
+- Runtime/app tests prove background compaction preserves source refs and exact critical details while not mutating primary
+  runtime status, transcript, workflow phase, files, git state, project artifacts, permissions, or final judgment.
+- Manual /compact tests remain green and prove manual source/mode remains separate from background compaction.
+- TUI render and semantic snapshots distinguish manual compaction from background compaction in compact-running and completed/flagged
+  states.
+- PTY smoke runs only if interactive visible terminal behavior changes; otherwise the skip reason is documented in progress
+  and final closeout.
+- No timer loop, provider/model call, summary refresh, stale-context policy expansion, plugin, MCP, workflow DSL, generic
+  graph engine, hosted control plane, or M45+ behavior is added.
 - Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
   updated.
-surprises:
-- The existing /status utility slot could be retargeted from context prep to stale-context checks without adding a new scheduler
-  or TUI-owned behavior.
-- Adding explicit context refresh, compaction, and rewrite safety fields updated all utility snapshots, not only the new stale-context
-  fixture.
+surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the stale-context slice
+  name: Plan and confirm the background compaction slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M43 only and excludes
-    refresh, compaction, context rewriting, summary refresh, provider/model calls, plugins, MCP, workflow DSLs, hosted control
-    planes, and M44+ behavior.
-  - GIVEN utility/runtime/app/TUI seams are inspected WHEN implementation starts THEN the plan routes stale-context checks
-    through the existing idle-only utility slot and keeps the TUI rendering-only.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M44 only and excludes
+    timers, provider/model calls, summary refresh, stale-context policy expansion, plugins, MCP, workflow DSLs, hosted control
+    planes, and M45+ behavior.
+  - GIVEN manual compact, runtime, app, TUI, and context seams are inspected WHEN implementation starts THEN the plan keeps
+    manual /compact separate from background compaction and routes background work through idle-only rules.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - Installed Agentera CLI hej with planera context, ROADMAP.md top status and M43 section, docs/notes/PROMPT.md, AGENTS.md,
+  - Installed Agentera CLI hej with planera context, ROADMAP.md top status and M44 section, docs/notes/PROMPT.md, AGENTS.md,
     README utility sections, ARCHITECTURE context/utility boundaries, docs/workflow-architecture utility guidance, docs/tui-testing
-    semantic guidance, and current internal/utility/runtime/app/TUI/context seams were reviewed.
-  - The plan keeps M43 visible, deterministic, read-only, non-mutating, and bounded to stale-context status while preserving
-    the M41/M42 idle-only utility path.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to stale-context status only.
+    semantic guidance, and current internal/context/runtime/app/TUI compact seams were reviewed.
+  - The plan keeps M44 bounded to idle-only deterministic background compaction and preserves the manual /compact command
+    path.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to background compaction only.
 - number: 2
-  name: Define the stale-context utility contract
+  name: Separate manual and background compaction provenance
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN saved and current context fingerprints differ WHEN the stale-context job runs THEN the result reports stale status
-    with evidence, caveats, and a suggested next action.
-  - GIVEN saved and current context fingerprints match WHEN the job runs THEN the result reports fresh status with evidence
-    and no mutation side effect.
-  - GIVEN missing fingerprints or unsupported requests WHEN stale check shaping runs THEN the result reports unknown or typed
-    denial without refreshing or compacting context.
+  - GIVEN manual /compact runs WHEN compact state is rendered THEN provenance remains manual and command-owned.
+  - GIVEN background compaction runs WHEN compact state is rendered THEN provenance is background and utility-owned.
+  - GIVEN semantic snapshots are inspected WHEN both states exist THEN mode/source fields distinguish manual from background
+    compaction.
   evidence:
-  - internal/utility now defines JobStaleContextCheck, StaleContextInput, StaleContextStatus, StaleContextCheck, and context
-    refresh/compaction/rewrite safety fields.
-  - RunJob compares explicit saved/current fingerprints and returns stale, fresh, or unknown status with evidence refs, caveats,
-    suggested next action, and read-only SafetyBoundary values.
-  - go test ./internal/utility -count=1 passed, including stale, fresh, unknown, blocked, and read-only safety coverage.
+  - runtime.CompactMode and CompactSourceMetadata.Mode now distinguish manual and background compact provenance.
+  - Manual compact requests set mode manual from app.compact, and background compact requests set mode background from app.compact.background.
+  - TUI CompactView and semantic compact output include mode so compact-running and compact-result distinguish background from manual compaction.
 - number: 3
-  name: Wire stale checks through runtime and app state
+  name: Add idle-only background compaction runtime path
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN stale check is requested while idle WHEN runtime dispatch runs THEN a typed running state and completed stale-context
-    result are recorded without changing workflow phase.
-  - GIVEN runtime is active, approval-pending, or has queued input WHEN stale check is requested THEN visible denial/caveat
-    state is recorded without emitting mutation, permission, git, artifact, refresh, compaction, or final-judgment effects.
-  - GIVEN /status is opened WHEN stale-context state exists THEN status lines include stale/fresh/unknown status, evidence
-    source, caveats, suggested next action, and read-only safety output.
+  - GIVEN primary runtime is idle WHEN background compaction is proposed THEN a deterministic compaction effect runs without
+    changing workflow phase, transcript, active operation, or primary result.
+  - GIVEN runtime is active, approval-pending, or has queued input WHEN background compaction is proposed THEN visible denial/caveat
+    state is recorded and no compaction effect is emitted.
+  - GIVEN background compaction completes WHEN the result is folded THEN source refs, exact critical details, caveats, and
+    budget evidence are preserved.
   evidence:
-  - runtime UtilityJobProposed/UtilityJobCompleted continues to route stale checks through the existing idle-only UtilityJobEffect
-    path and preserves primary runtime status, transcript, workflow phase, and active operation state.
-  - app default /status utility request now uses status-stale-context-check with bounded saved/current fingerprints and maps
-    stale-context output into UtilityView plus status inspection lines.
-  - go test ./internal/runtime -run 'Test(UpdateStartsUtilityJobOnlyWhileRuntimeIdle|UpdateBlocksUtilityJobWhenPrimaryRuntimeCannotYield|UpdateAppliesUtilityResultWithoutPrimaryRuntimeMutation|DispatchHandlesUtilityJobEffect)'
-    -count=1 passed.
-  - go test ./internal/app -run 'Test(UtilityJobRoutesThroughRuntimeAndStaysDisplayOnly|UtilityJobBlockedByPendingApprovalWithoutDispatch|StatusCommandBuildsAppOwnedRuntimeInspectionSurface)'
-    -count=1 passed.
+  - runtime.BackgroundCompactContextProposed reuses utility.CanRun with primary runtime activity facts and emits CompactContextEffect only when idle.
+  - Blocked background compaction records a visible compact result with status blocked, denial caveat, and background provenance but emits no effect.
+  - Background CompactContextCompleted updates only ActiveCompact and LastCompact, leaving primary status, result, transcript, active operation, and workflow phase untouched.
+  - go test ./internal/runtime -run 'Test.*Compact.*|Test.*Background.*' -count=1 passed.
 - number: 4
-  name: Render stale-context semantics and fixtures
+  name: Wire background compaction through app display state
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN stale-context states render WHEN fixture tests run THEN plain, ANSI, and semantic snapshots expose job status, stale/fresh
-    status, evidence, caveats, suggested next action, and utility model state.
-  - GIVEN semantic snapshots are inspected WHEN stale status exists THEN machine-readable stale-context status, evidence refs,
-    caveats, suggested next action, read-only state, and safety flags are present.
-  - GIVEN TUI code is inspected WHEN stale status is rendered THEN no scheduling, filesystem, git, provider, permission, artifact,
-    refresh, compaction, workflow, or final-judgment logic is present in TUI.
+  - GIVEN app-owned background compaction is proposed WHEN dispatch returns THEN CompactView and ContextView expose background
+    mode, source refs, exact details, meters, and caveats.
+  - GIVEN manual /compact is invoked WHEN app dispatch returns THEN manual behavior, history, snapshot, and command transcript
+    remain unchanged.
+  - GIVEN no compactable context exists WHEN background compaction is shaped THEN the result is visibly flagged or denied
+    without hidden mutation.
   evidence:
-  - internal/tui model/render/semantic output now includes stale_context status, evidence_ref_ids, caveats, suggested_next_action,
-    and context refresh/compaction/rewrite safety flags.
-  - Added utility-stale-context fixture with plain, ANSI, and semantic snapshots; regenerated existing utility snapshots to
-    include new context safety evidence.
-  - go test ./internal/tui -run TestUtilityWorkerFixtureSnapshots -count=1 passed after snapshot review.
-  - go test ./internal/tui -count=1 passed.
+  - app background compact requests use the existing deterministic context Compact implementation and rewrite the compact claim summary to background provenance while preserving source refs.
+  - inputRunner.proposeBackgroundCompactContext surfaces CompactView and compacted ContextView without appending primary transcript text or changing primary runtime result.
+  - Manual /compact command routing, history, snapshot, and context tests remain green.
+  - go test ./internal/app -run 'Test.*Compact.*|Test.*Background.*|Test.*Status.*' -count=1 passed.
 - number: 5
-  name: Add regression and PTY visibility coverage
+  name: Render background compaction fixtures and semantics
   depends_on:
+  - 2
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN the interactive TUI runs WHEN /status is submitted and stale-context output changes visible behavior THEN stale
-    status, evidence, caveats, suggested next action, and safety markers are visible and the app quits cleanly.
-  - GIVEN runtime is active or approval-pending WHEN stale check is requested THEN tests prove the worker does not run and
-    no stale-context output is emitted.
-  - GIVEN current compact/status/context-prep behavior is tested WHEN stale-check support lands THEN no refresh, compaction,
-    or context rewriting occurs.
+  - GIVEN compact-running renders WHEN background mode is active THEN plain, ANSI, and semantic snapshots show background
+    compaction state distinct from manual running state.
+  - GIVEN background compaction completes WHEN semantic snapshots render THEN compact and context regions preserve source
+    refs, exact details, budgets, caveats, and background provenance.
+  - GIVEN TUI code is inspected WHEN background compact output exists THEN it remains presentation-only and owns no compaction
+    scheduling, context mutation, provider, permission, artifact, workflow, or file logic.
   evidence:
-  - TestInspectionCommandFamilyPTYSmoke now proves /status visibly reports saved context stale status, evidence, suggested
-    next action, context refresh false, and file mutation false before clean quit.
-  - Runtime/app tests cover blocked stale checks for active runtime, active operation, approval-pending, and queued input
-    without dispatch or stale-context output.
-  - go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1 passed in 8.290s.
+  - compact-running fixture now renders idle primary runtime plus background compact mode/source/status/summary.
+  - compact-result fixture now renders manual compact mode/source/status/summary, preserving manual /compact semantics.
+  - Semantic compact snapshots include mode and source refs; compact TUI code remains render-only.
+  - go test ./internal/tui -run 'TestCompactFixtureSnapshots|Test.*Background.*|Test.*Semantic.*' -count=1 passed after snapshot regeneration and review.
 - number: 6
-  name: Run full validation roadmap closeout and commit
+  name: Run validation roadmap closeout and commit
   depends_on:
   - 1
   - 2
@@ -209,17 +197,19 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M43 is
-    recorded complete, M44 is next, and Active milestone is none.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M44 is
+    recorded complete, M45 is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and M42 plan archive are included in one meaningful local commit.
+    and M43 plan archive are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
     validation evidence.
   evidence:
   - mage fmt passed after implementation edits.
+  - go test ./internal/context -count=1 passed.
+  - Focused runtime, app, and TUI compact/background tests passed.
   - go test ./internal/... -count=1 passed.
-  - go test ./cmd/aila -count=1 passed in 284.918s.
-  - mage check passed with cmd/aila in 298.396s, all internal packages green, 0 lint issues, and no vulnerabilities.
-  - ROADMAP.md now records M43 complete, M44 next, active milestone none, and the M43 validation summary.
-  - Agentera plan/progress/lint/hej validation, git diff --check, home-path hygiene, and TestM<number> changed-line hygiene
-    passed after closeout artifact updates.
+  - go test ./cmd/aila -count=1 passed in 296.066s.
+  - mage check passed with cmd/aila in 301.748s, all internal packages green, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md now records M44 complete, M45 next, active milestone none, and the M44 validation summary.
+  - PTY smoke for background compaction was skipped because no interactive terminal command behavior changed; existing cmd/aila PTY suite passed through full package and Mage validation.
+  - Agentera plan/progress/lint/hej validation, git diff --check, home-path hygiene, and TestM<number> changed-line hygiene are part of final closeout.

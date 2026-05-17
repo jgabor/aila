@@ -1,4 +1,120 @@
 cycles:
+  - number: 215
+    timestamp: "2026-05-17 09:48"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M44 by adding explicit manual/background compact provenance,
+      an idle-only background compaction runtime proposal path, app-owned
+      deterministic background compaction display state, compact mode rendering,
+      and updated compact-running/compact-result snapshots that distinguish
+      background from manual compaction.
+    commit: "local commit: add utility continuous compaction"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 44; README utility
+      sections; ARCHITECTURE context and utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing semantic
+      guidance; agentera hej --format json --capability-context orkestrera
+    discovered: >-
+      Background compaction can reuse the existing deterministic context Compact
+      implementation and the same idle-only runtime activity rules as utility
+      work. The slice does not need timers, autonomous loops, provider/model
+      calls, summary refresh, stale-context policy changes, durable persistence
+      policy, plugins, MCP, workflow DSLs, generic graph engines, hosted control
+      planes, or M45+ behavior. The background completion path updates visible
+      compact/context state only and leaves primary runtime status, transcript,
+      active operation, workflow phase, files, git state, project artifacts,
+      permissions, and final judgment untouched.
+    verified: >-
+      mage fmt passed. go test ./internal/context -count=1 passed. Focused
+      runtime/app/TUI compact and background tests passed. go test ./internal/...
+      -count=1 passed. go test ./cmd/aila -count=1 passed in 296.066s. mage
+      check passed with cmd/aila in 301.748s, all internal packages green, 0 lint
+      issues, and no vulnerabilities. compact-running now renders background
+      mode/source/status/summary while compact-result renders manual mode/source;
+      semantic compact snapshots include mode. PTY smoke for background compaction
+      was skipped because no interactive terminal command behavior changed; the
+      existing cmd/aila PTY suite passed through full package and Mage
+      validation. ROADMAP.md was updated only after green validation. Agentera
+      plan/progress/lint/hej, git diff --check, home-path hygiene, and
+      TestM<number> hygiene are part of final closeout.
+    next: >-
+      Commit the completed M44 slice, leaving Milestone 45: Utility Summary
+      Refresh as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete M44 before moving to later roadmap work, preserving the
+        planera -> orkestrera -> commit loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M44; preserve statechart-MVU, explicit effect boundaries,
+        fixed-product posture, TUI presentation-only behavior, idle-only
+        background compaction, manual /compact separation, source refs, exact
+        critical details, behavior-based test names, and no push.
+      unknowns: >-
+        Scheduler cadence, continuous timer policy, summary refresh,
+        provider-assisted compaction, durable background compaction persistence,
+        and automatic action based on background compaction results remain
+        deferred.
+      scope: >-
+        internal/runtime background compact proposal/result behavior,
+        internal/app background compact request/result/view wiring,
+        internal/tui compact mode rendering and semantic output, compact fixture
+        snapshots, ROADMAP, and Agentera closeout.
+  - number: 214
+    timestamp: "2026-05-17 09:05"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 44: Utility Continuous Compaction as the next roadmap
+      milestone, archived the completed M43 plan, and created a new active plan
+      with six bounded tasks for manual/background provenance, idle-only
+      background compaction runtime behavior, app display wiring, compact
+      render/semantic fixtures, validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M44 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 44; AGENTS.md; README utility
+      sections; ARCHITECTURE context and utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing semantic
+      guidance; agentera hej --format json with planera context
+    discovered: >-
+      M44 should add background compaction as a distinct idle-only runtime/app
+      path over the existing deterministic compaction implementation. Manual
+      /compact must remain user-initiated and command-owned. Background
+      compaction should preserve source refs and exact critical details without
+      changing workflow phase, transcript, active operation, files, git state,
+      project artifacts, permissions, final judgment, provider/model behavior,
+      summary refresh, timers, or M45+ behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera
+      plan/progress state, ROADMAP.md top status and M44 section,
+      docs/notes/PROMPT.md, AGENTS.md, README utility sections, ARCHITECTURE
+      context/utility boundaries, docs/workflow-architecture utility guidance,
+      docs/tui-testing semantic guidance, and current internal/context,
+      internal/runtime, internal/app, and internal/tui compact seams were
+      reviewed before writing the plan.
+    next: >-
+      Execute M44 Tasks 2-5: add manual/background compact provenance, add an
+      idle-only background compaction runtime path, wire app display state,
+      render background compact fixtures/semantics, and decide PTY smoke based on
+      whether interactive visible behavior changes.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after
+        completing M43, selecting the next roadmap milestone from ROADMAP.md and
+        preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M44; preserve statechart-MVU, fixed-product posture, TUI
+        presentation-only boundary, idle-only background compaction, manual
+        /compact separation, source refs, exact critical details,
+        behavior-based test names, and commit only after implementation and
+        validation complete.
+      unknowns: >-
+        Exact background compact mode field names and whether PTY smoke is needed
+        are implementation-owned; timers, provider-assisted compaction, summary
+        refresh, and durable background compaction persistence remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m43.yaml
+        archival, and progress evidence for the M44 planning handoff.
   - number: 213
     timestamp: "2026-05-17 08:49"
     type: build

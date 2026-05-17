@@ -900,6 +900,7 @@ func compactLines(compact *CompactView) []string {
 	lines := []string{
 		"  Compact:",
 		"  source: " + safeText(defaultString(compact.Source, "app.compact")),
+		"  mode: " + safeText(defaultString(compact.Mode, "manual")),
 		"  status: " + safeText(defaultString(compact.Status, "completed")),
 	}
 	if compact.Summary != "" {
@@ -1648,9 +1649,10 @@ type SemanticFetch struct {
 	Completed         bool              `json:"completed"`
 }
 
-// SemanticCompact describes app-injected manual compaction state.
+// SemanticCompact describes app-injected compaction state.
 type SemanticCompact struct {
 	Source        string                     `json:"source"`
+	Mode          string                     `json:"mode"`
 	Status        string                     `json:"status"`
 	Summary       string                     `json:"summary,omitempty"`
 	Meter         string                     `json:"meter,omitempty"`
@@ -3218,6 +3220,7 @@ func semanticCompactItems(compact *CompactView) []string {
 	}
 	items := []string{
 		"source: " + semantic.Source,
+		"mode: " + semantic.Mode,
 		"status: " + semantic.Status,
 	}
 	if semantic.Summary != "" {
@@ -3269,6 +3272,7 @@ func semanticCompact(compact *CompactView) *SemanticCompact {
 	}
 	return &SemanticCompact{
 		Source:        safeText(defaultString(compact.Source, "app.compact")),
+		Mode:          safeText(defaultString(compact.Mode, "manual")),
 		Status:        safeText(defaultString(compact.Status, "completed")),
 		Summary:       safeText(compact.Summary),
 		Meter:         safeText(compact.Meter),

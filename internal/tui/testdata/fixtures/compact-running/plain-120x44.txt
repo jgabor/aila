@@ -1,19 +1,19 @@
 Aila                                                                                                              120x44
-Stage IDLE | Runtime active | Model placeholder | Utility placeholder | Auto placeholder
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
 + Conversation --------------------------------------------------------------------------------------------------------+
 | Runtime status:                                                                                                      |
-| status: active                                                                                                       |
+| status: idle                                                                                                         |
 | status source: runtime.dispatch                                                                                      |
-| detail: manual context compaction                                                                                    |
-| active: true                                                                                                         |
+| detail: background context compaction                                                                                |
+| active: false                                                                                                        |
 |                                                                                                                      |
 | Compact:                                                                                                             |
-| source: app.compact                                                                                                  |
+| source: app.compact.background                                                                                       |
+| mode: background                                                                                                     |
 | status: running                                                                                                      |
-| summary: manual context compaction running                                                                           |
+| summary: background context compaction running                                                                       |
 |                                                                                                                      |
 | No messages yet.                                                                                                     |
-|                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |

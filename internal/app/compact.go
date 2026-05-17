@@ -9,7 +9,10 @@ import (
 	"github.com/jgabor/aila/internal/tui"
 )
 
-const compactSource = "app.compact"
+const (
+	compactSource           = "app.compact"
+	backgroundCompactSource = "app.compact.background"
+)
 
 func compactRequestFromView(view tui.ViewState) runtime.CompactContextRequest {
 	built := builtContextFromView(view)
@@ -19,6 +22,20 @@ func compactRequestFromView(view tui.ViewState) runtime.CompactContextRequest {
 		Caller:      compactSource,
 		RequestID:   "manual-compact",
 		Description: "manual /compact command",
+		Mode:        runtime.CompactModeManual,
+	}
+	return request
+}
+
+func backgroundCompactRequestFromView(view tui.ViewState) runtime.CompactContextRequest {
+	built := builtContextFromView(view)
+	request := runtimeCompactRequestFromBuiltContext(built)
+	request.MaxBytes = 4096
+	request.Source = runtime.CompactSourceMetadata{
+		Caller:      backgroundCompactSource,
+		RequestID:   "background-compact",
+		Description: "idle-only background context compaction",
+		Mode:        runtime.CompactModeBackground,
 	}
 	return request
 }
@@ -186,9 +203,11 @@ func runtimeCompactResultFromContext(request runtime.CompactContextRequest, resu
 		status = "flagged"
 	}
 	out := runtimeCompactRequestFromBuiltContext(result.Context)
+	summary := fmt.Sprintf("%s compaction preserved %d source refs", compactModeLabel(request.Source.Mode), len(result.Context.SourceRefs))
+	out.Claims = compactClaimsWithSummary(out.Claims, summary)
 	return runtime.CompactContextResult{
 		Status:         status,
-		Summary:        fmt.Sprintf("manual compaction preserved %d source refs", len(result.Context.SourceRefs)),
+		Summary:        summary,
 		Blocks:         out.Blocks,
 		SourceRefs:     out.SourceRefs,
 		Claims:         out.Claims,
@@ -210,6 +229,29 @@ func runtimeCompactBudget(budget ailacontext.ContextBudget) runtime.CompactConte
 	}
 }
 
+func compactClaimsWithSummary(claims []runtime.CompactContextClaim, summary string) []runtime.CompactContextClaim {
+	for index := range claims {
+		if strings.HasPrefix(claims[index].Text, "manual compaction preserved ") || strings.HasPrefix(claims[index].Text, "background compaction preserved ") {
+			claims[index].Text = summary
+		}
+	}
+	return claims
+}
+
+func compactModeLabel(mode runtime.CompactMode) string {
+	if mode == runtime.CompactModeBackground {
+		return string(runtime.CompactModeBackground)
+	}
+	return string(runtime.CompactModeManual)
+}
+
+func compactSourceDefault(mode runtime.CompactMode) string {
+	if mode == runtime.CompactModeBackground {
+		return backgroundCompactSource
+	}
+	return compactSource
+}
+
 func runtimeCompactSourceRef(ref ailacontext.SourceRef) runtime.CompactSourceRef {
 	return runtime.CompactSourceRef{
 		ID:        ref.ID,
@@ -225,14 +267,27 @@ func runtimeCompactSourceRef(ref ailacontext.SourceRef) runtime.CompactSourceRef
 }
 
 func compactView(model runtime.Model) *tui.CompactView {
+	if model.ActiveCompact.Source.Mode == runtime.CompactModeBackground {
+		return &tui.CompactView{
+			Mode:    string(runtime.CompactModeBackground),
+			Source:  defaultString(model.ActiveCompact.Source.Caller, backgroundCompactSource),
+			Status:  "running",
+			Summary: "background context compaction running",
+		}
+	}
 	if model.ActiveOperation.Kind == runtime.OperationCompact && model.Status == runtime.StatusActive {
-		return &tui.CompactView{Source: compactSource, Status: "running", Summary: "manual context compaction running"}
+		return &tui.CompactView{Mode: string(runtime.CompactModeManual), Source: compactSource, Status: "running", Summary: "manual context compaction running"}
 	}
 	if model.LastCompact.Status == "" && model.LastCompact.Summary == "" && len(model.LastCompact.Caveats) == 0 && len(model.LastCompact.SourceRefs) == 0 {
 		return nil
 	}
+	mode := model.LastCompact.Source.Mode
+	if mode != runtime.CompactModeBackground {
+		mode = runtime.CompactModeManual
+	}
 	return &tui.CompactView{
-		Source:        defaultString(model.LastCompact.Source.Caller, compactSource),
+		Mode:          string(mode),
+		Source:        defaultString(model.LastCompact.Source.Caller, compactSourceDefault(mode)),
 		Status:        defaultString(model.LastCompact.Status, "completed"),
 		Summary:       model.LastCompact.Summary,
 		Meter:         compactMeter(model.LastCompact.Budget),
