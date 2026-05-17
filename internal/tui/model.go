@@ -59,6 +59,7 @@ type TranscriptTurn struct {
 	Vision             *VisionView
 	Discuss            *DiscussView
 	Research           *ResearchView
+	Profile            *ProfileView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -677,6 +678,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Research != nil {
 		state.Research = cloneResearchView(turn.Research)
 	}
+	if turn.Profile != nil {
+		state.Profile = cloneProfileView(turn.Profile)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -967,6 +971,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteResearch {
 		state.Research = nil
 	}
+	if recommendation.Route != policy.CommandRouteProfile {
+		state.Profile = nil
+	}
 	if recommendation.Route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1037,6 +1044,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	case policy.CommandRouteResearch:
 		state.SurfaceTitle = "research"
 		state.SurfaceLines = []string{"Deterministic placeholder research."}
+	case policy.CommandRouteProfile:
+		state.SurfaceTitle = "profile"
+		state.SurfaceLines = []string{"Deterministic placeholder profile."}
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -1133,6 +1143,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	if route != policy.CommandRouteResearch {
 		state.Research = nil
 	}
+	if route != policy.CommandRouteProfile {
+		state.Profile = nil
+	}
 	if route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1218,6 +1231,27 @@ func cloneResearchView(research *ResearchView) *ResearchView {
 	clone.Caveats = append([]string(nil), research.Caveats...)
 	clone.SourceRefs = append([]ResearchSourceRefView(nil), research.SourceRefs...)
 	clone.BoundaryRequests = append([]ResearchBoundaryRequestView(nil), research.BoundaryRequests...)
+	return &clone
+}
+
+func cloneProfileView(profile *ProfileView) *ProfileView {
+	if profile == nil {
+		return nil
+	}
+	clone := *profile
+	clone.DecisionSignals = append([]ProfileDecisionSignalView(nil), profile.DecisionSignals...)
+	for index := range clone.DecisionSignals {
+		clone.DecisionSignals[index].EvidenceRefIDs = append([]string(nil), profile.DecisionSignals[index].EvidenceRefIDs...)
+	}
+	clone.UpdateSuggestions = append([]ProfileUpdateSuggestionView(nil), profile.UpdateSuggestions...)
+	for index := range clone.UpdateSuggestions {
+		clone.UpdateSuggestions[index].EvidenceRefIDs = append([]string(nil), profile.UpdateSuggestions[index].EvidenceRefIDs...)
+	}
+	clone.Evidence = append([]ProfileEvidenceView(nil), profile.Evidence...)
+	clone.Caveats = append([]string(nil), profile.Caveats...)
+	clone.ArtifactRefs = append([]ProfileArtifactRefView(nil), profile.ArtifactRefs...)
+	clone.SourceRefs = append([]ProfileSourceRefView(nil), profile.SourceRefs...)
+	clone.BoundaryRequests = append([]ProfileBoundaryRequestView(nil), profile.BoundaryRequests...)
 	return &clone
 }
 

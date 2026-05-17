@@ -1,0 +1,44 @@
+Aila                                                                                                                                                      160x45
+Stage BUILD | Runtime idle | Model fake/fake-profile | Utility placeholder | Auto read
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-profile                                                                                 |  | primary model: fake/fake-profile       |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: profile capability status                                                                                |  | detail: profile capability status      |
+| active: false                                                                                                    |  | active: false                          |
+| result: Profile folded 2 decision signal(s) into context for Aila decision profile.                              |  | result: Profile folded 2 decision sig~ |
+|                                                                                                                  |  | display-only                           |
+| Profile:                                                                                                         |  | source: app.profile.context            |
+| source: app.profile.fixture                                                                                      |  | status: folded                         |
+| capability: profile                                                                                              |  | meter: profile refs: 3                 |
+| signal: complete                                                                                                 |  | block: profile-summary profile Aila d~ |
+| current phase: build                                                                                             |  | block_text: profile refs ready for co~ |
+| cross-cutting status: context_only                                                                               |  | block_ref: profile-summary profile-co~ |
+| context folded: true                                                                                             |  | block_ref: profile-summary profile-wo~ |
+| artifact status: written                                                                                         |  | block_ref: profile-summary profile-se~ |
+| recommended successor:                                                                                           |  | claim: profile signal: Prefer bounded~ |
+| transition claimed: false                                                                                        |  | claim_ref: profile signal: Prefer bou~ |
+| display-only: true                                                                                               |  | claim: profile update: Keep validatio~ |
+| summary: Profile folded 2 decision signal(s) into context for Aila decision profile.                             |  | claim_ref: profile update: Keep valid~ |
+| subject: Aila decision profile                                                                                   |  | claim: profile evidence: Recent roadm~ |
+| context: runtime=idle phase=build context=current profile capability                                             |  | claim_ref: profile evidence: Recent r~ |
+| decision signal: signal-1 pattern=Prefer bounded roadmap slices before broad refactors guidance=use as context,~ |  | source_ref: profile-command kind=comm~ |
+| decision signal: signal-2 pattern=Prefer behavior-named tests over milestone numbers guidance=use as context, n~ |  | source_ref: profile-workflow-doc kind~ |
+| update suggestion: suggestion-1 text=Keep validation evidence close to closeout rationale=apply only when curre~ |  | source_ref: profile-session-state kin~ |
+| update suggestion: suggestion-2 text=Rename touched milestone-numbered tests when behavior names communicate th~ |  | warning: deterministic app-supplied s~ |
+| evidence: evidence-1 summary=Recent roadmap work used planera before implementation source=profile-session-state |  | warning: provider-backed corpus analy~ |
+| evidence: evidence-2 summary=Cross-cutting profile output stays outside workflow authority source=profile-workf~ |  | app-owned                              |
+| confidence: medium                                                                                               |  | display-only                           |
+| caveat: deterministic app-supplied session evidence only                                                         |  | git: placeholder                       |
+| caveat: provider-backed corpus analysis deferred                                                                 |  | context: current profile capability    |
+| context summary: profile refs ready for context folding                                                          |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                 git: placeholder | context: current profile capability | q quit

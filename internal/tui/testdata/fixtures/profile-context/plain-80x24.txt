@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model fake/fake-profile | Utility placeholder | Au~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-profile                                             |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: profile capability status                                            |
+| active: false                                                                |
+| result: Profile folded 2 decision signal(s) into context for Aila decision ~ |
+|                                                                              |
+| Profile:                                                                     |
+| source: app.profile.fixture                                                  |
+| capability: profile                                                          |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                 git: placeholder | context: current profile capability | q quit

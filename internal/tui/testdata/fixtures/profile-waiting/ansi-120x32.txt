@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage PLAN | Runtime waiting | Model fake/fake-profile | Utility placeholder | Auto read                                [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-profile                                                                                     |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: waiting                                                                                                      |
+| detail: profile capability status                                                                                    |
+| active: false                                                                                                        |
+| result: Profile needs session evidence before it can update decision context.                                        |
+|                                                                                                                      |
+| Profile:                                                                                                             |
+| source: app.profile.fixture                                                                                          |
+| capability: profile                                                                                                  |
+| signal: waiting                                                                                                      |
+| current phase: plan                                                                                                  |
+| cross-cutting status: context_only                                                                                   |
+| context folded: false                                                                                                |
+| artifact status: not_written                                                                                         |
+| recommended successor:                                                                                               |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| summary: Profile needs session evidence before it can update decision context.                                       |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

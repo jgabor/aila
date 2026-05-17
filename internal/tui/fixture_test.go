@@ -4396,6 +4396,168 @@ func researchWaitingFixtureState() ViewState {
 	return state
 }
 
+func TestProfileContextFixtureShowsArtifactEvidenceSuggestionsAndCaveats(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "profile-context", profileContextFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Profile:", "capability: profile"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "cross-cutting status: context_only", "context folded: true", "artifact status: written", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "decision signal: signal-1 pattern=Prefer bounded roadmap slices before broad refactors", "update suggestion: suggestion-1 text=Keep validation evidence close to closeout", "evidence: evidence-1 summary=Recent roadmap work used planera before implementation", "confidence: medium", "caveat: deterministic app-supplied session evidence only", "source: app.profile.context", "status: folded")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("profile-context render missing profile evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Profile == nil || snapshot.Profile.CrossCuttingStatus != "context_only" || !snapshot.Profile.ContextFolded || snapshot.Profile.ArtifactStatus != "written" || len(snapshot.Profile.ArtifactRefs) != 1 || snapshot.Profile.RecommendedSuccessor != "" || snapshot.Profile.TransitionClaimed || !snapshot.Profile.DisplayOnly || len(snapshot.Profile.DecisionSignals) != 2 || len(snapshot.Profile.UpdateSuggestions) != 2 || len(snapshot.Profile.Evidence) != 2 || snapshot.Profile.Confidence != "medium" || len(snapshot.Profile.Caveats) != 2 {
+			t.Fatalf("profile semantic = %+v", snapshot.Profile)
+		}
+		if snapshot.Context == nil || snapshot.Context.Status != "folded" || len(snapshot.Context.Claims) == 0 || len(snapshot.Context.SourceRefs) == 0 {
+			t.Fatalf("profile context semantic = %+v", snapshot.Context)
+		}
+	}
+}
+
+func TestProfileWaitingFixtureShowsNeededInputWithoutContextFold(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "profile-waiting", profileWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage PLAN", "Profile:", "capability: profile", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "context folded: false", "artifact status: not_written", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Provide session or decision evidence to profile.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("profile-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Profile == nil || snapshot.Profile.Signal != "waiting" || snapshot.Profile.NeededInput == "" || len(snapshot.Profile.Caveats) == 0 || snapshot.Profile.ContextFolded || snapshot.Profile.ArtifactStatus != "not_written" || snapshot.Profile.RecommendedSuccessor != "" || snapshot.Profile.TransitionClaimed || !snapshot.Profile.DisplayOnly {
+			t.Fatalf("profile waiting semantic = %+v", snapshot.Profile)
+		}
+	}
+}
+
+func profileContextFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "profile-context"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-profile"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "profile capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Profile folded 2 decision signal(s) into context for Aila decision profile."
+	state.FooterContext = "current profile capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Profile = &ProfileView{
+		Source:             "app.profile.fixture",
+		Capability:         "profile",
+		Signal:             "complete",
+		CurrentPhase:       "build",
+		CrossCuttingStatus: "context_only",
+		Summary:            "Profile folded 2 decision signal(s) into context for Aila decision profile.",
+		Subject:            "Aila decision profile",
+		Context:            "runtime=idle phase=build context=current profile capability",
+		DecisionSignals: []ProfileDecisionSignalView{
+			{ID: "signal-1", Pattern: "Prefer bounded roadmap slices before broad refactors", Guidance: "use as context, not workflow authority", EvidenceRefIDs: []string{"profile-session-state"}},
+			{ID: "signal-2", Pattern: "Prefer behavior-named tests over milestone numbers", Guidance: "use as context, not workflow authority", EvidenceRefIDs: []string{"profile-command"}},
+		},
+		UpdateSuggestions: []ProfileUpdateSuggestionView{
+			{ID: "suggestion-1", Text: "Keep validation evidence close to closeout", Rationale: "apply only when current task matches the profile evidence", EvidenceRefIDs: []string{"profile-session-state"}},
+			{ID: "suggestion-2", Text: "Rename touched milestone-numbered tests when behavior names communicate the invariant", Rationale: "apply only when current task matches the profile evidence", EvidenceRefIDs: []string{"profile-command"}},
+		},
+		Evidence: []ProfileEvidenceView{
+			{ID: "evidence-1", Summary: "Recent roadmap work used planera before implementation", SourceRefID: "profile-session-state"},
+			{ID: "evidence-2", Summary: "Cross-cutting profile output stays outside workflow authority", SourceRefID: "profile-workflow-doc"},
+		},
+		Confidence:           "medium",
+		Caveats:              []string{"deterministic app-supplied session evidence only", "provider-backed corpus analysis deferred"},
+		NextAction:           "Use this profile as non-authoritative context for the current workflow phase.",
+		ContextSummary:       "profile refs ready for context folding",
+		ArtifactPath:         ".aila/artifacts/profile.md",
+		ArtifactStatus:       "written",
+		ContextFolded:        true,
+		RecommendedSuccessor: "",
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		ArtifactRefs:         []ProfileArtifactRefView{{ID: "profile-artifact", Kind: "profile", Path: ".aila/artifacts/profile.md"}},
+		SourceRefs:           []ProfileSourceRefView{{ID: "profile-command", Kind: "command", Command: "/profile", Excerpt: "app-owned profile command"}, {ID: "profile-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "profile is cross-cutting"}, {ID: "profile-session-state", Kind: "session_state", Excerpt: "runtime=idle phase=build context=current profile capability"}},
+		BoundaryRequests:     []ProfileBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "session.current", Reason: "profile uses app-supplied session evidence"}, {Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "profile folds results into current context"}, {Kind: "artifact_access", Operation: "artifact.access", Target: "profile", Reason: "state store resolves durable profile artifact"}, {Kind: "state_write", Operation: "state.write", Target: "profile", Reason: "state store records durable profile output"}},
+	}
+	state.Context = &ContextView{
+		Source:     "app.profile.context",
+		Status:     "folded",
+		Meter:      "profile refs: 3",
+		Blocks:     []ContextBlockView{{ID: "profile-summary", Kind: "profile", Title: "Aila decision profile", Text: "profile refs ready for context folding", SourceRefIDs: []string{"profile-command", "profile-workflow-doc", "profile-session-state"}}},
+		Claims:     []ContextClaimView{{Text: "profile signal: Prefer bounded roadmap slices before broad refactors", SourceRefIDs: []string{"profile-session-state"}}, {Text: "profile update: Keep validation evidence close to closeout", SourceRefIDs: []string{"profile-session-state"}}, {Text: "profile evidence: Recent roadmap work used planera before implementation", SourceRefIDs: []string{"profile-session-state"}}},
+		SourceRefs: []ContextSourceRefView{{ID: "profile-command", Kind: "command", Command: "/profile", Excerpt: "app-owned profile command"}, {ID: "profile-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "profile is cross-cutting"}, {ID: "profile-session-state", Kind: "session_state", Excerpt: "runtime=idle phase=build context=current profile capability"}},
+		Warnings:   []string{"deterministic app-supplied session evidence only", "provider-backed corpus analysis deferred"},
+	}
+	return state
+}
+
+func profileWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "profile-waiting"
+	state.Phase = "PLAN"
+	state.PhaseSource = "plan"
+	state.PrimaryModel = "fake/fake-profile"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "profile capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Profile needs session evidence before it can update decision context."
+	state.Profile = &ProfileView{
+		Source:             "app.profile.fixture",
+		Capability:         "profile",
+		Signal:             "waiting",
+		CurrentPhase:       "plan",
+		CrossCuttingStatus: "context_only",
+		Summary:            "Profile needs session evidence before it can update decision context.",
+		NeededInput:        "Provide session or decision evidence to profile.",
+		Caveats:            []string{"profile evidence unavailable until session evidence is provided"},
+		NextAction:         "Provide profile evidence, then run profile again.",
+		ArtifactPath:       ".aila/artifacts/profile.md",
+		ArtifactStatus:     "not_written",
+		ContextFolded:      false,
+		TransitionClaimed:  false,
+		DisplayOnly:        true,
+		SourceRefs:         []ProfileSourceRefView{{ID: "profile-command", Kind: "command", Command: "/profile", Excerpt: "waiting for profile evidence"}},
+		BoundaryRequests:   []ProfileBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "session.current", Reason: "profile uses app-supplied session evidence"}, {Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "profile folds results into current context"}},
+	}
+	return state
+}
+
 func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

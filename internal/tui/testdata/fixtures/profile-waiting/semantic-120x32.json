@@ -1,0 +1,152 @@
+{
+  "scenario": "profile-waiting",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "PLAN",
+    "phase_source": "plan",
+    "runtime_status": "waiting",
+    "status_detail": "profile capability status",
+    "runtime_result": "Profile needs session evidence before it can update decision context.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-profile",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "profile": {
+    "visible": true,
+    "source": "app.profile.fixture",
+    "capability": "profile",
+    "signal": "waiting",
+    "current_phase": "plan",
+    "cross_cutting_status": "context_only",
+    "summary": "Profile needs session evidence before it can update decision context.",
+    "caveats": [
+      "profile evidence unavailable until session evidence is provided"
+    ],
+    "needed_input": "Provide session or decision evidence to profile.",
+    "next_action": "Provide profile evidence, then run profile again.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "not_written",
+    "context_folded": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "profile-command",
+        "kind": "command",
+        "command": "/profile",
+        "excerpt": "waiting for profile evidence"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "session.current",
+        "reason": "profile uses app-supplied session evidence"
+      },
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "profile folds results into current context"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["PLAN", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-profile",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-profile",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: profile capability status",
+        "active: false",
+        "result: Profile needs session evidence before it can update decision context.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "profile",
+      "visible": true,
+      "items": [
+        "source: app.profile.fixture",
+        "capability: profile",
+        "signal: waiting",
+        "current_phase: plan",
+        "cross_cutting_status: context_only",
+        "context_folded: false",
+        "artifact_status: not_written",
+        "recommended_successor: ",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Profile needs session evidence before it can update decision context.",
+        "needed_input: Provide session or decision evidence to profile.",
+        "caveat: profile evidence unavailable until session evidence is provided",
+        "artifact_path: [path-redacted]",
+        "next_action: Provide profile evidence, then run profile again.",
+        "boundary_request: state_access operation=state.access target=session.current",
+        "boundary_request: context_access operation=context.access target=current_context",
+        "source_ref: profile-command kind=command excerpt=waiting for profile evidence"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

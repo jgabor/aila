@@ -70,6 +70,7 @@ type ViewState struct {
 	Vision             *VisionView
 	Discuss            *DiscussView
 	Research           *ResearchView
+	Profile            *ProfileView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -642,6 +643,82 @@ type ResearchBoundaryRequestView struct {
 	Reason    string
 }
 
+// ProfileView is app-injected decision-profile output.
+type ProfileView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	CurrentPhase         string
+	CrossCuttingStatus   string
+	Summary              string
+	Subject              string
+	Context              string
+	DecisionSignals      []ProfileDecisionSignalView
+	UpdateSuggestions    []ProfileUpdateSuggestionView
+	Evidence             []ProfileEvidenceView
+	Confidence           string
+	Caveats              []string
+	NeededInput          string
+	NextAction           string
+	ContextSummary       string
+	ArtifactPath         string
+	ArtifactStatus       string
+	ContextFolded        bool
+	RecommendedSuccessor string
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	ArtifactRefs         []ProfileArtifactRefView
+	SourceRefs           []ProfileSourceRefView
+	BoundaryRequests     []ProfileBoundaryRequestView
+}
+
+// ProfileDecisionSignalView records one visible decision pattern.
+type ProfileDecisionSignalView struct {
+	ID             string
+	Pattern        string
+	Guidance       string
+	EvidenceRefIDs []string
+}
+
+// ProfileUpdateSuggestionView records one visible profile update suggestion.
+type ProfileUpdateSuggestionView struct {
+	ID             string
+	Text           string
+	Rationale      string
+	EvidenceRefIDs []string
+}
+
+// ProfileEvidenceView records one visible profile evidence item.
+type ProfileEvidenceView struct {
+	ID          string
+	Summary     string
+	SourceRefID string
+}
+
+// ProfileArtifactRefView records one profile artifact reference.
+type ProfileArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// ProfileSourceRefView records one source reference supporting profile output.
+type ProfileSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// ProfileBoundaryRequestView records one inert profile boundary descriptor.
+type ProfileBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // AuditView is app-injected read-only audit output.
 type AuditView struct {
 	Source               string
@@ -836,6 +913,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, visionLines(state.Vision)...)
 	items = append(items, discussLines(state.Discuss)...)
 	items = append(items, researchLines(state.Research)...)
+	items = append(items, profileLines(state.Profile)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1892,6 +1970,114 @@ func researchLines(research *ResearchView) []string {
 	return append(lines, "  app-owned", "  display-only", "")
 }
 
+func profileLines(profile *ProfileView) []string {
+	if profile == nil {
+		return nil
+	}
+	semantic := semanticProfile(profile)
+	lines := []string{
+		"  Profile:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  current phase: " + semantic.CurrentPhase,
+		"  cross-cutting status: " + semantic.CrossCuttingStatus,
+		"  context folded: " + boolLabel(semantic.ContextFolded),
+		"  artifact status: " + semantic.ArtifactStatus,
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.Subject != "" {
+		lines = append(lines, "  subject: "+semantic.Subject)
+	}
+	if semantic.Context != "" {
+		lines = append(lines, "  context: "+semantic.Context)
+	}
+	for _, signal := range semantic.DecisionSignals {
+		line := "  decision signal: " + signal.ID + " pattern=" + signal.Pattern
+		if signal.Guidance != "" {
+			line += " guidance=" + signal.Guidance
+		}
+		if len(signal.EvidenceRefIDs) > 0 {
+			line += " evidence=" + strings.Join(signal.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, suggestion := range semantic.UpdateSuggestions {
+		line := "  update suggestion: " + suggestion.ID + " text=" + suggestion.Text
+		if suggestion.Rationale != "" {
+			line += " rationale=" + suggestion.Rationale
+		}
+		if len(suggestion.EvidenceRefIDs) > 0 {
+			line += " evidence=" + strings.Join(suggestion.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, evidence := range semantic.Evidence {
+		line := "  evidence: " + evidence.ID + " summary=" + evidence.Summary
+		if evidence.SourceRefID != "" {
+			line += " source=" + evidence.SourceRefID
+		}
+		lines = append(lines, line)
+	}
+	if semantic.Confidence != "" {
+		lines = append(lines, "  confidence: "+semantic.Confidence)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	if semantic.ContextSummary != "" {
+		lines = append(lines, "  context summary: "+semantic.ContextSummary)
+	}
+	if semantic.ArtifactPath != "" {
+		lines = append(lines, "  artifact path: "+semantic.ArtifactPath)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "  app-owned", "  display-only", "")
+}
+
 func auditLines(audit *AuditView) []string {
 	if audit == nil {
 		return nil
@@ -2535,6 +2721,7 @@ type SemanticSnapshot struct {
 	Vision         *SemanticVision         `json:"vision,omitempty"`
 	Discuss        *SemanticDiscuss        `json:"discuss,omitempty"`
 	Research       *SemanticResearch       `json:"research,omitempty"`
+	Profile        *SemanticProfile        `json:"profile,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3297,6 +3484,83 @@ type SemanticResearchBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticProfile describes app-injected decision-profile output.
+type SemanticProfile struct {
+	Visible              bool                              `json:"visible"`
+	Source               string                            `json:"source"`
+	Capability           string                            `json:"capability"`
+	Signal               string                            `json:"signal"`
+	CurrentPhase         string                            `json:"current_phase"`
+	CrossCuttingStatus   string                            `json:"cross_cutting_status"`
+	Summary              string                            `json:"summary,omitempty"`
+	Subject              string                            `json:"subject,omitempty"`
+	Context              string                            `json:"context,omitempty"`
+	DecisionSignals      []SemanticProfileDecisionSignal   `json:"decision_signals,omitempty"`
+	UpdateSuggestions    []SemanticProfileUpdateSuggestion `json:"update_suggestions,omitempty"`
+	Evidence             []SemanticProfileEvidence         `json:"evidence,omitempty"`
+	Confidence           string                            `json:"confidence,omitempty"`
+	Caveats              []string                          `json:"caveats,omitempty"`
+	NeededInput          string                            `json:"needed_input,omitempty"`
+	NextAction           string                            `json:"next_action,omitempty"`
+	ContextSummary       string                            `json:"context_summary,omitempty"`
+	ArtifactPath         string                            `json:"artifact_path,omitempty"`
+	ArtifactStatus       string                            `json:"artifact_status,omitempty"`
+	ContextFolded        bool                              `json:"context_folded"`
+	RecommendedSuccessor string                            `json:"recommended_successor,omitempty"`
+	TransitionClaimed    bool                              `json:"transition_claimed"`
+	DisplayOnly          bool                              `json:"display_only"`
+	ArtifactRefs         []SemanticProfileArtifactRef      `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticProfileSourceRef        `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticProfileBoundaryRequest  `json:"boundary_requests,omitempty"`
+}
+
+// SemanticProfileDecisionSignal records one machine-readable profile signal.
+type SemanticProfileDecisionSignal struct {
+	ID             string   `json:"id"`
+	Pattern        string   `json:"pattern"`
+	Guidance       string   `json:"guidance,omitempty"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticProfileUpdateSuggestion records one machine-readable profile update suggestion.
+type SemanticProfileUpdateSuggestion struct {
+	ID             string   `json:"id"`
+	Text           string   `json:"text"`
+	Rationale      string   `json:"rationale,omitempty"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticProfileEvidence records one machine-readable profile evidence item.
+type SemanticProfileEvidence struct {
+	ID          string `json:"id"`
+	Summary     string `json:"summary"`
+	SourceRefID string `json:"source_ref_id,omitempty"`
+}
+
+// SemanticProfileArtifactRef records one machine-readable profile artifact ref.
+type SemanticProfileArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticProfileSourceRef records one profile source reference.
+type SemanticProfileSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticProfileBoundaryRequest records one inert profile boundary descriptor.
+type SemanticProfileBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticAudit describes app-injected read-only audit output.
 type SemanticAudit struct {
 	Visible              bool                           `json:"visible"`
@@ -3702,6 +3966,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Research != nil {
 		regions = append(regions, SemanticRegion{Name: "research", Visible: true, Items: semanticResearchItems(state.Research)})
 	}
+	if state.Profile != nil {
+		regions = append(regions, SemanticRegion{Name: "profile", Visible: true, Items: semanticProfileItems(state.Profile)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -3797,6 +4064,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Vision:         semanticVision(state.Vision),
 		Discuss:        semanticDiscuss(state.Discuss),
 		Research:       semanticResearch(state.Research),
+		Profile:        semanticProfile(state.Profile),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -5130,6 +5398,162 @@ func semanticResearch(research *ResearchView) *SemanticResearch {
 		RecommendedSuccessor: safeText(research.RecommendedSuccessor),
 		TransitionClaimed:    research.TransitionClaimed,
 		DisplayOnly:          research.DisplayOnly,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticProfileItems(profile *ProfileView) []string {
+	semantic := semanticProfile(profile)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"current_phase: " + semantic.CurrentPhase,
+		"cross_cutting_status: " + semantic.CrossCuttingStatus,
+		"context_folded: " + boolLabel(semantic.ContextFolded),
+		"artifact_status: " + semantic.ArtifactStatus,
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.Subject != "" {
+		items = append(items, "subject: "+semantic.Subject)
+	}
+	if semantic.Context != "" {
+		items = append(items, "context: "+semantic.Context)
+	}
+	for _, signal := range semantic.DecisionSignals {
+		item := "decision_signal: " + signal.ID + " pattern=" + signal.Pattern
+		if signal.Guidance != "" {
+			item += " guidance=" + signal.Guidance
+		}
+		items = append(items, item)
+		for _, refID := range signal.EvidenceRefIDs {
+			items = append(items, "decision_signal_ref: "+signal.ID+" "+refID)
+		}
+	}
+	for _, suggestion := range semantic.UpdateSuggestions {
+		item := "update_suggestion: " + suggestion.ID + " text=" + suggestion.Text
+		if suggestion.Rationale != "" {
+			item += " rationale=" + suggestion.Rationale
+		}
+		items = append(items, item)
+		for _, refID := range suggestion.EvidenceRefIDs {
+			items = append(items, "update_suggestion_ref: "+suggestion.ID+" "+refID)
+		}
+	}
+	for _, evidence := range semantic.Evidence {
+		item := "evidence: " + evidence.ID + " summary=" + evidence.Summary
+		if evidence.SourceRefID != "" {
+			item += " source=" + evidence.SourceRefID
+		}
+		items = append(items, item)
+	}
+	if semantic.Confidence != "" {
+		items = append(items, "confidence: "+semantic.Confidence)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	if semantic.ContextSummary != "" {
+		items = append(items, "context_summary: "+semantic.ContextSummary)
+	}
+	if semantic.ArtifactPath != "" {
+		items = append(items, "artifact_path: "+semantic.ArtifactPath)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticProfile(profile *ProfileView) *SemanticProfile {
+	if profile == nil {
+		return nil
+	}
+	signals := make([]SemanticProfileDecisionSignal, 0, len(profile.DecisionSignals))
+	for _, signal := range profile.DecisionSignals {
+		signals = append(signals, SemanticProfileDecisionSignal{ID: safeText(signal.ID), Pattern: safeText(signal.Pattern), Guidance: safeText(signal.Guidance), EvidenceRefIDs: safeTextSlice(signal.EvidenceRefIDs)})
+	}
+	suggestions := make([]SemanticProfileUpdateSuggestion, 0, len(profile.UpdateSuggestions))
+	for _, suggestion := range profile.UpdateSuggestions {
+		suggestions = append(suggestions, SemanticProfileUpdateSuggestion{ID: safeText(suggestion.ID), Text: safeText(suggestion.Text), Rationale: safeText(suggestion.Rationale), EvidenceRefIDs: safeTextSlice(suggestion.EvidenceRefIDs)})
+	}
+	evidence := make([]SemanticProfileEvidence, 0, len(profile.Evidence))
+	for _, item := range profile.Evidence {
+		evidence = append(evidence, SemanticProfileEvidence{ID: safeText(item.ID), Summary: safeText(item.Summary), SourceRefID: safeText(item.SourceRefID)})
+	}
+	artifacts := make([]SemanticProfileArtifactRef, 0, len(profile.ArtifactRefs))
+	for _, ref := range profile.ArtifactRefs {
+		artifacts = append(artifacts, SemanticProfileArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticProfileSourceRef, 0, len(profile.SourceRefs))
+	for _, ref := range profile.SourceRefs {
+		refs = append(refs, SemanticProfileSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticProfileBoundaryRequest, 0, len(profile.BoundaryRequests))
+	for _, request := range profile.BoundaryRequests {
+		requests = append(requests, SemanticProfileBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticProfile{
+		Visible:              true,
+		Source:               safeText(defaultString(profile.Source, "app.profile")),
+		Capability:           safeText(defaultString(profile.Capability, "profile")),
+		Signal:               safeText(defaultString(profile.Signal, "complete")),
+		CurrentPhase:         safeText(profile.CurrentPhase),
+		CrossCuttingStatus:   safeText(defaultString(profile.CrossCuttingStatus, "context_only")),
+		Summary:              safeText(profile.Summary),
+		Subject:              safeText(profile.Subject),
+		Context:              safeText(profile.Context),
+		DecisionSignals:      signals,
+		UpdateSuggestions:    suggestions,
+		Evidence:             evidence,
+		Confidence:           safeText(profile.Confidence),
+		Caveats:              safeTextSlice(profile.Caveats),
+		NeededInput:          safeText(profile.NeededInput),
+		NextAction:           safeText(profile.NextAction),
+		ContextSummary:       safeText(profile.ContextSummary),
+		ArtifactPath:         safeText(profile.ArtifactPath),
+		ArtifactStatus:       safeText(defaultString(profile.ArtifactStatus, "available")),
+		ContextFolded:        profile.ContextFolded,
+		RecommendedSuccessor: safeText(profile.RecommendedSuccessor),
+		TransitionClaimed:    profile.TransitionClaimed,
+		DisplayOnly:          profile.DisplayOnly,
+		ArtifactRefs:         artifacts,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}

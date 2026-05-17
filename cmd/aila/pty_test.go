@@ -2155,6 +2155,105 @@ func TestResearchCommandFoldsContextWithoutArtifactPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestProfileCommandPersistsArtifactAndFoldsContextPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nProfile command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed profile PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/profile\r")); err != nil {
+		t.Fatalf("send /profile command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Profile folded",
+		"Profile:",
+		"source: app.profile",
+		"capability: profile",
+		"signal: complete",
+		"current phase: idle",
+		"cross-cutting status: context_only",
+		"context folded: true",
+		"artifact status: written",
+		"recommended successor:",
+		"transition claimed: false",
+		"display-only: true",
+		"subject: Aila decision profile",
+		"decision signal: signal-1 pattern=Prefer bounded roadmap slices before broad refactors",
+		"update suggestion: suggestion-1 text=Keep capability validation evidence near the closeout artifact",
+		"evidence: evidence-1 summary=Recent roadmap work used planera before implementation",
+		"confidence: medium",
+		"caveat: deterministic app-supplied session evidence only",
+		"requested boundary: state_write operation=state.write target=profile",
+		"source ref: profile-command kind=command command=/profile",
+		"Context:",
+		"source: app.profile.context",
+		"status: folded",
+		"meter: profile refs: 4",
+		"claim: profile signal: Prefer bounded roadmap slices before broad refactors",
+		"source ref: profile-command command command=/profile",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "Discuss:", "Research:", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("profile PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	artifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "profile.md"))
+	if err != nil {
+		t.Fatalf("read profile artifact: %v", err)
+	}
+	for _, want := range []string{"# Profile", "Subject: Aila decision profile", "## Decision Signals", "Prefer bounded roadmap slices before broad refactors", "## Update Suggestions", "Keep capability validation evidence near the closeout artifact", "## Evidence", "Recent roadmap work used planera before implementation", "## Caveats", "Next action: Use this profile as non-authoritative context for the current workflow phase."} {
+		if !strings.Contains(string(artifact), want) {
+			t.Fatalf("profile artifact missing %q in:\n%s", want, artifact)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("profile PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("profile PTY changed build output git status: %q", docsStatus)
+	}
+	assertProfileCommandStoreState(t, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after profile command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("profile command PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("profile command PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -3228,6 +3327,45 @@ func assertResearchCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawResearchCommand || !sawResearchRuntime {
 		t.Fatalf("research command history markers command=%v runtime=%v events=%+v", sawResearchCommand, sawResearchRuntime, history.Events)
+	}
+}
+
+func assertProfileCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open profile command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read profile command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("profile command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Profile folded") {
+		t.Fatalf("profile command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read profile command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("profile command history state = %q, want loaded", history.State)
+	}
+	var sawProfileCommand, sawProfileRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "profile via slash" {
+			sawProfileCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Profile folded") {
+			sawProfileRuntime = true
+		}
+	}
+	if !sawProfileCommand || !sawProfileRuntime {
+		t.Fatalf("profile command history markers command=%v runtime=%v events=%+v", sawProfileCommand, sawProfileRuntime, history.Events)
 	}
 }
 

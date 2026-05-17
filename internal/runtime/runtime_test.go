@@ -289,6 +289,68 @@ func TestUpdateRoutesResearchCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesProfileCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "profile-status",
+		Capability: capability.NameProfile,
+		Input:      "Profile decision patterns.",
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.ProfileMetadataSubject:           "Aila decision profile",
+			capability.ProfileMetadataDecisionSignals:   "Prefer bounded roadmap slices",
+			capability.ProfileMetadataUpdateSuggestions: "Keep validation evidence close",
+			capability.ProfileMetadataEvidence:          "Recent runs used direct validation",
+			capability.ProfileMetadataDurable:           "true",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameProfile {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "profile", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameProfile || completed.Payload.RecommendedSuccessor != "" || completed.Payload.Profile == nil {
+		t.Fatalf("profile payload = %+v", completed.Payload)
+	}
+	if !hasCapabilityBoundary(completed.Payload.BoundaryRequests, capability.BoundaryStateWrite, "profile") {
+		t.Fatalf("profile boundary requests = %+v, want state write profile", completed.Payload.BoundaryRequests)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameProfile || model.LastCapability.Profile == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+	if model.LastCapability.RecommendedSuccessor != "" {
+		t.Fatalf("profile completion recommended successor %q", model.LastCapability.RecommendedSuccessor)
+	}
+}
+
+func hasCapabilityBoundary(requests []capability.BoundaryRequest, kind capability.BoundaryKind, target string) bool {
+	for _, request := range requests {
+		if request.Kind == kind && request.Target == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestUpdateRoutesPlanCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

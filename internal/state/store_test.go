@@ -71,6 +71,7 @@ func TestResolveKnownArtifactIncludesPathAndProvenance(t *testing.T) {
 		{name: ArtifactPlan, file: "plan.md"},
 		{name: ArtifactVision, file: "vision.md"},
 		{name: ArtifactDecisions, file: "decisions.md"},
+		{name: ArtifactProfile, file: "profile.md"},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			t.Parallel()
@@ -158,6 +159,7 @@ func TestResolveArtifactWriteAllowsOwningWriter(t *testing.T) {
 		{name: ArtifactPlan, owner: OwnerApp},
 		{name: ArtifactVision, owner: OwnerApp},
 		{name: ArtifactDecisions, owner: OwnerApp},
+		{name: ArtifactProfile, owner: OwnerApp},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			t.Parallel()
@@ -301,6 +303,7 @@ func TestWriteArtifactStoresOwnedContentWithAtomicBoundary(t *testing.T) {
 		{name: ArtifactPlan, owner: OwnerApp, content: "# Plan\n\n- [ ] inspect the current milestone\n"},
 		{name: ArtifactVision, owner: OwnerApp, content: "# Vision\n\nNorth star: keep Aila focused\n"},
 		{name: ArtifactDecisions, owner: OwnerApp, content: "# Decision\n\nChoice: plan next\n"},
+		{name: ArtifactProfile, owner: OwnerApp, content: "# Profile\n\nSubject: Aila decision profile\n"},
 	} {
 		tc := tc
 		t.Run(string(tc.name), func(t *testing.T) {
@@ -360,6 +363,7 @@ func TestWriteAppOwnedArtifactsRejectStateOwnerWithoutFinalMutation(t *testing.T
 		{name: ArtifactPlan, content: "# Existing plan\n", rejected: "bad plan\n"},
 		{name: ArtifactVision, content: "# Existing vision\n", rejected: "bad vision\n"},
 		{name: ArtifactDecisions, content: "# Existing decision\n", rejected: "bad decision\n"},
+		{name: ArtifactProfile, content: "# Existing profile\n", rejected: "bad profile\n"},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			artifact := mustResolveArtifact(t, store.Resolver(), tc.name)

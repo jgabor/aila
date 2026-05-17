@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage BUILD | Runtime idle | Model fake/fake-profile | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-profile                                                                                     |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: profile capability status                                                                                    |
+| active: false                                                                                                        |
+| result: Profile folded 2 decision signal(s) into context for Aila decision profile.                                  |
+|                                                                                                                      |
+| Profile:                                                                                                             |
+| source: app.profile.fixture                                                                                          |
+| capability: profile                                                                                                  |
+| signal: complete                                                                                                     |
+| current phase: build                                                                                                 |
+| cross-cutting status: context_only                                                                                   |
+| context folded: true                                                                                                 |
+| artifact status: written                                                                                             |
+| recommended successor:                                                                                               |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                         git: placeholder | context: current profile capability | q quit

@@ -1,0 +1,342 @@
+{
+  "scenario": "profile-context",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "profile capability status",
+    "runtime_result": "Profile folded 2 decision signal(s) into context for Aila decision profile.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-profile",
+    "utility_model": "placeholder",
+    "autonomy": "read",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "profile": {
+    "visible": true,
+    "source": "app.profile.fixture",
+    "capability": "profile",
+    "signal": "complete",
+    "current_phase": "build",
+    "cross_cutting_status": "context_only",
+    "summary": "Profile folded 2 decision signal(s) into context for Aila decision profile.",
+    "subject": "Aila decision profile",
+    "context": "runtime=idle phase=build context=current profile capability",
+    "decision_signals": [
+      {
+        "id": "signal-1",
+        "pattern": "Prefer bounded roadmap slices before broad refactors",
+        "guidance": "use as context, not workflow authority",
+        "evidence_ref_ids": ["profile-session-state"]
+      },
+      {
+        "id": "signal-2",
+        "pattern": "Prefer behavior-named tests over milestone numbers",
+        "guidance": "use as context, not workflow authority",
+        "evidence_ref_ids": ["profile-command"]
+      }
+    ],
+    "update_suggestions": [
+      {
+        "id": "suggestion-1",
+        "text": "Keep validation evidence close to closeout",
+        "rationale": "apply only when current task matches the profile evidence",
+        "evidence_ref_ids": ["profile-session-state"]
+      },
+      {
+        "id": "suggestion-2",
+        "text": "Rename touched milestone-numbered tests when behavior names communicate the invariant",
+        "rationale": "apply only when current task matches the profile evidence",
+        "evidence_ref_ids": ["profile-command"]
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence-1",
+        "summary": "Recent roadmap work used planera before implementation",
+        "source_ref_id": "profile-session-state"
+      },
+      {
+        "id": "evidence-2",
+        "summary": "Cross-cutting profile output stays outside workflow authority",
+        "source_ref_id": "profile-workflow-doc"
+      }
+    ],
+    "confidence": "medium",
+    "caveats": [
+      "deterministic app-supplied session evidence only",
+      "provider-backed corpus analysis deferred"
+    ],
+    "next_action": "Use this profile as non-authoritative context for the current workflow phase.",
+    "context_summary": "profile refs ready for context folding",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "context_folded": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "artifact_refs": [
+      {
+        "id": "profile-artifact",
+        "kind": "profile",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "profile-command",
+        "kind": "command",
+        "command": "/profile",
+        "excerpt": "app-owned profile command"
+      },
+      {
+        "id": "profile-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "profile is cross-cutting"
+      },
+      {
+        "id": "profile-session-state",
+        "kind": "session_state",
+        "excerpt": "runtime=idle phase=build context=current profile capability"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "session.current",
+        "reason": "profile uses app-supplied session evidence"
+      },
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "profile folds results into current context"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "profile",
+        "reason": "state store resolves durable profile artifact"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "profile",
+        "reason": "state store records durable profile output"
+      }
+    ]
+  },
+  "context": {
+    "source": "app.profile.context",
+    "status": "folded",
+    "meter": "profile refs: 3",
+    "blocks": [
+      {
+        "id": "profile-summary",
+        "kind": "profile",
+        "title": "Aila decision profile",
+        "text": "profile refs ready for context folding",
+        "source_ref_ids": [
+          "profile-command",
+          "profile-workflow-doc",
+          "profile-session-state"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "text": "profile signal: Prefer bounded roadmap slices before broad refactors",
+        "source_ref_ids": ["profile-session-state"]
+      },
+      {
+        "text": "profile update: Keep validation evidence close to closeout",
+        "source_ref_ids": ["profile-session-state"]
+      },
+      {
+        "text": "profile evidence: Recent roadmap work used planera before implementation",
+        "source_ref_ids": ["profile-session-state"]
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "profile-command",
+        "kind": "command",
+        "command": "/profile",
+        "excerpt": "app-owned profile command"
+      },
+      {
+        "id": "profile-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "profile is cross-cutting"
+      },
+      {
+        "id": "profile-session-state",
+        "kind": "session_state",
+        "excerpt": "runtime=idle phase=build context=current profile capability"
+      }
+    ],
+    "warnings": [
+      "deterministic app-supplied session evidence only",
+      "provider-backed corpus analysis deferred"
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-profile",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-profile",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: profile capability status",
+        "active: false",
+        "result: Profile folded 2 decision signal(s) into context for Aila decision profile.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "context",
+      "visible": true,
+      "items": [
+        "source: app.profile.context",
+        "status: folded",
+        "meter: profile refs: 3",
+        "block: profile-summary profile Aila decision profile",
+        "block_text: profile refs ready for context folding",
+        "block_ref: profile-summary profile-command",
+        "block_ref: profile-summary profile-workflow-doc",
+        "block_ref: profile-summary profile-session-state",
+        "claim: profile signal: Prefer bounded roadmap slices before broad refactors",
+        "claim_ref: profile signal: Prefer bounded roadmap slices before broad refactors -> profile-session-state",
+        "claim: profile update: Keep validation evidence close to closeout",
+        "claim_ref: profile update: Keep validation evidence close to closeout -> profile-session-state",
+        "claim: profile evidence: Recent roadmap work used planera before implementation",
+        "claim_ref: profile evidence: Recent roadmap work used planera before implementation -> profile-session-state",
+        "source_ref: profile-command kind=command command=/profile excerpt=app-owned profile command",
+        "source_ref: profile-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=profile is cross-cutting",
+        "source_ref: profile-session-state kind=session_state excerpt=runtime=idle phase=build context=current profile capability",
+        "warning: deterministic app-supplied session evidence only",
+        "warning: provider-backed corpus analysis deferred",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "profile",
+      "visible": true,
+      "items": [
+        "source: app.profile.fixture",
+        "capability: profile",
+        "signal: complete",
+        "current_phase: build",
+        "cross_cutting_status: context_only",
+        "context_folded: true",
+        "artifact_status: written",
+        "recommended_successor: ",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Profile folded 2 decision signal(s) into context for Aila decision profile.",
+        "subject: Aila decision profile",
+        "context: runtime=idle phase=build context=current profile capability",
+        "decision_signal: signal-1 pattern=Prefer bounded roadmap slices before broad refactors guidance=use as context, not workflow authority",
+        "decision_signal_ref: signal-1 profile-session-state",
+        "decision_signal: signal-2 pattern=Prefer behavior-named tests over milestone numbers guidance=use as context, not workflow authority",
+        "decision_signal_ref: signal-2 profile-command",
+        "update_suggestion: suggestion-1 text=Keep validation evidence close to closeout rationale=apply only when current task matches the profile evidence",
+        "update_suggestion_ref: suggestion-1 profile-session-state",
+        "update_suggestion: suggestion-2 text=Rename touched milestone-numbered tests when behavior names communicate the invariant rationale=apply only when current task matches the profile evidence",
+        "update_suggestion_ref: suggestion-2 profile-command",
+        "evidence: evidence-1 summary=Recent roadmap work used planera before implementation source=profile-session-state",
+        "evidence: evidence-2 summary=Cross-cutting profile output stays outside workflow authority source=profile-workflow-doc",
+        "confidence: medium",
+        "caveat: deterministic app-supplied session evidence only",
+        "caveat: provider-backed corpus analysis deferred",
+        "context_summary: profile refs ready for context folding",
+        "artifact_path: [path-redacted]",
+        "next_action: Use this profile as non-authoritative context for the current workflow phase.",
+        "artifact_ref: profile-artifact kind=profile path=[path-redacted]",
+        "boundary_request: state_access operation=state.access target=session.current",
+        "boundary_request: context_access operation=context.access target=current_context",
+        "boundary_request: artifact_access operation=artifact.access target=profile",
+        "boundary_request: state_write operation=state.write target=profile",
+        "source_ref: profile-command kind=command excerpt=app-owned profile command",
+        "source_ref: profile-workflow-doc kind=doc excerpt=profile is cross-cutting",
+        "source_ref: profile-session-state kind=session_state excerpt=runtime=idle phase=build context=current profile capability"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: current profile capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

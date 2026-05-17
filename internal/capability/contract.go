@@ -37,7 +37,7 @@ var orderedDefinitions = []Definition{
 	{Name: NameDocument, OwningPhase: workflow.PhaseBuild, Description: "align documentation with the project"},
 	{Name: NameDesign, OwningPhase: workflow.PhaseEnvision, Description: "create a durable design system"},
 	{Name: NameAudit, OwningPhase: workflow.PhaseAudit, Description: "architecture, test, dependency, and project health audit"},
-	{Name: NameProfile, OwningPhase: workflow.PhaseDeliberate, Description: "profile decision patterns from previous conversations"},
+	{Name: NameProfile, OwningPhase: workflow.PhaseIdle, CrossCutting: true, Description: "profile decision patterns from previous conversations"},
 	{Name: NameOrchestrate, OwningPhase: workflow.PhaseBuild, Description: "autonomous plan execution with evaluation and retry checks"},
 }
 
@@ -215,6 +215,7 @@ type ExitPayload struct {
 	Vision               *VisionOutput
 	Discuss              *DiscussOutput
 	Research             *ResearchOutput
+	Profile              *ProfileOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -340,6 +341,22 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		research.Caveats = append([]string(nil), payload.Research.Caveats...)
 		research.SourceRefs = append([]SourceRef(nil), payload.Research.SourceRefs...)
 		payload.Research = &research
+	}
+
+	if payload.Profile != nil {
+		profile := *payload.Profile
+		profile.DecisionSignals = append([]ProfileDecisionSignal(nil), payload.Profile.DecisionSignals...)
+		for index := range profile.DecisionSignals {
+			profile.DecisionSignals[index].EvidenceRefIDs = append([]string(nil), payload.Profile.DecisionSignals[index].EvidenceRefIDs...)
+		}
+		profile.UpdateSuggestions = append([]ProfileUpdateSuggestion(nil), payload.Profile.UpdateSuggestions...)
+		for index := range profile.UpdateSuggestions {
+			profile.UpdateSuggestions[index].EvidenceRefIDs = append([]string(nil), payload.Profile.UpdateSuggestions[index].EvidenceRefIDs...)
+		}
+		profile.Evidence = append([]ProfileEvidence(nil), payload.Profile.Evidence...)
+		profile.Caveats = append([]string(nil), payload.Profile.Caveats...)
+		profile.SourceRefs = append([]SourceRef(nil), payload.Profile.SourceRefs...)
+		payload.Profile = &profile
 	}
 	for index := range payload.BoundaryRequests {
 		payload.BoundaryRequests[index].Metadata = cloneMap(payload.BoundaryRequests[index].Metadata)

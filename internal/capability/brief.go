@@ -66,6 +66,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 		return DiscussCapability{}.Run(ctx, request)
 	case NameResearch:
 		return ResearchCapability{}.Run(ctx, request)
+	case NameProfile:
+		return ProfileCapability{}.Run(ctx, request)
 	case NamePlan:
 		return PlanCapability{}.Run(ctx, request)
 	case NameBuild:

@@ -1,4 +1,70 @@
 cycles:
+  - number: 240
+    timestamp: 2026-05-17 17:15
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 51A by adding deterministic profile payloads, state-store profile artifact persistence,
+      closed /profile routing, app-owned context folding, TUI profile context/update/evidence/caveat snapshots, behavior-named
+      PTY smoke coverage, ROADMAP closeout, and Agentera task completion.
+    commit: 'same local commit: add profile capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 51A; focused capability/runtime/state/app/policy/TUI/cmd tests; full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Profile can stay cross-cutting by emitting deterministic app-supplied decision evidence, persisting only intentional
+      durable profile output through state.Store, folding claims and source refs into visible context, and leaving workflow
+      transitions, research behavior, optimization, build execution, provider-backed corpus analysis, plugins, MCP, workflow
+      DSLs, hosted control planes, and orchestration out of scope.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/state/app/policy/TUI checks passed. `/profile` PTY smoke and the
+      inspection-family smoke passed. `go test ./internal/... -count=1` passed. `go test ./cmd/aila -count=1` passed with
+      cmd/aila in 336.589s. Final `mage check` passed with cmd/aila in 342.751s, 0 lint issues, and no vulnerabilities.
+      Agentera plan/progress/lint/hej validation passed. `git diff --check` passed; changed-line home-path hygiene and added
+      func TestM<number> hygiene returned no matches.
+    next: >-
+      Milestone 52: Optimize Capability remains the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: Execute only M51A; no research behavior changes, optimization, build execution, orchestration, provider-backed
+        corpus analysis, direct workflow phase mutation, writes outside state.Store, plugin/MCP/workflow DSL behavior, M52+ behavior, or push.
+      unknowns: Provider-backed session-corpus analysis, global profile storage, richer profile merge/conflict behavior, profile-driven
+        policy personalization, optimization objectives, and multi-cycle orchestration remain deferred.
+      scope: internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage, profile fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M51 plan.
+  - number: 239
+    timestamp: 2026-05-17 17:00
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 51A: Profile Capability as the next roadmap milestone, archived the completed M51 plan, and created
+      a new active plan with six bounded tasks for deterministic profile payloads, state-store profile artifact persistence,
+      cross-cutting /profile routing, app-owned context folding, TUI evidence, PTY smoke validation, roadmap closeout, and commit.
+    commit: 'N/A: planning artifact before M51A implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 51A; AGENTS.md; README workflow and capability sections; ARCHITECTURE
+      phase/capability/state-store rules; docs/workflow-architecture cross-cutting profile and tool exposure rules; docs/tui-testing
+      render, semantic, and PTY gates; installed Agentera CLI hej with planera context
+    discovered: >-
+      M51A can stay narrow by making profile deterministic over app-supplied session and decision evidence, marking it cross-cutting,
+      persisting only intentional profile documents through state.Store, rendering profile update suggestions/evidence/caveats, and
+      folding the result into visible ContextView without direct workflow phase mutation, research changes, optimization, or build
+      execution behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; ROADMAP.md top status and M51A
+      section, docs/notes/PROMPT.md, AGENTS.md, README workflow/capability sections, ARCHITECTURE phase/capability/state-store
+      rules, docs/workflow-architecture cross-cutting profile/tool exposure rules, docs/tui-testing render/semantic/PTY gates, and
+      current research/discuss/state/capability/runtime/app/policy/TUI seams were reviewed before writing the plan. The plan explicitly
+      uses behavior-based test names and forbids new TestM<number> symbols.
+    next: >-
+      Execute M51A Tasks 2-5: add deterministic profile payloads, persist durable profile output through the state store, wire
+      cross-cutting /profile and context folding, render profile context/update evidence, and add PTY smoke coverage before validation,
+      roadmap closeout, and commit.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M51, selecting M51A and preparing an executable plan before implementation.
+      constraints: Execute only M51A; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, state-store artifact
+        ownership, context folding as non-authoritative display evidence, TUI presentation-only behavior, fixed product posture,
+        behavior-based test names, and no push.
+      unknowns: Exact ProfileView field shape, durable profile document wording, and smallest profile context-folding details are
+        implementation-owned; provider-backed corpus analysis, global profile storage, optimization, build execution, and
+        multi-cycle orchestration remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m51.yaml archival, and progress evidence for the M51A planning handoff.
   - number: 238
     timestamp: 2026-05-17 16:50
     type: build

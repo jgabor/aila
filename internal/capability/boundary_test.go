@@ -33,7 +33,7 @@ func TestCapabilityRegistryIsFixedAndPhaseOwned(t *testing.T) {
 		{NameDocument, workflow.PhaseBuild, false},
 		{NameDesign, workflow.PhaseEnvision, false},
 		{NameAudit, workflow.PhaseAudit, false},
-		{NameProfile, workflow.PhaseDeliberate, false},
+		{NameProfile, workflow.PhaseIdle, true},
 		{NameOrchestrate, workflow.PhaseBuild, false},
 	}
 

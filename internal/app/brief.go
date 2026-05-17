@@ -81,6 +81,11 @@ func (runner *inputRunner) proposeCapability(request capability.Request) tui.Tra
 		if turn.Research != nil {
 			turn.StatusDetail = "research capability status"
 		}
+	case capability.NameProfile:
+		turn.Profile = profileView(runner.model.LastCapability, request.Phase, profileArtifactPersistence{})
+		if turn.Profile != nil {
+			turn.StatusDetail = "profile capability status"
+		}
 	case capability.NamePlan:
 		turn.Plan = planView(runner.model.LastCapability, request.Phase, planArtifactPersistence{})
 		if turn.Plan != nil {

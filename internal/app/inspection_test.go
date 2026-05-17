@@ -419,6 +419,82 @@ func TestResearchCommandRunsCapabilityAndFoldsContextWithoutArtifactWrite(t *tes
 	}
 }
 
+func TestProfileCommandRunsCapabilityPersistsArtifactAndFoldsContext(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	view := snapshotTestView()
+	view.Phase = "BUILD"
+	view.PhaseSource = "build"
+	view.RuntimeStatus = "idle"
+	view.StatusSource = "runtime.dispatch"
+	view.FooterContext = "current profile capability"
+	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		historyEvents = append(historyEvents, command)
+		return HistoryPersistenceResult{}
+	}, nil, func(context.Context, DiffReadCommand) DiffReadResult {
+		t.Fatal("profile command must not read diff state")
+		return DiffReadResult{}
+	})
+	controller.workspacePath = workspace
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteProfile, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Profile == nil {
+		t.Fatal("profile view is nil")
+	}
+	if got.SurfaceTitle != "" || got.CommandRoute != "profile" || got.RouteSource != "policy.command" {
+		t.Fatalf("profile command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
+	}
+	if got.Profile.CurrentPhase != workflow.PhaseBuild.String() || got.Profile.RecommendedSuccessor != "" || got.Profile.TransitionClaimed || !got.Profile.DisplayOnly || !got.Profile.ContextFolded {
+		t.Fatalf("profile transition/display = %+v", got.Profile)
+	}
+	if got.Profile.ArtifactStatus != "written" || got.Profile.ArtifactPath == "" {
+		t.Fatalf("profile artifact state = %+v", got.Profile)
+	}
+	content, err := os.ReadFile(got.Profile.ArtifactPath)
+	if err != nil {
+		t.Fatalf("read profile artifact: %v", err)
+	}
+	profileText := string(content)
+	for _, want := range []string{"# Profile", "Subject: Aila decision profile", "## Decision Signals", "Prefer bounded roadmap slices", "## Update Suggestions", "Keep capability validation evidence", "## Evidence", "Recent roadmap work used planera before implementation", "## Caveats", "Next action: Use this profile as non-authoritative context for the current workflow phase."} {
+		if !strings.Contains(profileText, want) {
+			t.Fatalf("profile artifact missing %q in:\n%s", want, profileText)
+		}
+	}
+	if got.Context == nil || got.Context.Source != "app.profile.context" || got.Context.Status != "folded" || len(got.Context.Claims) == 0 || len(got.Context.SourceRefs) == 0 {
+		t.Fatalf("profile context = %+v", got.Context)
+	}
+	if len(got.Profile.DecisionSignals) != 3 || len(got.Profile.UpdateSuggestions) != 2 || len(got.Profile.Evidence) != 3 || got.Profile.Confidence != "medium" || len(got.Profile.Caveats) != 2 {
+		t.Fatalf("profile evidence = %+v", got.Profile)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("profile dispatches = %#v, want one capability effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("profile dispatch = %T, want runtime.CapabilityEffect", dispatched[0][0])
+	}
+	if runner.model.LastCapability.Profile == nil || runner.model.LastCapability.RecommendedSuccessor != "" {
+		t.Fatalf("runtime last capability = %+v", runner.model.LastCapability)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result == "" || snapshots[0].Snapshot.Runtime.Result != runner.model.Result {
+		t.Fatalf("profile snapshots = %#v", snapshots)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("profile history events = %#v, want command then runtime", historyEvents)
+	}
+}
+
 func TestReviewCommandRunsReadOnlyAuditOverDiffAndHistoryInspectionSurface(t *testing.T) {
 	t.Parallel()
 
