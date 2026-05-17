@@ -57,7 +57,7 @@ func TestSessionControllerPersistsVisibleFakeActivityThroughExplicitHistoryComma
 	assertHistoryEvent(t, commands[1].Event, history.EventKindResponse, "runtime.response", "fake-runtime", "Fake Aila response: explain history")
 	assertHistoryEvent(t, commands[2].Event, history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: Fake Aila response: explain history")
 	assertHistoryEvent(t, commands[3].Event, history.EventKindCommand, "policy.command", "policy.command", "status via slash")
-	assertHistoryEvent(t, commands[4].Event, history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: fake command result: status")
+	assertHistoryEvent(t, commands[4].Event, history.EventKindRuntime, "runtime.dispatch", "runtime.dispatch", "runtime idle: Brief: phase idle, runtime idle, store initialized, history unavailable, context unavailable (placeholder), health available.")
 	assertHistoryEvent(t, commands[5].Event, history.EventKindCommand, "policy.command", "policy.command", "help via slash")
 	assertHistoryEvent(t, commands[6].Event, history.EventKindCommand, "policy.command", "policy.command", "quit via shortcut")
 	for index, command := range commands {

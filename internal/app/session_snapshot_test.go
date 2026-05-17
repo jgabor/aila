@@ -347,8 +347,8 @@ func TestSessionControllerPersistsCommandPathsWithoutChangingRuntimeRouting(t *t
 	if len(commands) != 3 {
 		t.Fatalf("persist commands = %d, want status/help/quit", len(commands))
 	}
-	if len(dispatched) != 2 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 {
-		t.Fatalf("runtime dispatches = %#v, want status effect then utility effect", dispatched)
+	if len(dispatched) != 3 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 || len(dispatched[2]) != 1 {
+		t.Fatalf("runtime dispatches = %#v, want status effect, utility effect, then capability effect", dispatched)
 	}
 	if _, ok := dispatched[0][0].(runtime.FakeCommandEffect); !ok {
 		t.Fatalf("status effect = %T, want FakeCommandEffect", dispatched[0][0])
@@ -356,10 +356,13 @@ func TestSessionControllerPersistsCommandPathsWithoutChangingRuntimeRouting(t *t
 	if _, ok := dispatched[1][0].(runtime.UtilityJobEffect); !ok {
 		t.Fatalf("utility effect = %T, want UtilityJobEffect", dispatched[1][0])
 	}
-	if runner.model.LastCommand != "status" || runner.model.NextOperation != 2 || runner.model.LastUtility.Status != "completed" {
-		t.Fatalf("runtime model = %#v, want status plus completed utility routed through runtime", runner.model)
+	if _, ok := dispatched[2][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("capability effect = %T, want CapabilityEffect", dispatched[2][0])
 	}
-	if commands[0].Snapshot.Runtime.Result != "fake command result: status" {
+	if runner.model.LastCommand != "status" || runner.model.NextOperation != 3 || runner.model.LastUtility.Status != "completed" || runner.model.LastCapability.Capability != "brief" {
+		t.Fatalf("runtime model = %#v, want status plus completed utility and brief routed through runtime", runner.model)
+	}
+	if !strings.Contains(commands[0].Snapshot.Runtime.Result, "Brief: phase idle") {
 		t.Fatalf("status snapshot runtime result = %q", commands[0].Snapshot.Runtime.Result)
 	}
 	if got := commands[1].Snapshot.Concerns[len(commands[1].Snapshot.Concerns)-1]; got.Source != "policy.command" || got.Text != "visible surface=help" {

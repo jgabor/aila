@@ -66,6 +66,7 @@ type ViewState struct {
 	PromptEditor       *PromptEditorView
 	FileReference      *FileReferenceView
 	PolicyRoute        *PolicyRouteView
+	Brief              *BriefView
 	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
@@ -359,6 +360,39 @@ type PolicyRouteBoundaryRequestView struct {
 	Reason    string
 }
 
+// BriefView is app-injected capability orientation output.
+type BriefView struct {
+	Source              string
+	Capability          string
+	Signal              string
+	Summary             string
+	CurrentPhase        string
+	RuntimeStatus       string
+	KnownGaps           []string
+	SuggestedNextAction string
+	TransitionClaimed   bool
+	DisplayOnly         bool
+	SourceRefs          []BriefSourceRefView
+	BoundaryRequests    []BriefBoundaryRequestView
+}
+
+// BriefSourceRefView records one source reference supporting brief output.
+type BriefSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// BriefBoundaryRequestView records one inert brief boundary descriptor.
+type BriefBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // IdleEmptyState returns the static first-launch view state.
 func IdleEmptyState() ViewState {
 	return ViewState{
@@ -438,6 +472,7 @@ func contentItems(state ViewState) []string {
 	}
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
+	items = append(items, briefLines(state.Brief)...)
 	if state.SurfaceTitle == "agent evidence" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 		items = append(items, chatLines(state.Transcript)...)
@@ -999,6 +1034,60 @@ func policyRouteLines(route *PolicyRouteView) []string {
 	}
 	for _, request := range semantic.BoundaryRequests {
 		line := "  requested effect: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "  app-owned", "  display-only", "")
+	return lines
+}
+
+func briefLines(brief *BriefView) []string {
+	if brief == nil {
+		return nil
+	}
+	semantic := semanticBrief(brief)
+	lines := []string{
+		"  Brief:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  current phase: " + semantic.CurrentPhase,
+		"  runtime status: " + semantic.RuntimeStatus,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	for _, gap := range semantic.KnownGaps {
+		lines = append(lines, "  known gap: "+gap)
+	}
+	if semantic.SuggestedNextAction != "" {
+		lines = append(lines, "  suggested next action: "+semantic.SuggestedNextAction)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
 		if request.Operation != "" {
 			line += " operation=" + request.Operation
 		}
@@ -1589,6 +1678,7 @@ type SemanticSnapshot struct {
 	Interrupt      *SemanticInterrupt      `json:"interrupt,omitempty"`
 	Command        *SemanticCommand        `json:"command,omitempty"`
 	PolicyRoute    *SemanticPolicyRoute    `json:"policy_route,omitempty"`
+	Brief          *SemanticBrief          `json:"brief,omitempty"`
 	History        *SemanticHistory        `json:"history,omitempty"`
 	Diff           *SemanticDiff           `json:"diff,omitempty"`
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
@@ -2067,6 +2157,40 @@ type SemanticPolicyRouteBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticBrief describes app-injected brief capability orientation output.
+type SemanticBrief struct {
+	Visible             bool                           `json:"visible"`
+	Source              string                         `json:"source"`
+	Capability          string                         `json:"capability"`
+	Signal              string                         `json:"signal"`
+	Summary             string                         `json:"summary,omitempty"`
+	CurrentPhase        string                         `json:"current_phase"`
+	RuntimeStatus       string                         `json:"runtime_status"`
+	KnownGaps           []string                       `json:"known_gaps,omitempty"`
+	SuggestedNextAction string                         `json:"suggested_next_action,omitempty"`
+	TransitionClaimed   bool                           `json:"transition_claimed"`
+	DisplayOnly         bool                           `json:"display_only"`
+	SourceRefs          []SemanticBriefSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests    []SemanticBriefBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticBriefSourceRef records one brief source reference.
+type SemanticBriefSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticBriefBoundaryRequest records one inert brief boundary descriptor.
+type SemanticBriefBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticSessionView describes an app-injected session lifecycle surface.
 type SemanticSessionView struct {
 	Visible      bool                  `json:"visible"`
@@ -2347,6 +2471,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.PolicyRoute != nil {
 		regions = append(regions, SemanticRegion{Name: "policy_route", Visible: true, Items: semanticPolicyRouteItems(state.PolicyRoute)})
 	}
+	if state.Brief != nil {
+		regions = append(regions, SemanticRegion{Name: "brief", Visible: true, Items: semanticBriefItems(state.Brief)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -2429,6 +2556,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Diagnostics:    semanticDiagnostics(state.Diagnostics),
 		Command:        command,
 		PolicyRoute:    semanticPolicyRoute(state.PolicyRoute),
+		Brief:          semanticBrief(state.Brief),
 		History:        semanticHistory(state),
 		Diff:           semanticDiff(state),
 		Read:           semanticRead(state.Read),
@@ -3394,6 +3522,87 @@ func semanticPolicyRoute(route *PolicyRouteView) *SemanticPolicyRoute {
 		Executed:             route.Executed,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
+	}
+}
+
+func semanticBriefItems(brief *BriefView) []string {
+	semantic := semanticBrief(brief)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"current_phase: " + semantic.CurrentPhase,
+		"runtime_status: " + semantic.RuntimeStatus,
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	for _, gap := range semantic.KnownGaps {
+		items = append(items, "known_gap: "+gap)
+	}
+	if semantic.SuggestedNextAction != "" {
+		items = append(items, "suggested_next_action: "+semantic.SuggestedNextAction)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticBrief(brief *BriefView) *SemanticBrief {
+	if brief == nil {
+		return nil
+	}
+	refs := make([]SemanticBriefSourceRef, 0, len(brief.SourceRefs))
+	for _, ref := range brief.SourceRefs {
+		refs = append(refs, SemanticBriefSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticBriefBoundaryRequest, 0, len(brief.BoundaryRequests))
+	for _, request := range brief.BoundaryRequests {
+		requests = append(requests, SemanticBriefBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticBrief{
+		Visible:             true,
+		Source:              safeText(defaultString(brief.Source, "app.brief")),
+		Capability:          safeText(defaultString(brief.Capability, "brief")),
+		Signal:              safeText(defaultString(brief.Signal, "complete")),
+		Summary:             safeText(brief.Summary),
+		CurrentPhase:        safeText(brief.CurrentPhase),
+		RuntimeStatus:       safeText(brief.RuntimeStatus),
+		KnownGaps:           safeTextSlice(brief.KnownGaps),
+		SuggestedNextAction: safeText(brief.SuggestedNextAction),
+		TransitionClaimed:   brief.TransitionClaimed,
+		DisplayOnly:         brief.DisplayOnly,
+		SourceRefs:          refs,
+		BoundaryRequests:    requests,
 	}
 }
 

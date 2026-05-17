@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/utility"
 )
@@ -63,6 +64,13 @@ type UtilityJobProposed struct {
 }
 
 func (UtilityJobProposed) runtimeMessage() {}
+
+// CapabilityProposed records caller intent to run a fixed built-in capability.
+type CapabilityProposed struct {
+	Request capability.Request
+}
+
+func (CapabilityProposed) runtimeMessage() {}
 
 // ReadToolProposed records caller intent to read a workspace file.
 // Update turns it into an effect; app-owned dispatch performs validation and IO.
@@ -230,6 +238,14 @@ type UtilityJobCompleted struct {
 
 func (UtilityJobCompleted) runtimeMessage() {}
 
+// CapabilityCompleted reports one fixed capability exit payload.
+type CapabilityCompleted struct {
+	Operation OperationMetadata
+	Payload   capability.ExitPayload
+}
+
+func (CapabilityCompleted) runtimeMessage() {}
+
 // FetchToolCompleted reports a network read effect result.
 type FetchToolCompleted struct {
 	Operation OperationMetadata
@@ -271,6 +287,8 @@ type Model struct {
 	LastCommand          string
 	ActiveUtility        utility.JobRequest
 	LastUtility          utility.JobResult
+	ActiveCapability     capability.Request
+	LastCapability       capability.ExitPayload
 	ActiveCompact        CompactContextRequest
 	LastCompact          CompactContextResult
 	ActiveRead           ReadToolRequest
@@ -376,6 +394,18 @@ type UtilityJobEffect struct {
 func (UtilityJobEffect) runtimeEffect() {}
 
 func (effect UtilityJobEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// CapabilityEffect requests fixed built-in capability execution outside Update.
+type CapabilityEffect struct {
+	Operation OperationMetadata
+	Request   capability.Request
+}
+
+func (CapabilityEffect) runtimeEffect() {}
+
+func (effect CapabilityEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -515,6 +545,17 @@ func dispatchOne(effect Effect) (messages []Message) {
 			Operation: typed.Operation,
 			Result:    utility.RunJob(typed.Request),
 		}}
+	case CapabilityEffect:
+		payload, err := capability.RunBuiltIn(context.Background(), typed.Request)
+		if err != nil {
+			payload = capability.ExitPayload{
+				Capability: typed.Request.Capability,
+				Signal:     capability.ExitStuck,
+				Blocker:    err.Error(),
+				Attempted:  true,
+			}
+		}
+		return []Message{CapabilityCompleted{Operation: typed.Operation, Payload: payload}}
 	case FakeInterruptEffect:
 		return []Message{FakeInterruptResolved(typed)}
 	case interface{ dispatchPanic() }:
@@ -562,18 +603,19 @@ func CancellationMessage(source diagnostic.Source, err error) RuntimeDiagnostic 
 type OperationKind string
 
 const (
-	OperationPrompt   OperationKind = "prompt"
-	OperationCommand  OperationKind = "command"
-	OperationUtility  OperationKind = "utility"
-	OperationCompact  OperationKind = "compact"
-	OperationRead     OperationKind = "read"
-	OperationFind     OperationKind = "find"
-	OperationGrep     OperationKind = "grep"
-	OperationBash     OperationKind = "bash"
-	OperationFetch    OperationKind = "fetch"
-	OperationEdit     OperationKind = "edit"
-	OperationWrite    OperationKind = "write"
-	OperationApproval OperationKind = "approval"
+	OperationPrompt     OperationKind = "prompt"
+	OperationCommand    OperationKind = "command"
+	OperationUtility    OperationKind = "utility"
+	OperationCapability OperationKind = "capability"
+	OperationCompact    OperationKind = "compact"
+	OperationRead       OperationKind = "read"
+	OperationFind       OperationKind = "find"
+	OperationGrep       OperationKind = "grep"
+	OperationBash       OperationKind = "bash"
+	OperationFetch      OperationKind = "fetch"
+	OperationEdit       OperationKind = "edit"
+	OperationWrite      OperationKind = "write"
+	OperationApproval   OperationKind = "approval"
 )
 
 // OperationMetadata is inert typed data for future permission and dispatch
@@ -1184,6 +1226,34 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveUtility = request
 		next.LastUtility = utility.RunningResult(request)
 		return next, []Effect{UtilityJobEffect{Operation: operation, Request: request}}
+	case CapabilityProposed:
+		request := normalizeCapabilityRequest(msg.Request)
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "capability", Text: capabilitySubjectLabel(request)})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationCapability, capabilitySubjectLabel(request))
+		operation.Source = "runtime.capability"
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveCapability = request
+		next.LastCapability = capability.ExitPayload{}
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "capability", Text: capabilitySubjectLabel(request)})
+		return next, []Effect{CapabilityEffect{Operation: operation, Request: request}}
 	case BackgroundCompactContextProposed:
 		request := normalizeCompactRequest(msg.Request, CompactModeBackground)
 		decision := utility.CanRun(utilityActivity(next), backgroundCompactGateRequest(request))
@@ -1575,6 +1645,19 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveUtility = utility.JobRequest{}
 		next.LastUtility = msg.Result
 		return next, nil
+	case CapabilityCompleted:
+		summary := capabilityResultSummary(msg.Payload)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveCapability = capability.Request{}
+		next.LastCapability = msg.Payload
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Payload.Signal == capability.ExitStuck {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
 	case CompactContextCompleted:
 		if normalizeCompactMode(msg.Result.Source.Mode) == CompactModeBackground {
 			next.ActiveCompact = CompactContextRequest{}
@@ -1761,6 +1844,39 @@ func compactModeLabel(mode CompactMode) string {
 		mode = CompactModeManual
 	}
 	return string(mode)
+}
+
+func normalizeCapabilityRequest(request capability.Request) capability.Request {
+	if request.Capability == "" {
+		request.Capability = capability.NameBrief
+	}
+	return request
+}
+
+func capabilitySubjectLabel(request capability.Request) string {
+	request = normalizeCapabilityRequest(request)
+	name := strings.TrimSpace(string(request.Capability))
+	if name == "" {
+		return "brief"
+	}
+	return name
+}
+
+func capabilityResultSummary(payload capability.ExitPayload) string {
+	if strings.TrimSpace(payload.Summary) != "" {
+		return payload.Summary
+	}
+	name := strings.TrimSpace(string(payload.Capability))
+	if name == "" {
+		name = "capability"
+	}
+	if payload.Blocker != "" {
+		return name + " stuck: " + payload.Blocker
+	}
+	if payload.Signal != "" {
+		return name + " " + string(payload.Signal)
+	}
+	return name + " completed"
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {

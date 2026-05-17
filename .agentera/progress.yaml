@@ -1,4 +1,39 @@
 cycles:
+  - number: 221
+    timestamp: 2026-05-17 11:25
+    type: build
+    phase: closeout
+    what: Completed Milestone 46 by adding a deterministic brief capability, runtime/app status invocation, TUI render
+      and semantic support, a brief-status fixture, and PTY visibility coverage for brief orientation output.
+    commit: 'pending local commit: add brief capability orientation'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 46; README capability table; ARCHITECTURE capability
+      rules; docs/workflow-architecture capability exit and tool-registry rules; docs/tui-testing semantic guidance;
+      installed Agentera CLI plan/progress state
+    discovered: Brief can stay as the smallest real capability by accepting app-supplied runtime, store/history, context,
+      and health evidence, emitting one complete payload with known gaps and a suggested next action, and describing
+      state/artifact/context/health access as boundary requests. The existing /status path can display the brief result
+      without adding broad capability command parity or workflow phase transitions.
+    verified: '`mage fmt` passed. `go test ./internal/capability -count=1` passed. `go test ./internal/runtime -run
+      ''Test.*Capability.*|Test.*Brief.*'' -count=1` passed. `go test ./internal/app -run ''Test.*Brief.*|Test.*Status.*''
+      -count=1` passed. `AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestBriefCapabilityFixtureSnapshots
+      -count=1` generated the brief-status snapshots, then `go test ./internal/tui -run ''TestBriefCapabilityFixtureSnapshots|TestBriefCapabilitySemanticSnapshotExposesNextActionAndSourceRefs|Test.*Brief.*''
+      -count=1` passed. `go test ./internal/tui -count=1` passed. `go test ./internal/... -count=1` passed. `go test
+      ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1` passed. `go test ./cmd/aila -run TestDiffViewPTYSmoke
+      -count=1` passed. `go test ./cmd/aila -count=1` passed in 437.636s. Final `mage check` passed with cmd/aila
+      in 467.415s, internal packages green, 0 lint issues, and no vulnerabilities. Installed Agentera CLI
+      plan/progress/lint/hej validation passed after closeout. `git diff --check` passed with fixed-width render snapshot txt files excluded, changed-line home-path
+      hygiene passed, and no added func TestM<number> declarations were found.'
+    next: 'Commit the completed M46 slice locally, leaving Milestone 47: Plan Capability as the next roadmap milestone.'
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop
+        and Agentera capability usage.
+      constraints: Execute only M46; preserve statechart-MVU, runtime/effect/store/FSM authority boundaries, TUI presentation-only
+        behavior, fixed product posture, non-transitioning brief behavior, behavior-based test names, no provider
+        calls, no mutation behavior beyond closeout artifacts, and no push.
+      unknowns: Plan capability behavior, provider-backed capability loops, full capability slash activation, richer
+        policy scoring, and durable capability-run persistence remain deferred to M47+.
+      scope: internal/capability, internal/runtime, internal/app, internal/tui, cmd/aila PTY expectations, brief-status
+        fixture snapshots, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M45A plan inclusion.
   - number: 219
     timestamp: "2026-05-17 10:25"
     type: build

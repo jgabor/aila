@@ -67,6 +67,7 @@ func statusInspectionLines(view tui.ViewState, model runtime.Model) []string {
 		lines = append(lines, fmt.Sprintf("queued messages: %d", view.QueuedCount))
 	}
 	lines = append(lines, utilityStatusLines(view.Utility, model)...)
+	lines = append(lines, briefStatusLines(view.Brief)...)
 	lines = append(lines, fmt.Sprintf("diagnostics: %d", len(view.Diagnostics)))
 	lines = append(lines, "git: "+valueOr(view.FooterGit, "unknown"), "context: "+valueOr(view.FooterContext, "unknown"))
 	lines = append(lines, "inspection: app-owned display data")

@@ -1,0 +1,29 @@
+{
+  "name": "brief-status",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": [
+    "brief",
+    "capability",
+    "status_orientation",
+    "source_refs",
+    "boundary_descriptors"
+  ],
+  "render_sizes": [
+    {
+      "name": "120x44",
+      "width": 120,
+      "height": 44
+    }
+  ],
+  "render_outputs": {
+    "plain_120x44": "plain-120x44.txt",
+    "ansi_120x44": "ansi-120x44.txt",
+    "semantic_120x44": "semantic-120x44.json"
+  },
+  "notes": [
+    "Brief capability fixture; state is app-injected evidence only.",
+    "Semantic brief metadata must expose next action, source refs, boundary descriptors, and no workflow transition claim."
+  ]
+}

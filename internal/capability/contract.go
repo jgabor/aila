@@ -116,6 +116,7 @@ const (
 	BoundaryPermissionCheck BoundaryKind = "permission_check"
 	BoundaryArtifactAccess  BoundaryKind = "artifact_access"
 	BoundaryContextAccess   BoundaryKind = "context_access"
+	BoundaryStateAccess     BoundaryKind = "state_access"
 	BoundaryStateWrite      BoundaryKind = "state_write"
 )
 
@@ -153,6 +154,11 @@ func (r Request) RequestArtifactAccess(target, reason string) BoundaryRequest {
 // RequestContextAccess describes context builder access requested by a capability.
 func (r Request) RequestContextAccess(target, reason string) BoundaryRequest {
 	return r.boundary(BoundaryContextAccess, reason, "context.access", target)
+}
+
+// RequestStateAccess describes a runtime/store state read requested by a capability.
+func (r Request) RequestStateAccess(target, reason string) BoundaryRequest {
+	return r.boundary(BoundaryStateAccess, reason, "state.access", target)
 }
 
 // RequestStateWrite describes a state-store write requested by a capability.
@@ -198,6 +204,7 @@ type ExitPayload struct {
 	NeededInput          string
 	Blocker              string
 	Attempted            bool
+	NextAction           string
 	RecommendedSuccessor workflow.Phase
 	ArtifactRefs         []ArtifactRef
 	SourceRefs           []SourceRef

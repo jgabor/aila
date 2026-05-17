@@ -3,196 +3,219 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M45A must define contracts and selectors only. It must keep concrete capability behavior out of scope, keep
-    policy recommendation-only, preserve workflow FSM ownership of phase changes, force model/tool/permission/artifact access
-    through runtime messages/effects and store/resolver boundaries, prove exactly one capability exit payload, add visible
-    policy-routing fixture evidence, use behavior-based test names, avoid plugins, MCP, workflow DSLs, generic graph engines,
-    hosted control planes, and avoid any new TestM<number> symbols.
-  title: 'Milestone 45A: Capability Contract And Policy Boundary'
-what: Deliver ROADMAP.md Milestone 45A by defining the fixed built-in capability contract, policy routing selectors, typed
-  recommendation payloads, visible policy-routing evidence, and tests that prove capabilities and policy stay behind runtime,
-  state, permission, and workflow authority boundaries.
-why: M45 completed the utility boundary. Before concrete capabilities are implemented, M45A establishes the contracts that
-  prevent later slices from inventing ad-hoc interfaces or bypassing runtime, policy, permission, state, or workflow ownership.
-constraints: Execute only Milestone 45A. Preserve statechart-MVU and explicit effect boundaries. Keep internal/policy recommendation-only
-  and unable to mutate workflow phase. Keep internal/capability as fixed built-in contracts and boundary descriptors, not
-  concrete brief/plan/build/audit behavior. Capabilities may request model calls, tool execution, permission checks, artifact
-  access, context access, and state writes only through runtime messages/effects and store/resolver boundary descriptors.
-  Each invocation must emit exactly one exit payload. Workflow FSM validates any recommended successor. TUI may render app-injected
-  policy-routing evidence and semantic snapshots, but it must not route commands, call providers, inspect files, mutate artifacts,
-  request permissions, run tools, or transition workflow phase. Do not add plugins, MCP, workflow DSLs, dynamic tools, provider
-  marketplaces, generic graph engines, hosted control planes, or M45B+ behavior. Use behavior-based test names; do not introduce
-  new TestM<number> symbols. Do not push.
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m45.yaml
+  critic_issues: M46 must implement only the brief capability as a status/orientation path. It must emit exactly
+    one exit payload, use runtime/store/context boundary descriptors instead of direct artifact or phase ownership,
+    preserve TUI presentation-only behavior, keep planning/build/audit/orchestration capabilities out of scope,
+    validate interactive display through existing status behavior, use behavior-based test names, and avoid new
+    TestM<number> symbols.
+  title: 'Milestone 46: Brief Capability'
+what: Deliver ROADMAP.md Milestone 46 by adding the smallest real brief capability over current runtime state, store/history/context/health
+  evidence where available, runtime dispatch wiring, visible TUI brief output, semantic source references, and validation
+  proving the capability emits one payload without mutating workflow phase.
+why: M45A established capability contracts and policy routing boundaries. M46 should prove those boundaries with
+  one useful built-in capability that orients the user without opening the door to planning, building, auditing,
+  orchestration, provider calls, or direct state mutation.
+constraints: 'Execute only Milestone 46. Preserve statechart-MVU and explicit effect boundaries. Keep brief cross-cutting
+  and non-transitioning: it may summarize current phase, runtime status, project store/history/context/health evidence,
+  known gaps, source refs, and suggested next action, but it must not recommend or perform a workflow phase transition.
+  Capability access to runtime, state, history, context, and health must be represented through typed runtime/store/context
+  boundary descriptors and app-supplied evidence, not direct file reads or state-store imports from internal/capability.
+  Keep plan, build, audit, orchestration, provider/model execution, mutation tools, permission approval, plugins,
+  MCP, workflow DSLs, dynamic tools, generic graph engines, hosted control planes, and M47+ behavior out of scope.
+  Use behavior-based test names; do not introduce new TestM<number> symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m45a.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:20-35
-- ROADMAP.md:1764-1828
-- README.md:240-285
-- ARCHITECTURE.md:300-405
-- docs/workflow-architecture.md:180-265
-- docs/workflow-architecture.md:445-505
-- docs/workflow-architecture.md:600-622
-- docs/tui-testing.md:136-170
-- internal/capability/doc.go
-- internal/policy/command.go
-- internal/workflow/phase.go
+- ROADMAP.md:108-126
+- ROADMAP.md:1815-1840
+- README.md:240-271
+- ARCHITECTURE.md:361-399
+- docs/workflow-architecture.md:451-475
+- docs/tui-testing.md:190-214
+- internal/capability/contract.go
+- internal/runtime/runtime.go
+- internal/app/inspection.go
+- internal/app/session_snapshot.go
+- internal/state/fake_history.go
 - internal/tui/model.go
 - internal/tui/render.go
 - internal/tui/fixture_test.go
 verification_commands:
 - mage fmt
 - go test ./internal/capability -count=1
-- go test ./internal/policy -count=1
-- go test ./internal/workflow -run 'Test.*Successor|Test.*Protocol' -count=1
-- go test ./internal/tui -run 'TestPolicyRoutingFixtureSnapshots|TestPolicyRoutingSemanticSnapshotExposesCandidateWithoutTransition|Test.*Policy.*Routing|Test.*Capability.*Routing'
+- go test ./internal/runtime -run 'Test.*Capability.*|Test.*Brief.*' -count=1
+- go test ./internal/app -run 'Test.*Brief.*|Test.*Status.*' -count=1
+- AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestBriefCapabilityFixtureSnapshots -count=1
+- go test ./internal/tui -run 'TestBriefCapabilityFixtureSnapshots|TestBriefCapabilitySemanticSnapshotExposesNextActionAndSourceRefs|Test.*Brief.*'
   -count=1
+- go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m45.yaml internal/capability
-  internal/policy internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format
+  json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields
+  plan,progress,state_presence,next_action
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m45a.yaml
+  internal/capability internal/runtime internal/app internal/tui cmd/aila ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 scope:
   included:
-  - Define fixed built-in capability names, request metadata, boundary request descriptors, registry metadata, exit signals,
-    exit payloads, and a single-exit invocation helper in internal/capability.
-  - Define internal/policy capability selectors for explicit slash routes, high-confidence natural-language routes, low-confidence
-    waiting recommendations, and successor validation recommendations without mutating workflow phase.
-  - Represent active capability candidate, confidence, needed input, source refs, requested effects, and successor validation
-    as typed values that can flow through app/TUI state.
-  - Add policy-routing render and semantic fixture evidence for explicit command route, natural-language route, low-confidence
-    waiting state, and invalid successor rejection where visible.
-  - Add capability contract, policy boundary, and TUI semantic tests that prove exactly one exit payload, effect-only boundary
-    descriptors, no forbidden imports, and no workflow phase mutation.
+  - Add deterministic brief capability behavior in internal/capability using the existing capability contract, exactly-one
+    invocation guard, and typed boundary descriptors for runtime state, store artifacts, context, and health evidence.
+  - Add runtime/app wiring that proposes and completes brief through typed runtime messages/effects while app/store
+    code supplies bounded current state, history, context, and health evidence where available.
+  - Render brief output in the TUI as app-injected display state with current phase, runtime status, known gaps,
+    suggested next action, source refs, and requested boundary descriptors.
+  - Update existing interactive status behavior so PTY smoke can display brief without introducing broad command/keybinding
+    parity work.
+  - Add behavior-named capability, runtime, app, TUI fixture/semantic, and PTY coverage proving one exit payload,
+    no phase mutation, runtime/store boundary use, and visible orientation output.
   excluded:
-  - Concrete brief, vision, discuss, research, plan, build, optimize, document, design, audit, profile, or orchestrate behavior;
-    provider/model execution; real tool execution; permission approval; artifact persistence; workflow phase mutation; command/keybinding
-    additions for capability slash routes; plugins; MCP; workflow DSLs; dynamic tools; generic graph engines; hosted control
-    planes; and M45B+ behavior.
+  - Plan, build, audit, orchestration, research, profile, design, document, optimize, discuss, or vision capability
+    behavior; provider/model execution; real tool execution; permission approval; mutation tools; workflow phase
+    transition; new generic command framework; plugins; MCP; workflow DSLs; dynamic tools; generic graph engines;
+    hosted control planes; and M47+ behavior.
   deferred:
-  - Concrete capability bodies, slash-command activation for capability shortcuts, command/keybinding parity for introduced
-    capability routes, provider-backed capability loops, state-store persistence of capability runs, and richer policy learning/scoring.
-design: Add small typed contracts instead of concrete behavior. internal/capability owns stable capability names, request/source/boundary
-  descriptors, a fixed registry, exit signals, exit payload validation, and an invocation helper that returns an error on
-  second emit. internal/policy owns pure capability recommendations from command/natural-language/waiting/successor inputs
-  and uses workflow.ValidateProtocolSuccessor only to report valid or rejected successors. TUI receives app-injected PolicyRouteView
-  data and renders semantic evidence without scheduling, executing, or transitioning anything.
+  - Slash-command activation for every capability alias, provider-backed capability loops, durable persistence of
+    capability runs beyond existing session/history surfaces, richer policy scoring, and Plan capability behavior.
+design: Keep brief small and deterministic. internal/capability owns BriefCapability, a request metadata contract,
+  boundary descriptors, summary/gap/next-action composition, and one ExitPayload. internal/runtime owns CapabilityProposed,
+  CapabilityEffect, CapabilityCompleted, ActiveCapability, and LastCapability so capability execution crosses the
+  same update/effect boundary as tools and utilities. internal/app builds a brief request from current ViewState,
+  runtime model, project store status, optional fake-history read state, context/footer data, and visible diagnostics,
+  then invokes brief while opening /status. internal/tui renders only app-injected BriefView data and semantic snapshots;
+  it never reads state, runs capability logic, executes tools, approves permissions, or mutates workflow phase.
 overall_acceptance:
-- Capability contract tests prove the fixed registry, request boundary descriptors for model/tool/permission/artifact/context/state
-  operations, exactly-one exit payload behavior, waiting/stuck payload rules, and forbidden import boundaries.
-- Policy tests prove explicit slash route, high-confidence natural-language route, low-confidence waiting route, valid successor
-  recommendation, and invalid successor rejection are pure recommendations and leave current workflow phase unchanged.
-- TUI plain, ANSI, and semantic policy-routing fixtures expose active capability candidate, confidence, needed input, source
-  refs, requested effect descriptors, successor validation, and no phase transition claim before FSM validation.
-- No concrete capability behavior, provider/model call, tool execution, permission approval, artifact persistence, workflow
-  transition, plugin, MCP, workflow DSL, generic graph engine, hosted control plane, or M45B+ behavior is added.
-- Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
-  updated.
-surprises:
-- PTY smoke was skipped for M45A because policy-routing state is fixture/app-injected evidence only and no interactive terminal
-  command behavior changed.
+- Brief capability tests prove the capability emits exactly one complete exit payload, includes current phase/runtime/status
+  orientation, reports known gaps for missing history/context/health evidence, exposes a suggested next action,
+  and leaves RecommendedSuccessor empty.
+- Contract/boundary tests prove brief describes runtime state, store artifact/history, context, and health access
+  through typed boundary descriptors and internal/capability does not import runtime, state, app, tools, permission,
+  provider, shell, or network execution packages.
+- Runtime/app tests prove brief travels through typed update/effect/completion messages, app supplies bounded state/history/context/health
+  evidence through existing store/read seams, and opening status does not mutate workflow phase.
+- TUI fixtures and semantic snapshots show brief output, current phase, known gaps, suggested next action, source
+  references, boundary requests, transition_claimed=false, and display-only semantics.
+- PTY smoke displays brief through the existing interactive status path, or any skipped PTY scenario is documented
+  with a reason tied to unchanged interactive behavior.
+- Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the M45A boundary slice
+  name: Plan and confirm the M46 brief slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M45A only and excludes
-    concrete capability behavior, provider/model execution, tool execution, permission approval, artifact persistence, workflow
-    phase mutation, plugins, MCP, workflow DSLs, hosted control planes, and M45B+ behavior.
-  - GIVEN architecture, workflow, README, and TUI testing sources are inspected WHEN implementation starts THEN the plan preserves
-    runtime/effect/store/FSM ownership and uses TUI only for app-injected routing evidence.
-  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
-    names.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M46 only and
+    excludes planning, build, audit, orchestration, provider execution, mutation, permission approval, workflow
+    phase transition, plugins, MCP, workflow DSLs, hosted control planes, and M47+ behavior.
+  - GIVEN architecture, workflow, README, and TUI testing sources are inspected WHEN implementation starts THEN
+    the plan preserves runtime/effect/store/FSM ownership and keeps TUI display-only.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather
+    than milestone-number names.
   evidence:
-  - Installed Agentera CLI hej with planera context, ROADMAP.md top status and M45A section, docs/notes/PROMPT.md, AGENTS.md,
-    README capability table, ARCHITECTURE capability/policy sections, docs/workflow-architecture routing/exit-boundary sections,
-    docs/tui-testing semantic guidance, and current internal/capability, internal/policy, internal/workflow, and internal/tui
+  - Installed Agentera CLI hej with planera context, Agentera plan/progress state, ROADMAP.md top status and M46
+    section, docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability rules, docs/workflow-architecture
+    capability/tool-registry rules, docs/tui-testing semantic guidance, and current capability/runtime/app/state/TUI
     seams were reviewed.
-  - The plan keeps M45A bounded to contracts, selectors, typed messages/evidence, and validation, with no concrete capability
-    body implementation.
-  - The plan explicitly forbids new TestM<number> symbols and uses behavior-named new tests only.
+  - The plan keeps M46 bounded to brief capability behavior, runtime/app invocation, display/semantic evidence,
+    status-path PTY visibility, validation, roadmap closeout, and commit.
+  - The plan explicitly forbids new TestM<number> symbols and requires behavior-named tests only.
 - number: 2
-  name: Define the capability contract and single-exit guard
+  name: Implement deterministic brief capability behavior
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN the fixed capability registry is inspected WHEN concrete capabilities are deferred THEN the registry exposes the
-    stable built-in names and owning phases without plugin or dynamic registration hooks.
-  - GIVEN a capability request needs model/tool/permission/artifact/context/state access WHEN it is represented THEN it can
-    only produce typed runtime/effect/store boundary request descriptors rather than calling implementation packages.
-  - GIVEN an invocation emits an exit payload WHEN it tries to emit again THEN the second emit fails and no second payload
-    is accepted.
+  - GIVEN a brief request with current phase, runtime status, store/history/context/health metadata, and source
+    refs WHEN brief runs THEN it emits one complete payload with summary, known gaps, suggested next action, source
+    refs, and no recommended successor.
+  - GIVEN state, history, context, and health evidence are missing WHEN brief runs THEN known gaps are recorded
+    without failing the capability.
+  - GIVEN the capability needs runtime/store/context/health evidence WHEN its payload is inspected THEN boundary
+    requests describe that access without importing execution or persistence owners.
   evidence:
-  - internal/capability/contract.go now defines fixed built-in capability names, registry metadata, Request, SourceRef, BoundaryRequest
-    descriptors for model/tool/permission/artifact/context/state boundaries, ExitSignal, ExitPayload, and Invocation for exactly-one
-    exit payload enforcement.
-  - go test ./internal/capability -count=1 passed, covering fixed registry ownership, descriptor-only boundary requests, exactly-one
-    exit emission, waiting/stuck validation, and forbidden execution/ownership imports.
+  - Added internal/capability/brief.go with BriefCapability, RunBuiltIn brief dispatch, request metadata keys, state/artifact/context/health
+    boundary descriptors, source refs, known-gap handling, suggested next action, and exactly one complete ExitPayload
+    with no RecommendedSuccessor.
+  - Added behavior-named brief capability tests proving orientation payload content, missing-evidence gaps, boundary
+    descriptor coverage, and unsupported built-in capability rejection.
+  - Updated capability boundary contract/tests with state_access descriptors while keeping internal/capability free
+    of runtime, state, app, tools, permission, provider, shell, and network execution ownership.
+  - Verified with go test ./internal/capability -count=1 and final mage check.
 - number: 3
-  name: Define pure policy capability selectors
+  name: Wire brief through runtime and app status boundaries
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN an explicit capability slash input WHEN policy recommends a route THEN it returns a typed capability candidate and
-    source refs without executing a command or changing workflow phase.
-  - GIVEN high-confidence and low-confidence natural-language inputs WHEN policy evaluates them THEN high confidence returns
-    a candidate while low confidence returns waiting/needed-input state.
-  - GIVEN a capability exit recommends a successor WHEN policy evaluates it THEN workflow FSM validation decides valid versus
-    rejected successor without mutating the current phase.
+  - GIVEN brief is proposed through runtime WHEN Update handles it THEN a typed capability effect is emitted and
+    completion records LastCapability while returning runtime to idle.
+  - GIVEN /status opens in the app WHEN current state/history/context/health evidence is available THEN app builds
+    a bounded brief request through existing view/model/store-read seams and displays the completed brief.
+  - GIVEN brief completes WHEN status is shown THEN workflow phase remains unchanged and no mutation, permission
+    approval, provider call, or tool execution occurs.
   evidence:
-  - internal/policy/capability.go now defines pure capability recommendations for explicit slash inputs, natural-language
-    matching, low-confidence waiting, and successor validation through workflow.ValidateProtocolSuccessor.
-  - go test ./internal/policy -count=1 and go test ./internal/workflow -run 'Test.*Successor|Test.*Protocol' -count=1 passed,
-    proving recommendations do not mutate workflow phase and invalid build->deliberate successor is rejected as recommendation
-    evidence only.
+  - Added runtime CapabilityProposed, CapabilityEffect, CapabilityCompleted, ActiveCapability, LastCapability, and
+    capability operation metadata so brief crosses update/effect/completion boundaries and returns runtime to idle.
+  - Added app status wiring that builds a bounded brief request from ViewState, runtime model, project store status,
+    optional fake-history read state, footer context, and visible diagnostics, then renders brief without workflow
+    phase mutation.
+  - Updated /status inspection and persistence/history tests to expect command effect, utility effect, then capability
+    effect, with brief result recording and no provider/tool/permission/mutation behavior.
+  - Verified with go test ./internal/runtime -run 'Test.*Capability.*|Test.*Brief.*' -count=1, go test ./internal/app
+    -run 'Test.*Brief.*|Test.*Status.*' -count=1, go test ./internal/... -count=1, and final mage check.
 - number: 4
-  name: Render policy-routing evidence in TUI fixtures
+  name: Render brief output and semantic evidence
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN policy-routing view state is injected WHEN fixtures render THEN explicit command route, natural-language route,
-    low-confidence waiting state, and invalid successor rejection are visible in plain and ANSI snapshots.
-  - GIVEN semantic snapshots are inspected WHEN policy-routing exists THEN active capability candidate, confidence, needed
-    input, source refs, requested boundary effects, successor validation, and transition_claimed=false are machine-readable.
-  - GIVEN TUI code is inspected WHEN policy-routing output exists THEN it owns no command routing, file inspection, tool execution,
-    provider call, permission check, artifact access, persistence, or workflow transition logic.
+  - GIVEN BriefView state is injected WHEN fixtures render THEN brief output, current phase, runtime status, known
+    gaps, and suggested next action are visible in plain and ANSI snapshots.
+  - GIVEN semantic snapshots are inspected WHEN brief exists THEN next action, source refs, boundary requests, signal,
+    transition_claimed=false, and display_only=true are machine-readable.
+  - GIVEN TUI code is inspected WHEN brief output exists THEN it owns no capability execution, file inspection,
+    store read, provider call, permission check, artifact mutation, or workflow transition logic.
   evidence:
-  - internal/tui now has app-injected PolicyRouteView rendering and SemanticPolicyRoute output exposing source, input, candidate,
-    confidence, needed input, current phase, runtime waiting, source refs, boundary request descriptors, successor validation,
-    transition_claimed=false, and executed=false.
-  - Added policy-explicit-route, policy-natural-language-route, policy-waiting-route, and policy-invalid-successor plain/ANSI/semantic
-    fixtures; go test ./internal/tui -run 'TestPolicyRoutingFixtureSnapshots|TestPolicyRoutingSemanticSnapshotExposesCandidateWithoutTransition|Test.*Policy.*Routing|Test.*Capability.*Routing'
-    -count=1 passed after snapshot generation and review.
+  - Added TUI BriefView state, transcript copying, brief render lines, semantic brief region, source refs, boundary
+    requests, transition_claimed=false, and display_only=true output.
+  - Added internal/tui/testdata/fixtures/brief-status plain, ANSI, semantic, and fixture JSON snapshots with current
+    phase, runtime status, known gaps, suggested next action, source refs, and boundary requests.
+  - Added behavior-named TUI fixture and semantic tests proving brief output and machine-readable next action/source-ref/boundary
+    evidence.
+  - Verified snapshot generation with AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestBriefCapabilityFixtureSnapshots
+    -count=1, then go test ./internal/tui -run 'TestBriefCapabilityFixtureSnapshots|TestBriefCapabilitySemanticSnapshotExposesNextActionAndSourceRefs|Test.*Brief.*'
+    -count=1 and go test ./internal/tui -count=1.
 - number: 5
-  name: Add boundary regression coverage
+  name: Run status PTY and boundary regression coverage
   depends_on:
   - 2
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN internal/capability is parsed WHEN imports are checked THEN it does not import internal/tools, internal/permission,
-    internal/agent, internal/runtime, internal/app, persistence internals, or provider/tool execution packages.
-  - GIVEN internal/policy is tested WHEN recommendations run THEN current workflow phase remains unchanged and invalid successors
-    are rejected as recommendations only.
-  - GIVEN TUI policy-routing tests run WHEN snapshots are compared THEN the fixture does not claim execution, provider/model
-    calls, permission approval, artifact mutation, or phase transition.
+  - GIVEN the interactive status path is exercised in PTY WHEN /status is submitted THEN brief output and suggested
+    next action are visible.
+  - GIVEN app/runtime/capability tests run WHEN the brief path completes THEN exactly one payload is recorded, runtime/store
+    boundaries are used, and workflow phase is not mutated.
+  - GIVEN changed tests are searched WHEN validation runs THEN no new TestM<number> symbols appear.
   evidence:
-  - Capability and policy boundary tests parse imports to reject internal/tools, internal/permission, internal/agent, internal/runtime,
-    internal/app, internal/state, os/exec, net/http, and related execution packages from contract/selector surfaces.
-  - go test ./internal/tui -count=1 passed, and policy-routing snapshots show no provider/model execution, permission approval,
-    artifact mutation, or workflow phase transition claim.
+  - Updated cmd/aila PTY inspection smoke so interactive /status waits for visible Brief output, current phase,
+    runtime status, display-only marker, suggested next action, state_access boundary request, brief-runtime source
+    ref, and transition_claimed=false.
+  - Updated app/cmd store and history assertions so /status records the brief result through runtime history instead
+    of the old fake status result.
+  - Verified go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1, go test ./cmd/aila -run TestDiffViewPTYSmoke
+    -count=1, go test ./cmd/aila -count=1, and final mage check.
+  - Changed tests use behavior-named M46 coverage; final changed-line hygiene found no new TestM<number> symbols.
 - number: 6
   name: Run validation roadmap closeout and commit
   depends_on:
@@ -203,18 +226,18 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M45A is
-    recorded complete, the next milestone is selected, and Active milestone is none.
-  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and M45 plan archive are included in one meaningful local commit.
-  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
-    validation evidence.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN
+    M46 is recorded complete, the next milestone is selected, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan,
+    progress, and M46 plan archive are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with
+    concrete validation evidence.
   evidence:
-  - mage fmt passed. go test ./internal/capability -count=1, go test ./internal/policy -count=1, go test ./internal/workflow
-    -run 'Test.*Successor|Test.*Protocol' -count=1, focused policy-routing TUI tests, go test ./internal/tui -count=1, go
-    test ./internal/... -count=1, and go test ./cmd/aila -count=1 passed; cmd/aila took 287.740s.
-  - Final mage check passed with cmd/aila in 294.208s, all internal packages green, 0 lint issues, and no vulnerabilities.
-    ROADMAP.md records M45A complete, M46 next, active milestone none. PTY smoke was skipped because no interactive terminal
-    behavior changed.
-  - Agentera plan/progress/lint/hej, git diff --check, and changed-line home-path plus TestM<number> hygiene are part of final
-    closeout.
+  - 'Validation passed: mage fmt; go test ./internal/capability -count=1; targeted runtime/app/TUI brief tests;
+    go test ./internal/tui -count=1; go test ./internal/... -count=1; go test ./cmd/aila -count=1; and final mage
+    check with 0 lint issues and no vulnerabilities.'
+  - ROADMAP.md records Milestone 46 complete, Milestone 47 next, active milestone none, and M46 validation evidence.
+  - Agentera plan/progress/lint/hej validation passed after closeout, with final git diff check excluding fixed-width
+    render snapshot txt files and hygiene checks clean before the local commit.
+  - Prepared one local commit including implementation, tests, snapshots, ROADMAP, Agentera plan/progress, and the
+    M45A plan archive.

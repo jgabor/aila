@@ -3696,6 +3696,104 @@ func commandFixtureMarker(route string) string {
 	}
 }
 
+func TestBriefCapabilityFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "brief-status", briefStatusFixtureState())
+	for _, tc := range fixture.TextCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.render(fixture.State, tc.size)
+			assertTextSnapshot(t, fixture, tc.file, got)
+			plain := RenderPlain(fixture.State, tc.size)
+			for _, want := range []string{
+				"Brief:",
+				"capability: brief",
+				"signal: complete",
+				"current phase: idle",
+				"runtime status: idle",
+				"known gap: health unavailable",
+				"suggested next action: Continue with the current roadmap task.",
+				"requested boundary: state_access operation=state.access target=runtime.current",
+				"source ref: brief-runtime kind=runtime_state",
+				"transition claimed: false",
+				"display-only: true",
+			} {
+				if !strings.Contains(plain, want) {
+					t.Fatalf("brief render missing %q in:\n%s", want, plain)
+				}
+			}
+		})
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		t.Run(semanticCase.name, func(t *testing.T) {
+			got := RenderSemanticJSON(fixture.State, semanticCase.size)
+			assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		})
+	}
+}
+
+func TestBriefCapabilitySemanticSnapshotExposesNextActionAndSourceRefs(t *testing.T) {
+	t.Parallel()
+
+	snapshot := Semantic(briefStatusFixtureState(), Size{Width: 120, Height: 44})
+	if snapshot.Brief == nil {
+		t.Fatal("Brief semantic snapshot is nil")
+	}
+	if snapshot.Brief.SuggestedNextAction != "Continue with the current roadmap task." || snapshot.Brief.TransitionClaimed || !snapshot.Brief.DisplayOnly {
+		t.Fatalf("brief next action/transition/display = %+v", snapshot.Brief)
+	}
+	if len(snapshot.Brief.SourceRefs) < 2 || snapshot.Brief.SourceRefs[0].ID != "brief-runtime" {
+		t.Fatalf("brief source refs = %+v", snapshot.Brief.SourceRefs)
+	}
+	if len(snapshot.Brief.BoundaryRequests) < 3 || snapshot.Brief.BoundaryRequests[0].Kind != "state_access" {
+		t.Fatalf("brief boundary requests = %+v", snapshot.Brief.BoundaryRequests)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	briefRegion := regions["brief"].Items
+	if !containsAll(strings.Join(briefRegion, "\n"), []string{"suggested_next_action: Continue with the current roadmap task.", "source_ref: brief-runtime kind=runtime_state", "boundary_request: state_access operation=state.access target=runtime.current"}) {
+		t.Fatalf("brief semantic region missing expected items: %+v", briefRegion)
+	}
+}
+
+func briefStatusFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "brief-status"
+	state.Phase = "IDLE"
+	state.PhaseSource = "idle"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.dispatch"
+	state.StatusDetail = "brief capability status"
+	state.RuntimeResult = "Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable."
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreSource = "state.open"
+	state.ProjectStoreDetail = "project store ready"
+	state.FooterGit = "clean"
+	state.FooterContext = "roadmap context ready"
+	state = ApplyBriefView(state, &BriefView{
+		Source:              "app.brief",
+		Capability:          "brief",
+		Signal:              "complete",
+		Summary:             "Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable.",
+		CurrentPhase:        "idle",
+		RuntimeStatus:       "idle",
+		KnownGaps:           []string{"health unavailable"},
+		SuggestedNextAction: "Continue with the current roadmap task.",
+		TransitionClaimed:   false,
+		DisplayOnly:         true,
+		SourceRefs: []BriefSourceRefView{
+			{ID: "brief-runtime", Kind: "runtime_state", Excerpt: "phase=idle status=idle"},
+			{ID: "brief-history", Kind: "history", Excerpt: "runtime runtime.dispatch status command complete"},
+			{ID: "brief-context", Kind: "context", Excerpt: "roadmap context ready"},
+		},
+		BoundaryRequests: []BriefBoundaryRequestView{
+			{Kind: "state_access", Operation: "state.access", Target: "runtime.current", Reason: "brief requires the current runtime and workflow phase from the runtime boundary"},
+			{Kind: "artifact_access", Operation: "artifact.access", Target: "fake_history", Reason: "brief uses store-resolved recent history when available"},
+			{Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "brief uses app-supplied context evidence when available"},
+		},
+	})
+	return state
+}
+
 func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

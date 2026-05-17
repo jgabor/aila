@@ -83,6 +83,7 @@ func TestCapabilityRequestsDescribeEffectBoundaries(t *testing.T) {
 		request.RequestPermissionCheck("tool.write", "ROADMAP.md", "permission owns write decision"),
 		request.RequestArtifactAccess("plan artifact", "state store resolves plan"),
 		request.RequestContextAccess("foreground context", "context builder supplies source refs"),
+		request.RequestStateAccess("runtime.current", "runtime supplies current state"),
 		request.RequestStateWrite("capability run record", "state store records result"),
 	}
 	wantKinds := []BoundaryKind{
@@ -91,6 +92,7 @@ func TestCapabilityRequestsDescribeEffectBoundaries(t *testing.T) {
 		BoundaryPermissionCheck,
 		BoundaryArtifactAccess,
 		BoundaryContextAccess,
+		BoundaryStateAccess,
 		BoundaryStateWrite,
 	}
 	for index, boundary := range got {

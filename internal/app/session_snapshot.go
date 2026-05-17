@@ -184,6 +184,8 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.runner.routeCommand(recommendation)
 		turn := controller.runner.proposeUtilityJob(defaultUtilityJobRequest(controller.view.UtilityModel))
 		controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+		briefTurn := controller.runner.proposeCapability(controller.briefRequestFromStatus())
+		controller.view = tui.ApplyTranscriptTurn(controller.view, briefTurn)
 		controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
 		if runtimeModelChanged(before, controller.runner.model) {
 			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
@@ -209,7 +211,19 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 }
 
 func runtimeModelChanged(before runtime.Model, after runtime.Model) bool {
-	return before.Status != after.Status || before.Result != after.Result || before.LastCommand != after.LastCommand || len(before.Queued) != len(after.Queued) || len(before.Transcript) != len(after.Transcript) || len(before.Diagnostics) != len(after.Diagnostics) || utilityRuntimeStateChanged(before, after)
+	return before.Status != after.Status || before.Result != after.Result || before.LastCommand != after.LastCommand || len(before.Queued) != len(after.Queued) || len(before.Transcript) != len(after.Transcript) || len(before.Diagnostics) != len(after.Diagnostics) || utilityRuntimeStateChanged(before, after) || capabilityRuntimeStateChanged(before, after)
+}
+
+func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bool {
+	return before.ActiveCapability.ID != after.ActiveCapability.ID ||
+		before.ActiveCapability.Capability != after.ActiveCapability.Capability ||
+		before.LastCapability.Capability != after.LastCapability.Capability ||
+		before.LastCapability.Signal != after.LastCapability.Signal ||
+		before.LastCapability.Summary != after.LastCapability.Summary ||
+		before.LastCapability.NextAction != after.LastCapability.NextAction ||
+		len(before.LastCapability.Concerns) != len(after.LastCapability.Concerns) ||
+		len(before.LastCapability.SourceRefs) != len(after.LastCapability.SourceRefs) ||
+		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests)
 }
 
 func utilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bool {
@@ -255,8 +269,12 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	turn.QueuedText = queuedText(model.Queued)
 	turn.Diagnostics = diagnosticViews(model.Diagnostics)
 	turn.Utility = utilityView(model)
+	turn.Brief = briefView(model.LastCapability, model.Status)
 	if turn.Utility != nil {
 		turn.StatusDetail = "utility worker status"
+	}
+	if turn.Brief != nil {
+		turn.StatusDetail = "brief capability status"
 	}
 	return tui.ApplyTranscriptTurn(view, turn)
 }

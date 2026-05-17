@@ -1,0 +1,174 @@
+{
+  "scenario": "brief-status",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "brief capability status",
+    "runtime_result": "Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "project_store_status": "initialized",
+    "project_store_source": "state.open",
+    "project_store_detail": "project store ready"
+  },
+  "brief": {
+    "visible": true,
+    "source": "app.brief",
+    "capability": "brief",
+    "signal": "complete",
+    "summary": "Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable.",
+    "current_phase": "idle",
+    "runtime_status": "idle",
+    "known_gaps": ["health unavailable"],
+    "suggested_next_action": "Continue with the current roadmap task.",
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "brief-runtime",
+        "kind": "runtime_state",
+        "excerpt": "phase=idle status=idle"
+      },
+      {
+        "id": "brief-history",
+        "kind": "history",
+        "excerpt": "runtime runtime.dispatch status command complete"
+      },
+      {
+        "id": "brief-context",
+        "kind": "context",
+        "excerpt": "roadmap context ready"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "runtime.current",
+        "reason": "brief requires the current runtime and workflow phase from the runtime boundary"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "fake_history",
+        "reason": "brief uses store-resolved recent history when available"
+      },
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "brief uses app-supplied context evidence when available"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: placeholder",
+        "utility model: placeholder",
+        "autonomy: placeholder",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "source: state.open",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: brief capability status",
+        "active: false",
+        "result: Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "brief",
+      "visible": true,
+      "items": [
+        "source: app.brief",
+        "capability: brief",
+        "signal: complete",
+        "current_phase: idle",
+        "runtime_status: idle",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap context ready), health unavailable.",
+        "known_gap: health unavailable",
+        "suggested_next_action: Continue with the current roadmap task.",
+        "boundary_request: state_access operation=state.access target=runtime.current reason=brief requires the current runtime and workflow phase from the runtime boundary",
+        "boundary_request: artifact_access operation=artifact.access target=fake_history reason=brief uses store-resolved recent history when available",
+        "boundary_request: context_access operation=context.access target=current_context reason=brief uses app-supplied context evidence when available",
+        "source_ref: brief-runtime kind=runtime_state excerpt=phase=idle status=idle",
+        "source_ref: brief-history kind=history excerpt=runtime runtime.dispatch status command complete",
+        "source_ref: brief-context kind=context excerpt=roadmap context ready"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: clean", "context: roadmap context ready", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

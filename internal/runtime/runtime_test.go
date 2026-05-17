@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/utility"
 )
@@ -103,6 +104,64 @@ func TestUpdateHandlesCommandDeterministically(t *testing.T) {
 		Subject: "status",
 		Source:  "user",
 	})
+}
+
+func TestUpdateRoutesBriefCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "brief-status",
+		Capability: capability.NameBrief,
+		Metadata: map[string]string{
+			capability.BriefMetadataRuntimeStatus:       "idle",
+			capability.BriefMetadataProjectStoreStatus:  "initialized",
+			capability.BriefMetadataHistoryState:        "loaded",
+			capability.BriefMetadataContextStatus:       "current",
+			capability.BriefMetadataHealthStatus:        "available",
+			capability.BriefMetadataSuggestedNextAction: "Continue the current task.",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameBrief {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "brief", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameBrief || completed.Payload.RecommendedSuccessor != "" || completed.Payload.NextAction != "Continue the current task." {
+		t.Fatalf("brief payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameBrief {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+	if model.LastCapability.RecommendedSuccessor != "" {
+		t.Fatalf("brief completion recommended successor %q", model.LastCapability.RecommendedSuccessor)
+	}
+}
+
+func TestBriefCapabilityProposalQueuesWhileRuntimeActive(t *testing.T) {
+	t.Parallel()
+
+	model, effects := Update(Model{Status: StatusActive}, CapabilityProposed{Request: capability.Request{Capability: capability.NameBrief}})
+	if len(effects) != 0 || len(model.Queued) != 1 || model.Queued[0].Kind != "capability" || model.Queued[0].Text != "brief" {
+		t.Fatalf("queued capability model = queued:%+v effects:%d", model.Queued, len(effects))
+	}
 }
 
 func TestUpdateHandlesCompactContextProposalDeterministically(t *testing.T) {

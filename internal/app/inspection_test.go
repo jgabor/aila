@@ -18,6 +18,7 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 	var snapshots []SnapshotPersistenceCommand
 	var historyEvents []HistoryPersistenceCommand
 	var dispatched [][]runtime.Effect
+	var historyReads int
 	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
 		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
 		return runtime.Dispatch(effects)
@@ -29,8 +30,20 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 		historyEvents = append(historyEvents, command)
 		return HistoryPersistenceResult{}
 	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
-		t.Fatal("status inspection must not read fake history")
-		return HistoryReadResult{}
+		historyReads++
+		return HistoryReadResult{
+			State: state.FakeHistoryLoaded,
+			Events: []history.FakeEvent{{
+				SchemaVersion: history.FakeEventSchemaVersion,
+				Kind:          history.EventKindRuntime,
+				EventID:       "event-status-1",
+				RunID:         "run-status",
+				SessionID:     "session-status",
+				Source:        "runtime.dispatch",
+				Provenance:    "runtime.dispatch",
+				DisplayText:   "runtime idle before brief",
+			}},
+		}
 	}, func(context.Context, DiffReadCommand) DiffReadResult {
 		t.Fatal("status inspection must not read diff state")
 		return DiffReadResult{}
@@ -46,8 +59,8 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 		"source: app.status",
 		"read-only: true",
 		"runtime source: runtime.dispatch",
-		"runtime detail: utility worker status",
-		"runtime result: fake command result: status",
+		"runtime detail: brief capability status",
+		"runtime result: Brief: phase idle, runtime idle, store initialized, history loaded (1 events), context unavailable (placeholder), health available.",
 		"last command: status",
 		"project store: initialized (state.open; project store ready)",
 		"utility worker: completed",
@@ -75,6 +88,17 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 		"utility context refresh: false",
 		"utility context compaction: false",
 		"utility context rewrite: false",
+		"brief capability: brief complete",
+		"brief source: app.brief",
+		"brief current phase: idle",
+		"brief runtime status: idle",
+		"brief transition claimed: false",
+		"brief display-only: true",
+		"brief known gap: context unavailable",
+		"brief suggested next action: Continue with the current roadmap task or choose the next capability.",
+		"brief requested boundary: state_access operation=state.access target=runtime.current",
+		"brief requested boundary: artifact_access operation=artifact.access target=fake_history",
+		"brief source ref: brief-history kind=history excerpt=runtime runtime.dispatch runtime idle before brief",
 		"inspection: app-owned display data",
 	} {
 		if !strings.Contains(lines, want) {
@@ -86,8 +110,11 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 			t.Fatalf("status inspection leaked forbidden marker %q in:\n%s", forbidden, lines)
 		}
 	}
-	if len(dispatched) != 2 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 {
-		t.Fatalf("status dispatches = %#v, want command effect then utility effect", dispatched)
+	if historyReads != 1 {
+		t.Fatalf("status history reads = %d, want one brief evidence read", historyReads)
+	}
+	if len(dispatched) != 3 || len(dispatched[0]) != 1 || len(dispatched[1]) != 1 || len(dispatched[2]) != 1 {
+		t.Fatalf("status dispatches = %#v, want command effect, utility effect, then capability effect", dispatched)
 	}
 	if _, ok := dispatched[0][0].(runtime.FakeCommandEffect); !ok {
 		t.Fatalf("status dispatch = %T, want runtime.FakeCommandEffect", dispatched[0][0])
@@ -95,8 +122,11 @@ func TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface(t *testing.T) {
 	if _, ok := dispatched[1][0].(runtime.UtilityJobEffect); !ok {
 		t.Fatalf("utility dispatch = %T, want runtime.UtilityJobEffect", dispatched[1][0])
 	}
-	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result != "fake command result: status" || got.Utility == nil || got.Utility.Status != "completed" {
-		t.Fatalf("status snapshots/view = %#v / %+v, want one snapshot with runtime result and completed utility view", snapshots, got.Utility)
+	if _, ok := dispatched[2][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("capability dispatch = %T, want runtime.CapabilityEffect", dispatched[2][0])
+	}
+	if len(snapshots) != 1 || !strings.Contains(snapshots[0].Snapshot.Runtime.Result, "Brief: phase idle") || got.Utility == nil || got.Utility.Status != "completed" || got.Brief == nil || got.Brief.SuggestedNextAction == "" {
+		t.Fatalf("status snapshots/view = %#v / utility=%+v brief=%+v, want one snapshot with brief result, completed utility view, and brief view", snapshots, got.Utility, got.Brief)
 	}
 	if len(historyEvents) != 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
 		t.Fatalf("status history events = %#v, want command then runtime event", historyEvents)

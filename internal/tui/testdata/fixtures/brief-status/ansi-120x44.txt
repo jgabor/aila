@@ -1,0 +1,44 @@
+[1mAila                                                                                                              120x44[0m
+[2mStage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                  [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: placeholder                                                                                           |
+| autonomy: placeholder (display-only)                                                                                 |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: brief capability status                                                                                      |
+| active: false                                                                                                        |
+| result: Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap c~ |
+|                                                                                                                      |
+| Brief:                                                                                                               |
+| source: app.brief                                                                                                    |
+| capability: brief                                                                                                    |
+| signal: complete                                                                                                     |
+| current phase: idle                                                                                                  |
+| runtime status: idle                                                                                                 |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| summary: Brief: phase idle, runtime idle, store initialized, history loaded (2 events), context available (roadmap ~ |
+| known gap: health unavailable                                                                                        |
+| suggested next action: Continue with the current roadmap task.                                                       |
+| requested boundary: state_access operation=state.access target=runtime.current reason=brief requires the current ru~ |
+| requested boundary: artifact_access operation=artifact.access target=fake_history reason=brief uses store-resolved ~ |
+| requested boundary: context_access operation=context.access target=current_context reason=brief uses app-supplied c~ |
+| source ref: brief-runtime kind=runtime_state excerpt=phase=idle status=idle                                          |
+| source ref: brief-history kind=history excerpt=runtime runtime.dispatch status command complete                      |
+| source ref: brief-context kind=context excerpt=roadmap context ready                                                 |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                    git: clean | context: roadmap context ready | q quit[0m
+                                                                                                                        

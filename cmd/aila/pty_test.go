@@ -1691,19 +1691,17 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	}
 	status := readUntilAll(t, terminal, []string{
 		"Runtime status:",
-		"detail: utility worker status",
-		"result: fake command result: status",
-		"Utility worker:",
-		"source: app.status",
-		"status: completed",
-		"summary: summary refresh confidence low",
-		"summary refresh: low_confidence",
-		"refreshed summary: Status output is available for the current runtime.",
-		"summary refresh source refs: summary-refresh-runtime, summary-refresh-roadmap",
-		"read-only: true",
-		"context refresh: false",
-		"context compaction: false",
-		"file mutation: false",
+		"detail: brief capability status",
+		"result: Brief: phase idle",
+		"Brief:",
+		"capability: brief",
+		"current phase: idle",
+		"runtime status: idle",
+		"display-only: true",
+		"suggested next action:",
+		"requested boundary: state_access",
+		"source ref: brief-runtime",
+		"transition claimed: false",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, status, env, workspace)
 	for _, forbidden := range []string{"Deterministic placeholder status", "real status sources: deferred", "provider review"} {
@@ -1729,7 +1727,7 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		"attention: inspect changed files before committing",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, review, env, workspace)
-	for _, forbidden := range []string{"provider-backed", "provider review", "model switch", "autonomy switch", "compaction"} {
+	for _, forbidden := range []string{"provider-backed", "provider review", "model switch", "autonomy switch"} {
 		if strings.Contains(review, forbidden) {
 			t.Fatalf("review inspection PTY output exposed forbidden marker %q: %q", forbidden, review)
 		}
@@ -1744,7 +1742,8 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		"history-run history-session history-event-1 prompt user asked for fake history",
 		"history-run history-session history-event-5 mutation write completed notes.txt",
 		"selected event id: history-event-1",
-		"selected kind: prompt",
+		"selected run id: history-run",
+		"selected session id: history-session",
 	}, 10*time.Second)
 	assertNoHistorySmokeLeaks(t, historyOutput, env, workspace)
 	if _, err := terminal.Write([]byte{0x18, 'd'}); err != nil {
@@ -1762,7 +1761,7 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	if _, err := terminal.Write([]byte{0x1b}); err != nil {
 		t.Fatalf("send Escape after diff inspection: %v", err)
 	}
-	readUntilAll(t, terminal, []string{"Display labels:", "No messages yet."}, 10*time.Second)
+	readUntilAll(t, terminal, []string{"Display labels:", "project store: initialized - project store ready", "Runtime status:"}, 10*time.Second)
 
 	if _, err := terminal.Write([]byte("q")); err != nil {
 		t.Fatalf("send q quit input after inspection smoke: %v", err)
@@ -2632,7 +2631,7 @@ func assertInspectionCommandFamilyStoreState(t *testing.T, workspace string) {
 		t.Fatalf("read inspection smoke history JSONL: %v", err)
 	}
 	encoded := string(content)
-	for _, marker := range []string{"history-event-1", "history-event-5", "status via shortcut", "review via slash", "fake command result: status", "[secret]"} {
+	for _, marker := range []string{"history-event-1", "history-event-5", "status via shortcut", "review via slash", "Brief: phase idle", "[secret]"} {
 		if !strings.Contains(encoded, marker) {
 			t.Fatalf("inspection smoke history missing marker %q: %s", marker, encoded)
 		}

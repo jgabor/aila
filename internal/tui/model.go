@@ -55,6 +55,7 @@ type TranscriptTurn struct {
 	Utility            *UtilityView
 	Compact            *CompactView
 	Context            *ContextView
+	Brief              *BriefView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -658,6 +659,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Utility = cloneUtilityView(turn.Utility)
 	state.Compact = cloneCompactView(turn.Compact)
 	state.Context = cloneContextView(turn.Context)
+	if turn.Brief != nil {
+		state.Brief = cloneBriefView(turn.Brief)
+	}
 	if state.Context != nil && state.Context.Meter != "" {
 		state.FooterContext = state.Context.Meter
 	}
@@ -1024,6 +1028,15 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	return state
 }
 
+// ApplyBriefView injects app-owned brief capability output into visible state.
+func ApplyBriefView(state ViewState, brief *BriefView) ViewState {
+	if brief == nil {
+		return state
+	}
+	state.Brief = cloneBriefView(brief)
+	return state
+}
+
 // ApplyPolicyRouteView injects app-owned policy routing evidence into visible state.
 func ApplyPolicyRouteView(state ViewState, route *PolicyRouteView) ViewState {
 	if route == nil {
@@ -1031,6 +1044,17 @@ func ApplyPolicyRouteView(state ViewState, route *PolicyRouteView) ViewState {
 	}
 	state.PolicyRoute = clonePolicyRouteView(route)
 	return state
+}
+
+func cloneBriefView(brief *BriefView) *BriefView {
+	if brief == nil {
+		return nil
+	}
+	clone := *brief
+	clone.KnownGaps = append([]string(nil), brief.KnownGaps...)
+	clone.SourceRefs = append([]BriefSourceRefView(nil), brief.SourceRefs...)
+	clone.BoundaryRequests = append([]BriefBoundaryRequestView(nil), brief.BoundaryRequests...)
+	return &clone
 }
 
 func clonePolicyRouteView(route *PolicyRouteView) *PolicyRouteView {
