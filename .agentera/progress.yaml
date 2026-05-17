@@ -1,4 +1,125 @@
 cycles:
+  - number: 213
+    timestamp: "2026-05-17 08:49"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M43 by adding deterministic idle-only utility stale-context checks
+      with stale/fresh/unknown status, evidence refs, caveats, suggested next
+      action, app-injected /status visibility, TUI render/semantic support, a
+      utility-stale-context fixture, updated utility safety snapshots, and PTY
+      smoke for visible stale-context output.
+    commit: "local commit: add utility stale context check"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 43; README utility/status
+      sections; ARCHITECTURE context and utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing semantic
+      guidance; agentera hej --format json --capability-context orkestrera
+    discovered: >-
+      The existing M41/M42 utility slot could host stale-context checks without a
+      new worker system. The job stays deterministic by comparing explicit
+      saved/current fingerprints and remains advisory: it reports stale, fresh, or
+      unknown status without refreshing, compacting, rewriting, persisting stale
+      state, calling providers/models, changing workflow phase, approving
+      permissions, or mutating files/git/project artifacts. The new context
+      refresh/compaction/rewrite safety flags update every utility semantic
+      snapshot. Continuous compaction, summary refresh, provider-assisted stale
+      analysis, durable stale-status persistence, plugins, MCP, workflow DSLs,
+      generic graph engines, hosted control planes, and M44+ behavior remain
+      deferred.
+    verified: >-
+      mage fmt passed. go test ./internal/utility -count=1 passed. Focused
+      runtime/app/TUI/cmd stale-context, status, fixture, semantic, and PTY tests
+      passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1
+      passed in 284.918s. mage check passed with cmd/aila in 298.396s, all
+      internal packages green, 0 lint issues, and no vulnerabilities.
+      utility-stale-context plain/ANSI/semantic snapshots were added and existing
+      utility safety snapshots updated. TestInspectionCommandFamilyPTYSmoke proves
+      /status displays stale context status, evidence, suggested next action,
+      context refresh false, and no-file-mutation evidence. ROADMAP.md was updated
+      only after green validation; Agentera plan/progress/lint/hej, git diff
+      --check, home-path hygiene, and TestM<number> hygiene passed after closeout
+      artifact updates.
+    next: >-
+      Commit the completed M43 slice, leaving Milestone 44: Utility Continuous
+      Compaction as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M43 roadmap milestone first, preserving the planera ->
+        orkestrera -> commit loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M43; preserve statechart-MVU, explicit effect boundaries,
+        fixed-product posture, TUI presentation-only behavior, idle-only advisory
+        stale-context checks, behavior-based test names, no
+        refresh/compaction/rewrite/provider calls, and no push.
+      unknowns: >-
+        Continuous compaction, summary refresh, provider-assisted stale analysis,
+        durable stale-status persistence, automatic context refresh, and action
+        based on stale status remain deferred.
+      scope: >-
+        internal/utility stale-context contract, runtime utility effect/result
+        behavior, app /status stale-context scheduling and inspection lines, TUI
+        stale-context rendering/semantics, utility-stale-context
+        fixtures/snapshots, utility safety snapshot updates, PTY smoke, ROADMAP,
+        and Agentera closeout.
+  - number: 212
+    timestamp: "2026-05-17 08:18"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 43: Utility Stale-Context Check as the next roadmap
+      milestone, archived the completed M42 plan, and created a new active plan
+      with six bounded tasks for deterministic stale/fresh/unknown context status,
+      runtime/app stale-check utility wiring, visible /status evidence and
+      suggested next action, stale-context render/semantic fixtures, PTY visibility
+      smoke if behavior changes, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M43 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 43; AGENTS.md; README utility
+      sections; ARCHITECTURE context and utility boundaries;
+      docs/workflow-architecture utility guidance; docs/tui-testing semantic
+      guidance; agentera hej --format json with planera context
+    discovered: >-
+      M43 should add a status-only stale-context utility check through the existing
+      idle-only UtilityJob path. It should compare explicit saved/current
+      fingerprints supplied in the request and surface stale, fresh, or unknown
+      with evidence, caveats, and suggested next action. Refresh, compaction,
+      context rewriting, summary refresh, provider/model utility calls, durable
+      stale-status persistence, plugins, MCP, workflow DSLs, hosted control planes,
+      and M44+ behavior remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera
+      plan/progress state, ROADMAP.md top status and M43 section,
+      docs/notes/PROMPT.md, AGENTS.md, README utility sections, ARCHITECTURE
+      context/utility boundaries, docs/workflow-architecture utility guidance,
+      docs/tui-testing semantic guidance, and current
+      internal/utility/runtime/app/TUI/context seams were reviewed before writing
+      the plan.
+    next: >-
+      Execute M43 Tasks 2-5: add stale-context utility result fields, wire stale
+      checks through the existing idle-only runtime/app utility effect path, render
+      stale/fresh/unknown status with evidence/caveats/suggested next action in
+      /status and TUI semantics, and run PTY smoke if /status visible behavior
+      changes without adding refresh, compaction, provider/model calls, plugins,
+      MCP, workflow DSLs, hosted control-plane, or M44+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing
+        M42, selecting the next roadmap milestone from ROADMAP.md and preparing an
+        executable plan before implementation.
+      constraints: >-
+        Plan only M43; preserve statechart-MVU, fixed-product posture, TUI
+        presentation-only boundary, idle-only utility worker behavior, read-only
+        stale-context status, behavior-based test names, and commit only after
+        implementation and validation complete.
+      unknowns: >-
+        Exact stale/fresh wording and fingerprint source labels are
+        implementation-owned; refresh, compaction, context rewriting, summary
+        refresh, provider-assisted stale analysis, and durable stale-status
+        persistence remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m42.yaml
+        archival, and progress evidence for the M43 planning handoff.
   - number: 211
     timestamp: "2026-05-17 08:14"
     type: build

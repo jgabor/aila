@@ -49,7 +49,10 @@
       "project_artifact_mutation": false,
       "permission_approval": false,
       "workflow_phase_transition": false,
-      "final_judgment": false
+      "final_judgment": false,
+      "context_refresh": false,
+      "context_compaction": false,
+      "context_rewrite": false
     }
   },
   "regions": [
@@ -112,6 +115,9 @@
         "permission_approval: false",
         "workflow_phase_transition: false",
         "final_judgment: false",
+        "context_refresh: false",
+        "context_compaction: false",
+        "context_rewrite: false",
         "display-only",
         "summary: fake utility suggestion ready",
         "suggestion: Review current status before starting new background utility work. refs=utility-evidence-1",

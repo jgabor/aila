@@ -213,6 +213,24 @@ func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {
 			lines = append(lines, "utility prepared context caveat: "+caveat)
 		}
 	}
+	if view.StaleContext.Status != "" || view.StaleContext.Summary != "" {
+		if view.StaleContext.Status != "" {
+			lines = append(lines, "utility stale context: "+view.StaleContext.Status)
+		}
+		if view.StaleContext.Summary != "" {
+			line := "utility stale context summary: " + view.StaleContext.Summary
+			if len(view.StaleContext.EvidenceRefIDs) > 0 {
+				line += " refs=" + strings.Join(view.StaleContext.EvidenceRefIDs, ",")
+			}
+			lines = append(lines, line)
+		}
+		for _, caveat := range view.StaleContext.Caveats {
+			lines = append(lines, "utility stale context caveat: "+caveat)
+		}
+		if view.StaleContext.SuggestedNextAction != "" {
+			lines = append(lines, "utility suggested next action: "+view.StaleContext.SuggestedNextAction)
+		}
+	}
 	for _, suggestion := range view.Suggestions {
 		line := "utility suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {
@@ -236,6 +254,9 @@ func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {
 		"utility permission approval: "+boolText(view.Safety.ApprovalGrant),
 		"utility workflow transition: "+boolText(view.Safety.WorkflowPhaseTransition),
 		"utility final judgment: "+boolText(view.Safety.FinalJudgment),
+		"utility context refresh: "+boolText(view.Safety.ContextRefresh),
+		"utility context compaction: "+boolText(view.Safety.ContextCompaction),
+		"utility context rewrite: "+boolText(view.Safety.ContextRewrite),
 	)
 	return lines
 }

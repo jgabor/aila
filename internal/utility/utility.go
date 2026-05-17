@@ -7,8 +7,9 @@ import "strings"
 type JobKind string
 
 const (
-	JobContextPrep JobKind = "context_prep"
-	JobSuggestion  JobKind = "suggestion"
+	JobContextPrep       JobKind = "context_prep"
+	JobStaleContextCheck JobKind = "stale_context_check"
+	JobSuggestion        JobKind = "suggestion"
 )
 
 // Status describes utility worker state independently from the primary runtime.
@@ -28,12 +29,21 @@ type Source struct {
 	Description string
 }
 
+// StaleContextInput records bounded context freshness facts for pure checks.
+type StaleContextInput struct {
+	SavedFingerprint   string
+	CurrentFingerprint string
+	SavedLabel         string
+	CurrentLabel       string
+}
+
 // JobRequest records a deterministic utility job request.
 type JobRequest struct {
-	ID     string
-	Kind   JobKind
-	Model  string
-	Source Source
+	ID           string
+	Kind         JobKind
+	Model        string
+	Source       Source
+	StaleContext StaleContextInput
 }
 
 // Activity records the primary runtime facts needed for idle-only scheduling.
@@ -86,6 +96,25 @@ type PreparedContext struct {
 	NonAuthoritative bool
 }
 
+// StaleContextStatus describes whether saved context should be trusted.
+type StaleContextStatus string
+
+const (
+	StaleContextFresh   StaleContextStatus = "fresh"
+	StaleContextStale   StaleContextStatus = "stale"
+	StaleContextUnknown StaleContextStatus = "unknown"
+)
+
+// StaleContextCheck is display-only freshness output. It never refreshes,
+// rewrites, or compacts context.
+type StaleContextCheck struct {
+	Status              StaleContextStatus
+	Summary             string
+	EvidenceRefIDs      []string
+	Caveats             []string
+	SuggestedNextAction string
+}
+
 // SafetyBoundary proves utility output did not perform consequential actions.
 type SafetyBoundary struct {
 	FileMutation            bool
@@ -94,6 +123,9 @@ type SafetyBoundary struct {
 	PermissionApproval      bool
 	WorkflowPhaseTransition bool
 	FinalJudgment           bool
+	ContextRefresh          bool
+	ContextCompaction       bool
+	ContextRewrite          bool
 }
 
 // JobResult is an immutable utility result for display and tests.
@@ -102,6 +134,7 @@ type JobResult struct {
 	Status          Status
 	Summary         string
 	PreparedContext PreparedContext
+	StaleContext    StaleContextCheck
 	Suggestions     []Suggestion
 	EvidenceRefs    []EvidenceRef
 	Caveats         []string
@@ -131,13 +164,23 @@ func NormalizeJobRequest(request JobRequest) JobRequest {
 		request.Source.RequestID = request.ID
 	}
 	request.Source.Description = strings.TrimSpace(request.Source.Description)
+	request.StaleContext.SavedFingerprint = strings.TrimSpace(request.StaleContext.SavedFingerprint)
+	request.StaleContext.CurrentFingerprint = strings.TrimSpace(request.StaleContext.CurrentFingerprint)
+	request.StaleContext.SavedLabel = strings.TrimSpace(request.StaleContext.SavedLabel)
+	request.StaleContext.CurrentLabel = strings.TrimSpace(request.StaleContext.CurrentLabel)
+	if request.StaleContext.SavedLabel == "" {
+		request.StaleContext.SavedLabel = "saved context"
+	}
+	if request.StaleContext.CurrentLabel == "" {
+		request.StaleContext.CurrentLabel = "current context"
+	}
 	return request
 }
 
 // CanRun returns whether a utility job may run in the current activity.
 func CanRun(activity Activity, request JobRequest) Decision {
 	request = NormalizeJobRequest(request)
-	if request.Kind != JobContextPrep && request.Kind != JobSuggestion {
+	if request.Kind != JobContextPrep && request.Kind != JobStaleContextCheck && request.Kind != JobSuggestion {
 		return Decision{Reason: DenialUnsupportedJobKind, Detail: "unsupported utility job kind"}
 	}
 	status := strings.TrimSpace(activity.PrimaryStatus)
@@ -163,6 +206,9 @@ func RunningResult(request JobRequest) JobResult {
 	if request.Kind == JobContextPrep {
 		summary = "utility context prep running"
 	}
+	if request.Kind == JobStaleContextCheck {
+		summary = "utility stale-context check running"
+	}
 	return JobResult{Request: request, Status: StatusRunning, Summary: summary, Safety: SafetyBoundary{}}
 }
 
@@ -187,6 +233,9 @@ func RunJob(request JobRequest) JobResult {
 	request = NormalizeJobRequest(request)
 	if request.Kind == JobContextPrep {
 		return contextPrepResult(request)
+	}
+	if request.Kind == JobStaleContextCheck {
+		return staleContextResult(request)
 	}
 	return JobResult{
 		Request: request,
@@ -237,5 +286,62 @@ func contextPrepResult(request JobRequest) JobResult {
 		},
 		Caveats: []string{"prepared context is non-authoritative; foreground capability decides whether to use it"},
 		Safety:  SafetyBoundary{},
+	}
+}
+
+func staleContextResult(request JobRequest) JobResult {
+	input := request.StaleContext
+	check := StaleContextCheck{
+		Status:              StaleContextUnknown,
+		Summary:             "saved context freshness unknown",
+		EvidenceRefIDs:      []string{"stale-context-input"},
+		Caveats:             []string{"saved or current context fingerprint missing; no context was refreshed, compacted, or rewritten"},
+		SuggestedNextAction: "Rebuild foreground context before relying on saved context.",
+	}
+	evidence := []EvidenceRef{{
+		ID:     "stale-context-input",
+		Kind:   "context_fingerprint",
+		Source: request.Source.Caller,
+		Detail: "saved or current context fingerprint missing",
+	}}
+	if input.SavedFingerprint != "" && input.CurrentFingerprint != "" {
+		check.Status = StaleContextFresh
+		check.Summary = "saved context appears fresh"
+		check.EvidenceRefIDs = []string{"stale-context-saved", "stale-context-current"}
+		check.Caveats = nil
+		check.SuggestedNextAction = "Continue with normal source-ref checks."
+		if input.SavedFingerprint != input.CurrentFingerprint {
+			check.Status = StaleContextStale
+			check.Summary = "saved context appears stale"
+			check.Caveats = []string{"stale status is advisory; no context was refreshed, compacted, or rewritten"}
+			check.SuggestedNextAction = "Rebuild foreground context before relying on saved context."
+		}
+		evidence = []EvidenceRef{
+			{
+				ID:     "stale-context-saved",
+				Kind:   "context_fingerprint",
+				Source: input.SavedLabel,
+				Detail: "saved=" + input.SavedFingerprint,
+			},
+			{
+				ID:     "stale-context-current",
+				Kind:   "context_fingerprint",
+				Source: input.CurrentLabel,
+				Detail: "current=" + input.CurrentFingerprint,
+			},
+		}
+	}
+	return JobResult{
+		Request:      request,
+		Status:       StatusCompleted,
+		Summary:      check.Summary,
+		StaleContext: check,
+		Suggestions: []Suggestion{{
+			Text:           check.SuggestedNextAction,
+			EvidenceRefIDs: append([]string(nil), check.EvidenceRefIDs...),
+		}},
+		EvidenceRefs: evidence,
+		Caveats:      append([]string(nil), check.Caveats...),
+		Safety:       SafetyBoundary{},
 	}
 }

@@ -725,13 +725,13 @@ func TestUtilityJobRoutesThroughRuntimeAndStaysDisplayOnly(t *testing.T) {
 	if turn.Utility == nil || turn.Utility.Status != "completed" || turn.Utility.Model != "test/utility" || !turn.Utility.ReadOnly {
 		t.Fatalf("utility view = %+v, want completed display-only result", turn.Utility)
 	}
-	if turn.Utility.JobKind != "context_prep" || turn.Utility.PreparedContext.Summary == "" || !turn.Utility.PreparedContext.NonAuthoritative {
-		t.Fatalf("utility view missing prepared context: %+v", turn.Utility)
+	if turn.Utility.JobKind != "stale_context_check" || turn.Utility.StaleContext.Status != "stale" || turn.Utility.StaleContext.SuggestedNextAction == "" || len(turn.Utility.StaleContext.EvidenceRefIDs) != 2 {
+		t.Fatalf("utility view missing stale context: %+v", turn.Utility)
 	}
 	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 2 {
 		t.Fatalf("utility view missing suggestion/evidence: %+v", turn.Utility)
 	}
-	if turn.Utility.Safety.FileMutation || turn.Utility.Safety.GitMutation || turn.Utility.Safety.ProjectArtifactMutation || turn.Utility.Safety.ApprovalGrant || turn.Utility.Safety.WorkflowPhaseTransition || turn.Utility.Safety.FinalJudgment {
+	if turn.Utility.Safety.FileMutation || turn.Utility.Safety.GitMutation || turn.Utility.Safety.ProjectArtifactMutation || turn.Utility.Safety.ApprovalGrant || turn.Utility.Safety.WorkflowPhaseTransition || turn.Utility.Safety.FinalJudgment || turn.Utility.Safety.ContextRefresh || turn.Utility.Safety.ContextCompaction || turn.Utility.Safety.ContextRewrite {
 		t.Fatalf("utility view crossed safety boundary: %+v", turn.Utility.Safety)
 	}
 	if runner.model.Status != runtime.StatusIdle || runner.model.Result != "" || len(runner.model.Transcript) != 0 {

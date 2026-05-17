@@ -1,5 +1,5 @@
 {
-  "scenario": "utility-context-prep",
+  "scenario": "utility-stale-context",
   "screen": {
     "width": 120,
     "height": 44,
@@ -24,40 +24,41 @@
   "utility": {
     "source": "app.status",
     "status": "completed",
-    "job_id": "status-context-prep",
-    "job_kind": "context_prep",
+    "job_id": "status-stale-context-check",
+    "job_kind": "stale_context_check",
     "model": "opencode-go/deepseek-v4-flash:max",
-    "summary": "prepared context ready",
-    "prepared_context": {
-      "summary": "Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence.",
-      "evidence_ref_ids": ["context-prep-roadmap", "context-prep-runtime"],
+    "summary": "saved context appears stale",
+    "stale_context": {
+      "status": "stale",
+      "summary": "saved context appears stale",
+      "evidence_ref_ids": ["stale-context-saved", "stale-context-current"],
       "caveats": [
-        "prepared context is non-authoritative; foreground work must re-check source refs before acting"
+        "stale status is advisory; no context was refreshed, compacted, or rewritten"
       ],
-      "non_authoritative": true
+      "suggested_next_action": "Rebuild foreground context before relying on saved context."
     },
     "suggestions": [
       {
-        "text": "Use prepared context only as a starting point for the next foreground step.",
-        "evidence_ref_ids": ["context-prep-roadmap", "context-prep-runtime"]
+        "text": "Rebuild foreground context before relying on saved context.",
+        "evidence_ref_ids": ["stale-context-saved", "stale-context-current"]
       }
     ],
     "evidence_refs": [
       {
-        "id": "context-prep-roadmap",
-        "kind": "roadmap",
-        "source": "ROADMAP.md",
-        "detail": "Milestone 42 requires visible non-authoritative utility context prep"
+        "id": "stale-context-saved",
+        "kind": "context_fingerprint",
+        "source": "saved context",
+        "detail": "saved=saved-context:utility-context-prep"
       },
       {
-        "id": "context-prep-runtime",
-        "kind": "runtime_state",
-        "source": "app.status",
-        "detail": "primary runtime idle; context prep allowed by utility scheduler"
+        "id": "stale-context-current",
+        "kind": "context_fingerprint",
+        "source": "current runtime status",
+        "detail": "current=current-context:status-runtime"
       }
     ],
     "caveats": [
-      "prepared context is non-authoritative; foreground capability decides whether to use it"
+      "stale status is advisory; no context was refreshed, compacted, or rewritten"
     ],
     "read_only": true,
     "safety": {
@@ -123,7 +124,7 @@
       "visible": true,
       "items": [
         "status: completed",
-        "job: context_prep status-context-prep",
+        "job: stale_context_check status-stale-context-check",
         "model: opencode-go/deepseek-v4-flash:max",
         "read_only: true",
         "file_mutation: false",
@@ -136,14 +137,15 @@
         "context_compaction: false",
         "context_rewrite: false",
         "display-only",
-        "summary: prepared context ready",
-        "prepared_context: Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence. refs=context-prep-roadmap,context-prep-runtime",
-        "prepared_context_non_authoritative: true",
-        "prepared_context_caveat: prepared context is non-authoritative; foreground work must re-check source refs before acting",
-        "suggestion: Use prepared context only as a starting point for the next foreground step. refs=context-prep-roadmap,context-prep-runtime",
-        "evidence: context-prep-roadmap roadmap ROADMAP.md Milestone 42 requires visible non-authoritative utility context prep",
-        "evidence: context-prep-runtime runtime_state app.status primary runtime idle; context prep allowed by utility scheduler",
-        "caveat: prepared context is non-authoritative; foreground capability decides whether to use it"
+        "summary: saved context appears stale",
+        "stale_context_status: stale",
+        "stale_context_summary: saved context appears stale refs=stale-context-saved,stale-context-current",
+        "stale_context_caveat: stale status is advisory; no context was refreshed, compacted, or rewritten",
+        "suggested_next_action: Rebuild foreground context before relying on saved context.",
+        "suggestion: Rebuild foreground context before relying on saved context. refs=stale-context-saved,stale-context-current",
+        "evidence: stale-context-saved context_fingerprint saved context saved=saved-context:utility-context-prep",
+        "evidence: stale-context-current context_fingerprint current runtime status current=current-context:status-runtime",
+        "caveat: stale status is advisory; no context was refreshed, compacted, or rewritten"
       ]
     },
     {

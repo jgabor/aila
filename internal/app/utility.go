@@ -10,13 +10,19 @@ import (
 
 func defaultUtilityJobRequest(model string) utility.JobRequest {
 	return utility.NormalizeJobRequest(utility.JobRequest{
-		ID:    "status-context-prep",
-		Kind:  utility.JobContextPrep,
+		ID:    "status-stale-context-check",
+		Kind:  utility.JobStaleContextCheck,
 		Model: model,
 		Source: utility.Source{
 			Caller:      "app.status",
-			RequestID:   "status-context-prep",
-			Description: "idle-only utility context preparation",
+			RequestID:   "status-stale-context-check",
+			Description: "idle-only utility stale-context check",
+		},
+		StaleContext: utility.StaleContextInput{
+			SavedFingerprint:   "saved-context:utility-context-prep",
+			CurrentFingerprint: "current-context:status-runtime",
+			SavedLabel:         "saved context",
+			CurrentLabel:       "current runtime status",
 		},
 	})
 }
@@ -50,6 +56,7 @@ func utilityView(model runtime.Model) *tui.UtilityView {
 		Model:           request.Model,
 		Summary:         strings.TrimSpace(result.Summary),
 		PreparedContext: utilityPreparedContextView(result.PreparedContext),
+		StaleContext:    utilityStaleContextView(result.StaleContext),
 		Suggestions:     utilitySuggestionViews(result.Suggestions),
 		EvidenceRefs:    utilityEvidenceRefViews(result.EvidenceRefs),
 		Caveats:         append([]string(nil), result.Caveats...),
@@ -63,6 +70,9 @@ func utilityView(model runtime.Model) *tui.UtilityView {
 			ApprovalGrant:           result.Safety.PermissionApproval,
 			WorkflowPhaseTransition: result.Safety.WorkflowPhaseTransition,
 			FinalJudgment:           result.Safety.FinalJudgment,
+			ContextRefresh:          result.Safety.ContextRefresh,
+			ContextCompaction:       result.Safety.ContextCompaction,
+			ContextRewrite:          result.Safety.ContextRewrite,
 		},
 	}
 }
@@ -73,6 +83,16 @@ func utilityPreparedContextView(prepared utility.PreparedContext) tui.UtilityPre
 		EvidenceRefIDs:   append([]string(nil), prepared.EvidenceRefIDs...),
 		Caveats:          append([]string(nil), prepared.Caveats...),
 		NonAuthoritative: prepared.NonAuthoritative,
+	}
+}
+
+func utilityStaleContextView(stale utility.StaleContextCheck) tui.UtilityStaleContextView {
+	return tui.UtilityStaleContextView{
+		Status:              string(stale.Status),
+		Summary:             strings.TrimSpace(stale.Summary),
+		EvidenceRefIDs:      append([]string(nil), stale.EvidenceRefIDs...),
+		Caveats:             append([]string(nil), stale.Caveats...),
+		SuggestedNextAction: strings.TrimSpace(stale.SuggestedNextAction),
 	}
 }
 

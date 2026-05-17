@@ -15,12 +15,18 @@ Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-
 | Utility worker:                                                                                                      |
 | source: app.status                                                                                                   |
 | status: completed                                                                                                    |
-| job: suggestion status-utility-suggestion                                                                            |
+| job: stale_context_check status-stale-context-check                                                                  |
 | model: opencode-go/deepseek-v4-flash:max                                                                             |
 | read-only: true                                                                                                      |
-| summary: fake utility suggestion ready                                                                               |
-| suggestion: Review current status before starting new background utility work. refs=utility-evidence-1               |
-| utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only            |
+| summary: saved context appears stale                                                                                 |
+| stale context: stale                                                                                                 |
+| stale context summary: saved context appears stale refs=stale-context-saved, stale-context-current                   |
+| stale context caveat: stale status is advisory; no context was refreshed, compacted, or rewritten                    |
+| suggested next action: Rebuild foreground context before relying on saved context.                                   |
+| suggestion: Rebuild foreground context before relying on saved context. refs=stale-context-saved, stale-context-cur~ |
+| utility evidence: stale-context-saved context_fingerprint saved context saved=saved-context:utility-context-prep     |
+| utility evidence: stale-context-current context_fingerprint current runtime status current=current-context:status-r~ |
+| caveat: stale status is advisory; no context was refreshed, compacted, or rewritten                                  |
 | file mutation: false                                                                                                 |
 | git mutation: false                                                                                                  |
 | artifact mutation: false                                                                                             |
@@ -30,12 +36,6 @@ Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-
 | context refresh: false                                                                                               |
 | context compaction: false                                                                                            |
 | context rewrite: false                                                                                               |
-|                                                                                                                      |
-| No messages yet.                                                                                                     |
-|                                                                                                                      |
-|                                                                                                                      |
-|                                                                                                                      |
-|                                                                                                                      |
 +----------------------------------------------------------------------------------------------------------------------+
 + Prompt --------------------------------------------------------------------------------------------------------------+
 | >                                                                                                                    |

@@ -161,7 +161,7 @@ func TestUpdateAppliesCompactContextResult(t *testing.T) {
 func TestUpdateStartsUtilityJobOnlyWhileRuntimeIdle(t *testing.T) {
 	t.Parallel()
 
-	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-context-prep", Kind: utility.JobContextPrep, Model: "test/utility", Source: utility.Source{Caller: "test.utility"}})
+	request := staleContextUtilityRequest()
 	model := Model{Status: StatusIdle, NextOperation: 5, Result: "previous result", Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}}}
 	firstModel, firstEffects := Update(model, UtilityJobProposed{Request: request})
 	secondModel, secondEffects := Update(model, UtilityJobProposed{Request: request})
@@ -185,13 +185,13 @@ func TestUpdateStartsUtilityJobOnlyWhileRuntimeIdle(t *testing.T) {
 	if !ok || !reflect.DeepEqual(effect.Request, request) {
 		t.Fatalf("utility effect = %#v", firstEffects[0])
 	}
-	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-6", Kind: OperationUtility, Subject: "context_prep status-context-prep", Source: "runtime.utility"})
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-6", Kind: OperationUtility, Subject: "stale_context_check status-stale-context-check", Source: "runtime.utility"})
 }
 
 func TestUpdateBlocksUtilityJobWhenPrimaryRuntimeCannotYield(t *testing.T) {
 	t.Parallel()
 
-	request := utility.JobRequest{ID: "status-context-prep", Kind: utility.JobContextPrep}
+	request := staleContextUtilityRequest()
 	cases := []struct {
 		name  string
 		model Model
@@ -221,12 +221,27 @@ func TestUpdateBlocksUtilityJobWhenPrimaryRuntimeCannotYield(t *testing.T) {
 	}
 }
 
+func staleContextUtilityRequest() utility.JobRequest {
+	return utility.NormalizeJobRequest(utility.JobRequest{
+		ID:     "status-stale-context-check",
+		Kind:   utility.JobStaleContextCheck,
+		Model:  "test/utility",
+		Source: utility.Source{Caller: "test.utility"},
+		StaleContext: utility.StaleContextInput{
+			SavedFingerprint:   "ctx-1",
+			CurrentFingerprint: "ctx-2",
+			SavedLabel:         "saved test context",
+			CurrentLabel:       "current test context",
+		},
+	})
+}
+
 func TestUpdateAppliesUtilityResultWithoutPrimaryRuntimeMutation(t *testing.T) {
 	t.Parallel()
 
-	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-context-prep", Kind: utility.JobContextPrep, Model: "test/utility"})
+	request := staleContextUtilityRequest()
 	result := utility.RunJob(request)
-	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "context_prep status-context-prep", Source: "runtime.utility"}
+	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "stale_context_check status-stale-context-check", Source: "runtime.utility"}
 	base := Model{Status: StatusIdle, Result: "previous result", ActiveUtility: request, LastUtility: utility.RunningResult(request), Transcript: []TranscriptEntry{{Kind: "result", Text: "previous result"}}}
 	updated, effects := Update(base, UtilityJobCompleted{Operation: operation, Result: result})
 	if len(effects) != 0 {
@@ -771,17 +786,17 @@ func TestDispatchHandlesCompactContextEffect(t *testing.T) {
 func TestDispatchHandlesUtilityJobEffect(t *testing.T) {
 	t.Parallel()
 
-	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "context_prep status-context-prep", Source: "runtime.utility"}
-	request := utility.NormalizeJobRequest(utility.JobRequest{ID: "status-context-prep", Kind: utility.JobContextPrep, Source: utility.Source{Caller: "test.utility"}})
+	operation := OperationMetadata{ID: "op-utility", Kind: OperationUtility, Subject: "stale_context_check status-stale-context-check", Source: "runtime.utility"}
+	request := staleContextUtilityRequest()
 	messages := Dispatch([]Effect{UtilityJobEffect{Operation: operation, Request: request}})
 	if len(messages) != 1 {
 		t.Fatalf("messages = %#v, want one utility completion", messages)
 	}
 	completed, ok := messages[0].(UtilityJobCompleted)
-	if !ok || completed.Operation != operation || completed.Result.Status != utility.StatusCompleted || !completed.Result.PreparedContext.NonAuthoritative || len(completed.Result.PreparedContext.EvidenceRefIDs) != 2 || len(completed.Result.EvidenceRefs) != 2 {
+	if !ok || completed.Operation != operation || completed.Result.Status != utility.StatusCompleted || completed.Result.StaleContext.Status != utility.StaleContextStale || len(completed.Result.StaleContext.EvidenceRefIDs) != 2 || len(completed.Result.EvidenceRefs) != 2 {
 		t.Fatalf("utility dispatch = %#v", messages[0])
 	}
-	if completed.Result.Safety.FileMutation || completed.Result.Safety.GitMutation || completed.Result.Safety.ProjectArtifactMutation || completed.Result.Safety.PermissionApproval || completed.Result.Safety.WorkflowPhaseTransition || completed.Result.Safety.FinalJudgment {
+	if completed.Result.Safety.FileMutation || completed.Result.Safety.GitMutation || completed.Result.Safety.ProjectArtifactMutation || completed.Result.Safety.PermissionApproval || completed.Result.Safety.WorkflowPhaseTransition || completed.Result.Safety.FinalJudgment || completed.Result.Safety.ContextRefresh || completed.Result.Safety.ContextCompaction || completed.Result.Safety.ContextRewrite {
 		t.Fatalf("utility dispatch crossed safety boundary: %+v", completed.Result.Safety)
 	}
 }

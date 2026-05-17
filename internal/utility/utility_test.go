@@ -5,7 +5,7 @@ import "testing"
 func TestSchedulerAllowsUtilityJobsOnlyWhenPrimaryRuntimeIdle(t *testing.T) {
 	t.Parallel()
 
-	request := JobRequest{ID: "status-context-prep", Kind: JobContextPrep}
+	request := JobRequest{ID: "status-stale-context-check", Kind: JobStaleContextCheck}
 	decision := CanRun(Activity{PrimaryStatus: "idle"}, request)
 	if !decision.Allowed || decision.Reason != DenialNone {
 		t.Fatalf("idle decision = %+v, want allowed", decision)
@@ -60,12 +60,42 @@ func TestContextPrepResultIsReadOnlyNonAuthoritativeEvidence(t *testing.T) {
 	assertReadOnlySafety(t, result.Safety)
 }
 
-func TestBlockedUtilityResultPreservesDenialWithoutPreparedContext(t *testing.T) {
+func TestStaleContextResultReportsFreshStaleAndUnknownWithoutMutation(t *testing.T) {
 	t.Parallel()
 
-	decision := CanRun(Activity{PrimaryStatus: "active"}, JobRequest{Kind: JobContextPrep})
-	result := BlockedResult(JobRequest{Kind: JobContextPrep}, decision)
-	if result.Status != StatusBlocked || result.Denial.Reason != DenialPrimaryBusy || len(result.Suggestions) != 0 || len(result.EvidenceRefs) != 0 || result.PreparedContext.Summary != "" {
+	cases := []struct {
+		name    string
+		input   StaleContextInput
+		want    StaleContextStatus
+		caveats bool
+	}{
+		{name: "fresh", input: StaleContextInput{SavedFingerprint: "ctx-1", CurrentFingerprint: "ctx-1"}, want: StaleContextFresh},
+		{name: "stale", input: StaleContextInput{SavedFingerprint: "ctx-1", CurrentFingerprint: "ctx-2"}, want: StaleContextStale, caveats: true},
+		{name: "unknown", input: StaleContextInput{SavedFingerprint: "ctx-1"}, want: StaleContextUnknown, caveats: true},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := RunJob(JobRequest{ID: "status-stale-context-check", Kind: JobStaleContextCheck, Source: Source{Caller: "app.status"}, StaleContext: tc.input})
+			if result.Status != StatusCompleted || result.StaleContext.Status != tc.want || result.StaleContext.Summary == "" || result.StaleContext.SuggestedNextAction == "" || len(result.StaleContext.EvidenceRefIDs) == 0 || len(result.EvidenceRefs) == 0 {
+				t.Fatalf("stale context result = %+v, want %s with summary/evidence/action", result, tc.want)
+			}
+			if (len(result.StaleContext.Caveats) > 0) != tc.caveats {
+				t.Fatalf("caveats = %#v, want caveats=%v", result.StaleContext.Caveats, tc.caveats)
+			}
+			assertReadOnlySafety(t, result.Safety)
+		})
+	}
+}
+
+func TestBlockedUtilityResultPreservesDenialWithoutContextOutput(t *testing.T) {
+	t.Parallel()
+
+	decision := CanRun(Activity{PrimaryStatus: "active"}, JobRequest{Kind: JobStaleContextCheck})
+	result := BlockedResult(JobRequest{Kind: JobStaleContextCheck}, decision)
+	if result.Status != StatusBlocked || result.Denial.Reason != DenialPrimaryBusy || len(result.Suggestions) != 0 || len(result.EvidenceRefs) != 0 || result.PreparedContext.Summary != "" || result.StaleContext.Status != "" {
 		t.Fatalf("blocked result = %+v", result)
 	}
 }
@@ -73,7 +103,7 @@ func TestBlockedUtilityResultPreservesDenialWithoutPreparedContext(t *testing.T)
 func assertReadOnlySafety(t *testing.T, safety SafetyBoundary) {
 	t.Helper()
 
-	if safety.FileMutation || safety.GitMutation || safety.ProjectArtifactMutation || safety.PermissionApproval || safety.WorkflowPhaseTransition || safety.FinalJudgment {
+	if safety.FileMutation || safety.GitMutation || safety.ProjectArtifactMutation || safety.PermissionApproval || safety.WorkflowPhaseTransition || safety.FinalJudgment || safety.ContextRefresh || safety.ContextCompaction || safety.ContextRewrite {
 		t.Fatalf("utility result crossed safety boundary: %+v", safety)
 	}
 }

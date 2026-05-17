@@ -32,9 +32,9 @@
 | permission approval: false                                                                                           |
 | workflow transition: false                                                                                           |
 | final judgment: false                                                                                                |
-|                                                                                                                      |
-| No messages yet.                                                                                                     |
-|                                                                                                                      |
+| context refresh: false                                                                                               |
+| context compaction: false                                                                                            |
+| context rewrite: false                                                                                               |
 |                                                                                                                      |
 +----------------------------------------------------------------------------------------------------------------------+
 + [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+

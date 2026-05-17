@@ -1696,10 +1696,12 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		"Utility worker:",
 		"source: app.status",
 		"status: completed",
-		"summary: prepared context ready",
-		"prepared context: Likely next context:",
-		"prepared context non-authoritative: true",
-		"utility evidence: context-prep-runtime",
+		"summary: saved context appears stale",
+		"stale context: stale",
+		"stale context summary: saved context appears stale",
+		"suggested next action: Rebuild foreground context before relying on saved context.",
+		"utility evidence: stale-context-current",
+		"context refresh: false",
 		"file mutation: false",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, status, env, workspace)

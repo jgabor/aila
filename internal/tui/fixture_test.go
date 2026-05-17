@@ -279,6 +279,24 @@ func loadUtilityFixture(t *testing.T, name string) renderFixture {
 			{ID: "context-prep-runtime", Kind: "runtime_state", Source: "app.status", Detail: "primary runtime idle; context prep allowed by utility scheduler"},
 		}
 		state.Utility.Caveats = []string{"prepared context is non-authoritative; foreground capability decides whether to use it"}
+	case "utility-stale-context":
+		state.Utility.Status = "completed"
+		state.Utility.JobID = "status-stale-context-check"
+		state.Utility.JobKind = "stale_context_check"
+		state.Utility.Summary = "saved context appears stale"
+		state.Utility.StaleContext = UtilityStaleContextView{
+			Status:              "stale",
+			Summary:             "saved context appears stale",
+			EvidenceRefIDs:      []string{"stale-context-saved", "stale-context-current"},
+			Caveats:             []string{"stale status is advisory; no context was refreshed, compacted, or rewritten"},
+			SuggestedNextAction: "Rebuild foreground context before relying on saved context.",
+		}
+		state.Utility.Suggestions = []UtilitySuggestionView{{Text: "Rebuild foreground context before relying on saved context.", EvidenceRefIDs: []string{"stale-context-saved", "stale-context-current"}}}
+		state.Utility.EvidenceRefs = []UtilityEvidenceRefView{
+			{ID: "stale-context-saved", Kind: "context_fingerprint", Source: "saved context", Detail: "saved=saved-context:utility-context-prep"},
+			{ID: "stale-context-current", Kind: "context_fingerprint", Source: "current runtime status", Detail: "current=current-context:status-runtime"},
+		}
+		state.Utility.Caveats = []string{"stale status is advisory; no context was refreshed, compacted, or rewritten"}
 	default:
 		t.Fatalf("unknown utility fixture %q", name)
 	}
@@ -3604,6 +3622,12 @@ func TestUtilityWorkerFixtureSnapshots(t *testing.T) {
 			wantRender: []string{"Utility worker:", "job: context_prep status-context-prep", "summary: prepared context ready", "prepared context: Likely next context:", "prepared context non-authoritative: true", "utility evidence: context-prep-roadmap roadmap ROADMAP.md"},
 			wantRegion: []string{"status: completed", "job: context_prep status-context-prep", "summary: prepared context ready", "prepared_context: Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence. refs=context-prep-roadmap,context-prep-runtime", "prepared_context_non_authoritative: true"},
 		},
+		{
+			name:       "utility-stale-context",
+			status:     "completed",
+			wantRender: []string{"Utility worker:", "job: stale_context_check status-stale-context-check", "summary: saved context appears stale", "stale context: stale", "stale context summary: saved context appears stale", "suggested next action: Rebuild foreground context before relying on saved context.", "context refresh: false"},
+			wantRegion: []string{"status: completed", "job: stale_context_check status-stale-context-check", "stale_context_status: stale", "stale_context_summary: saved context appears stale refs=stale-context-saved,stale-context-current", "suggested_next_action: Rebuild foreground context before relying on saved context.", "context_refresh: false"},
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -3641,7 +3665,7 @@ func TestUtilityWorkerFixtureSnapshots(t *testing.T) {
 					if snapshot.Utility == nil || snapshot.Utility.Status != tc.status || snapshot.Utility.Model != "opencode-go/deepseek-v4-flash:max" || !snapshot.Utility.ReadOnly {
 						t.Fatalf("utility semantic = %+v", snapshot.Utility)
 					}
-					if snapshot.Utility.Safety.FileMutation || snapshot.Utility.Safety.GitMutation || snapshot.Utility.Safety.ProjectArtifactMutation || snapshot.Utility.Safety.ApprovalGrant || snapshot.Utility.Safety.WorkflowPhaseTransition || snapshot.Utility.Safety.FinalJudgment {
+					if snapshot.Utility.Safety.FileMutation || snapshot.Utility.Safety.GitMutation || snapshot.Utility.Safety.ProjectArtifactMutation || snapshot.Utility.Safety.ApprovalGrant || snapshot.Utility.Safety.WorkflowPhaseTransition || snapshot.Utility.Safety.FinalJudgment || snapshot.Utility.Safety.ContextRefresh || snapshot.Utility.Safety.ContextCompaction || snapshot.Utility.Safety.ContextRewrite {
 						t.Fatalf("utility semantic crossed safety boundary: %+v", snapshot.Utility.Safety)
 					}
 					regions := semanticRegionsByName(t, snapshot)

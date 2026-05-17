@@ -191,6 +191,7 @@ type UtilityView struct {
 	Model           string
 	Summary         string
 	PreparedContext UtilityPreparedContextView
+	StaleContext    UtilityStaleContextView
 	Suggestions     []UtilitySuggestionView
 	EvidenceRefs    []UtilityEvidenceRefView
 	Caveats         []string
@@ -206,6 +207,15 @@ type UtilityPreparedContextView struct {
 	EvidenceRefIDs   []string
 	Caveats          []string
 	NonAuthoritative bool
+}
+
+// UtilityStaleContextView records display-only saved-context freshness output.
+type UtilityStaleContextView struct {
+	Status              string
+	Summary             string
+	EvidenceRefIDs      []string
+	Caveats             []string
+	SuggestedNextAction string
 }
 
 // UtilitySuggestionView records one display-only utility suggestion.
@@ -230,6 +240,9 @@ type UtilitySafetyView struct {
 	ApprovalGrant           bool
 	WorkflowPhaseTransition bool
 	FinalJudgment           bool
+	ContextRefresh          bool
+	ContextCompaction       bool
+	ContextRewrite          bool
 }
 
 // CompactView is app-injected manual context compaction state. It is display-only;
@@ -701,6 +714,8 @@ func cloneUtilityView(utility *UtilityView) *UtilityView {
 	clone := *utility
 	clone.PreparedContext.EvidenceRefIDs = append([]string(nil), utility.PreparedContext.EvidenceRefIDs...)
 	clone.PreparedContext.Caveats = append([]string(nil), utility.PreparedContext.Caveats...)
+	clone.StaleContext.EvidenceRefIDs = append([]string(nil), utility.StaleContext.EvidenceRefIDs...)
+	clone.StaleContext.Caveats = append([]string(nil), utility.StaleContext.Caveats...)
 	clone.Suggestions = make([]UtilitySuggestionView, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		item := suggestion

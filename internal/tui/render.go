@@ -844,6 +844,24 @@ func utilityLines(utility *UtilityView) []string {
 			lines = append(lines, "  prepared caveat: "+caveat)
 		}
 	}
+	if semantic.StaleContext != nil {
+		if semantic.StaleContext.Status != "" {
+			lines = append(lines, "  stale context: "+semantic.StaleContext.Status)
+		}
+		if semantic.StaleContext.Summary != "" {
+			line := "  stale context summary: " + semantic.StaleContext.Summary
+			if len(semantic.StaleContext.EvidenceRefIDs) > 0 {
+				line += " refs=" + strings.Join(semantic.StaleContext.EvidenceRefIDs, ", ")
+			}
+			lines = append(lines, line)
+		}
+		for _, caveat := range semantic.StaleContext.Caveats {
+			lines = append(lines, "  stale context caveat: "+caveat)
+		}
+		if semantic.StaleContext.SuggestedNextAction != "" {
+			lines = append(lines, "  suggested next action: "+semantic.StaleContext.SuggestedNextAction)
+		}
+	}
 	for _, suggestion := range semantic.Suggestions {
 		line := "  suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {
@@ -867,6 +885,9 @@ func utilityLines(utility *UtilityView) []string {
 		"  permission approval: "+boolLabel(semantic.Safety.ApprovalGrant),
 		"  workflow transition: "+boolLabel(semantic.Safety.WorkflowPhaseTransition),
 		"  final judgment: "+boolLabel(semantic.Safety.FinalJudgment),
+		"  context refresh: "+boolLabel(semantic.Safety.ContextRefresh),
+		"  context compaction: "+boolLabel(semantic.Safety.ContextCompaction),
+		"  context rewrite: "+boolLabel(semantic.Safety.ContextRewrite),
 		"",
 	)
 	return lines
@@ -1550,6 +1571,7 @@ type SemanticUtility struct {
 	Model           string                          `json:"model"`
 	Summary         string                          `json:"summary,omitempty"`
 	PreparedContext *SemanticUtilityPreparedContext `json:"prepared_context,omitempty"`
+	StaleContext    *SemanticUtilityStaleContext    `json:"stale_context,omitempty"`
 	Suggestions     []SemanticUtilitySuggestion     `json:"suggestions,omitempty"`
 	EvidenceRefs    []SemanticUtilityEvidence       `json:"evidence_refs,omitempty"`
 	Caveats         []string                        `json:"caveats,omitempty"`
@@ -1565,6 +1587,15 @@ type SemanticUtilityPreparedContext struct {
 	EvidenceRefIDs   []string `json:"evidence_ref_ids,omitempty"`
 	Caveats          []string `json:"caveats,omitempty"`
 	NonAuthoritative bool     `json:"non_authoritative"`
+}
+
+// SemanticUtilityStaleContext records display-only saved-context freshness output.
+type SemanticUtilityStaleContext struct {
+	Status              string   `json:"status"`
+	Summary             string   `json:"summary,omitempty"`
+	EvidenceRefIDs      []string `json:"evidence_ref_ids,omitempty"`
+	Caveats             []string `json:"caveats,omitempty"`
+	SuggestedNextAction string   `json:"suggested_next_action,omitempty"`
 }
 
 // SemanticUtilitySuggestion records one utility suggestion.
@@ -1589,6 +1620,9 @@ type SemanticUtilitySafety struct {
 	ApprovalGrant           bool `json:"permission_approval"`
 	WorkflowPhaseTransition bool `json:"workflow_phase_transition"`
 	FinalJudgment           bool `json:"final_judgment"`
+	ContextRefresh          bool `json:"context_refresh"`
+	ContextCompaction       bool `json:"context_compaction"`
+	ContextRewrite          bool `json:"context_rewrite"`
 }
 
 // SemanticFetch describes injected read-only network state for snapshots.
@@ -3077,6 +3111,9 @@ func semanticUtilityItems(utility *UtilityView) []string {
 		"permission_approval: " + boolLabel(semantic.Safety.ApprovalGrant),
 		"workflow_phase_transition: " + boolLabel(semantic.Safety.WorkflowPhaseTransition),
 		"final_judgment: " + boolLabel(semantic.Safety.FinalJudgment),
+		"context_refresh: " + boolLabel(semantic.Safety.ContextRefresh),
+		"context_compaction: " + boolLabel(semantic.Safety.ContextCompaction),
+		"context_rewrite: " + boolLabel(semantic.Safety.ContextRewrite),
 		"display-only",
 	}
 	if semantic.Summary != "" {
@@ -3087,6 +3124,16 @@ func semanticUtilityItems(utility *UtilityView) []string {
 		items = append(items, "prepared_context_non_authoritative: "+boolLabel(semantic.PreparedContext.NonAuthoritative))
 		for _, caveat := range semantic.PreparedContext.Caveats {
 			items = append(items, "prepared_context_caveat: "+caveat)
+		}
+	}
+	if semantic.StaleContext != nil {
+		items = append(items, "stale_context_status: "+semantic.StaleContext.Status)
+		items = append(items, "stale_context_summary: "+semantic.StaleContext.Summary+" refs="+strings.Join(semantic.StaleContext.EvidenceRefIDs, ","))
+		for _, caveat := range semantic.StaleContext.Caveats {
+			items = append(items, "stale_context_caveat: "+caveat)
+		}
+		if semantic.StaleContext.SuggestedNextAction != "" {
+			items = append(items, "suggested_next_action: "+semantic.StaleContext.SuggestedNextAction)
 		}
 	}
 	for _, suggestion := range semantic.Suggestions {
@@ -3117,6 +3164,16 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 			NonAuthoritative: utility.PreparedContext.NonAuthoritative,
 		}
 	}
+	var stale *SemanticUtilityStaleContext
+	if utility.StaleContext.Status != "" || utility.StaleContext.Summary != "" || len(utility.StaleContext.EvidenceRefIDs) > 0 || len(utility.StaleContext.Caveats) > 0 || utility.StaleContext.SuggestedNextAction != "" {
+		stale = &SemanticUtilityStaleContext{
+			Status:              safeText(utility.StaleContext.Status),
+			Summary:             safeText(utility.StaleContext.Summary),
+			EvidenceRefIDs:      safeTextSlice(utility.StaleContext.EvidenceRefIDs),
+			Caveats:             safeTextSlice(utility.StaleContext.Caveats),
+			SuggestedNextAction: safeText(utility.StaleContext.SuggestedNextAction),
+		}
+	}
 	suggestions := make([]SemanticUtilitySuggestion, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		suggestions = append(suggestions, SemanticUtilitySuggestion{Text: safeText(suggestion.Text), EvidenceRefIDs: safeTextSlice(suggestion.EvidenceRefIDs)})
@@ -3133,6 +3190,7 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 		Model:           safeText(utility.Model),
 		Summary:         safeText(utility.Summary),
 		PreparedContext: prepared,
+		StaleContext:    stale,
 		Suggestions:     suggestions,
 		EvidenceRefs:    evidence,
 		Caveats:         safeTextSlice(utility.Caveats),
@@ -3146,6 +3204,9 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 			ApprovalGrant:           utility.Safety.ApprovalGrant,
 			WorkflowPhaseTransition: utility.Safety.WorkflowPhaseTransition,
 			FinalJudgment:           utility.Safety.FinalJudgment,
+			ContextRefresh:          utility.Safety.ContextRefresh,
+			ContextCompaction:       utility.Safety.ContextCompaction,
+			ContextRewrite:          utility.Safety.ContextRewrite,
 		},
 	}
 }

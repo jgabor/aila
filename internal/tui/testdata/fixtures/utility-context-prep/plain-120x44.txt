@@ -32,9 +32,9 @@ Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-
 | permission approval: false                                                                                           |
 | workflow transition: false                                                                                           |
 | final judgment: false                                                                                                |
-|                                                                                                                      |
-| No messages yet.                                                                                                     |
-|                                                                                                                      |
+| context refresh: false                                                                                               |
+| context compaction: false                                                                                            |
+| context rewrite: false                                                                                               |
 |                                                                                                                      |
 +----------------------------------------------------------------------------------------------------------------------+
 + Prompt --------------------------------------------------------------------------------------------------------------+
