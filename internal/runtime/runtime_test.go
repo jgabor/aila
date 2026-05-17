@@ -540,6 +540,62 @@ func TestUpdateRoutesDocumentCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesDesignCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "design-system",
+		Capability: capability.NameDesign,
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.DesignMetadataGoalID:         "terminal-design",
+			capability.DesignMetadataGoalSummary:    "Keep terminal UI visual decisions durable.",
+			capability.DesignMetadataSurface:        "terminal-ui",
+			capability.DesignMetadataDecisions:      "hierarchy::information architecture::Keep phase context above evidence.::Orientation comes before detail.",
+			capability.DesignMetadataReviewPrompts:  "wide-layout::Does the wide layout preserve hierarchy?::docs/mockup-desktop.png",
+			capability.DesignMetadataCaveats:        "screenshots are review aids, not correctness contracts",
+			capability.DesignMetadataNextAction:     "Audit the design artifact before continuing.",
+			capability.DesignMetadataDurable:        "true",
+			capability.DesignMetadataArtifactStatus: "planned",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameDesign {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "design", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameDesign || completed.Payload.RecommendedSuccessor != workflow.PhaseAudit || completed.Payload.Design == nil {
+		t.Fatalf("design payload = %+v", completed.Payload)
+	}
+	if len(completed.Payload.Design.Decisions) != 1 || len(completed.Payload.Design.ReviewPrompts) != 1 || completed.Payload.Design.DesignArtifact == "" {
+		t.Fatalf("design output = %+v", completed.Payload.Design)
+	}
+	if len(completed.Payload.ArtifactRefs) != 2 || len(completed.Payload.BoundaryRequests) != 3 {
+		t.Fatalf("design refs/boundaries = refs:%+v boundaries:%+v", completed.Payload.ArtifactRefs, completed.Payload.BoundaryRequests)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameDesign || model.LastCapability.Design == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestUpdateRoutesAuditCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,233 @@
+{
+  "scenario": "design-review-prompts",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "design capability status",
+    "runtime_result": "Design marked visual review prompts for terminal visual language changes.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-design",
+    "utility_model": "placeholder",
+    "autonomy": "write",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "design": {
+    "visible": true,
+    "source": "app.design.fixture",
+    "capability": "design",
+    "signal": "complete",
+    "current_phase": "build",
+    "summary": "Design marked visual review prompts for terminal visual language changes.",
+    "recommended_successor": "audit",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "goal": {
+      "id": "aila-terminal-design-system",
+      "summary": "Keep terminal UI visual decisions durable for agents and humans.",
+      "surface": "terminal-ui"
+    },
+    "decisions": [
+      {
+        "id": "visual-language",
+        "area": "visual review",
+        "decision": "Require a human visual review before audit when the visual language changes.",
+        "rationale": "Semantic snapshots prove structure while people judge visual fit."
+      }
+    ],
+    "review_prompts": [
+      {
+        "id": "contrast-check",
+        "question": "Does the palette preserve contrast across active and inactive terminal regions?",
+        "target": "docs/mockup-desktop.png"
+      },
+      {
+        "id": "narrow-scan",
+        "question": "Does narrow layout still expose phase, decision, caveat, and next action without overlap?",
+        "target": "80x24 fixture"
+      }
+    ],
+    "caveats": [
+      "major visual language changes require human review before audit",
+      "screenshots remain review aids beside semantic snapshots"
+    ],
+    "next_action": "Audit the design-system artifact before continuing.",
+    "visual_review_required": true,
+    "design_artifact_path": "[path-redacted]",
+    "artifact_status": "planned",
+    "artifact_refs": [
+      {
+        "id": "design-artifact",
+        "kind": "design",
+        "path": "[path-redacted]"
+      },
+      {
+        "id": "design-surface",
+        "kind": "ui_surface",
+        "path": "terminal-ui"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "design-command",
+        "kind": "command",
+        "command": "/design",
+        "excerpt": "app-owned design command"
+      },
+      {
+        "id": "design-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "design is BUILD-owned"
+      },
+      {
+        "id": "design-tui-testing-doc",
+        "kind": "doc",
+        "path": "docs/tui-testing.md",
+        "excerpt": "visual review complements deterministic snapshots"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "design.current",
+        "reason": "design uses app-supplied visual identity and UI-system evidence"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "design",
+        "reason": "state store resolves durable design-system output"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "design",
+        "reason": "state store records durable design-system output"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-design",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-design",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: design capability status",
+        "active: false",
+        "result: Design marked visual review prompts for terminal visual language changes.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "design",
+      "visible": true,
+      "items": [
+        "source: app.design.fixture",
+        "capability: design",
+        "signal: complete",
+        "phase: build",
+        "goal: aila-terminal-design-system surface=terminal-ui",
+        "artifact_status: planned",
+        "visual_review_required: true",
+        "recommended_successor: audit",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Design marked visual review prompts for terminal visual language changes.",
+        "goal_summary: Keep terminal UI visual decisions durable for agents and humans.",
+        "design_artifact_path: [path-redacted]",
+        "next_action: Audit the design-system artifact before continuing.",
+        "decision: visual-language area=visual review decision=Require a human visual review before audit when the visual language changes.",
+        "review_prompt: contrast-check question=Does the palette preserve contrast across active and inactive terminal regions? target=docs/mockup-desktop.png",
+        "review_prompt: narrow-scan question=Does narrow layout still expose phase, decision, caveat, and next action without overlap? target=80x24 fixture",
+        "caveat: major visual language changes require human review before audit",
+        "caveat: screenshots remain review aids beside semantic snapshots",
+        "artifact_ref: design-artifact kind=design path=[path-redacted]",
+        "artifact_ref: design-surface kind=ui_surface path=terminal-ui",
+        "boundary_request: state_access operation=state.access target=design.current reason=design uses app-supplied visual identity and UI-system evidence",
+        "boundary_request: artifact_access operation=artifact.access target=design reason=state store resolves durable design-system output",
+        "boundary_request: state_write operation=state.write target=design reason=state store records durable design-system output",
+        "source_ref: design-command kind=command command=/design excerpt=app-owned design command",
+        "source_ref: design-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=design is BUILD-owned",
+        "source_ref: design-tui-testing-doc kind=doc path=docs/tui-testing.md excerpt=visual review complements deterministic snapshots"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: current design capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

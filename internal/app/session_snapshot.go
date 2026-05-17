@@ -269,6 +269,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
+	case policy.CommandRouteDesign:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, controller.openDesignView()...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRouteReview:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
@@ -331,7 +343,8 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		researchPayloadChanged(before.LastCapability.Research, after.LastCapability.Research) ||
 		profilePayloadChanged(before.LastCapability.Profile, after.LastCapability.Profile) ||
 		optimizePayloadChanged(before.LastCapability.Optimize, after.LastCapability.Optimize) ||
-		documentPayloadChanged(before.LastCapability.Document, after.LastCapability.Document)
+		documentPayloadChanged(before.LastCapability.Document, after.LastCapability.Document) ||
+		designPayloadChanged(before.LastCapability.Design, after.LastCapability.Design)
 }
 
 func discussPayloadChanged(before, after *capability.DiscussOutput) bool {
@@ -367,6 +380,13 @@ func documentPayloadChanged(before, after *capability.DocumentOutput) bool {
 		return before != after
 	}
 	return before.Target.Path != after.Target.Path || before.Plan.ID != after.Plan.ID || before.OutputSummary != after.OutputSummary || before.Mutation.Status != after.Mutation.Status || before.DocumentArtifactPath != after.DocumentArtifactPath || len(before.Plan.Steps) != len(after.Plan.Steps) || len(before.ChangedDocs) != len(after.ChangedDocs) || len(before.DiffLines) != len(after.DiffLines) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
+}
+
+func designPayloadChanged(before, after *capability.DesignOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.Goal.ID != after.Goal.ID || before.Goal.Summary != after.Goal.Summary || before.DesignArtifactPath != after.DesignArtifactPath || len(before.Decisions) != len(after.Decisions) || len(before.ReviewPrompts) != len(after.ReviewPrompts) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func visionPayloadChanged(before, after *capability.VisionOutput) bool {

@@ -75,6 +75,7 @@ func TestResolveKnownArtifactIncludesPathAndProvenance(t *testing.T) {
 		{name: ArtifactObjective, file: "objective.md"},
 		{name: ArtifactExperiments, file: "experiments.md"},
 		{name: ArtifactDocumentation, file: "documentation.md"},
+		{name: ArtifactDesign, file: "design.md"},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			t.Parallel()

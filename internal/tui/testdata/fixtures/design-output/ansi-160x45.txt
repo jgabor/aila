@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-design | Utility placeholder | Auto write                                                                          [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-design                                                                                  |  | primary model: fake/fake-design        |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: write (display-only)                                                                                   |  | autonomy: write                        |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: design capability status                                                                                 |  | detail: design capability status       |
+| active: false                                                                                                    |  | active: false                          |
+| result: Design recorded 3 decisions for aila-terminal-design-system.                                             |  | result: Design recorded 3 decisions f~ |
+|                                                                                                                  |  | display-only                           |
+| Design:                                                                                                          |  | git: placeholder                       |
+| source: app.design.fixture                                                                                       |  | context: current design capability     |
+| capability: design                                                                                               |  |                                        |
+| signal: complete                                                                                                 |  |                                        |
+| phase: build                                                                                                     |  |                                        |
+| goal: aila-terminal-design-system surface=terminal-ui                                                            |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: written                                                                                         |  |                                        |
+| visual review required: false                                                                                    |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| recommended successor: audit                                                                                     |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| summary: Design recorded 3 decisions for aila-terminal-design-system.                                            |  |                                        |
+| goal summary: Keep terminal UI visual decisions durable for agents and humans.                                   |  |                                        |
+| next action: Audit the design-system artifact before continuing.                                                 |  |                                        |
+| decision: phase-hierarchy area=information architecture decision=Keep active phase and capability identity visi~ |  |                                        |
+| rationale: phase-hierarchy Users need orientation before inspecting dense output.                                |  |                                        |
+| decision: review-prompts area=visual review decision=Record explicit visual review prompts beside design decisi~ |  |                                        |
+| rationale: review-prompts Screenshots can support judgment but must not become the correctness contract.         |  |                                        |
+| decision: artifact-boundary area=state store decision=Persist durable design decisions through the project arti~ |  |                                        |
+| rationale: artifact-boundary The TUI displays app-owned evidence and does not own persistence.                   |  |                                        |
+| review prompt: desktop-hierarchy question=Does the wide layout preserve content and session hierarchy? target=d~ |  |                                        |
+| review prompt: narrow-clarity question=Can 80x24 still show phase, prompt, caveats, and next action? target=doc~ |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                  git: placeholder | context: current design capability | q quit[0m

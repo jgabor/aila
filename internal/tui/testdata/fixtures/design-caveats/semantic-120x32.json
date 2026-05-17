@@ -1,0 +1,158 @@
+{
+  "scenario": "design-caveats",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "waiting",
+    "status_detail": "design capability status",
+    "runtime_result": "Design needs a design goal and durable decisions before recording UI-system work.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-design",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "design": {
+    "visible": true,
+    "source": "app.design.fixture",
+    "capability": "design",
+    "signal": "waiting",
+    "current_phase": "build",
+    "summary": "Design needs a design goal and durable decisions before recording UI-system work.",
+    "successor_valid": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "goal": {
+      "id": ""
+    },
+    "caveats": [
+      "design evidence unavailable until goal and decision records are provided",
+      "screenshot captures can aid review but semantic snapshots carry correctness evidence"
+    ],
+    "needed_input": "Provide a design goal and durable design decisions before designing.",
+    "next_action": "Provide design evidence, then run design again.",
+    "visual_review_required": false,
+    "design_artifact_path": "[path-redacted]",
+    "artifact_status": "not_written",
+    "source_refs": [
+      {
+        "id": "design-command",
+        "kind": "command",
+        "command": "/design",
+        "excerpt": "waiting for design evidence"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "design.current",
+        "reason": "design uses app-supplied visual identity and UI-system evidence"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "design",
+        "reason": "state store resolves durable design-system output"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-design",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-design",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: design capability status",
+        "active: false",
+        "result: Design needs a design goal and durable decisions before recording UI-system work.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "design",
+      "visible": true,
+      "items": [
+        "source: app.design.fixture",
+        "capability: design",
+        "signal: waiting",
+        "phase: build",
+        "goal:  surface=",
+        "artifact_status: not_written",
+        "visual_review_required: false",
+        "recommended_successor: ",
+        "successor_valid: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Design needs a design goal and durable decisions before recording UI-system work.",
+        "design_artifact_path: [path-redacted]",
+        "needed_input: Provide a design goal and durable design decisions before designing.",
+        "next_action: Provide design evidence, then run design again.",
+        "caveat: design evidence unavailable until goal and decision records are provided",
+        "caveat: screenshot captures can aid review but semantic snapshots carry correctness evidence",
+        "boundary_request: state_access operation=state.access target=design.current reason=design uses app-supplied visual identity and UI-system evidence",
+        "boundary_request: artifact_access operation=artifact.access target=design reason=state store resolves durable design-system output",
+        "source_ref: design-command kind=command command=/design excerpt=waiting for design evidence"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

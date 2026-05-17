@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-design | Utility placeholder | Aut~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-design                                              |
+| utility model: placeholder                                                   |
+| autonomy: write (display-only)                                               |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: design capability status                                             |
+| active: false                                                                |
+| result: Design recorded 3 decisions for aila-terminal-design-system.         |
+|                                                                              |
+| Design:                                                                      |
+| source: app.design.fixture                                                   |
+| capability: design                                                           |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                  git: placeholder | context: current design capability | q quit[0m

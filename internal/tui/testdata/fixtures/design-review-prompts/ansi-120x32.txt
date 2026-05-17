@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-design | Utility placeholder | Auto write                                  [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-design                                                                                      |
+| utility model: placeholder                                                                                           |
+| autonomy: write (display-only)                                                                                       |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: design capability status                                                                                     |
+| active: false                                                                                                        |
+| result: Design marked visual review prompts for terminal visual language changes.                                    |
+|                                                                                                                      |
+| Design:                                                                                                              |
+| source: app.design.fixture                                                                                           |
+| capability: design                                                                                                   |
+| signal: complete                                                                                                     |
+| phase: build                                                                                                         |
+| goal: aila-terminal-design-system surface=terminal-ui                                                                |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: planned                                                                                             |
+| visual review required: true                                                                                         |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                          git: placeholder | context: current design capability | q quit[0m

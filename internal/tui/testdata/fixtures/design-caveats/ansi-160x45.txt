@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime waiting | Model fake/fake-design | Utility placeholder | Auto read                                                                        [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-design                                                                                  |  | primary model: fake/fake-design        |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: waiting                        |
+| Runtime status:                                                                                                  |  | detail: design capability status       |
+| status: waiting                                                                                                  |  | active: false                          |
+| detail: design capability status                                                                                 |  | result: Design needs a design goal an~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: Design needs a design goal and durable decisions before recording UI-system work.                        |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Design:                                                                                                          |  |                                        |
+| source: app.design.fixture                                                                                       |  |                                        |
+| capability: design                                                                                               |  |                                        |
+| signal: waiting                                                                                                  |  |                                        |
+| phase: build                                                                                                     |  |                                        |
+| goal:  surface=                                                                                                  |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: not_written                                                                                     |  |                                        |
+| visual review required: false                                                                                    |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| recommended successor:                                                                                           |  |                                        |
+| successor valid: false                                                                                           |  |                                        |
+| summary: Design needs a design goal and durable decisions before recording UI-system work.                       |  |                                        |
+| needed input: Provide a design goal and durable design decisions before designing.                               |  |                                        |
+| next action: Provide design evidence, then run design again.                                                     |  |                                        |
+| caveat: design evidence unavailable until goal and decision records are provided                                 |  |                                        |
+| caveat: screenshot captures can aid review but semantic snapshots carry correctness evidence                     |  |                                        |
+| requested boundary: state_access operation=state.access target=design.current reason=design uses app-supplied v~ |  |                                        |
+| requested boundary: artifact_access operation=artifact.access target=design reason=state store resolves durable~ |  |                                        |
+| source ref: design-command kind=command command=/design excerpt=waiting for design evidence                      |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

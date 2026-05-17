@@ -2483,6 +2483,107 @@ func TestDocumentCommandWritesDocsThroughMutationPathPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestDesignCommandPersistsDesignArtifactPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nDesign command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed design PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/design\r")); err != nil {
+		t.Fatalf("send /design command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Design recorded 3 decisions for aila-terminal-design-system.",
+		"Design:",
+		"source: app.design",
+		"capability: design",
+		"signal: complete",
+		"phase: build",
+		"goal: aila-terminal-design-system surface=terminal-ui",
+		"artifact status: written",
+		"visual review required: false",
+		"transition claimed: false",
+		"display-only: true",
+		"recommended successor: audit",
+		"decision: phase-hierarchy area=information architecture",
+		"review prompt: desktop-hierarchy",
+		"caveat: screenshots are review aids, not correctness contracts",
+		"requested boundary: state_write operation=state.write target=design",
+		"source ref: design-command kind=command command=/design",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "Discuss:", "Research:", "Profile:", "Optimize:", "Document:", "transition claimed: true", "screenshot correctness contract: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("design PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	artifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "design.md"))
+	if err != nil {
+		t.Fatalf("read design artifact: %v", err)
+	}
+	for _, want := range []string{"# Design System", "phase-hierarchy", "Visual Review Prompts", "desktop-hierarchy", "screenshots are review aids, not correctness contracts"} {
+		if !strings.Contains(string(artifact), want) {
+			t.Fatalf("design artifact missing %q in:\n%s", want, artifact)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("design PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("design PTY changed build output git status: %q", docsStatus)
+	}
+	assertDesignCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit input after design command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("design command PTY returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatalf("design command PTY did not exit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(2 * time.Second):
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -3679,6 +3780,45 @@ func assertDocumentCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawDocumentCommand || !sawDocumentRuntime || !sawMutation {
 		t.Fatalf("document command history markers command=%v runtime=%v mutation=%v events=%+v", sawDocumentCommand, sawDocumentRuntime, sawMutation, history.Events)
+	}
+}
+
+func assertDesignCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open design command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read design command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("design command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || snapshot.Snapshot.Runtime.Detail != "design capability status" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Design recorded 3 decisions") {
+		t.Fatalf("design command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read design command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("design command history state = %q, want loaded", history.State)
+	}
+	var sawDesignCommand, sawDesignRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "design via slash" {
+			sawDesignCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Design recorded 3 decisions") {
+			sawDesignRuntime = true
+		}
+	}
+	if !sawDesignCommand || !sawDesignRuntime {
+		t.Fatalf("design command history markers command=%v runtime=%v events=%+v", sawDesignCommand, sawDesignRuntime, history.Events)
 	}
 }
 

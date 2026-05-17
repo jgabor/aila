@@ -76,6 +76,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 		return OptimizeCapability{}.Run(ctx, request)
 	case NameDocument:
 		return DocumentCapability{}.Run(ctx, request)
+	case NameDesign:
+		return DesignCapability{}.Run(ctx, request)
 	case NameAudit:
 		return AuditCapability{}.Run(ctx, request)
 	default:

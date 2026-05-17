@@ -1,0 +1,260 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  title: 'Milestone 53: Document Capability'
+  reviewed: '2026-05-17'
+  critic_issues: M53 must add document as a BUILD-owned documentation alignment capability, not as provider-backed doc generation
+    or a bypass write path. It needs one exit payload, normal mutation tool, permission, state-store, and history evidence,
+    visible TUI plan/diff/caveat evidence, and behavior-named tests.
+what: Deliver ROADMAP.md Milestone 53 by implementing the document capability so Aila can keep documentation aligned with
+  actual project behavior from inside BUILD while routing documentation writes through the same runtime, tool, permission,
+  state, and history paths used by other mutations.
+why: Build can already execute a bounded change and optimize can expose measurement evidence. Aila now needs a first-class
+  documentation alignment path that can plan doc changes, show diffs and caveats, and persist documentation through mutation
+  safety instead of inventing a side channel.
+constraints: Execute only Milestone 53. Preserve statechart-MVU and explicit effect boundaries. Document is BUILD-owned and
+  must emit exactly one exit payload. Documentation writes must route through normal tool, permission, state, and history
+  paths; docs artifacts must use the state store or artifact resolver. Do not add design/M54 behavior, orchestration loops,
+  provider-backed documentation generation, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, hosted control
+  planes, or pushes. Use behavior-based test names; do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m52.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:22-28
+- ROADMAP.md:112-130
+- ROADMAP.md:2044-2063
+- README.md:196-272
+- ARCHITECTURE.md:168-206
+- ARCHITECTURE.md:337-403
+- ARCHITECTURE.md:578-594
+- ARCHITECTURE.md:681-704
+- docs/workflow-architecture.md:262-279
+- docs/workflow-architecture.md:445-475
+- docs/workflow-architecture.md:584-620
+- docs/tui-testing.md:124-230
+- internal/capability/contract.go
+- internal/capability/build.go
+- internal/capability/optimize.go
+- internal/app/build.go
+- internal/app/optimize.go
+- internal/state/store.go
+- internal/policy/command.go
+- internal/tui/render.go
+- internal/tui/model.go
+- cmd/aila/pty_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/capability -run 'Test.*Document.*|Test.*Capability.*|TestRunBuiltIn' -count=1
+- go test ./internal/runtime -run 'Test.*Document.*|Test.*Capability.*' -count=1
+- go test ./internal/state -run 'Test.*Document.*|Test.*Artifact.*' -count=1
+- go test ./internal/app -run 'Test.*Document.*|Test.*Command.*|Test.*Session.*|Test.*History.*' -count=1
+- go test ./internal/policy -run 'Test.*Document.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Document.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+  -count=1
+- go test ./cmd/aila -run 'TestDocumentCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check
+- changed-line home-path and added func TestM<number> hygiene returns no matches
+scope:
+  included:
+  - Add deterministic document capability metadata and typed output for documentation plan, changed docs, doc diff, source
+    refs, caveats, next action, boundary descriptors, artifact refs, and one exit payload.
+  - Mark document as BUILD-owned in runnable built-in capability dispatch and prove valid exit routing through the FSM successor
+    validator without direct phase mutation.
+  - Wire exact /document command routing through policy, runtime CapabilityProposed/CapabilityEffect/CapabilityCompleted,
+    app-owned documentation evidence, mutation-tool execution, permission policy, state-store artifact access, and history
+    recording.
+  - Persist any durable documentation artifact through state.Store or artifact resolver ownership rather than direct bypass
+    paths.
+  - Expose document display state in the TUI with documentation plan/output, doc diff, caveats, changed docs, source refs,
+    next action, artifact refs, display-only state, and transition_claimed=false.
+  - Add or update documentation plan/output, doc diff, and caveat fixtures plus behavior-named capability/runtime/state/app/policy/TUI/PTY
+    coverage because /document changes the interactive surface.
+  excluded:
+  - Design/M54 behavior, orchestration, provider-backed documentation generation, automatic broad doc rewrites, direct workflow
+    phase mutation, bypass writes, plugins, MCP, dynamic tools, workflow DSLs, generic graph engines, hosted control planes,
+    and push operations.
+  deferred:
+  - Provider-written documentation prose, multi-file doc audits, docs freshness scoring, automated README architecture migrations,
+    design capability behavior, and orchestration-owned documentation campaigns.
+design: Keep document deterministic and host-owned. internal/capability defines DocumentCapability and DocumentOutput over
+  app-supplied documentation alignment evidence; it emits waiting when no target or source behavior is available and complete
+  when a bounded doc plan, diff, caveats, and next action are available. internal/runtime reuses CapabilityProposed, CapabilityEffect,
+  and CapabilityCompleted. internal/state adds a logical documentation artifact owned by the app. internal/app invokes document
+  from the exact /document command, writes the selected documentation file through the existing mutation tool and permission
+  path, persists summary artifacts through state.Store, records history/session evidence, and maps the payload into tui.DocumentView.
+  internal/tui renders injected DocumentView only; it never reads docs, writes files, owns permission decisions, or changes
+  workflow phase.
+overall_acceptance:
+- Capability tests prove document emits exactly one payload with deterministic documentation plan/output, changed docs, doc
+  diff, caveats or needed input, source refs, artifact refs, boundary descriptors, and valid BUILD-owned successor behavior.
+- Registry/policy/workflow checks prove document is BUILD-owned, exact-routed by /document, and cannot bypass FSM successor
+  validation.
+- State/app tests prove /document routes through typed capability effects, mutation tool execution, permission decisions,
+  history recording, and state.Store/artifact resolver access without direct bypass writes.
+- TUI render and semantic snapshots show documentation plan/output, doc diff, caveats, changed docs, source refs, next action,
+  display_only=true, and transition_claimed=false.
+- PTY smoke proves the interactive /document surface writes documentation through the normal mutation path in an isolated
+  workspace while leaving unrelated tracked files unchanged.
+- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises:
+- apply_patch remains unavailable in this environment because the artifact validator hook path is missing, so narrow scripted
+  edits are used and verified with formatter, tests, diff checks, and Agentera validation.
+tasks:
+- number: 1
+  name: Plan and confirm the M53 document scope
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M53 only and excludes
+    design/M54, orchestration, provider-backed documentation generation, plugins, MCP, workflow DSLs, generic graph engines,
+    hosted control planes, and push behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves BUILD ownership,
+    runtime/effect/state/FSM boundaries, mutation-tool and permission paths, history recording, state-store artifact access,
+    and TUI presentation-only behavior.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
+  evidence:
+  - Installed Agentera CLI plan/progress state showed the M52 plan complete, progress available, and M53 as the roadmap next
+    milestone.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M53 section, README workflow/capability sections, ARCHITECTURE
+    capability/state/TUI rules, docs/workflow-architecture BUILD document map and artifact rules, docs/tui-testing gates,
+    and current build/optimize/runtime/app/policy/TUI seams were reviewed.
+  - The plan keeps M53 bounded to deterministic document evidence, BUILD ownership, app-owned routing, normal mutation safety,
+    state-store artifact persistence, TUI evidence, validation, roadmap closeout, and local commit, and it forbids new TestM<number>
+    symbols.
+- number: 2
+  name: Add deterministic document capability payloads
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN documentation target, source behavior, plan, diff, and caveats are provided WHEN document runs THEN it emits one
+    payload with documentation plan/output, changed docs, doc diff, source refs, artifact refs, boundary descriptors, and
+    next action.
+  - GIVEN target or source behavior evidence is missing WHEN document runs THEN it returns waiting with needed input and no
+    invented doc change.
+  - GIVEN document completes WHEN the payload is inspected THEN recommended successor is valid from BUILD and no phase mutation
+    is attempted by the capability itself.
+  evidence:
+  - internal/capability/document.go adds BUILD-owned DocumentCapability, typed DocumentOutput, target/source behavior, plan
+    steps, changed docs, doc diff, mutation evidence, caveats, valid BUILD successor selection, artifact/source refs, boundary
+    descriptors, and exactly-once Invocation emission.
+  - Capability tests cover complete payload emission, missing-evidence waiting without invented doc changes, denied-mutation
+    flagged BUILD hold, and RunBuiltIn dispatch; targeted internal/capability validation passed.
+- number: 3
+  name: Wire document command routing and mutation safety
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN /document is typed WHEN command policy routes input THEN it uses a closed CommandRouteDocument path and does not
+    invoke build, optimize, audit, design, or orchestration paths.
+  - GIVEN the app opens /document WHEN runtime effects are inspected THEN one capability effect dispatches through RunBuiltIn
+    using app-supplied documentation evidence.
+  - GIVEN documentation output is written WHEN workspace state is inspected THEN writes passed through the normal mutation
+    tool, permission policy, history recorder, and state-store artifact access rather than direct bypass writes.
+  evidence:
+  - Closed /document routing is wired through policy.CommandRouteDocument, runtime CapabilityProposed/CapabilityEffect/CapabilityCompleted,
+    app-owned documentation evidence, mutation write tool, permission decision, mutation history, and state.Store documentation
+    artifact persistence as OwnerApp.
+  - Runtime/app/policy/state tests prove the command route, capability dispatch, mutation safety, history recording, state-store
+    artifact access, valid successor handling, denied-write behavior, and no direct bypass writes; targeted validation passed.
+- number: 4
+  name: Render documentation plan diff and caveat evidence
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN DocumentView state is injected WHEN fixtures render THEN documentation plan/output, changed docs, doc diff, caveats,
+    source refs, next action, and artifact refs are visible where space allows.
+  - GIVEN waiting document state is injected WHEN fixtures render THEN needed input and caveats are visible without changed-doc
+    authority claims.
+  - GIVEN semantic snapshots are inspected WHEN document exists THEN changed docs, source refs, next action, display_only=true,
+    and transition_claimed=false are machine-readable.
+  evidence:
+  - TUI DocumentView, render lines, semantic snapshot fields, command fallback, and fixtures expose documentation plan/output,
+    changed docs, doc diff, caveats, next action, artifact/source refs, boundary requests, display_only=true, and transition_claimed=false.
+  - document-command, document-output, and document-waiting fixtures are checked in; targeted TUI fixture/semantic/layout
+    validation passed.
+- number: 5
+  name: Prove interactive document behavior through normal paths
+  depends_on:
+  - 2
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN /document changes terminal behavior WHEN PTY smoke runs THEN the command displays documentation plan/output, doc
+    diff, and caveats in an isolated temp workspace.
+  - GIVEN the PTY smoke finishes WHEN workspace files, history, and git state are checked THEN the intended documentation
+    target is written and unrelated tracked files remain unchanged.
+  - GIVEN tests inspect capability ownership WHEN validation runs THEN document is BUILD-owned and routes validly through
+    runtime/app/policy/TUI without hidden phase mutation.
+  evidence:
+  - /document PTY smoke displays documentation plan/output, doc diff, caveats, mutation safety, and artifact refs in an isolated
+    temp git workspace.
+  - The PTY smoke writes docs/aila-documentation-output.md through the mutation path, persists .aila/artifacts/documentation.md,
+    records fake-history mutation evidence, leaves tracked README unchanged, and creates no docs/aila-build-output.md mutation.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M53 is
+    recorded complete, M54 is selected next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    prior-plan archive, and M53 closeout are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
+  evidence:
+  - Focused capability/runtime/state/app/policy/TUI/cmd tests passed, full internal tests passed, full cmd/aila tests passed
+    with cmd/aila in 352.784s, and final mage check passed with cmd/aila in 360.158s, 0 lint issues, and no vulnerabilities.
+  - Pre-closeout git diff --check, changed-line home-path hygiene, and added func TestM<number> hygiene passed; closeout updates
+    record M53 complete, M54 next, and behavior-named test coverage only.
+completed_at: '2026-05-17'
+closeout_summary: M53 document capability validated with deterministic BUILD-owned `document` behavior over app-supplied documentation
+  target, source behavior, alignment plan, doc output, diff, caveats, mutation result, and next action; one exit payload carries
+  target, plan steps, changed docs, diff lines, mutation and permission evidence, artifact/source refs, boundary descriptors,
+  and a valid BUILD->AUDIT successor when written; app-owned exact `/document` routes through runtime capability effects after
+  a normal write mutation tool and permission decision, records mutation history and undo metadata, persists `.aila/artifacts/documentation.md`
+  through `state.Store` as `OwnerApp`, and avoids provider-backed documentation generation, direct workflow phase mutation,
+  and bypass writes; TUI render/semantic output exposes documentation plan/output, changed docs, doc diff, caveats, source
+  refs, next action, artifact refs, `transition_claimed=false`, and `display_only=true`; `document-command`, `document-output`,
+  and `document-waiting` snapshots are current; PTY smoke proves `/document` output, `docs/aila-documentation-output.md` write,
+  documentation artifact creation, fake-history mutation record, tracked README unchanged, and no build-output mutation; behavior-named
+  new tests only; focused capability/runtime/state/app/policy/TUI/cmd checks; full internal and cmd tests; final `mage check`
+  with cmd/aila in 360.158s, 0 lint issues, and no vulnerabilities; Agentera validation; and changed-line home-path plus added
+  `TestM<number>` hygiene.
+validation_evidence:
+- '`mage fmt` passed.'
+- '`go test ./internal/capability -run ''Test.*Document.*|Test.*Capability.*|TestRunBuiltIn'' -count=1` passed.'
+- '`go test ./internal/runtime -run ''Test.*Document.*|Test.*Capability.*'' -count=1` passed.'
+- '`go test ./internal/state -run ''Test.*Document.*|Test.*Artifact.*'' -count=1` passed.'
+- '`go test ./internal/app -run ''Test.*Document.*|Test.*Command.*|Test.*Session.*|Test.*History.*'' -count=1` passed.'
+- '`go test ./internal/policy -run ''Test.*Document.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability'' -count=1` passed.'
+- '`go test ./internal/tui -run ''TestCommandFixtureSet|Test.*Document.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract''
+  -count=1` passed.'
+- '`go test ./cmd/aila -run ''TestDocumentCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke'' -count=1` passed with cmd/aila
+  in 16.473s.'
+- '`go test ./internal/... -count=1` passed.'
+- '`go test ./cmd/aila -count=1` passed with cmd/aila in 352.784s.'
+- '`mage check` passed with cmd/aila in 360.158s, 0 lint issues, and no vulnerabilities.'
+- '`git diff --check` passed before closeout metadata edits.'
+- Changed-line home-path hygiene and added func TestM<number> hygiene returned no matches before closeout metadata edits.
+- Agentera plan/progress/lint/hej validation passed after closeout metadata edits.

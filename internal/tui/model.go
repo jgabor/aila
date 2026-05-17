@@ -62,6 +62,7 @@ type TranscriptTurn struct {
 	Profile            *ProfileView
 	Optimize           *OptimizeView
 	Document           *DocumentView
+	Design             *DesignView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -689,6 +690,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Document != nil {
 		state.Document = cloneDocumentView(turn.Document)
 	}
+	if turn.Design != nil {
+		state.Design = cloneDesignView(turn.Design)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -849,6 +853,20 @@ func cloneDocumentView(document *DocumentView) *DocumentView {
 	clone.ArtifactRefs = append([]DocumentArtifactRefView(nil), document.ArtifactRefs...)
 	clone.SourceRefs = append([]DocumentSourceRefView(nil), document.SourceRefs...)
 	clone.BoundaryRequests = append([]DocumentBoundaryRequestView(nil), document.BoundaryRequests...)
+	return &clone
+}
+
+func cloneDesignView(design *DesignView) *DesignView {
+	if design == nil {
+		return nil
+	}
+	clone := *design
+	clone.Decisions = append([]DesignDecisionView(nil), design.Decisions...)
+	clone.ReviewPrompts = append([]DesignReviewPromptView(nil), design.ReviewPrompts...)
+	clone.Caveats = append([]string(nil), design.Caveats...)
+	clone.ArtifactRefs = append([]DesignArtifactRefView(nil), design.ArtifactRefs...)
+	clone.SourceRefs = append([]DesignSourceRefView(nil), design.SourceRefs...)
+	clone.BoundaryRequests = append([]DesignBoundaryRequestView(nil), design.BoundaryRequests...)
 	return &clone
 }
 
@@ -1035,6 +1053,12 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteOptimize {
 		state.Optimize = nil
 	}
+	if recommendation.Route != policy.CommandRouteDocument {
+		state.Document = nil
+	}
+	if recommendation.Route != policy.CommandRouteDesign {
+		state.Design = nil
+	}
 	state.FileReference = nil
 	switch recommendation.Route {
 	case policy.CommandRouteNew:
@@ -1124,6 +1148,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"app-owned document alignment unavailable in presentation-only fallback",
 			"read-only: false",
 			"capability: document",
+		}
+	case policy.CommandRouteDesign:
+		state.SurfaceTitle = "design"
+		state.SurfaceLines = []string{
+			"app-owned design-system work unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: design",
 		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"

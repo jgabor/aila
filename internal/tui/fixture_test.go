@@ -2620,7 +2620,7 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" || tc.name == "document-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3616,6 +3616,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		{name: "build-command", input: "/build", route: policy.CommandRouteBuild},
 		{name: "optimize-command", input: "/optimize", route: policy.CommandRouteOptimize},
 		{name: "document-command", input: "/document", route: policy.CommandRouteDocument},
+		{name: "design-command", input: "/design", route: policy.CommandRouteDesign},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3638,7 +3639,7 @@ func TestCommandFixtureSet(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" || tc.name == "document-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3707,6 +3708,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned optimize execution unavailable in presentation-only fallback"
 	case "document":
 		return "app-owned document alignment unavailable in presentation-only fallback"
+	case "design":
+		return "app-owned design-system work unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -4836,6 +4839,187 @@ func documentWaitingFixtureState() ViewState {
 		DisplayOnly:       true,
 		SourceRefs:        []DocumentSourceRefView{{ID: "document-command", Kind: "command", Command: "/document", Excerpt: "waiting for documentation evidence"}},
 		BoundaryRequests:  []DocumentBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "documentation.current", Reason: "document uses app-supplied documentation alignment evidence"}, {Kind: "tool_execution", Operation: "write", Target: "planned documentation target", Reason: "document writes docs through the runtime mutation tool effect"}},
+	}
+	return state
+}
+
+func TestDesignOutputFixtureShowsDecisionsReviewPromptsAndCaveats(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "design-output", designOutputFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Design:", "capability: design"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "goal: aila-terminal-design-system surface=terminal-ui", "artifact status: written", "visual review required: false", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "decision: phase-hierarchy", "review prompt: desktop-hierarchy", "next action: Audit the design-system artifact before continuing.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("design-output render missing design evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Design == nil || snapshot.Design.Goal.ID != "aila-terminal-design-system" || len(snapshot.Design.Decisions) != 3 || len(snapshot.Design.ReviewPrompts) != 2 || len(snapshot.Design.Caveats) != 3 || snapshot.Design.DesignArtifactPath == "" || snapshot.Design.RecommendedSuccessor != "audit" || !snapshot.Design.SuccessorValid || snapshot.Design.VisualReviewRequired || snapshot.Design.TransitionClaimed || !snapshot.Design.DisplayOnly {
+			t.Fatalf("design semantic = %+v", snapshot.Design)
+		}
+	}
+}
+
+func TestDesignReviewPromptFixtureShowsVisualReviewPromptAndFlag(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "design-review-prompts", designReviewPromptFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Design:", "capability: design"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "visual review required: true")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "review prompt: contrast-check", "review prompt: narrow-scan", "caveat: major visual language changes require human review before audit")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("design-review-prompts render missing review evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Design == nil || !snapshot.Design.VisualReviewRequired || len(snapshot.Design.ReviewPrompts) != 2 || snapshot.Design.ReviewPrompts[0].ID != "contrast-check" || snapshot.Design.TransitionClaimed || !snapshot.Design.DisplayOnly {
+			t.Fatalf("design review semantic = %+v", snapshot.Design)
+		}
+	}
+}
+
+func TestDesignCaveatFixtureShowsNeededInputWithoutScreenshotContract(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "design-caveats", designCaveatFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Design:", "capability: design", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "artifact status: not_written", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Provide a design goal and durable design decisions before designing.", "caveat: screenshot captures can aid review but semantic snapshots carry correctness evidence")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("design-caveats render missing caveat evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Design == nil || snapshot.Design.Signal != "waiting" || snapshot.Design.NeededInput == "" || len(snapshot.Design.Decisions) != 0 || len(snapshot.Design.Caveats) != 2 || snapshot.Design.RecommendedSuccessor != "" || snapshot.Design.TransitionClaimed || !snapshot.Design.DisplayOnly {
+			t.Fatalf("design caveat semantic = %+v", snapshot.Design)
+		}
+	}
+}
+
+func designOutputFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "design-output"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-design"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "write"
+	state.StatusDetail = "design capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Design recorded 3 decisions for aila-terminal-design-system."
+	state.FooterContext = "current design capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Design = &DesignView{
+		Source:               "app.design.fixture",
+		Capability:           "design",
+		Signal:               "complete",
+		CurrentPhase:         "build",
+		Summary:              "Design recorded 3 decisions for aila-terminal-design-system.",
+		RecommendedSuccessor: "audit",
+		SuccessorValid:       true,
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		Goal:                 DesignGoalView{ID: "aila-terminal-design-system", Summary: "Keep terminal UI visual decisions durable for agents and humans.", Surface: "terminal-ui"},
+		Decisions:            []DesignDecisionView{{ID: "phase-hierarchy", Area: "information architecture", Decision: "Keep active phase and capability identity visible before detailed evidence.", Rationale: "Users need orientation before inspecting dense output."}, {ID: "review-prompts", Area: "visual review", Decision: "Record explicit visual review prompts beside design decisions.", Rationale: "Screenshots can support judgment but must not become the correctness contract."}, {ID: "artifact-boundary", Area: "state store", Decision: "Persist durable design decisions through the project artifact store.", Rationale: "The TUI displays app-owned evidence and does not own persistence."}},
+		ReviewPrompts:        []DesignReviewPromptView{{ID: "desktop-hierarchy", Question: "Does the wide layout preserve content and session hierarchy?", Target: "docs/mockup-desktop.png"}, {ID: "narrow-clarity", Question: "Can 80x24 still show phase, prompt, caveats, and next action?", Target: "docs/mockup-mobile.png"}},
+		Caveats:              []string{"deterministic app-supplied design evidence only", "screenshots are review aids, not correctness contracts", "no major visual language change in this slice"},
+		NextAction:           "Audit the design-system artifact before continuing.",
+		VisualReviewRequired: false,
+		DesignArtifactPath:   ".aila/artifacts/design.md",
+		ArtifactStatus:       "written",
+		ArtifactRefs:         []DesignArtifactRefView{{ID: "design-artifact", Kind: "design", Path: ".aila/artifacts/design.md"}, {ID: "design-surface", Kind: "ui_surface", Path: "terminal-ui"}},
+		SourceRefs:           []DesignSourceRefView{{ID: "design-command", Kind: "command", Command: "/design", Excerpt: "app-owned design command"}, {ID: "design-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "design is BUILD-owned"}, {ID: "design-tui-testing-doc", Kind: "doc", Path: "docs/tui-testing.md", Excerpt: "visual review complements deterministic snapshots"}},
+		BoundaryRequests:     []DesignBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "design.current", Reason: "design uses app-supplied visual identity and UI-system evidence"}, {Kind: "artifact_access", Operation: "artifact.access", Target: "design", Reason: "state store resolves durable design-system output"}, {Kind: "state_write", Operation: "state.write", Target: "design", Reason: "state store records durable design-system output"}},
+	}
+	return state
+}
+
+func designReviewPromptFixtureState() ViewState {
+	state := designOutputFixtureState()
+	state.Scenario = "design-review-prompts"
+	state.RuntimeResult = "Design marked visual review prompts for terminal visual language changes."
+	state.Design.Summary = "Design marked visual review prompts for terminal visual language changes."
+	state.Design.Decisions = []DesignDecisionView{{ID: "visual-language", Area: "visual review", Decision: "Require a human visual review before audit when the visual language changes.", Rationale: "Semantic snapshots prove structure while people judge visual fit."}}
+	state.Design.ReviewPrompts = []DesignReviewPromptView{{ID: "contrast-check", Question: "Does the palette preserve contrast across active and inactive terminal regions?", Target: "docs/mockup-desktop.png"}, {ID: "narrow-scan", Question: "Does narrow layout still expose phase, decision, caveat, and next action without overlap?", Target: "80x24 fixture"}}
+	state.Design.Caveats = []string{"major visual language changes require human review before audit", "screenshots remain review aids beside semantic snapshots"}
+	state.Design.VisualReviewRequired = true
+	state.Design.ArtifactStatus = "planned"
+	return state
+}
+
+func designCaveatFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "design-caveats"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-design"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "design capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Design needs a design goal and durable decisions before recording UI-system work."
+	state.Design = &DesignView{
+		Source:             "app.design.fixture",
+		Capability:         "design",
+		Signal:             "waiting",
+		CurrentPhase:       "build",
+		Summary:            "Design needs a design goal and durable decisions before recording UI-system work.",
+		NeededInput:        "Provide a design goal and durable design decisions before designing.",
+		Caveats:            []string{"design evidence unavailable until goal and decision records are provided", "screenshot captures can aid review but semantic snapshots carry correctness evidence"},
+		NextAction:         "Provide design evidence, then run design again.",
+		DesignArtifactPath: ".aila/artifacts/design.md",
+		ArtifactStatus:     "not_written",
+		TransitionClaimed:  false,
+		DisplayOnly:        true,
+		SourceRefs:         []DesignSourceRefView{{ID: "design-command", Kind: "command", Command: "/design", Excerpt: "waiting for design evidence"}},
+		BoundaryRequests:   []DesignBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "design.current", Reason: "design uses app-supplied visual identity and UI-system evidence"}, {Kind: "artifact_access", Operation: "artifact.access", Target: "design", Reason: "state store resolves durable design-system output"}},
 	}
 	return state
 }

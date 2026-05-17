@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime waiting | Model fake/fake-design | Utility placeholder | Auto read                                [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-design                                                                                      |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: waiting                                                                                                      |
+| detail: design capability status                                                                                     |
+| active: false                                                                                                        |
+| result: Design needs a design goal and durable decisions before recording UI-system work.                            |
+|                                                                                                                      |
+| Design:                                                                                                              |
+| source: app.design.fixture                                                                                           |
+| capability: design                                                                                                   |
+| signal: waiting                                                                                                      |
+| phase: build                                                                                                         |
+| goal:  surface=                                                                                                      |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: not_written                                                                                         |
+| visual review required: false                                                                                        |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| recommended successor:                                                                                               |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

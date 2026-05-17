@@ -1,0 +1,44 @@
+Aila                                                                                                                                                      160x45
+Stage BUILD | Runtime idle | Model fake/fake-design | Utility placeholder | Auto write
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-design                                                                                  |  | primary model: fake/fake-design        |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: write (display-only)                                                                                   |  | autonomy: write                        |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: design capability status                                                                                 |  | detail: design capability status       |
+| active: false                                                                                                    |  | active: false                          |
+| result: Design marked visual review prompts for terminal visual language changes.                                |  | result: Design marked visual review p~ |
+|                                                                                                                  |  | display-only                           |
+| Design:                                                                                                          |  | git: placeholder                       |
+| source: app.design.fixture                                                                                       |  | context: current design capability     |
+| capability: design                                                                                               |  |                                        |
+| signal: complete                                                                                                 |  |                                        |
+| phase: build                                                                                                     |  |                                        |
+| goal: aila-terminal-design-system surface=terminal-ui                                                            |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: planned                                                                                         |  |                                        |
+| visual review required: true                                                                                     |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| recommended successor: audit                                                                                     |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| summary: Design marked visual review prompts for terminal visual language changes.                               |  |                                        |
+| goal summary: Keep terminal UI visual decisions durable for agents and humans.                                   |  |                                        |
+| next action: Audit the design-system artifact before continuing.                                                 |  |                                        |
+| decision: visual-language area=visual review decision=Require a human visual review before audit when the visua~ |  |                                        |
+| rationale: visual-language Semantic snapshots prove structure while people judge visual fit.                     |  |                                        |
+| review prompt: contrast-check question=Does the palette preserve contrast across active and inactive terminal r~ |  |                                        |
+| review prompt: narrow-scan question=Does narrow layout still expose phase, decision, caveat, and next action wi~ |  |                                        |
+| caveat: major visual language changes require human review before audit                                          |  |                                        |
+| caveat: screenshots remain review aids beside semantic snapshots                                                 |  |                                        |
+| artifact ref: design-artifact kind=design path=[path-redacted]                                                   |  |                                        |
+| artifact ref: design-surface kind=ui_surface path=terminal-ui                                                    |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                  git: placeholder | context: current design capability | q quit

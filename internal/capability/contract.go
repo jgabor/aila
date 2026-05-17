@@ -35,7 +35,7 @@ var orderedDefinitions = []Definition{
 	{Name: NameBuild, OwningPhase: workflow.PhaseBuild, Description: "execute a single task or plan step and hold"},
 	{Name: NameOptimize, OwningPhase: workflow.PhaseBuild, Description: "design and run metric-driven optimization work"},
 	{Name: NameDocument, OwningPhase: workflow.PhaseBuild, Description: "align documentation with the project"},
-	{Name: NameDesign, OwningPhase: workflow.PhaseEnvision, Description: "create a durable design system"},
+	{Name: NameDesign, OwningPhase: workflow.PhaseBuild, Description: "create a durable visual identity and UI system"},
 	{Name: NameAudit, OwningPhase: workflow.PhaseAudit, Description: "architecture, test, dependency, and project health audit"},
 	{Name: NameProfile, OwningPhase: workflow.PhaseIdle, CrossCutting: true, Description: "profile decision patterns from previous conversations"},
 	{Name: NameOrchestrate, OwningPhase: workflow.PhaseBuild, Description: "autonomous plan execution with evaluation and retry checks"},
@@ -218,6 +218,7 @@ type ExitPayload struct {
 	Profile              *ProfileOutput
 	Optimize             *OptimizeOutput
 	Document             *DocumentOutput
+	Design               *DesignOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -361,6 +362,15 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		document.Caveats = append([]string(nil), payload.Document.Caveats...)
 		document.SourceRefs = append([]SourceRef(nil), payload.Document.SourceRefs...)
 		payload.Document = &document
+	}
+
+	if payload.Design != nil {
+		design := *payload.Design
+		design.Decisions = append([]DesignDecision(nil), payload.Design.Decisions...)
+		design.ReviewPrompts = append([]DesignReviewPrompt(nil), payload.Design.ReviewPrompts...)
+		design.Caveats = append([]string(nil), payload.Design.Caveats...)
+		design.SourceRefs = append([]SourceRef(nil), payload.Design.SourceRefs...)
+		payload.Design = &design
 	}
 
 	if payload.Profile != nil {

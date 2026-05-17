@@ -73,6 +73,7 @@ type ViewState struct {
 	Profile            *ProfileView
 	Optimize           *OptimizeView
 	Document           *DocumentView
+	Design             *DesignView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -572,6 +573,77 @@ type DocumentSourceRefView struct {
 
 // DocumentBoundaryRequestView records one inert document boundary descriptor.
 type DocumentBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
+// DesignView is app-injected visual identity and UI-system output.
+type DesignView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	CurrentPhase         string
+	Summary              string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	Goal                 DesignGoalView
+	Decisions            []DesignDecisionView
+	ReviewPrompts        []DesignReviewPromptView
+	Caveats              []string
+	NeededInput          string
+	NextAction           string
+	VisualReviewRequired bool
+	DesignArtifactPath   string
+	ArtifactStatus       string
+	ArtifactRefs         []DesignArtifactRefView
+	SourceRefs           []DesignSourceRefView
+	BoundaryRequests     []DesignBoundaryRequestView
+}
+
+// DesignGoalView records the bounded design target.
+type DesignGoalView struct {
+	ID      string
+	Summary string
+	Surface string
+}
+
+// DesignDecisionView records one durable design-system decision.
+type DesignDecisionView struct {
+	ID        string
+	Area      string
+	Decision  string
+	Rationale string
+}
+
+// DesignReviewPromptView records one visual review prompt.
+type DesignReviewPromptView struct {
+	ID       string
+	Question string
+	Target   string
+}
+
+// DesignArtifactRefView records one design artifact reference.
+type DesignArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// DesignSourceRefView records one source reference supporting design output.
+type DesignSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// DesignBoundaryRequestView records one inert design boundary descriptor.
+type DesignBoundaryRequestView struct {
 	Kind      string
 	Operation string
 	Target    string
@@ -1094,6 +1166,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, profileLines(state.Profile)...)
 	items = append(items, optimizeLines(state.Optimize)...)
 	items = append(items, documentLines(state.Document)...)
+	items = append(items, designLines(state.Design)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1920,6 +1993,91 @@ func documentLines(document *DocumentView) []string {
 		lines = append(lines, line)
 	}
 	return append(lines, "")
+}
+
+func designLines(design *DesignView) []string {
+	if design == nil {
+		return nil
+	}
+	semantic := semanticDesign(design)
+	lines := []string{
+		"  Design:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  phase: " + semantic.CurrentPhase,
+		"  goal: " + semantic.Goal.ID + " surface=" + semantic.Goal.Surface,
+		"  artifact: " + semantic.DesignArtifactPath,
+		"  artifact status: " + semantic.ArtifactStatus,
+		"  visual review required: " + boolLabel(semantic.VisualReviewRequired),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.Goal.Summary != "" {
+		lines = append(lines, "  goal summary: "+semantic.Goal.Summary)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, decision := range semantic.Decisions {
+		lines = append(lines, "  decision: "+decision.ID+" area="+decision.Area+" decision="+decision.Decision)
+		if decision.Rationale != "" {
+			lines = append(lines, "  rationale: "+decision.ID+" "+decision.Rationale)
+		}
+	}
+	for _, prompt := range semantic.ReviewPrompts {
+		line := "  review prompt: " + prompt.ID + " question=" + prompt.Question
+		if prompt.Target != "" {
+			line += " target=" + prompt.Target
+		}
+		lines = append(lines, line)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "  app-owned", "  display-only", "")
+	return lines
 }
 
 func optimizeLines(optimize *OptimizeView) []string {
@@ -3108,6 +3266,7 @@ type SemanticSnapshot struct {
 	Profile        *SemanticProfile        `json:"profile,omitempty"`
 	Optimize       *SemanticOptimize       `json:"optimize,omitempty"`
 	Document       *SemanticDocument       `json:"document,omitempty"`
+	Design         *SemanticDesign         `json:"design,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3707,6 +3866,78 @@ type SemanticOptimizeSourceRef struct {
 
 // SemanticOptimizeBoundaryRequest records one inert optimize boundary descriptor.
 type SemanticOptimizeBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// SemanticDesign describes app-injected visual identity and UI-system output.
+type SemanticDesign struct {
+	Visible              bool                            `json:"visible"`
+	Source               string                          `json:"source"`
+	Capability           string                          `json:"capability"`
+	Signal               string                          `json:"signal"`
+	CurrentPhase         string                          `json:"current_phase,omitempty"`
+	Summary              string                          `json:"summary,omitempty"`
+	RecommendedSuccessor string                          `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                            `json:"successor_valid"`
+	TransitionClaimed    bool                            `json:"transition_claimed"`
+	DisplayOnly          bool                            `json:"display_only"`
+	Goal                 SemanticDesignGoal              `json:"goal"`
+	Decisions            []SemanticDesignDecision        `json:"decisions,omitempty"`
+	ReviewPrompts        []SemanticDesignReviewPrompt    `json:"review_prompts,omitempty"`
+	Caveats              []string                        `json:"caveats,omitempty"`
+	NeededInput          string                          `json:"needed_input,omitempty"`
+	NextAction           string                          `json:"next_action,omitempty"`
+	VisualReviewRequired bool                            `json:"visual_review_required"`
+	DesignArtifactPath   string                          `json:"design_artifact_path,omitempty"`
+	ArtifactStatus       string                          `json:"artifact_status,omitempty"`
+	ArtifactRefs         []SemanticDesignArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticDesignSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticDesignBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticDesignGoal records the bounded design target.
+type SemanticDesignGoal struct {
+	ID      string `json:"id"`
+	Summary string `json:"summary,omitempty"`
+	Surface string `json:"surface,omitempty"`
+}
+
+// SemanticDesignDecision records one machine-readable design decision.
+type SemanticDesignDecision struct {
+	ID        string `json:"id"`
+	Area      string `json:"area,omitempty"`
+	Decision  string `json:"decision"`
+	Rationale string `json:"rationale,omitempty"`
+}
+
+// SemanticDesignReviewPrompt records one machine-readable visual review prompt.
+type SemanticDesignReviewPrompt struct {
+	ID       string `json:"id"`
+	Question string `json:"question"`
+	Target   string `json:"target,omitempty"`
+}
+
+// SemanticDesignArtifactRef records one design artifact ref.
+type SemanticDesignArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticDesignSourceRef records one design source reference.
+type SemanticDesignSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticDesignBoundaryRequest records one inert design boundary descriptor.
+type SemanticDesignBoundaryRequest struct {
 	Kind      string `json:"kind"`
 	Operation string `json:"operation,omitempty"`
 	Target    string `json:"target,omitempty"`
@@ -4539,6 +4770,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Document != nil {
 		regions = append(regions, SemanticRegion{Name: "document", Visible: true, Items: semanticDocumentItems(state.Document)})
 	}
+	if state.Design != nil {
+		regions = append(regions, SemanticRegion{Name: "design", Visible: true, Items: semanticDesignItems(state.Design)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -4637,6 +4871,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Profile:        semanticProfile(state.Profile),
 		Optimize:       semanticOptimize(state.Optimize),
 		Document:       semanticDocument(state.Document),
+		Design:         semanticDesign(state.Design),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -6371,6 +6606,138 @@ func semanticDocument(document *DocumentView) *SemanticDocument {
 		NextAction:           safeText(document.NextAction),
 		DocumentArtifactPath: safeText(document.DocumentArtifactPath),
 		ArtifactStatus:       safeText(document.ArtifactStatus),
+		ArtifactRefs:         artifacts,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticDesignItems(design *DesignView) []string {
+	semantic := semanticDesign(design)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"phase: " + semantic.CurrentPhase,
+		"goal: " + semantic.Goal.ID + " surface=" + semantic.Goal.Surface,
+		"artifact_status: " + semantic.ArtifactStatus,
+		"visual_review_required: " + boolLabel(semantic.VisualReviewRequired),
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.Goal.Summary != "" {
+		items = append(items, "goal_summary: "+semantic.Goal.Summary)
+	}
+	if semantic.DesignArtifactPath != "" {
+		items = append(items, "design_artifact_path: "+semantic.DesignArtifactPath)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, decision := range semantic.Decisions {
+		items = append(items, "decision: "+decision.ID+" area="+decision.Area+" decision="+decision.Decision)
+	}
+	for _, prompt := range semantic.ReviewPrompts {
+		item := "review_prompt: " + prompt.ID + " question=" + prompt.Question
+		if prompt.Target != "" {
+			item += " target=" + prompt.Target
+		}
+		items = append(items, item)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticDesign(design *DesignView) *SemanticDesign {
+	if design == nil {
+		return nil
+	}
+	decisions := make([]SemanticDesignDecision, 0, len(design.Decisions))
+	for _, decision := range design.Decisions {
+		decisions = append(decisions, SemanticDesignDecision{ID: safeText(decision.ID), Area: safeText(decision.Area), Decision: safeText(decision.Decision), Rationale: safeText(decision.Rationale)})
+	}
+	prompts := make([]SemanticDesignReviewPrompt, 0, len(design.ReviewPrompts))
+	for _, prompt := range design.ReviewPrompts {
+		prompts = append(prompts, SemanticDesignReviewPrompt{ID: safeText(prompt.ID), Question: safeText(prompt.Question), Target: safeText(prompt.Target)})
+	}
+	artifacts := make([]SemanticDesignArtifactRef, 0, len(design.ArtifactRefs))
+	for _, ref := range design.ArtifactRefs {
+		artifacts = append(artifacts, SemanticDesignArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticDesignSourceRef, 0, len(design.SourceRefs))
+	for _, ref := range design.SourceRefs {
+		refs = append(refs, SemanticDesignSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticDesignBoundaryRequest, 0, len(design.BoundaryRequests))
+	for _, request := range design.BoundaryRequests {
+		requests = append(requests, SemanticDesignBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticDesign{
+		Visible:              true,
+		Source:               safeText(defaultString(design.Source, "app.design")),
+		Capability:           safeText(defaultString(design.Capability, "design")),
+		Signal:               safeText(defaultString(design.Signal, "complete")),
+		CurrentPhase:         safeText(design.CurrentPhase),
+		Summary:              safeText(design.Summary),
+		RecommendedSuccessor: safeText(design.RecommendedSuccessor),
+		SuccessorValid:       design.SuccessorValid,
+		TransitionClaimed:    design.TransitionClaimed,
+		DisplayOnly:          design.DisplayOnly,
+		Goal:                 SemanticDesignGoal{ID: safeText(design.Goal.ID), Summary: safeText(design.Goal.Summary), Surface: safeText(design.Goal.Surface)},
+		Decisions:            decisions,
+		ReviewPrompts:        prompts,
+		Caveats:              safeTextSlice(design.Caveats),
+		NeededInput:          safeText(design.NeededInput),
+		NextAction:           safeText(design.NextAction),
+		VisualReviewRequired: design.VisualReviewRequired,
+		DesignArtifactPath:   safeText(design.DesignArtifactPath),
+		ArtifactStatus:       safeText(design.ArtifactStatus),
 		ArtifactRefs:         artifacts,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,

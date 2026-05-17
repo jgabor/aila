@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime waiting | Model fake/fake-design | Utility placeholder | ~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-design                                              |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: design capability status                                             |
+| active: false                                                                |
+| result: Design needs a design goal and durable decisions before recording U~ |
+|                                                                              |
+| Design:                                                                      |
+| source: app.design.fixture                                                   |
+| capability: design                                                           |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit

@@ -100,8 +100,8 @@ func TestBriefCapabilityUsesBoundaryDescriptorsForStateHistoryContextAndHealth(t
 func TestBuiltInRunnerRejectsCapabilitiesWithoutBuiltInRunner(t *testing.T) {
 	t.Parallel()
 
-	if _, err := RunBuiltIn(context.Background(), Request{Capability: NameDesign}); err == nil {
-		t.Fatal("RunBuiltIn accepted unsupported design capability")
+	if _, err := RunBuiltIn(context.Background(), Request{Capability: NameOrchestrate}); err == nil {
+		t.Fatal("RunBuiltIn accepted unsupported orchestrate capability")
 	}
 }
 

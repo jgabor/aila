@@ -1,4 +1,75 @@
 cycles:
+  - number: 245
+    timestamp: 2026-05-17 19:52
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 54 by adding deterministic BUILD-owned design payloads, exact /design routing, state-store design
+      artifact persistence, TUI design decisions/review prompts/caveats, behavior-named PTY smoke coverage, ROADMAP closeout,
+      and Agentera task completion without making screenshots the correctness contract.
+    commit: "same local commit: add design capability"
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 54; focused capability/runtime/state/app/policy/TUI/cmd tests; go test ./...; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Design can stay BUILD-owned by adapting app-supplied visual identity and UI-system evidence into one typed payload with
+      durable design decisions, visual review prompts, caveats, source refs, boundary descriptors, and a state-store artifact,
+      while keeping screenshots as human review aids instead of correctness contracts and leaving M55 subagents, orchestration,
+      provider-backed visual generation, broad visual redesigns, plugins, MCP, workflow DSLs, hosted control planes, and direct
+      phase mutation out of scope.
+    verified: >-
+      `mage fmt` passed. Focused design capability/runtime/state/app/policy/TUI/cmd checks passed. `go test ./...` passed
+      with cmd/aila in 367.670s. Final `mage check` passed with cmd/aila in 378.022s, 0 lint issues, and no vulnerabilities.
+      No major visual language change was made, so human visual review was not required; design fixtures and PTY smoke prove
+      behavior without screenshot correctness claims. Agentera plan/progress/lint/hej validation passed after metadata closeout; git diff --check passed; changed-line home-path
+      hygiene and added func TestM<number> hygiene returned no matches.
+    next: >-
+      Milestone 55: Subagent Spawn And Completion is the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: >-
+        Execute only M54; no M55 subagents, orchestration, provider-backed visual generation, screenshots as correctness contract,
+        broad visual language changes, direct workflow phase mutation, bypass writes, plugins, MCP, dynamic tools, workflow DSLs,
+        generic graph engines, hosted control planes, or push.
+      unknowns: >-
+        Provider-written design proposals, generated design assets, screenshot capture/evaluation, whole-app visual refresh, design
+        token theming, visual regression scoring, and orchestration-owned design campaigns remain deferred.
+      scope: >-
+        internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage,
+        design fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M53 plan.
+  - number: 244
+    timestamp: 2026-05-17 19:29
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 54: Design Capability as the next roadmap milestone, archived the completed M53 plan, and created a
+      new active plan with six bounded tasks for deterministic design payloads, BUILD ownership correction, state-store design
+      artifact persistence, TUI design decisions/review prompts/caveats, PTY smoke validation, roadmap closeout, and commit.
+    commit: 'N/A: planning artifact before M54 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 54; AGENTS.md; README capability table; ARCHITECTURE capability/state/TUI rules; docs/workflow-architecture BUILD visualisera mapping; docs/tui-testing human visual review guidance; installed Agentera CLI hej/plan/progress state
+    discovered: >-
+      M54 can stay narrow by making design deterministic over app-supplied visual identity and UI-system evidence, marking it
+      BUILD-owned, persisting a design-system artifact through state.Store, rendering design decisions/review prompts/caveats,
+      and keeping screenshots as non-authoritative human review aids rather than correctness contracts. The existing registry
+      still lists design as ENVISION-owned, so M54 must correct that to BUILD.
+    verified: >-
+      Installed Agentera CLI hej/plan/progress passed from $HOME/.local/share/agentera; ROADMAP.md top status and M54 section,
+      docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability/state/TUI rules, docs/workflow-architecture
+      BUILD visualisera mapping, docs/tui-testing visual review guidance, and current document/optimize/state/capability/runtime/app/policy/TUI
+      seams were reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids new TestM<number> symbols.
+    next: >-
+      Execute M54 Tasks 2-5: add deterministic design payloads, correct BUILD ownership and /design routing, persist design
+      artifacts through the state store, render design decisions/review prompts/caveats, and add PTY smoke coverage before validation,
+      roadmap closeout, and commit.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M53, selecting M54 and preparing an executable plan before implementation.
+      constraints: >-
+        Execute only M54; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, state-store artifact ownership,
+        TUI presentation-only behavior, fixed product posture, behavior-based test names, no screenshots as correctness contract,
+        and no push.
+      unknowns: >-
+        Exact DesignView field shape, durable design artifact wording, and smallest bounded visual review prompt set are implementation-owned;
+        provider-backed design generation, generated visual assets, whole-app visual refreshes, screenshot scoring, M55 subagents, and multi-cycle orchestration remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m53.yaml archival, and progress evidence for the M54 planning handoff.
   - number: 243
     timestamp: 2026-05-17 18:54
     type: build

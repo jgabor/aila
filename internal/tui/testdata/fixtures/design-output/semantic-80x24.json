@@ -1,0 +1,249 @@
+{
+  "scenario": "design-output",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "design capability status",
+    "runtime_result": "Design recorded 3 decisions for aila-terminal-design-system.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-design",
+    "utility_model": "placeholder",
+    "autonomy": "write",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "design": {
+    "visible": true,
+    "source": "app.design.fixture",
+    "capability": "design",
+    "signal": "complete",
+    "current_phase": "build",
+    "summary": "Design recorded 3 decisions for aila-terminal-design-system.",
+    "recommended_successor": "audit",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "goal": {
+      "id": "aila-terminal-design-system",
+      "summary": "Keep terminal UI visual decisions durable for agents and humans.",
+      "surface": "terminal-ui"
+    },
+    "decisions": [
+      {
+        "id": "phase-hierarchy",
+        "area": "information architecture",
+        "decision": "Keep active phase and capability identity visible before detailed evidence.",
+        "rationale": "Users need orientation before inspecting dense output."
+      },
+      {
+        "id": "review-prompts",
+        "area": "visual review",
+        "decision": "Record explicit visual review prompts beside design decisions.",
+        "rationale": "Screenshots can support judgment but must not become the correctness contract."
+      },
+      {
+        "id": "artifact-boundary",
+        "area": "state store",
+        "decision": "Persist durable design decisions through the project artifact store.",
+        "rationale": "The TUI displays app-owned evidence and does not own persistence."
+      }
+    ],
+    "review_prompts": [
+      {
+        "id": "desktop-hierarchy",
+        "question": "Does the wide layout preserve content and session hierarchy?",
+        "target": "docs/mockup-desktop.png"
+      },
+      {
+        "id": "narrow-clarity",
+        "question": "Can 80x24 still show phase, prompt, caveats, and next action?",
+        "target": "docs/mockup-mobile.png"
+      }
+    ],
+    "caveats": [
+      "deterministic app-supplied design evidence only",
+      "screenshots are review aids, not correctness contracts",
+      "no major visual language change in this slice"
+    ],
+    "next_action": "Audit the design-system artifact before continuing.",
+    "visual_review_required": false,
+    "design_artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "artifact_refs": [
+      {
+        "id": "design-artifact",
+        "kind": "design",
+        "path": "[path-redacted]"
+      },
+      {
+        "id": "design-surface",
+        "kind": "ui_surface",
+        "path": "terminal-ui"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "design-command",
+        "kind": "command",
+        "command": "/design",
+        "excerpt": "app-owned design command"
+      },
+      {
+        "id": "design-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "design is BUILD-owned"
+      },
+      {
+        "id": "design-tui-testing-doc",
+        "kind": "doc",
+        "path": "docs/tui-testing.md",
+        "excerpt": "visual review complements deterministic snapshots"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "design.current",
+        "reason": "design uses app-supplied visual identity and UI-system evidence"
+      },
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "design",
+        "reason": "state store resolves durable design-system output"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "design",
+        "reason": "state store records durable design-system output"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-design",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-design",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: design capability status",
+        "active: false",
+        "result: Design recorded 3 decisions for aila-terminal-design-system.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "design",
+      "visible": true,
+      "items": [
+        "source: app.design.fixture",
+        "capability: design",
+        "signal: complete",
+        "phase: build",
+        "goal: aila-terminal-design-system surface=terminal-ui",
+        "artifact_status: written",
+        "visual_review_required: false",
+        "recommended_successor: audit",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Design recorded 3 decisions for aila-terminal-design-system.",
+        "goal_summary: Keep terminal UI visual decisions durable for agents and humans.",
+        "design_artifact_path: [path-redacted]",
+        "next_action: Audit the design-system artifact before continuing.",
+        "decision: phase-hierarchy area=information architecture decision=Keep active phase and capability identity visible before detailed evidence.",
+        "decision: review-prompts area=visual review decision=Record explicit visual review prompts beside design decisions.",
+        "decision: artifact-boundary area=state store decision=Persist durable design decisions through the project artifact store.",
+        "review_prompt: desktop-hierarchy question=Does the wide layout preserve content and session hierarchy? target=docs/mockup-desktop.png",
+        "review_prompt: narrow-clarity question=Can 80x24 still show phase, prompt, caveats, and next action? target=docs/mockup-mobile.png",
+        "caveat: deterministic app-supplied design evidence only",
+        "caveat: screenshots are review aids, not correctness contracts",
+        "caveat: no major visual language change in this slice",
+        "artifact_ref: design-artifact kind=design path=[path-redacted]",
+        "artifact_ref: design-surface kind=ui_surface path=terminal-ui",
+        "boundary_request: state_access operation=state.access target=design.current reason=design uses app-supplied visual identity and UI-system evidence",
+        "boundary_request: artifact_access operation=artifact.access target=design reason=state store resolves durable design-system output",
+        "boundary_request: state_write operation=state.write target=design reason=state store records durable design-system output",
+        "source_ref: design-command kind=command command=/design excerpt=app-owned design command",
+        "source_ref: design-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=design is BUILD-owned",
+        "source_ref: design-tui-testing-doc kind=doc path=docs/tui-testing.md excerpt=visual review complements deterministic snapshots"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: current design capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}
