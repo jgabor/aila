@@ -78,6 +78,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 		return DocumentCapability{}.Run(ctx, request)
 	case NameDesign:
 		return DesignCapability{}.Run(ctx, request)
+	case NameOrchestrate:
+		return OrchestrateCapability{}.Run(ctx, request)
 	case NameAudit:
 		return AuditCapability{}.Run(ctx, request)
 	default:

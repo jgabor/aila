@@ -1,0 +1,283 @@
+{
+  "scenario": "orchestration-progress",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "orchestration capability status",
+    "runtime_result": "Orchestration completed 2 cycles for current-plan with 1 retry used.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-orchestrate",
+    "utility_model": "fake/fake-utility",
+    "autonomy": "write"
+  },
+  "command": {
+    "route": "",
+    "route_source": "",
+    "surface": "agent evidence",
+    "visible": true,
+    "executed": false
+  },
+  "orchestrate": {
+    "visible": true,
+    "source": "app.orchestrate.fixture",
+    "capability": "orchestrate",
+    "signal": "complete",
+    "current_phase": "build",
+    "status": "completed",
+    "active_cycle": "cycle-2",
+    "summary": "Orchestration completed 2 cycles for current-plan with 1 retry used.",
+    "recommended_successor": "audit",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "goal": {
+      "id": "current-plan",
+      "title": "Coordinate the accepted plan",
+      "scope": "bounded existing capabilities and supervised subagents"
+    },
+    "retry_budget": {
+      "max_attempts": 1,
+      "used": 1,
+      "remaining": 0
+    },
+    "cycles": [
+      {
+        "id": "cycle-1",
+        "capability": "build",
+        "status": "retrying",
+        "summary": "dispatch build child and evaluate retryable failure",
+        "evaluation": "missing verification evidence",
+        "retry_decision": "retry build with preserved evidence",
+        "retry_attempt": 0,
+        "child_work_ids": ["orchestrate-build-1"],
+        "evidence_ref_ids": ["cycle-1-evaluation"]
+      },
+      {
+        "id": "cycle-2",
+        "capability": "build",
+        "status": "completed",
+        "summary": "retry build child and request audit evaluation",
+        "evaluation": "recovered result accepted",
+        "retry_decision": "stop retries and summarize",
+        "retry_attempt": 1,
+        "child_work_ids": ["orchestrate-build-retry", "orchestrate-audit"],
+        "evidence_ref_ids": ["cycle-2-evaluation"]
+      }
+    ],
+    "child_work": [
+      {
+        "id": "orchestrate-build-1",
+        "capability": "build",
+        "purpose": "execute the first bounded plan step",
+        "status": "failed",
+        "summary": "build child reported missing verification evidence",
+        "retry_attempt": 0,
+        "evidence_ref_ids": ["cycle-1-evaluation"]
+      },
+      {
+        "id": "orchestrate-build-retry",
+        "capability": "build",
+        "purpose": "retry the bounded plan step with preserved evidence",
+        "status": "completed",
+        "summary": "retry completed after preserving evaluation evidence",
+        "retry_attempt": 1,
+        "evidence_ref_ids": ["cycle-2-evaluation"]
+      },
+      {
+        "id": "orchestrate-audit",
+        "capability": "audit",
+        "purpose": "evaluate the recovered build result",
+        "status": "completed",
+        "summary": "audit accepted the recovered result",
+        "retry_attempt": 0,
+        "evidence_ref_ids": ["cycle-2-evaluation"]
+      }
+    ],
+    "decisions": [
+      {
+        "id": "retry-build",
+        "kind": "retry",
+        "summary": "Retry the failed build child once.",
+        "reason": "failure was retryable and retry budget remained",
+        "result": "retry dispatched",
+        "evidence_ref": "cycle-1-evaluation"
+      },
+      {
+        "id": "final-audit",
+        "kind": "evaluation",
+        "summary": "Request audit evaluation after recovered build evidence.",
+        "reason": "orchestrate must evaluate before final summary",
+        "result": "audit accepted",
+        "evidence_ref": "cycle-2-evaluation"
+      }
+    ],
+    "evidence": [
+      {
+        "id": "cycle-1-evaluation",
+        "kind": "evaluation",
+        "summary": "first build child failed with retryable evidence gap",
+        "ref_id": "orchestrate-build-1"
+      },
+      {
+        "id": "cycle-2-evaluation",
+        "kind": "evaluation",
+        "summary": "retry completed and audit evidence accepted",
+        "ref_id": "orchestrate-build-retry"
+      }
+    ],
+    "blockers": ["human-only dogfooding remains out of scope"],
+    "caveats": [
+      "deterministic app-supplied orchestration evidence only",
+      "no provider-backed child execution in this slice"
+    ],
+    "final_summary": "Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.",
+    "next_action": "Audit the orchestration summary before human-only dogfooding.",
+    "artifact_refs": [
+      {
+        "id": "plan-artifact",
+        "kind": "state_artifact",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "orchestrate-command",
+        "kind": "command",
+        "command": "/orchestrate",
+        "excerpt": "app-owned orchestration command"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "orchestration.current",
+        "reason": "orchestrate requires app-supplied runtime and plan state"
+      },
+      {
+        "kind": "tool_execution",
+        "operation": "capability.dispatch",
+        "target": "fixed built-in capabilities",
+        "reason": "orchestrate dispatches only through existing capability/tool paths"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-orchestrate",
+        "utility: fake/fake-utility",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-orchestrate",
+        "utility model: fake/fake-utility",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: orchestration capability status",
+        "active: false",
+        "result: Orchestration completed 2 cycles for current-plan with 1 retry used.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "orchestrate",
+      "visible": true,
+      "items": [
+        "source: app.orchestrate.fixture",
+        "capability: orchestrate",
+        "signal: complete",
+        "phase: build",
+        "status: completed",
+        "active_cycle: cycle-2",
+        "goal: current-plan scope=bounded existing capabilities and supervised subagents title=Coordinate the accepted plan",
+        "retry_budget: max=1 used=1 remaining=0",
+        "recommended_successor: audit",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Orchestration completed 2 cycles for current-plan with 1 retry used.",
+        "cycle: cycle-1 capability=build status=retrying retry=0 evaluation=missing verification evidence retry_decision=retry build with preserved evidence",
+        "cycle: cycle-2 capability=build status=completed retry=1 evaluation=recovered result accepted retry_decision=stop retries and summarize",
+        "child_work: orchestrate-build-1 capability=build status=failed retry=0 purpose=execute the first bounded plan step",
+        "child_work: orchestrate-build-retry capability=build status=completed retry=1 purpose=retry the bounded plan step with preserved evidence",
+        "child_work: orchestrate-audit capability=audit status=completed retry=0 purpose=evaluate the recovered build result",
+        "decision: retry-build kind=retry result=retry dispatched evidence=cycle-1-evaluation",
+        "decision: final-audit kind=evaluation result=audit accepted evidence=cycle-2-evaluation",
+        "evidence: cycle-1-evaluation kind=evaluation ref=orchestrate-build-1 summary=first build child failed with retryable evidence gap",
+        "evidence: cycle-2-evaluation kind=evaluation ref=orchestrate-build-retry summary=retry completed and audit evidence accepted",
+        "blocker: human-only dogfooding remains out of scope",
+        "caveat: deterministic app-supplied orchestration evidence only",
+        "caveat: no provider-backed child execution in this slice",
+        "final_summary: Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.",
+        "next_action: Audit the orchestration summary before human-only dogfooding.",
+        "artifact_ref: plan-artifact kind=state_artifact path=[path-redacted]",
+        "boundary_request: state_access operation=state.access target=orchestration.current reason=orchestrate requires app-supplied runtime and plan state",
+        "boundary_request: tool_execution operation=capability.dispatch target=fixed built-in capabilities reason=orchestrate dispatches only through existing capability/tool paths",
+        "source_ref: orchestrate-command kind=command command=/orchestrate excerpt=app-owned orchestration command"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": ["agent evidence"]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: orchestration visible", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

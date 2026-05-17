@@ -1,0 +1,233 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  title: 'Milestone 55: Subagent Spawn And Completion'
+  reviewed: '2026-05-17'
+  critic_issues: M55 must add subagent supervision as explicit runtime effects and lifecycle messages, not as orchestration
+    policy or a hidden actor system. Active child work must remain observable in runtime state and TUI snapshots through progress,
+    completion, failure, and cancellation, with behavior-named tests.
+  completed: '2026-05-17'
+what: Deliver ROADMAP.md Milestone 55 by representing supervised parallel work with explicit subagent spawn effects and lifecycle
+  messages, then surfacing that work in the TUI before orchestration is added.
+why: Aila needs observable child work before M56 can add orchestration. This slice establishes the runtime and presentation
+  contract so failed or canceled subagents cannot disappear and future orchestration can dispatch through a supervised boundary.
+constraints: Execute only Milestone 55. Preserve statechart-MVU and explicit effect boundaries. Runtime owns typed subagent
+  effects/messages and visibility state; the TUI renders injected subagent views only. Keep orchestration policy, retries,
+  evaluation loops, actual provider-backed child execution, new commands, plugin/MCP behavior, dynamic tools, workflow DSLs,
+  generic graph engines, hosted control planes, and pushes out of scope. Use behavior-based test names; do not introduce new
+  TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m54.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:22-28
+- ROADMAP.md:118-136
+- ROADMAP.md:2089-2111
+- README.md:77
+- README.md:260
+- ARCHITECTURE.md:746-781
+- ARCHITECTURE.md:960-986
+- docs/workflow-architecture.md:279
+- docs/workflow-architecture.md:464-476
+- docs/workflow-architecture.md:600-620
+- docs/tui-testing.md:1-365
+- internal/runtime/runtime.go
+- internal/app/inspection.go
+- internal/tui/model.go
+- internal/tui/render.go
+verification_commands:
+- mage fmt
+- go test ./internal/runtime -run 'Test.*Subagent.*|Test.*Operation.*' -count=1
+- go test ./internal/app -run 'Test.*Subagent.*|Test.*Status.*|Test.*Runtime.*' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Subagent.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+  -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check
+- changed-line home-path and added func TestM<number> hygiene returns no matches
+scope:
+  included:
+  - Add typed runtime subagent request, budget, evidence-link, result, run, status, spawn-effect, and lifecycle-message shapes.
+  - Record supervised child work in runtime model state when spawn/progress/completion/failure/cancellation messages arrive,
+    without changing workflow phase or building orchestration policy.
+  - Ensure failed, canceled, completed, and active subagents remain observable with parent run, purpose, status, summary,
+    and evidence links.
+  - Map runtime subagent state into app/TUI view state without letting the TUI own dispatch, permissions, lifecycle changes,
+    or workflow transitions.
+  - Add a multi-agent active work fixture and semantic/render coverage for parent run, subagent purpose, status, evidence
+    links, and visible focus or selection behavior where present.
+  - Run targeted runtime/app/TUI tests, full Mage validation, Agentera validation, ROADMAP closeout, and one local commit
+    for the milestone.
+  excluded:
+  - M56 orchestration policy, retry/evaluation loops, plan-status automation, provider-backed child execution, real parallel
+    worker scheduling, new slash commands, direct source edits from subagents, direct workflow phase mutation, plugin/MCP
+    behavior, dynamic tools, workflow DSLs, generic graph engines, hosted control planes, and push operations.
+  deferred:
+  - Orchestrate command routing, dispatch strategy, retry budgets, evaluation/audit loops, provider-run child agents, cancellation
+    UI commands, multi-pane terminal management, and source incorporation decisions.
+design: Keep M55 as a supervised visibility contract. internal/runtime defines SpawnSubagentEffect and typed lifecycle messages,
+  records subagent runs in deterministic model state, and keeps active/terminal child records visible. internal/app converts
+  runtime subagent records into view models and status/inspection lines. internal/tui renders injected subagent views in a
+  multi-agent active work fixture and semantic snapshots. No orchestrate behavior, scheduling policy, provider child loops,
+  file edits, permissions, or workflow transitions are added in this slice.
+tasks:
+- number: 1
+  name: Plan and confirm the M55 supervision scope
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M55 only and excludes
+    M56 orchestration, retry/evaluation loops, provider-backed child execution, new commands, plugins, MCP, workflow DSLs,
+    generic graph engines, hosted control planes, and push behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/message
+    ownership, TUI presentation-only behavior, and no direct workflow phase mutation.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
+  evidence:
+  - Installed Agentera CLI hej/plan/progress state showed the M54 plan complete, progress available, and M55 as the roadmap
+    next milestone.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M55 section, README subagent/orchestrate mentions, ARCHITECTURE
+    subagent/orchestration and anti-pattern rules, docs/workflow-architecture BUILD/orchestrate boundaries, docs/tui-testing
+    validation rules, and current runtime/app/TUI seams were reviewed.
+  - The plan keeps M55 bounded to typed subagent effects/messages, supervised runtime visibility, TUI fixtures/semantic snapshots,
+    validation, roadmap closeout, and local commit, and it forbids new TestM<number> symbols.
+- number: 2
+  name: Add runtime subagent effect and lifecycle messages
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN a subagent spawn request is proposed WHEN runtime update handles it THEN a SpawnSubagentEffect is emitted with parent
+    run, purpose, input, tool constraints, budget, and initial evidence metadata.
+  - GIVEN subagent completion, failure, or cancellation is reported WHEN runtime update handles the message THEN the message
+    is typed and records the terminal state without invoking orchestration policy.
+  - GIVEN subagent runtime types are inspected WHEN the package builds THEN the new operation kind and structs do not broaden
+    into plugins, dynamic tools, provider marketplaces, or workflow DSLs.
+  evidence:
+  - internal/runtime/runtime.go adds SubagentRequest, SubagentBudget, SubagentEvidenceLink, SubagentResult, SubagentRun, SubagentStatus,
+    OperationSubagent, SubagentSpawnProposed, SpawnSubagentEffect, and typed SubagentProgressed/Completed/Failed/Canceled
+    messages.
+  - Runtime Update records spawn requests as visible running SubagentRun state and emits SpawnSubagentEffect with parent run,
+    purpose, input, tools, budget, and evidence links without changing workflow phase or choosing orchestration policy.
+  - Dispatch returns a deterministic SubagentProgressed message for fake spawn effects, while terminal lifecycle messages
+    are inert runtime updates rather than orchestration commands.
+- number: 3
+  name: Preserve observable supervised subagent state
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN a subagent progresses WHEN runtime state is inspected THEN parent run, purpose, status, summary, and evidence links
+    remain visible.
+  - GIVEN a subagent completes, fails, or is canceled WHEN runtime state is inspected THEN the terminal record remains visible
+    instead of disappearing.
+  - GIVEN active subagents exist WHEN unrelated runtime messages are processed THEN no active subagent can become unobservable.
+  evidence:
+  - internal/runtime/runtime.go preserves Subagents across Update cloning, progress updates, terminal completion/failure/cancellation,
+    unrelated queued prompts, diagnostics, and parent fake effect completion.
+  - internal/runtime/runtime_test.go adds behavior-named coverage for spawn effects, lifecycle observability, terminal failure/cancellation
+    visibility, parent-operation preservation, and the invariant that active subagents cannot become unobservable.
+- number: 4
+  name: Render multi-agent active work in TUI snapshots
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN multi-agent active work is injected into ViewState WHEN fixtures render THEN parent run, subagent purpose, status,
+    and evidence links are visible where space allows.
+  - GIVEN semantic snapshots are inspected WHEN subagents exist THEN machine-readable records include parent run, purpose,
+    status, evidence links, display_only=true, and transition_claimed=false.
+  - GIVEN focus or selection state is visible WHEN update/keybinding tests run THEN behavior is covered; if no interactive
+    selection is introduced, the skip reason is documented.
+  evidence:
+  - internal/app/subagent_view.go maps runtime SubagentRun values to display-only tui.SubagentView records and counts active
+    child work in runtimeActive without treating it as primary work.
+  - internal/app/inspection.go exposes subagent parent run, purpose, status, summary, and evidence links in app-owned status
+    inspection lines.
+  - internal/tui/model.go and internal/tui/render.go add SubagentView cloning, rendered Subagents lines, SemanticSubagents
+    JSON, and a subagents semantic region with display_only=true and transition_claimed=false.
+  - internal/tui/testdata/fixtures/multi-agent-active-work adds checked-in plain, ANSI, and semantic snapshots for running,
+    completed, failed, and canceled child work.
+- number: 5
+  name: Validate visible progress without orchestration
+  depends_on:
+  - 2
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN M55 changes visibility but not an interactive subagent command WHEN PTY smoke is evaluated THEN visible subagent
+    progress is either covered by an existing interactive path or skipped with the milestone reason.
+  - GIVEN validation runs WHEN no orchestration behavior exists THEN tests prove supervised visibility without dispatching
+    child agents or executing source-level checks through orchestrate.
+  - GIVEN human visual review requirements are considered WHEN only bounded progress/status rendering changes are made THEN
+    review is either run or skipped with a concrete reason.
+  evidence:
+  - internal/tui/fixture_test.go adds behavior-named fixture tests proving parent run, purpose, status, evidence links, display-only
+    state, and no interactive subagent selection actions in M55.
+  - PTY smoke for visible subagent progress was skipped because M55 adds runtime/TUI state but no interactive subagent spawn
+    command; M56 orchestration owns visible interactive progress and cancellation.
+  - No major visual language change was made; deterministic render and semantic snapshots cover the bounded progress/status
+    display, so human visual review was not required.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M55 is
+    recorded complete, M56 is selected next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    prior-plan archive, and M55 closeout are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
+  evidence:
+  - mage fmt passed.
+  - Focused runtime/app/TUI subagent checks passed.
+  - go test ./internal/... -count=1 passed.
+  - go test ./cmd/aila -count=1 passed with cmd/aila in 361.440s.
+  - mage check passed with cmd/aila in 367.786s, 0 lint issues, and no vulnerabilities before roadmap closeout.
+  - ROADMAP.md was updated to mark M55 complete and M56 next after validation passed.
+  - Agentera plan/progress/lint/hej validation passed after metadata closeout.
+  - git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
+overall_acceptance:
+- Runtime tests prove subagent spawn requests become explicit effects and subagent progress, completion, failure, and cancellation
+  are explicit typed messages.
+- Runtime tests prove active subagents cannot become unobservable and terminal failed/canceled/completed records remain visible
+  with evidence.
+- App/TUI coverage maps supervised subagent state into presentation-only views without workflow phase mutation or orchestration
+  policy.
+- A multi-agent active work fixture plus semantic snapshots show parent run, subagent purpose, status, and evidence links.
+- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises:
+- The prior apply_patch hook may still be unavailable, so any scripted artifact edits must remain narrow, structured, formatted,
+  and validated.
+- The first cmd/aila rerun started while subagent_view.go was still being added and failed on a transient undefined helper
+  compile state; the current-tree rerun passed.
+closeout_summary: 'Milestone 55 completed: subagent spawn is now an explicit runtime effect, lifecycle updates are typed messages,
+  supervised child work remains observable through active and terminal states, and the TUI exposes multi-agent work without
+  adding orchestration policy.'
+validation_evidence:
+- mage fmt passed.
+- Focused runtime/app/TUI subagent checks passed.
+- go test ./internal/... -count=1 passed.
+- go test ./cmd/aila -count=1 passed with cmd/aila in 361.440s.
+- mage check passed with cmd/aila in 367.786s, 0 lint issues, and no vulnerabilities.
+- PTY smoke for visible subagent progress was skipped because M55 introduces no interactive subagent spawn command; M56 orchestration
+  owns that interactive path.
+- No major visual language change was made, so human visual review was not required; fixtures and semantic snapshots prove
+  the display contract.
+- Agentera plan/progress/lint/hej validation passed after metadata closeout.
+- git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.

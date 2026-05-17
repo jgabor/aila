@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model fake/fake-orchestrate | Utility fake/fake-ut~
++ Conversation ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| status source: runtime.fixture                                               |
+| detail: orchestration capability status                                      |
+| active: false                                                                |
+| result: Orchestration completed 2 cycles for current-plan with 1 retry used. |
+|                                                                              |
+| Orchestration:                                                               |
+| source: app.orchestrate.fixture                                              |
+| capability: orchestrate                                                      |
+| signal: complete                                                             |
+| phase: build                                                                 |
+| status: completed                                                            |
+| active cycle: cycle-2                                                        |
+| goal: current-plan scope=bounded existing capabilities and supervised subag~ |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                      git: placeholder | context: orchestration visible | q quit

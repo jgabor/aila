@@ -2,46 +2,54 @@ header:
   level: full
   created: '2026-05-17'
   status: complete
-  title: 'Milestone 55: Subagent Spawn And Completion'
+  title: 'Milestone 56: Orchestration'
   reviewed: '2026-05-17'
-  critic_issues: M55 must add subagent supervision as explicit runtime effects and lifecycle messages, not as orchestration
-    policy or a hidden actor system. Active child work must remain observable in runtime state and TUI snapshots through progress,
-    completion, failure, and cancellation, with behavior-named tests.
+  critic_issues: M56 is the last agent-completable milestone and must add bounded orchestration without turning Aila into
+    a generic graph engine, hidden actor swarm, plugin host, provider marketplace, or direct source-editing conductor. Visible
+    progress, retries, failures, blockers, final summary, subagent supervision, semantic evidence, PTY progress, and cancellation
+    must be covered before the roadmap can move to human-only M57.
   completed: '2026-05-17'
-what: Deliver ROADMAP.md Milestone 55 by representing supervised parallel work with explicit subagent spawn effects and lifecycle
-  messages, then surfacing that work in the TUI before orchestration is added.
-why: Aila needs observable child work before M56 can add orchestration. This slice establishes the runtime and presentation
-  contract so failed or canceled subagents cannot disappear and future orchestration can dispatch through a supervised boundary.
-constraints: Execute only Milestone 55. Preserve statechart-MVU and explicit effect boundaries. Runtime owns typed subagent
-  effects/messages and visibility state; the TUI renders injected subagent views only. Keep orchestration policy, retries,
-  evaluation loops, actual provider-backed child execution, new commands, plugin/MCP behavior, dynamic tools, workflow DSLs,
-  generic graph engines, hosted control planes, and pushes out of scope. Use behavior-based test names; do not introduce new
-  TestM<number> symbols.
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m54.yaml
+what: Deliver ROADMAP.md Milestone 56 by adding a bounded orchestrate command/capability that coordinates multiple existing
+  capability-shaped steps and supervised subagents with visible evaluation, retry, blocker, cancellation, and summary evidence.
+why: M55 made child work observable. M56 must connect that supervision into a small conductor so Aila can coordinate multiple
+  bounded steps before the roadmap enters human-only dogfooding work.
+constraints: Execute only Milestone 56. Preserve statechart-MVU and explicit effect boundaries. Orchestrate is a BUILD-phase
+  conductor over fixed built-in capabilities and runtime subagent messages/effects, not a source-editing capability. Keep
+  provider-backed child execution, real parallel scheduling, hidden background workers, generic graph engines, plugins, MCP,
+  dynamic tools, workflow DSLs, hosted control planes, marketplace behavior, direct workflow phase mutation, and pushes out
+  of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m55.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:22-28
 - ROADMAP.md:118-136
-- ROADMAP.md:2089-2111
-- README.md:77
-- README.md:260
+- ROADMAP.md:2114-2135
+- README.md:248-261
 - ARCHITECTURE.md:746-781
-- ARCHITECTURE.md:960-986
-- docs/workflow-architecture.md:279
+- ARCHITECTURE.md:781-798
+- docs/workflow-architecture.md:279-304
 - docs/workflow-architecture.md:464-476
 - docs/workflow-architecture.md:600-620
-- docs/tui-testing.md:1-365
-- internal/runtime/runtime.go
-- internal/app/inspection.go
+- docs/tui-testing.md:1-120
+- internal/capability/contract.go
+- internal/capability/brief.go
+- internal/policy/command.go
+- internal/app/session_snapshot.go
+- internal/app/brief.go
+- internal/app/subagent_view.go
 - internal/tui/model.go
 - internal/tui/render.go
+- cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/runtime -run 'Test.*Subagent.*|Test.*Operation.*' -count=1
-- go test ./internal/app -run 'Test.*Subagent.*|Test.*Status.*|Test.*Runtime.*' -count=1
-- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Subagent.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+- go test ./internal/capability -run 'Test.*Orchestrate.*|TestRunBuiltInDispatchesOrchestrateCapability|TestCapabilityRegistryIsFixedAndPhaseOwned'
   -count=1
+- go test ./internal/policy -run 'Test.*Orchestrate.*|TestCommand.*|TestCapability.*' -count=1
+- go test ./internal/app -run 'Test.*Orchestrat.*|Test.*Subagent.*|Test.*Status.*' -count=1
+- go test ./internal/tui -run 'Test.*Orchestrat.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract|TestCommandSemanticsSurviveLayoutSizes'
+  -count=1
+- go test ./cmd/aila -run 'TestOrchestrate.*PTYSmoke|TestInterruptActiveWorkPTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
@@ -53,129 +61,132 @@ verification_commands:
 - changed-line home-path and added func TestM<number> hygiene returns no matches
 scope:
   included:
-  - Add typed runtime subagent request, budget, evidence-link, result, run, status, spawn-effect, and lifecycle-message shapes.
-  - Record supervised child work in runtime model state when spawn/progress/completion/failure/cancellation messages arrive,
-    without changing workflow phase or building orchestration policy.
-  - Ensure failed, canceled, completed, and active subagents remain observable with parent run, purpose, status, summary,
-    and evidence links.
-  - Map runtime subagent state into app/TUI view state without letting the TUI own dispatch, permissions, lifecycle changes,
-    or workflow transitions.
-  - Add a multi-agent active work fixture and semantic/render coverage for parent run, subagent purpose, status, evidence
-    links, and visible focus or selection behavior where present.
-  - Run targeted runtime/app/TUI tests, full Mage validation, Agentera validation, ROADMAP closeout, and one local commit
-    for the milestone.
+  - Add a fixed built-in orchestrate capability payload that records bounded cycles, child work, decisions, retry attempts,
+    evaluation state, blockers, final summary, source refs, and boundary descriptors.
+  - Route /orchestrate through the fixed command surface and app controller into runtime capability/subagent messages while
+    preserving BUILD ownership and no direct workflow phase mutation.
+  - Use existing subagent request/progress/completion/failure/cancellation state to show supervised child work during orchestration,
+    including retry and failure records that remain visible.
+  - Render orchestration progress, subagent progress, failures, retries, blockers, decisions, evidence, and final summary
+    in deterministic TUI fixtures and semantic snapshots.
+  - Add PTY smoke for visible /orchestrate progress and cancellation using fake deterministic runtime paths, without live
+    provider calls or hidden source edits.
+  - Run targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation, then update
+    ROADMAP.md and commit the milestone locally.
   excluded:
-  - M56 orchestration policy, retry/evaluation loops, plan-status automation, provider-backed child execution, real parallel
-    worker scheduling, new slash commands, direct source edits from subagents, direct workflow phase mutation, plugin/MCP
-    behavior, dynamic tools, workflow DSLs, generic graph engines, hosted control planes, and push operations.
+  - M57 dogfooding, real provider-backed child agents, true parallel worker scheduling, generic DAG/graph execution, plugin/MCP
+    surfaces, dynamic capability schemas, model marketplaces, hosted control planes, source incorporation outside existing
+    tool/permission/history/state paths, direct source-level checks by orchestrate itself, and push operations.
   deferred:
-  - Orchestrate command routing, dispatch strategy, retry budgets, evaluation/audit loops, provider-run child agents, cancellation
-    UI commands, multi-pane terminal management, and source incorporation decisions.
-design: Keep M55 as a supervised visibility contract. internal/runtime defines SpawnSubagentEffect and typed lifecycle messages,
-  records subagent runs in deterministic model state, and keeps active/terminal child records visible. internal/app converts
-  runtime subagent records into view models and status/inspection lines. internal/tui renders injected subagent views in a
-  multi-agent active work fixture and semantic snapshots. No orchestrate behavior, scheduling policy, provider child loops,
-  file edits, permissions, or workflow transitions are added in this slice.
+  - Human-only dogfooding, real model-run child agents, multi-pane terminal management, richer plan artifact automation, distributed
+    worker scheduling, and any product decision to broaden Aila beyond fixed built-in capabilities.
+design: Keep M56 deterministic and bounded. internal/capability defines OrchestrateOutput as a typed conductor summary over
+  fixed capability aliases and child-work evidence. internal/policy exposes /orchestrate as a closed command route. internal/app
+  builds one deterministic orchestration run from the current plan/view state, records subagent spawn/progress/failure/completion
+  messages through runtime, and maps the capability payload into a display-only TUI view. internal/tui renders orchestration
+  cycles and semantic evidence; it never dispatches, cancels, incorporates, evaluates, mutates, or transitions workflow by
+  itself.
 tasks:
 - number: 1
-  name: Plan and confirm the M55 supervision scope
+  name: Plan and confirm the M56 orchestration boundary
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M55 only and excludes
-    M56 orchestration, retry/evaluation loops, provider-backed child execution, new commands, plugins, MCP, workflow DSLs,
-    generic graph engines, hosted control planes, and push behavior.
-  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/message
-    ownership, TUI presentation-only behavior, and no direct workflow phase mutation.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M56 only, archives the
+    completed M55 plan, and records M57 as human-only and out of scope.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan keeps orchestrate as a BUILD
+    conductor over fixed capabilities, runtime messages/effects, and existing tool/permission/history/state paths.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
     names.
   evidence:
-  - Installed Agentera CLI hej/plan/progress state showed the M54 plan complete, progress available, and M55 as the roadmap
-    next milestone.
-  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M55 section, README subagent/orchestrate mentions, ARCHITECTURE
-    subagent/orchestration and anti-pattern rules, docs/workflow-architecture BUILD/orchestrate boundaries, docs/tui-testing
-    validation rules, and current runtime/app/TUI seams were reviewed.
-  - The plan keeps M55 bounded to typed subagent effects/messages, supervised runtime visibility, TUI fixtures/semantic snapshots,
-    validation, roadmap closeout, and local commit, and it forbids new TestM<number> symbols.
+  - Installed Agentera CLI hej state showed M55 complete, no active plan, and M56 as the roadmap next milestone.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M56 section, README capability table, ARCHITECTURE subagent/orchestration
+    and cancellation rules, docs/workflow-architecture orchestrate map and invariants, docs/tui-testing fixture/semantic/PTY
+    guidance, and current capability/policy/app/runtime/TUI/cmd seams were reviewed.
+  - A read-only explorer confirmed /orchestrate is policy-recognized but not command-bound, RunBuiltIn still rejects orchestrate,
+    subagent infrastructure exists, and the smallest safe slice is bounded command/capability/app/TUI/PTy coverage without
+    plugins or graph engines.
 - number: 2
-  name: Add runtime subagent effect and lifecycle messages
+  name: Add bounded orchestrate capability output
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN a subagent spawn request is proposed WHEN runtime update handles it THEN a SpawnSubagentEffect is emitted with parent
-    run, purpose, input, tool constraints, budget, and initial evidence metadata.
-  - GIVEN subagent completion, failure, or cancellation is reported WHEN runtime update handles the message THEN the message
-    is typed and records the terminal state without invoking orchestration policy.
-  - GIVEN subagent runtime types are inspected WHEN the package builds THEN the new operation kind and structs do not broaden
-    into plugins, dynamic tools, provider marketplaces, or workflow DSLs.
+  - GIVEN an orchestrate request with app-supplied plan/cycle metadata WHEN RunBuiltIn executes it THEN one OrchestrateOutput
+    payload records cycles, fixed capability names, child work, decisions, evaluation, retry attempt counts, blockers, final
+    summary, source refs, and boundary requests.
+  - GIVEN orchestration has retryable failure evidence WHEN the payload is inspected THEN failed work, retry decision, recovery
+    action, and final evaluation remain visible instead of being overwritten.
+  - GIVEN the package boundary is inspected WHEN tests build THEN orchestrate does not import tools, permission executors,
+    workflow mutation code, plugins, graph engines, provider marketplaces, or dynamic capability loaders.
   evidence:
-  - internal/runtime/runtime.go adds SubagentRequest, SubagentBudget, SubagentEvidenceLink, SubagentResult, SubagentRun, SubagentStatus,
-    OperationSubagent, SubagentSpawnProposed, SpawnSubagentEffect, and typed SubagentProgressed/Completed/Failed/Canceled
-    messages.
-  - Runtime Update records spawn requests as visible running SubagentRun state and emits SpawnSubagentEffect with parent run,
-    purpose, input, tools, budget, and evidence links without changing workflow phase or choosing orchestration policy.
-  - Dispatch returns a deterministic SubagentProgressed message for fake spawn effects, while terminal lifecycle messages
-    are inert runtime updates rather than orchestration commands.
+  - internal/capability/orchestrate.go adds a fixed OrchestrateOutput payload with goal, retry budget, cycles, child work,
+    decisions, evidence, blockers, caveats, final summary, source refs, and boundary requests.
+  - internal/capability/contract.go carries OrchestrateOutput through ExitPayload cloning, and RunBuiltIn dispatches NameOrchestrate
+    without importing tools, permission executors, workflow mutation code, plugins, graph engines, provider marketplaces,
+    or dynamic loaders.
+  - Behavior-named capability tests prove retryable failure evidence, retry decisions, recovery action, completion, blocker
+    visibility, and fixed RunBuiltIn dispatch remain observable.
 - number: 3
-  name: Preserve observable supervised subagent state
+  name: Wire /orchestrate through app-owned runtime supervision
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN a subagent progresses WHEN runtime state is inspected THEN parent run, purpose, status, summary, and evidence links
-    remain visible.
-  - GIVEN a subagent completes, fails, or is canceled WHEN runtime state is inspected THEN the terminal record remains visible
-    instead of disappearing.
-  - GIVEN active subagents exist WHEN unrelated runtime messages are processed THEN no active subagent can become unobservable.
+  - GIVEN /orchestrate is submitted WHEN policy and app routing handle it THEN the command is closed, command history is recorded,
+    and app-owned code proposes orchestrate capability/subagent runtime messages without TUI-owned execution.
+  - GIVEN the deterministic orchestration run includes a failed child and a retry WHEN runtime/app state is inspected THEN
+    subagent progress, failure, retry, completion, and final summary remain visible with parent run and evidence links.
+  - GIVEN cancellation is requested during visible orchestration WHEN the fake runtime path handles it THEN cancellation is
+    observable and does not claim lower-layer provider/tool cancellation or mutate workflow phase directly.
   evidence:
-  - internal/runtime/runtime.go preserves Subagents across Update cloning, progress updates, terminal completion/failure/cancellation,
-    unrelated queued prompts, diagnostics, and parent fake effect completion.
-  - internal/runtime/runtime_test.go adds behavior-named coverage for spawn effects, lifecycle observability, terminal failure/cancellation
-    visibility, parent-operation preservation, and the invariant that active subagents cannot become unobservable.
+  - internal/policy/command.go recognizes /orchestrate as a closed command route, while internal/app/orchestrate.go builds
+    deterministic app-owned orchestration requests from current plan state and records command/runtime evidence through existing
+    paths.
+  - The app route records failed, retried, and completed supervised child work using runtime subagent lifecycle messages,
+    preserving parent run, evidence links, final summary, and retry counts.
+  - The fake held orchestration path supports visible cancellation without claiming lower-layer provider/tool cancellation
+    or mutating workflow phase directly.
 - number: 4
-  name: Render multi-agent active work in TUI snapshots
+  name: Render orchestration progress and evidence in TUI snapshots
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN multi-agent active work is injected into ViewState WHEN fixtures render THEN parent run, subagent purpose, status,
-    and evidence links are visible where space allows.
-  - GIVEN semantic snapshots are inspected WHEN subagents exist THEN machine-readable records include parent run, purpose,
-    status, evidence links, display_only=true, and transition_claimed=false.
-  - GIVEN focus or selection state is visible WHEN update/keybinding tests run THEN behavior is covered; if no interactive
-    selection is introduced, the skip reason is documented.
+  - GIVEN orchestration state is injected into ViewState WHEN fixtures render THEN progress, active cycle, subagent progress,
+    failures, retries, blockers, decisions, and final summary are visible where space allows.
+  - GIVEN semantic snapshots are inspected WHEN orchestration exists THEN machine-readable records include active cycle, child
+    work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
+  - GIVEN update/keybinding tests run WHEN /orchestrate is typed or selected THEN routing emits app command messages only
+    and no TUI-owned spawn/cancel/evaluate action is introduced.
   evidence:
-  - internal/app/subagent_view.go maps runtime SubagentRun values to display-only tui.SubagentView records and counts active
-    child work in runtimeActive without treating it as primary work.
-  - internal/app/inspection.go exposes subagent parent run, purpose, status, summary, and evidence links in app-owned status
-    inspection lines.
-  - internal/tui/model.go and internal/tui/render.go add SubagentView cloning, rendered Subagents lines, SemanticSubagents
-    JSON, and a subagents semantic region with display_only=true and transition_claimed=false.
-  - internal/tui/testdata/fixtures/multi-agent-active-work adds checked-in plain, ANSI, and semantic snapshots for running,
-    completed, failed, and canceled child work.
+  - internal/tui/model.go and internal/tui/render.go add display-only OrchestrateView rendering and semantic snapshot records
+    for active cycle, child work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
+  - orchestration-progress and orchestrate-command fixture snapshots were added for deterministic plain, ANSI, and semantic
+    coverage; help-command snapshots were refreshed to include /orchestrate.
+  - Behavior-named TUI fixture tests prove orchestration progress, retries, blockers, final summary, and command routing without
+    adding TUI-owned spawn/cancel/evaluate actions.
 - number: 5
-  name: Validate visible progress without orchestration
+  name: Validate PTY progress cancellation and boundaries
   depends_on:
-  - 2
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN M55 changes visibility but not an interactive subagent command WHEN PTY smoke is evaluated THEN visible subagent
-    progress is either covered by an existing interactive path or skipped with the milestone reason.
-  - GIVEN validation runs WHEN no orchestration behavior exists THEN tests prove supervised visibility without dispatching
-    child agents or executing source-level checks through orchestrate.
-  - GIVEN human visual review requirements are considered WHEN only bounded progress/status rendering changes are made THEN
-    review is either run or skipped with a concrete reason.
+  - GIVEN /orchestrate runs in a PTY WHEN the smoke test waits for output THEN visible orchestration progress and final summary
+    appear without hidden provider calls or plugin behavior.
+  - GIVEN orchestration is visibly active in a PTY WHEN interrupt/cancellation is triggered THEN cancellation state appears,
+    the session remains responsive, and output does not claim real lower-layer cancellation.
+  - GIVEN human visual review requirements are considered WHEN bounded orchestration status rendering is added THEN review
+    is either performed or skipped with a concrete reason backed by deterministic snapshots.
   evidence:
-  - internal/tui/fixture_test.go adds behavior-named fixture tests proving parent run, purpose, status, evidence links, display-only
-    state, and no interactive subagent selection actions in M55.
-  - PTY smoke for visible subagent progress was skipped because M55 adds runtime/TUI state but no interactive subagent spawn
-    command; M56 orchestration owns visible interactive progress and cancellation.
-  - No major visual language change was made; deterministic render and semantic snapshots cover the bounded progress/status
-    display, so human visual review was not required.
+  - cmd/aila PTY smoke tests prove /orchestrate shows visible progress/final summary and that interrupting a held orchestration
+    returns a visible canceled state while the session remains responsive.
+  - The PTY path uses deterministic fake runtime behavior and does not invoke live provider calls, plugins, hidden worker
+    scheduling, or source-level checks through orchestrate.
+  - Human visual review was not required because M56 adds bounded status/progress rendering rather than a major visual language
+    change; deterministic render and semantic snapshots carry the review contract.
 - number: 6
   name: Run validation roadmap closeout and commit
   depends_on:
@@ -186,48 +197,56 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M55 is
-    recorded complete, M56 is selected next, and Active milestone is none.
-  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    prior-plan archive, and M55 closeout are included in one meaningful local commit.
+  - GIVEN targeted, package, cmd PTY, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN
+    M56 is recorded complete, M57 is selected next, and Active milestone is none with human-only wording preserved.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, fixtures, tests, validation evidence, ROADMAP,
+    plan, progress, prior-plan archive, and M56 closeout are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
-    validation evidence.
+    validation evidence and no goal completion is claimed until the full roadmap audit says so.
   evidence:
   - mage fmt passed.
-  - Focused runtime/app/TUI subagent checks passed.
+  - go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
+  - go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
+  - go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
+    -count=1 passed.
+  - go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
+    -count=1 passed.
   - go test ./internal/... -count=1 passed.
-  - go test ./cmd/aila -count=1 passed with cmd/aila in 361.440s.
-  - mage check passed with cmd/aila in 367.786s, 0 lint issues, and no vulnerabilities before roadmap closeout.
-  - ROADMAP.md was updated to mark M55 complete and M56 next after validation passed.
+  - go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
+  - mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities before roadmap closeout.
+  - ROADMAP.md was updated to mark M56 complete, M57 next, and Active milestone none with human-only wording preserved.
   - Agentera plan/progress/lint/hej validation passed after metadata closeout.
   - git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
 overall_acceptance:
-- Runtime tests prove subagent spawn requests become explicit effects and subagent progress, completion, failure, and cancellation
-  are explicit typed messages.
-- Runtime tests prove active subagents cannot become unobservable and terminal failed/canceled/completed records remain visible
-  with evidence.
-- App/TUI coverage maps supervised subagent state into presentation-only views without workflow phase mutation or orchestration
-  policy.
-- A multi-agent active work fixture plus semantic snapshots show parent run, subagent purpose, status, and evidence links.
-- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
-  is updated.
+- Orchestrate is implemented as a fixed BUILD-owned conductor payload, not as a generic engine or source-editing capability.
+- /orchestrate has closed policy/app routing and visible command behavior through existing runtime messages/effects.
+- Supervised child work, failures, retries, blockers, decisions, evidence, cancellation, and final summary remain observable
+  in app/TUI state.
+- TUI fixtures, semantic snapshots, render snapshots, update/keybinding tests, and PTY smoke cover orchestration progress
+  and cancellation at the current product state.
+- Targeted, package, cmd, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before
+  ROADMAP.md is updated.
 surprises:
-- The prior apply_patch hook may still be unavailable, so any scripted artifact edits must remain narrow, structured, formatted,
-  and validated.
-- The first cmd/aila rerun started while subagent_view.go was still being added and failed on a transient undefined helper
-  compile state; the current-tree rerun passed.
-closeout_summary: 'Milestone 55 completed: subagent spawn is now an explicit runtime effect, lifecycle updates are typed messages,
-  supervised child work remains observable through active and terminal states, and the TUI exposes multi-agent work without
-  adding orchestration policy.'
+- The apply_patch hook is still unavailable because /hooks/validate_artifact.py is missing, so scripted artifact edits must
+  stay narrow, structured, formatted, and validated.
+- M56 is explicitly the last agent-completable milestone; ROADMAP closeout must point to human-only M57 without starting it.
+- An initial 240s timeout around the full check path was too short for the cmd/aila PTY package; the unbounded reruns passed
+  with cmd/aila taking about six and a half minutes.
+closeout_summary: 'Milestone 56 completed: /orchestrate is now a fixed, bounded BUILD-owned conductor that records cycles,
+  retries, supervised child work, decisions, blockers, cancellation state, and final summary without becoming a generic graph
+  engine, plugin host, provider swarm, or source-editing capability.'
 validation_evidence:
 - mage fmt passed.
-- Focused runtime/app/TUI subagent checks passed.
+- go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
+- go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
+- go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
+  -count=1 passed.
+- go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
+  -count=1 passed.
 - go test ./internal/... -count=1 passed.
-- go test ./cmd/aila -count=1 passed with cmd/aila in 361.440s.
-- mage check passed with cmd/aila in 367.786s, 0 lint issues, and no vulnerabilities.
-- PTY smoke for visible subagent progress was skipped because M55 introduces no interactive subagent spawn command; M56 orchestration
-  owns that interactive path.
+- go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
+- mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities.
 - No major visual language change was made, so human visual review was not required; fixtures and semantic snapshots prove
-  the display contract.
+  the bounded progress display contract.
 - Agentera plan/progress/lint/hej validation passed after metadata closeout.
 - git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.

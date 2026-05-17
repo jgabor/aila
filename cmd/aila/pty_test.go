@@ -2483,6 +2483,144 @@ func TestDocumentCommandWritesDocsThroughMutationPathPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestOrchestrateCommandShowsProgressSummaryPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 220, 110, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nOrchestrate command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed orchestrate PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/orchestrate\r")); err != nil {
+		t.Fatalf("send /orchestrate command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Orchestration completed 2 cycles for current-plan with 1 retry used.",
+		"Orchestration:",
+		"capability: orchestrate",
+		"status: completed",
+		"active cycle: cycle-2",
+		"retry budget: max=1 used=1 remaining=0",
+		"cycle: cycle-1 capability=build status=retrying",
+		"child work: orchestrate-build-1 capability=build status=failed",
+		"decision: retry-build kind=retry",
+		"final summary: Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.",
+		"transition claimed: false",
+		"display-only: true",
+	}, 20*time.Second)
+	for _, forbidden := range []string{"plugin host", "MCP server", "graph engine", "marketplace", "lower-layer cancellation executed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("orchestrate PTY output included forbidden boundary marker %q: %q", forbidden, output)
+		}
+	}
+	if trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md"); trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("orchestrate PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit input after orchestrate command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("orchestrate command PTY returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatalf("orchestrate command PTY did not exit after /quit")
+	}
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
+func TestOrchestrateCommandCancellationPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	env.vars = append(env.vars,
+		"AILA_FAKE_RUNTIME_HOLD_ACTIVE=1",
+		"AILA_FAKE_RUNTIME_RESOLVE_SECOND_INTERRUPT=1",
+		"AILA_FAKE_ORCHESTRATE_HOLD_ACTIVE=1",
+	)
+	ctx, cancel, terminal, wait := startAilaPTYWithSizeAndEnv(t, 180, 70, env.vars)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntil(t, terminal, "Aila", 20*time.Second)
+	if _, err := terminal.Write([]byte("/orchestrate\r")); err != nil {
+		t.Fatalf("send /orchestrate active input: %v", err)
+	}
+	active := readUntilAll(t, terminal, []string{
+		"Runtime active",
+		"status: active",
+		"active: true",
+		"Orchestration:",
+		"status: running",
+		"active cycle: cycle-1",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte{0x03}); err != nil {
+		t.Fatalf("send ctrl-c orchestrate interrupt input: %v", err)
+	}
+	canceling := readUntilAll(t, terminal, []string{
+		"Runtime canceling",
+		"status: canceling",
+		"interrupt state:",
+		"interrupt status: canceling",
+		"lower-layer cancellation executed: false",
+		"Orchestration:",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte{0x03}); err != nil {
+		t.Fatalf("send second ctrl-c orchestrate interrupt input: %v", err)
+	}
+	canceled := readUntilAll(t, terminal, []string{
+		"Runtime canceled",
+		"status: canceled",
+		"active: false",
+		"result: fake work canceled",
+		"interrupt state:",
+		"interrupt status: canceled",
+		"lower-layer cancellation executed: false",
+	}, 10*time.Second)
+	combined := active + canceling + canceled
+	for _, forbidden := range []string{"real IO cancellation", "tool cancellation", "provider cancellation", "shell cancellation", "lower-layer cancellation executed: true"} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("orchestrate cancellation PTY output claimed lower-layer cancellation marker %q: %q", forbidden, combined)
+		}
+	}
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after orchestrate interrupt smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("orchestrate interrupt PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("orchestrate interrupt PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
 func TestDesignCommandPersistsDesignArtifactPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

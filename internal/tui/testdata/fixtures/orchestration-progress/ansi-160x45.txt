@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-orchestrate | Utility fake/fake-utility | Auto write                                                               [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Runtime status:                                                                                                  |  | phase source: build                    |
+| status: idle                                                                                                     |  | primary model: fake/fake-orchestrate   |
+| status source: runtime.fixture                                                                                   |  | utility model: fake/fake-utility       |
+| detail: orchestration capability status                                                                          |  | autonomy: write                        |
+| active: false                                                                                                    |  | status: idle                           |
+| result: Orchestration completed 2 cycles for current-plan with 1 retry used.                                     |  | status source: runtime.fixture         |
+|                                                                                                                  |  | detail: orchestration capability stat~ |
+| Orchestration:                                                                                                   |  | active: false                          |
+| source: app.orchestrate.fixture                                                                                  |  | result: Orchestration completed 2 cyc~ |
+| capability: orchestrate                                                                                          |  | display-only                           |
+| signal: complete                                                                                                 |  | git: placeholder                       |
+| phase: build                                                                                                     |  | context: orchestration visible         |
+| status: completed                                                                                                |  |                                        |
+| active cycle: cycle-2                                                                                            |  |                                        |
+| goal: current-plan scope=bounded existing capabilities and supervised subagents title=Coordinate the accepted p~ |  |                                        |
+| retry budget: max=1 used=1 remaining=0                                                                           |  |                                        |
+| recommended successor: audit                                                                                     |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| summary: Orchestration completed 2 cycles for current-plan with 1 retry used.                                    |  |                                        |
+| final summary: Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.        |  |                                        |
+| blocker: human-only dogfooding remains out of scope                                                              |  |                                        |
+| caveat: deterministic app-supplied orchestration evidence only                                                   |  |                                        |
+| caveat: no provider-backed child execution in this slice                                                         |  |                                        |
+| cycle: cycle-1 capability=build status=retrying retry=0 evaluation=missing verification evidence retry_decision~ |  |                                        |
+| cycle: cycle-2 capability=build status=completed retry=1 evaluation=recovered result accepted retry_decision=st~ |  |                                        |
+| child work: orchestrate-build-1 capability=build status=failed retry=0 purpose=execute the first bounded plan s~ |  |                                        |
+| child work: orchestrate-build-retry capability=build status=completed retry=1 purpose=retry the bounded plan st~ |  |                                        |
+| child work: orchestrate-audit capability=audit status=completed retry=0 purpose=evaluate the recovered build re~ |  |                                        |
+| decision: retry-build kind=retry summary=Retry the failed build child once. reason=failure was retryable and re~ |  |                                        |
+| decision: final-audit kind=evaluation summary=Request audit evaluation after recovered build evidence. reason=o~ |  |                                        |
+| evidence: cycle-1-evaluation kind=evaluation ref=orchestrate-build-1 summary=first build child failed with retr~ |  |                                        |
+| evidence: cycle-2-evaluation kind=evaluation ref=orchestrate-build-retry summary=retry completed and audit evid~ |  |                                        |
+| next action: Audit the orchestration summary before human-only dogfooding.                                       |  |                                        |
+| artifact ref: plan-artifact kind=state_artifact path=[path-redacted]                                             |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                      git: placeholder | context: orchestration visible | q quit[0m

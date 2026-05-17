@@ -75,6 +75,7 @@ type ViewState struct {
 	Optimize           *OptimizeView
 	Document           *DocumentView
 	Design             *DesignView
+	Orchestrate        *OrchestrateView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -651,6 +652,115 @@ type DesignBoundaryRequestView struct {
 	Reason    string
 }
 
+// OrchestrateView is app-injected bounded orchestration output.
+type OrchestrateView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	CurrentPhase         string
+	Status               string
+	ActiveCycle          string
+	Summary              string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	Goal                 OrchestrateGoalView
+	RetryBudget          OrchestrateRetryBudgetView
+	Cycles               []OrchestrateCycleView
+	ChildWork            []OrchestrateChildWorkView
+	Decisions            []OrchestrateDecisionView
+	Evidence             []OrchestrateEvidenceView
+	Blockers             []string
+	Caveats              []string
+	FinalSummary         string
+	NeededInput          string
+	NextAction           string
+	ArtifactRefs         []OrchestrateArtifactRefView
+	SourceRefs           []OrchestrateSourceRefView
+	BoundaryRequests     []OrchestrateBoundaryRequestView
+}
+
+// OrchestrateGoalView records the bounded orchestration goal.
+type OrchestrateGoalView struct {
+	ID    string
+	Title string
+	Scope string
+}
+
+// OrchestrateRetryBudgetView records visible retry accounting.
+type OrchestrateRetryBudgetView struct {
+	MaxAttempts int
+	Used        int
+	Remaining   int
+}
+
+// OrchestrateCycleView records one visible conductor cycle.
+type OrchestrateCycleView struct {
+	ID             string
+	Capability     string
+	Status         string
+	Summary        string
+	Evaluation     string
+	RetryDecision  string
+	RetryAttempt   int
+	ChildWorkIDs   []string
+	EvidenceRefIDs []string
+}
+
+// OrchestrateChildWorkView records one supervised child-work summary.
+type OrchestrateChildWorkView struct {
+	ID             string
+	Capability     string
+	Purpose        string
+	Status         string
+	Summary        string
+	RetryAttempt   int
+	EvidenceRefIDs []string
+}
+
+// OrchestrateDecisionView records one conductor decision.
+type OrchestrateDecisionView struct {
+	ID          string
+	Kind        string
+	Summary     string
+	Reason      string
+	Result      string
+	EvidenceRef string
+}
+
+// OrchestrateEvidenceView records one orchestration observation.
+type OrchestrateEvidenceView struct {
+	ID      string
+	Kind    string
+	Summary string
+	RefID   string
+}
+
+// OrchestrateArtifactRefView records one orchestrate artifact ref.
+type OrchestrateArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// OrchestrateSourceRefView records one source reference supporting orchestrate output.
+type OrchestrateSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// OrchestrateBoundaryRequestView records one inert orchestrate boundary descriptor.
+type OrchestrateBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // BuildView is app-injected bounded build output.
 type BuildView struct {
 	Source               string
@@ -1169,6 +1279,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, optimizeLines(state.Optimize)...)
 	items = append(items, documentLines(state.Document)...)
 	items = append(items, designLines(state.Design)...)
+	items = append(items, orchestrateLines(state.Orchestrate)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -2174,6 +2285,135 @@ func optimizeLines(optimize *OptimizeView) []string {
 	}
 	if semantic.ExperimentArtifactPath != "" {
 		lines = append(lines, "  experiment artifact: "+semantic.ExperimentArtifactPath)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "")
+}
+
+func orchestrateLines(orchestrate *OrchestrateView) []string {
+	if orchestrate == nil {
+		return nil
+	}
+	semantic := semanticOrchestrate(orchestrate)
+	lines := []string{
+		"  Orchestration:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  phase: " + semantic.CurrentPhase,
+		"  status: " + semantic.Status,
+		"  active cycle: " + semantic.ActiveCycle,
+		"  goal: " + semantic.Goal.ID + " scope=" + semantic.Goal.Scope + " title=" + semantic.Goal.Title,
+		fmt.Sprintf("  retry budget: max=%d used=%d remaining=%d", semantic.RetryBudget.MaxAttempts, semantic.RetryBudget.Used, semantic.RetryBudget.Remaining),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.FinalSummary != "" {
+		lines = append(lines, "  final summary: "+semantic.FinalSummary)
+	}
+	for _, blocker := range semantic.Blockers {
+		lines = append(lines, "  blocker: "+blocker)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	for _, cycle := range semantic.Cycles {
+		line := "  cycle: " + cycle.ID + " capability=" + cycle.Capability + " status=" + cycle.Status + fmt.Sprintf(" retry=%d", cycle.RetryAttempt)
+		if cycle.Evaluation != "" {
+			line += " evaluation=" + cycle.Evaluation
+		}
+		if cycle.RetryDecision != "" {
+			line += " retry_decision=" + cycle.RetryDecision
+		}
+		if len(cycle.ChildWorkIDs) > 0 {
+			line += " child_ids=" + strings.Join(cycle.ChildWorkIDs, ",")
+		}
+		if len(cycle.EvidenceRefIDs) > 0 {
+			line += " evidence=" + strings.Join(cycle.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, child := range semantic.ChildWork {
+		line := "  child work: " + child.ID + " capability=" + child.Capability + " status=" + child.Status + fmt.Sprintf(" retry=%d", child.RetryAttempt)
+		if child.Purpose != "" {
+			line += " purpose=" + child.Purpose
+		}
+		if child.Summary != "" {
+			line += " summary=" + child.Summary
+		}
+		if len(child.EvidenceRefIDs) > 0 {
+			line += " evidence=" + strings.Join(child.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, decision := range semantic.Decisions {
+		line := "  decision: " + decision.ID + " kind=" + decision.Kind
+		if decision.Summary != "" {
+			line += " summary=" + decision.Summary
+		}
+		if decision.Reason != "" {
+			line += " reason=" + decision.Reason
+		}
+		if decision.Result != "" {
+			line += " result=" + decision.Result
+		}
+		if decision.EvidenceRef != "" {
+			line += " evidence=" + decision.EvidenceRef
+		}
+		lines = append(lines, line)
+	}
+	for _, item := range semantic.Evidence {
+		line := "  evidence: " + item.ID + " kind=" + item.Kind
+		if item.RefID != "" {
+			line += " ref=" + item.RefID
+		}
+		if item.Summary != "" {
+			line += " summary=" + item.Summary
+		}
+		lines = append(lines, line)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
 	}
 	for _, ref := range semantic.ArtifactRefs {
 		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
@@ -3302,6 +3542,7 @@ type SemanticSnapshot struct {
 	Optimize       *SemanticOptimize       `json:"optimize,omitempty"`
 	Document       *SemanticDocument       `json:"document,omitempty"`
 	Design         *SemanticDesign         `json:"design,omitempty"`
+	Orchestrate    *SemanticOrchestrate    `json:"orchestrate,omitempty"`
 	Subagents      *SemanticSubagents      `json:"subagents,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
@@ -4003,6 +4244,116 @@ type SemanticDesignSourceRef struct {
 
 // SemanticDesignBoundaryRequest records one inert design boundary descriptor.
 type SemanticDesignBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// SemanticOrchestrate describes app-injected bounded orchestration output.
+type SemanticOrchestrate struct {
+	Visible              bool                                 `json:"visible"`
+	Source               string                               `json:"source"`
+	Capability           string                               `json:"capability"`
+	Signal               string                               `json:"signal"`
+	CurrentPhase         string                               `json:"current_phase,omitempty"`
+	Status               string                               `json:"status,omitempty"`
+	ActiveCycle          string                               `json:"active_cycle,omitempty"`
+	Summary              string                               `json:"summary,omitempty"`
+	RecommendedSuccessor string                               `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                                 `json:"successor_valid"`
+	TransitionClaimed    bool                                 `json:"transition_claimed"`
+	DisplayOnly          bool                                 `json:"display_only"`
+	Goal                 SemanticOrchestrateGoal              `json:"goal"`
+	RetryBudget          SemanticOrchestrateRetryBudget       `json:"retry_budget"`
+	Cycles               []SemanticOrchestrateCycle           `json:"cycles,omitempty"`
+	ChildWork            []SemanticOrchestrateChildWork       `json:"child_work,omitempty"`
+	Decisions            []SemanticOrchestrateDecision        `json:"decisions,omitempty"`
+	Evidence             []SemanticOrchestrateEvidence        `json:"evidence,omitempty"`
+	Blockers             []string                             `json:"blockers,omitempty"`
+	Caveats              []string                             `json:"caveats,omitempty"`
+	FinalSummary         string                               `json:"final_summary,omitempty"`
+	NeededInput          string                               `json:"needed_input,omitempty"`
+	NextAction           string                               `json:"next_action,omitempty"`
+	ArtifactRefs         []SemanticOrchestrateArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticOrchestrateSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticOrchestrateBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticOrchestrateGoal records the bounded orchestration goal.
+type SemanticOrchestrateGoal struct {
+	ID    string `json:"id"`
+	Title string `json:"title,omitempty"`
+	Scope string `json:"scope,omitempty"`
+}
+
+// SemanticOrchestrateRetryBudget records retry accounting.
+type SemanticOrchestrateRetryBudget struct {
+	MaxAttempts int `json:"max_attempts"`
+	Used        int `json:"used"`
+	Remaining   int `json:"remaining"`
+}
+
+// SemanticOrchestrateCycle records one machine-readable conductor cycle.
+type SemanticOrchestrateCycle struct {
+	ID             string   `json:"id"`
+	Capability     string   `json:"capability"`
+	Status         string   `json:"status"`
+	Summary        string   `json:"summary,omitempty"`
+	Evaluation     string   `json:"evaluation,omitempty"`
+	RetryDecision  string   `json:"retry_decision,omitempty"`
+	RetryAttempt   int      `json:"retry_attempt"`
+	ChildWorkIDs   []string `json:"child_work_ids,omitempty"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticOrchestrateChildWork records one supervised child-work summary.
+type SemanticOrchestrateChildWork struct {
+	ID             string   `json:"id"`
+	Capability     string   `json:"capability"`
+	Purpose        string   `json:"purpose,omitempty"`
+	Status         string   `json:"status"`
+	Summary        string   `json:"summary,omitempty"`
+	RetryAttempt   int      `json:"retry_attempt"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticOrchestrateDecision records one conductor decision.
+type SemanticOrchestrateDecision struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Summary     string `json:"summary,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	Result      string `json:"result,omitempty"`
+	EvidenceRef string `json:"evidence_ref,omitempty"`
+}
+
+// SemanticOrchestrateEvidence records one orchestration observation.
+type SemanticOrchestrateEvidence struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Summary string `json:"summary,omitempty"`
+	RefID   string `json:"ref_id,omitempty"`
+}
+
+// SemanticOrchestrateArtifactRef records one orchestrate artifact ref.
+type SemanticOrchestrateArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticOrchestrateSourceRef records one orchestrate source ref.
+type SemanticOrchestrateSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticOrchestrateBoundaryRequest records one inert orchestrate boundary descriptor.
+type SemanticOrchestrateBoundaryRequest struct {
 	Kind      string `json:"kind"`
 	Operation string `json:"operation,omitempty"`
 	Target    string `json:"target,omitempty"`
@@ -4841,6 +5192,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Design != nil {
 		regions = append(regions, SemanticRegion{Name: "design", Visible: true, Items: semanticDesignItems(state.Design)})
 	}
+	if state.Orchestrate != nil {
+		regions = append(regions, SemanticRegion{Name: "orchestrate", Visible: true, Items: semanticOrchestrateItems(state.Orchestrate)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -4940,6 +5294,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Optimize:       semanticOptimize(state.Optimize),
 		Document:       semanticDocument(state.Document),
 		Design:         semanticDesign(state.Design),
+		Orchestrate:    semanticOrchestrate(state.Orchestrate),
 		Subagents:      semanticSubagents(state.Subagents),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
@@ -7002,6 +7357,178 @@ func semanticOptimize(optimize *OptimizeView) *SemanticOptimize {
 		ArtifactRefs:           artifacts,
 		SourceRefs:             refs,
 		BoundaryRequests:       requests,
+	}
+}
+
+func semanticOrchestrateItems(orchestrate *OrchestrateView) []string {
+	semantic := semanticOrchestrate(orchestrate)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"phase: " + semantic.CurrentPhase,
+		"status: " + semantic.Status,
+		"active_cycle: " + semantic.ActiveCycle,
+		"goal: " + semantic.Goal.ID + " scope=" + semantic.Goal.Scope + " title=" + semantic.Goal.Title,
+		fmt.Sprintf("retry_budget: max=%d used=%d remaining=%d", semantic.RetryBudget.MaxAttempts, semantic.RetryBudget.Used, semantic.RetryBudget.Remaining),
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	for _, cycle := range semantic.Cycles {
+		entry := "cycle: " + cycle.ID + " capability=" + cycle.Capability + " status=" + cycle.Status + fmt.Sprintf(" retry=%d", cycle.RetryAttempt)
+		if cycle.Evaluation != "" {
+			entry += " evaluation=" + cycle.Evaluation
+		}
+		if cycle.RetryDecision != "" {
+			entry += " retry_decision=" + cycle.RetryDecision
+		}
+		items = append(items, entry)
+	}
+	for _, child := range semantic.ChildWork {
+		entry := "child_work: " + child.ID + " capability=" + child.Capability + " status=" + child.Status + fmt.Sprintf(" retry=%d", child.RetryAttempt)
+		if child.Purpose != "" {
+			entry += " purpose=" + child.Purpose
+		}
+		items = append(items, entry)
+	}
+	for _, decision := range semantic.Decisions {
+		entry := "decision: " + decision.ID + " kind=" + decision.Kind
+		if decision.Result != "" {
+			entry += " result=" + decision.Result
+		}
+		if decision.EvidenceRef != "" {
+			entry += " evidence=" + decision.EvidenceRef
+		}
+		items = append(items, entry)
+	}
+	for _, item := range semantic.Evidence {
+		entry := "evidence: " + item.ID + " kind=" + item.Kind
+		if item.RefID != "" {
+			entry += " ref=" + item.RefID
+		}
+		if item.Summary != "" {
+			entry += " summary=" + item.Summary
+		}
+		items = append(items, entry)
+	}
+	for _, blocker := range semantic.Blockers {
+		items = append(items, "blocker: "+blocker)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	if semantic.FinalSummary != "" {
+		items = append(items, "final_summary: "+semantic.FinalSummary)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		entry := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			entry += " path=" + ref.Path
+		}
+		items = append(items, entry)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		entry := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			entry += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			entry += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			entry += " reason=" + request.Reason
+		}
+		items = append(items, entry)
+	}
+	for _, ref := range semantic.SourceRefs {
+		entry := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			entry += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			entry += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			entry += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, entry)
+	}
+	return items
+}
+
+func semanticOrchestrate(orchestrate *OrchestrateView) *SemanticOrchestrate {
+	if orchestrate == nil {
+		return nil
+	}
+	cycles := make([]SemanticOrchestrateCycle, 0, len(orchestrate.Cycles))
+	for _, cycle := range orchestrate.Cycles {
+		cycles = append(cycles, SemanticOrchestrateCycle{ID: safeText(cycle.ID), Capability: safeText(cycle.Capability), Status: safeText(cycle.Status), Summary: safeText(cycle.Summary), Evaluation: safeText(cycle.Evaluation), RetryDecision: safeText(cycle.RetryDecision), RetryAttempt: cycle.RetryAttempt, ChildWorkIDs: safeTextSlice(cycle.ChildWorkIDs), EvidenceRefIDs: safeTextSlice(cycle.EvidenceRefIDs)})
+	}
+	childWork := make([]SemanticOrchestrateChildWork, 0, len(orchestrate.ChildWork))
+	for _, child := range orchestrate.ChildWork {
+		childWork = append(childWork, SemanticOrchestrateChildWork{ID: safeText(child.ID), Capability: safeText(child.Capability), Purpose: safeText(child.Purpose), Status: safeText(child.Status), Summary: safeText(child.Summary), RetryAttempt: child.RetryAttempt, EvidenceRefIDs: safeTextSlice(child.EvidenceRefIDs)})
+	}
+	decisions := make([]SemanticOrchestrateDecision, 0, len(orchestrate.Decisions))
+	for _, decision := range orchestrate.Decisions {
+		decisions = append(decisions, SemanticOrchestrateDecision{ID: safeText(decision.ID), Kind: safeText(decision.Kind), Summary: safeText(decision.Summary), Reason: safeText(decision.Reason), Result: safeText(decision.Result), EvidenceRef: safeText(decision.EvidenceRef)})
+	}
+	evidence := make([]SemanticOrchestrateEvidence, 0, len(orchestrate.Evidence))
+	for _, item := range orchestrate.Evidence {
+		evidence = append(evidence, SemanticOrchestrateEvidence{ID: safeText(item.ID), Kind: safeText(item.Kind), Summary: safeText(item.Summary), RefID: safeText(item.RefID)})
+	}
+	artifacts := make([]SemanticOrchestrateArtifactRef, 0, len(orchestrate.ArtifactRefs))
+	for _, ref := range orchestrate.ArtifactRefs {
+		artifacts = append(artifacts, SemanticOrchestrateArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticOrchestrateSourceRef, 0, len(orchestrate.SourceRefs))
+	for _, ref := range orchestrate.SourceRefs {
+		refs = append(refs, SemanticOrchestrateSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticOrchestrateBoundaryRequest, 0, len(orchestrate.BoundaryRequests))
+	for _, request := range orchestrate.BoundaryRequests {
+		requests = append(requests, SemanticOrchestrateBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticOrchestrate{
+		Visible:              true,
+		Source:               safeText(defaultString(orchestrate.Source, "app.orchestrate")),
+		Capability:           safeText(defaultString(orchestrate.Capability, "orchestrate")),
+		Signal:               safeText(defaultString(orchestrate.Signal, "complete")),
+		CurrentPhase:         safeText(orchestrate.CurrentPhase),
+		Status:               safeText(orchestrate.Status),
+		ActiveCycle:          safeText(orchestrate.ActiveCycle),
+		Summary:              safeText(orchestrate.Summary),
+		RecommendedSuccessor: safeText(orchestrate.RecommendedSuccessor),
+		SuccessorValid:       orchestrate.SuccessorValid,
+		TransitionClaimed:    orchestrate.TransitionClaimed,
+		DisplayOnly:          orchestrate.DisplayOnly,
+		Goal:                 SemanticOrchestrateGoal{ID: safeText(orchestrate.Goal.ID), Title: safeText(orchestrate.Goal.Title), Scope: safeText(orchestrate.Goal.Scope)},
+		RetryBudget:          SemanticOrchestrateRetryBudget{MaxAttempts: orchestrate.RetryBudget.MaxAttempts, Used: orchestrate.RetryBudget.Used, Remaining: orchestrate.RetryBudget.Remaining},
+		Cycles:               cycles,
+		ChildWork:            childWork,
+		Decisions:            decisions,
+		Evidence:             evidence,
+		Blockers:             safeTextSlice(orchestrate.Blockers),
+		Caveats:              safeTextSlice(orchestrate.Caveats),
+		FinalSummary:         safeText(orchestrate.FinalSummary),
+		NeededInput:          safeText(orchestrate.NeededInput),
+		NextAction:           safeText(orchestrate.NextAction),
+		ArtifactRefs:         artifacts,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
 	}
 }
 

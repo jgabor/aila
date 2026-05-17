@@ -2620,7 +2620,7 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" || tc.name == "orchestrate-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3617,6 +3617,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		{name: "optimize-command", input: "/optimize", route: policy.CommandRouteOptimize},
 		{name: "document-command", input: "/document", route: policy.CommandRouteDocument},
 		{name: "design-command", input: "/design", route: policy.CommandRouteDesign},
+		{name: "orchestrate-command", input: "/orchestrate", route: policy.CommandRouteOrchestrate},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3639,7 +3640,7 @@ func TestCommandFixtureSet(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
-					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" {
+					if tc.name == "optimize-command" || tc.name == "document-command" || tc.name == "design-command" || tc.name == "orchestrate-command" {
 						got = trimSnapshotLinePadding(got)
 					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3710,6 +3711,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned document alignment unavailable in presentation-only fallback"
 	case "design":
 		return "app-owned design-system work unavailable in presentation-only fallback"
+	case "orchestrate":
+		return "app-owned orchestration unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -4839,6 +4842,103 @@ func documentWaitingFixtureState() ViewState {
 		DisplayOnly:       true,
 		SourceRefs:        []DocumentSourceRefView{{ID: "document-command", Kind: "command", Command: "/document", Excerpt: "waiting for documentation evidence"}},
 		BoundaryRequests:  []DocumentBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "documentation.current", Reason: "document uses app-supplied documentation alignment evidence"}, {Kind: "tool_execution", Operation: "write", Target: "planned documentation target", Reason: "document writes docs through the runtime mutation tool effect"}},
+	}
+	return state
+}
+
+func TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "orchestration-progress", orchestrationProgressFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Orchestration:", "capability: orchestrate"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "status: completed", "active cycle: cycle-2")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "transition claimed: false", "cycle: cycle-1 capability=build status=retrying", "retry_decision")
+		}
+		if renderCase.size.Height > 40 {
+			want = append(want, "child work: orchestrate-build-1 capability=build status=failed", "decision: retry-build kind=retry", "evidence: cycle-2-evaluation", "blocker: human-only dogfooding remains out of scope", "final summary: Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("orchestration fixture missing evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Orchestrate == nil || snapshot.Orchestrate.ActiveCycle != "cycle-2" || len(snapshot.Orchestrate.Cycles) != 2 || len(snapshot.Orchestrate.ChildWork) != 3 || len(snapshot.Orchestrate.Decisions) != 2 || len(snapshot.Orchestrate.Evidence) != 2 || len(snapshot.Orchestrate.Blockers) != 1 || snapshot.Orchestrate.RetryBudget.Used != 1 || snapshot.Orchestrate.TransitionClaimed || !snapshot.Orchestrate.DisplayOnly {
+			t.Fatalf("orchestrate semantic = %+v", snapshot.Orchestrate)
+		}
+		regions := semanticRegionsByName(t, snapshot)
+		items := strings.Join(regions["orchestrate"].Items, "\n")
+		if !containsAll(items, []string{"active_cycle: cycle-2", "child_work: orchestrate-build-1 capability=build status=failed", "decision: retry-build kind=retry", "display_only: true", "transition_claimed: false"}) {
+			t.Fatalf("orchestrate semantic region = %v", regions["orchestrate"].Items)
+		}
+	}
+}
+
+func orchestrationProgressFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "orchestration-progress"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-orchestrate"
+	state.UtilityModel = "fake/fake-utility"
+	state.Autonomy = "write"
+	state.RuntimeStatus = "idle"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "orchestration capability status"
+	state.RuntimeResult = "Orchestration completed 2 cycles for current-plan with 1 retry used."
+	state.FooterContext = "orchestration visible"
+	state.SurfaceTitle = "agent evidence"
+	state.Orchestrate = &OrchestrateView{
+		Source:               "app.orchestrate.fixture",
+		Capability:           "orchestrate",
+		Signal:               "complete",
+		CurrentPhase:         "build",
+		Status:               "completed",
+		ActiveCycle:          "cycle-2",
+		Summary:              "Orchestration completed 2 cycles for current-plan with 1 retry used.",
+		RecommendedSuccessor: "audit",
+		SuccessorValid:       true,
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		Goal:                 OrchestrateGoalView{ID: "current-plan", Title: "Coordinate the accepted plan", Scope: "bounded existing capabilities and supervised subagents"},
+		RetryBudget:          OrchestrateRetryBudgetView{MaxAttempts: 1, Used: 1, Remaining: 0},
+		Cycles: []OrchestrateCycleView{
+			{ID: "cycle-1", Capability: "build", Status: "retrying", Summary: "dispatch build child and evaluate retryable failure", Evaluation: "missing verification evidence", RetryDecision: "retry build with preserved evidence", RetryAttempt: 0, ChildWorkIDs: []string{"orchestrate-build-1"}, EvidenceRefIDs: []string{"cycle-1-evaluation"}},
+			{ID: "cycle-2", Capability: "build", Status: "completed", Summary: "retry build child and request audit evaluation", Evaluation: "recovered result accepted", RetryDecision: "stop retries and summarize", RetryAttempt: 1, ChildWorkIDs: []string{"orchestrate-build-retry", "orchestrate-audit"}, EvidenceRefIDs: []string{"cycle-2-evaluation"}},
+		},
+		ChildWork: []OrchestrateChildWorkView{
+			{ID: "orchestrate-build-1", Capability: "build", Purpose: "execute the first bounded plan step", Status: "failed", Summary: "build child reported missing verification evidence", RetryAttempt: 0, EvidenceRefIDs: []string{"cycle-1-evaluation"}},
+			{ID: "orchestrate-build-retry", Capability: "build", Purpose: "retry the bounded plan step with preserved evidence", Status: "completed", Summary: "retry completed after preserving evaluation evidence", RetryAttempt: 1, EvidenceRefIDs: []string{"cycle-2-evaluation"}},
+			{ID: "orchestrate-audit", Capability: "audit", Purpose: "evaluate the recovered build result", Status: "completed", Summary: "audit accepted the recovered result", RetryAttempt: 0, EvidenceRefIDs: []string{"cycle-2-evaluation"}},
+		},
+		Decisions: []OrchestrateDecisionView{
+			{ID: "retry-build", Kind: "retry", Summary: "Retry the failed build child once.", Reason: "failure was retryable and retry budget remained", Result: "retry dispatched", EvidenceRef: "cycle-1-evaluation"},
+			{ID: "final-audit", Kind: "evaluation", Summary: "Request audit evaluation after recovered build evidence.", Reason: "orchestrate must evaluate before final summary", Result: "audit accepted", EvidenceRef: "cycle-2-evaluation"},
+		},
+		Evidence:     []OrchestrateEvidenceView{{ID: "cycle-1-evaluation", Kind: "evaluation", Summary: "first build child failed with retryable evidence gap", RefID: "orchestrate-build-1"}, {ID: "cycle-2-evaluation", Kind: "evaluation", Summary: "retry completed and audit evidence accepted", RefID: "orchestrate-build-retry"}},
+		Blockers:     []string{"human-only dogfooding remains out of scope"},
+		Caveats:      []string{"deterministic app-supplied orchestration evidence only", "no provider-backed child execution in this slice"},
+		FinalSummary: "Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.",
+		NextAction:   "Audit the orchestration summary before human-only dogfooding.",
+		ArtifactRefs: []OrchestrateArtifactRefView{{ID: "plan-artifact", Kind: "state_artifact", Path: ".aila/artifacts/plan.md"}},
+		SourceRefs:   []OrchestrateSourceRefView{{ID: "orchestrate-command", Kind: "command", Command: "/orchestrate", Excerpt: "app-owned orchestration command"}},
+		BoundaryRequests: []OrchestrateBoundaryRequestView{
+			{Kind: "state_access", Operation: "state.access", Target: "orchestration.current", Reason: "orchestrate requires app-supplied runtime and plan state"},
+			{Kind: "tool_execution", Operation: "capability.dispatch", Target: "fixed built-in capabilities", Reason: "orchestrate dispatches only through existing capability/tool paths"},
+		},
 	}
 	return state
 }

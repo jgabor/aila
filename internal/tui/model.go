@@ -64,6 +64,7 @@ type TranscriptTurn struct {
 	Optimize           *OptimizeView
 	Document           *DocumentView
 	Design             *DesignView
+	Orchestrate        *OrchestrateView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -717,6 +718,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Design != nil {
 		state.Design = cloneDesignView(turn.Design)
 	}
+	if turn.Orchestrate != nil {
+		state.Orchestrate = cloneOrchestrateView(turn.Orchestrate)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -907,6 +911,30 @@ func cloneDesignView(design *DesignView) *DesignView {
 	return &clone
 }
 
+func cloneOrchestrateView(orchestrate *OrchestrateView) *OrchestrateView {
+	if orchestrate == nil {
+		return nil
+	}
+	clone := *orchestrate
+	clone.Cycles = append([]OrchestrateCycleView(nil), orchestrate.Cycles...)
+	for index := range clone.Cycles {
+		clone.Cycles[index].ChildWorkIDs = append([]string(nil), orchestrate.Cycles[index].ChildWorkIDs...)
+		clone.Cycles[index].EvidenceRefIDs = append([]string(nil), orchestrate.Cycles[index].EvidenceRefIDs...)
+	}
+	clone.ChildWork = append([]OrchestrateChildWorkView(nil), orchestrate.ChildWork...)
+	for index := range clone.ChildWork {
+		clone.ChildWork[index].EvidenceRefIDs = append([]string(nil), orchestrate.ChildWork[index].EvidenceRefIDs...)
+	}
+	clone.Decisions = append([]OrchestrateDecisionView(nil), orchestrate.Decisions...)
+	clone.Evidence = append([]OrchestrateEvidenceView(nil), orchestrate.Evidence...)
+	clone.Blockers = append([]string(nil), orchestrate.Blockers...)
+	clone.Caveats = append([]string(nil), orchestrate.Caveats...)
+	clone.ArtifactRefs = append([]OrchestrateArtifactRefView(nil), orchestrate.ArtifactRefs...)
+	clone.SourceRefs = append([]OrchestrateSourceRefView(nil), orchestrate.SourceRefs...)
+	clone.BoundaryRequests = append([]OrchestrateBoundaryRequestView(nil), orchestrate.BoundaryRequests...)
+	return &clone
+}
+
 func cloneBuildView(build *BuildView) *BuildView {
 	if build == nil {
 		return nil
@@ -1081,7 +1109,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 		state.Utility = nil
 		state.Brief = nil
 	}
-	if recommendation.Route != policy.CommandRoutePlan && recommendation.Route != policy.CommandRouteBuild {
+	if recommendation.Route != policy.CommandRoutePlan && recommendation.Route != policy.CommandRouteBuild && recommendation.Route != policy.CommandRouteOrchestrate {
 		state.Plan = nil
 	}
 	if recommendation.Route != policy.CommandRouteBuild {
@@ -1095,6 +1123,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	}
 	if recommendation.Route != policy.CommandRouteDesign {
 		state.Design = nil
+	}
+	if recommendation.Route != policy.CommandRouteOrchestrate {
+		state.Orchestrate = nil
 	}
 	state.FileReference = nil
 	switch recommendation.Route {
@@ -1193,6 +1224,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"read-only: false",
 			"capability: design",
 		}
+	case policy.CommandRouteOrchestrate:
+		state.SurfaceTitle = "orchestrate"
+		state.SurfaceLines = []string{
+			"app-owned orchestration unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: orchestrate",
+		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"
 		state.SurfaceLines = []string{
@@ -1215,6 +1253,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/status - Inspect current runtime and state.",
 			"/plan - Create and display scoped work without executing it.",
 			"/build - Execute one planned task through safety paths, then hold.",
+			"/orchestrate - Coordinate bounded capability cycles with visible evaluation.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
 			"/compact - Immediately compact the current conversation.",
@@ -1269,6 +1308,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	}
 	if route != policy.CommandRouteReview {
 		state.Audit = nil
+	}
+	if route != policy.CommandRouteOrchestrate {
+		state.Orchestrate = nil
 	}
 	state.SurfaceLines = append([]string(nil), lines...)
 	return state

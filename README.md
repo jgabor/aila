@@ -244,20 +244,20 @@ Everything here is built in. A few words below are intentional:
 
 Capabilities are the higher-level parts of a coding session:
 
-| Glyph | Capability  | What it does                                                                  |
-| ----- | ----------- | ----------------------------------------------------------------------------- |
-| ⌂     | brief       | Briefs on project status, current plan, known gaps, and suggested next action |
-| ⛥     | vision      | Helps you shape the project's vision and long-term goals                      |
-| ❈     | discuss     | Structured deliberation before consequential choices                          |
-| ⬚     | research    | Assists with adapting concepts, patterns, or solutions                        |
-| ≡     | plan        | Scoped planning with behavioral acceptance criteria                           |
-| ⧉     | build       | Executes a single task or step of a plan, and then holds                      |
-| ⎘     | optimize    | Helps you research and design a locked harness that optimizes a metric        |
-| ▤     | document    | Keeps documentation aligned with the actual project                           |
-| ◰     | design      | Creates a design system that is durable and understood by agents              |
-| ⛶     | audit       | Architecture, test, dependency, and project health audits                     |
-| ♾     | profile     | Profiles your decision thought processes from previous conversations          |
-| ⎈     | orchestrate | Autonomous plan execution with parallel agents, evaluation, and retry checks  |
+| Glyph | Capability  | What it does                                                                       |
+| ----- | ----------- | ---------------------------------------------------------------------------------- |
+| ⌂     | brief       | Briefs on project status, current plan, known gaps, and suggested next action      |
+| ⛥     | vision      | Helps you shape the project's vision and long-term goals                           |
+| ❈     | discuss     | Structured deliberation before consequential choices                               |
+| ⬚     | research    | Assists with adapting concepts, patterns, or solutions                             |
+| ≡     | plan        | Scoped planning with behavioral acceptance criteria                                |
+| ⧉     | build       | Executes a single task or step of a plan, and then holds                           |
+| ⎘     | optimize    | Helps you research and design a locked harness that optimizes a metric             |
+| ▤     | document    | Keeps documentation aligned with the actual project                                |
+| ◰     | design      | Creates a design system that is durable and understood by agents                   |
+| ⛶     | audit       | Architecture, test, dependency, and project health audits                          |
+| ♾     | profile     | Profiles your decision thought processes from previous conversations               |
+| ⎈     | orchestrate | Bounded plan coordination with supervised child work, evaluation, and retry checks |
 
 Utility capabilities are hidden background work run by the utility model. They are never slash commands.
 

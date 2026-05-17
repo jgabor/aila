@@ -219,6 +219,7 @@ type ExitPayload struct {
 	Optimize             *OptimizeOutput
 	Document             *DocumentOutput
 	Design               *DesignOutput
+	Orchestrate          *OrchestrateOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -371,6 +372,25 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		design.Caveats = append([]string(nil), payload.Design.Caveats...)
 		design.SourceRefs = append([]SourceRef(nil), payload.Design.SourceRefs...)
 		payload.Design = &design
+	}
+
+	if payload.Orchestrate != nil {
+		orchestrate := *payload.Orchestrate
+		orchestrate.Cycles = append([]OrchestrateCycle(nil), payload.Orchestrate.Cycles...)
+		for index := range orchestrate.Cycles {
+			orchestrate.Cycles[index].ChildWorkIDs = append([]string(nil), payload.Orchestrate.Cycles[index].ChildWorkIDs...)
+			orchestrate.Cycles[index].EvidenceRefIDs = append([]string(nil), payload.Orchestrate.Cycles[index].EvidenceRefIDs...)
+		}
+		orchestrate.ChildWork = append([]OrchestrateChildWork(nil), payload.Orchestrate.ChildWork...)
+		for index := range orchestrate.ChildWork {
+			orchestrate.ChildWork[index].EvidenceRefIDs = append([]string(nil), payload.Orchestrate.ChildWork[index].EvidenceRefIDs...)
+		}
+		orchestrate.Decisions = append([]OrchestrateDecision(nil), payload.Orchestrate.Decisions...)
+		orchestrate.Evidence = append([]OrchestrateEvidence(nil), payload.Orchestrate.Evidence...)
+		orchestrate.Blockers = append([]string(nil), payload.Orchestrate.Blockers...)
+		orchestrate.Caveats = append([]string(nil), payload.Orchestrate.Caveats...)
+		orchestrate.SourceRefs = append([]SourceRef(nil), payload.Orchestrate.SourceRefs...)
+		payload.Orchestrate = &orchestrate
 	}
 
 	if payload.Profile != nil {

@@ -111,6 +111,11 @@ func (runner *inputRunner) proposeCapability(request capability.Request) tui.Tra
 		if turn.Design != nil {
 			turn.StatusDetail = "design capability status"
 		}
+	case capability.NameOrchestrate:
+		turn.Orchestrate = orchestrateView(runner.model.LastCapability, request.Phase)
+		if turn.Orchestrate != nil {
+			turn.StatusDetail = "orchestration capability status"
+		}
 	case capability.NameAudit:
 		turn.Audit = auditView(runner.model.LastCapability, request.Phase)
 		if turn.Audit != nil {

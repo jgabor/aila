@@ -6,31 +6,32 @@ import "strings"
 type CommandRoute string
 
 const (
-	CommandRouteNone     CommandRoute = ""
-	CommandRouteNew      CommandRoute = "new"
-	CommandRouteClear    CommandRoute = "clear"
-	CommandRouteContinue CommandRoute = "continue"
-	CommandRouteEditor   CommandRoute = "editor"
-	CommandRouteModel    CommandRoute = "model"
-	CommandRouteAuto     CommandRoute = "auto"
-	CommandRouteStatus   CommandRoute = "status"
-	CommandRouteVision   CommandRoute = "vision"
-	CommandRouteDiscuss  CommandRoute = "discuss"
-	CommandRouteResearch CommandRoute = "research"
-	CommandRouteProfile  CommandRoute = "profile"
-	CommandRoutePlan     CommandRoute = "plan"
-	CommandRouteBuild    CommandRoute = "build"
-	CommandRouteOptimize CommandRoute = "optimize"
-	CommandRouteDocument CommandRoute = "document"
-	CommandRouteDesign   CommandRoute = "design"
-	CommandRouteReview   CommandRoute = "review"
-	CommandRouteHelp     CommandRoute = "help"
-	CommandRouteHistory  CommandRoute = "history"
-	CommandRouteCompact  CommandRoute = "compact"
-	CommandRouteDiff     CommandRoute = "diff"
-	CommandRouteUndo     CommandRoute = "undo"
-	CommandRouteRedo     CommandRoute = "redo"
-	CommandRouteQuit     CommandRoute = "quit"
+	CommandRouteNone        CommandRoute = ""
+	CommandRouteNew         CommandRoute = "new"
+	CommandRouteClear       CommandRoute = "clear"
+	CommandRouteContinue    CommandRoute = "continue"
+	CommandRouteEditor      CommandRoute = "editor"
+	CommandRouteModel       CommandRoute = "model"
+	CommandRouteAuto        CommandRoute = "auto"
+	CommandRouteStatus      CommandRoute = "status"
+	CommandRouteVision      CommandRoute = "vision"
+	CommandRouteDiscuss     CommandRoute = "discuss"
+	CommandRouteResearch    CommandRoute = "research"
+	CommandRouteProfile     CommandRoute = "profile"
+	CommandRoutePlan        CommandRoute = "plan"
+	CommandRouteBuild       CommandRoute = "build"
+	CommandRouteOptimize    CommandRoute = "optimize"
+	CommandRouteDocument    CommandRoute = "document"
+	CommandRouteDesign      CommandRoute = "design"
+	CommandRouteOrchestrate CommandRoute = "orchestrate"
+	CommandRouteReview      CommandRoute = "review"
+	CommandRouteHelp        CommandRoute = "help"
+	CommandRouteHistory     CommandRoute = "history"
+	CommandRouteCompact     CommandRoute = "compact"
+	CommandRouteDiff        CommandRoute = "diff"
+	CommandRouteUndo        CommandRoute = "undo"
+	CommandRouteRedo        CommandRoute = "redo"
+	CommandRouteQuit        CommandRoute = "quit"
 )
 
 // CommandTarget identifies the closed command target selected by a fixed route.
@@ -97,6 +98,8 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteDocument, Kind: CommandInputSlash}, true
 	case "/design":
 		return CommandRecommendation{Route: CommandRouteDesign, Kind: CommandInputSlash}, true
+	case "/orchestrate":
+		return CommandRecommendation{Route: CommandRouteOrchestrate, Kind: CommandInputSlash}, true
 	case "/review":
 		return CommandRecommendation{Route: CommandRouteReview, Kind: CommandInputSlash}, true
 	case "/help":

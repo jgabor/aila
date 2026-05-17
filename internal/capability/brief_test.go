@@ -97,11 +97,11 @@ func TestBriefCapabilityUsesBoundaryDescriptorsForStateHistoryContextAndHealth(t
 	}
 }
 
-func TestBuiltInRunnerRejectsCapabilitiesWithoutBuiltInRunner(t *testing.T) {
+func TestBuiltInRunnerRejectsUnknownCapability(t *testing.T) {
 	t.Parallel()
 
-	if _, err := RunBuiltIn(context.Background(), Request{Capability: NameOrchestrate}); err == nil {
-		t.Fatal("RunBuiltIn accepted unsupported orchestrate capability")
+	if _, err := RunBuiltIn(context.Background(), Request{Capability: Name("unknown")}); err == nil {
+		t.Fatal("RunBuiltIn accepted unknown capability")
 	}
 }
 

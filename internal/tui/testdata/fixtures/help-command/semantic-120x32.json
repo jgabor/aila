@@ -69,6 +69,7 @@
         "/status - Inspect current runtime and state.",
         "/plan - Create and display scoped work without executing it.",
         "/build - Execute one planned task through safety paths, then hold.",
+        "/orchestrate - Coordinate bounded capability cycles with visible evaluation.",
         "/review - Inspect current changes, risks, and sources.",
         "/history - Browse runs, edits, checks, and undo data.",
         "/compact - Immediately compact the current conversation.",

@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-orchestrate | Utility fake/fake-utility | Auto write                       [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: orchestration capability status                                                                              |
+| active: false                                                                                                        |
+| result: Orchestration completed 2 cycles for current-plan with 1 retry used.                                         |
+|                                                                                                                      |
+| Orchestration:                                                                                                       |
+| source: app.orchestrate.fixture                                                                                      |
+| capability: orchestrate                                                                                              |
+| signal: complete                                                                                                     |
+| phase: build                                                                                                         |
+| status: completed                                                                                                    |
+| active cycle: cycle-2                                                                                                |
+| goal: current-plan scope=bounded existing capabilities and supervised subagents title=Coordinate the accepted plan   |
+| retry budget: max=1 used=1 remaining=0                                                                               |
+| recommended successor: audit                                                                                         |
+| successor valid: true                                                                                                |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
+| summary: Orchestration completed 2 cycles for current-plan with 1 retry used.                                        |
+| final summary: Coordinated two bounded cycles, retried one failed child, evaluated recovery, and stopped.            |
+| blocker: human-only dogfooding remains out of scope                                                                  |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                              git: placeholder | context: orchestration visible | q quit[0m

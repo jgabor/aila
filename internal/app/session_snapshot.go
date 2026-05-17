@@ -281,6 +281,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
+	case policy.CommandRouteOrchestrate:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, controller.openOrchestrateView()...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRouteReview:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
@@ -344,7 +356,8 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		profilePayloadChanged(before.LastCapability.Profile, after.LastCapability.Profile) ||
 		optimizePayloadChanged(before.LastCapability.Optimize, after.LastCapability.Optimize) ||
 		documentPayloadChanged(before.LastCapability.Document, after.LastCapability.Document) ||
-		designPayloadChanged(before.LastCapability.Design, after.LastCapability.Design)
+		designPayloadChanged(before.LastCapability.Design, after.LastCapability.Design) ||
+		orchestratePayloadChanged(before.LastCapability.Orchestrate, after.LastCapability.Orchestrate)
 }
 
 func discussPayloadChanged(before, after *capability.DiscussOutput) bool {
@@ -387,6 +400,13 @@ func designPayloadChanged(before, after *capability.DesignOutput) bool {
 		return before != after
 	}
 	return before.Goal.ID != after.Goal.ID || before.Goal.Summary != after.Goal.Summary || before.DesignArtifactPath != after.DesignArtifactPath || len(before.Decisions) != len(after.Decisions) || len(before.ReviewPrompts) != len(after.ReviewPrompts) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
+}
+
+func orchestratePayloadChanged(before, after *capability.OrchestrateOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.Goal.ID != after.Goal.ID || before.Status != after.Status || before.ActiveCycle != after.ActiveCycle || before.FinalSummary != after.FinalSummary || before.RetryBudget.Used != after.RetryBudget.Used || len(before.Cycles) != len(after.Cycles) || len(before.ChildWork) != len(after.ChildWork) || len(before.Decisions) != len(after.Decisions) || len(before.Evidence) != len(after.Evidence) || len(before.Blockers) != len(after.Blockers) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func visionPayloadChanged(before, after *capability.VisionOutput) bool {
@@ -448,11 +468,15 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	turn.Subagents = subagentViews(model)
 	turn.Utility = utilityView(model)
 	turn.Brief = briefView(model.LastCapability, model.Status)
+	turn.Orchestrate = orchestrateView(model.LastCapability, workflowPhaseFromView(view))
 	if turn.Utility != nil {
 		turn.StatusDetail = "utility worker status"
 	}
 	if turn.Brief != nil {
 		turn.StatusDetail = "brief capability status"
+	}
+	if turn.Orchestrate != nil {
+		turn.StatusDetail = "orchestration capability status"
 	}
 	if len(turn.Subagents) > 0 && turn.StatusDetail == "fake in-memory runtime loop" {
 		turn.StatusDetail = "subagent supervision"
