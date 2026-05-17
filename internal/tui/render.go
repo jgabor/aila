@@ -57,6 +57,7 @@ type ViewState struct {
 	MemoryBlockers     []string
 	MemoryConcerns     []string
 	RunMemory          *RunMemoryView
+	Session            *SessionView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
@@ -193,6 +194,28 @@ type RunMemoryMutationView struct {
 	ErrorKind      string
 	ErrorMessage   string
 	Decision       *DecisionView
+}
+
+// SessionView is app-injected session lifecycle presentation data. It is
+// display-only; TUI code must never discover, read, write, or delete session files.
+type SessionView struct {
+	Action       string
+	Source       string
+	Status       string
+	SessionID    string
+	MemoryStatus string
+	Detail       string
+	Items        []SessionItemView
+	Selected     int
+	Focus        bool
+}
+
+// SessionItemView records one app-injected selectable session row.
+type SessionItemView struct {
+	ID           string
+	Status       string
+	MemoryStatus string
+	Detail       string
 }
 
 // DiffView is app-injected read-only diff presentation data. It is display-only;
@@ -334,6 +357,14 @@ func contentItems(state ViewState) []string {
 		items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
 		return items
 	}
+	if state.SurfaceTitle == "session" {
+		items = append(items, diagnosticLines(state.Diagnostics)...)
+		items = append(items, surfaceLines(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)...)
+		items = append(items, memoryLines(state)...)
+		items = append(items, queueLines(state)...)
+		items = append(items, chatLines(state.Transcript)...)
+		return items
+	}
 	if state.SurfaceTitle != "" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
 	}
@@ -414,6 +445,38 @@ func memoryLines(state ViewState) []string {
 
 func hasMemory(state ViewState) bool {
 	return state.MemorySource != "" || state.MemorySessionID != "" || len(state.MemoryBlockers) > 0 || len(state.MemoryConcerns) > 0 || state.RunMemory != nil
+}
+
+func sessionSurfaceLines(session SessionView) []string {
+	lines := []string{
+		"source: " + safeText(defaultString(session.Source, "app.session")),
+		"action: " + safeText(session.Action),
+		"status: " + safeText(session.Status),
+		"session id: " + safeText(defaultString(session.SessionID, "current")),
+		"memory: " + safeText(session.MemoryStatus),
+	}
+	if session.Detail != "" {
+		lines = append(lines, "detail: "+safeText(session.Detail))
+	}
+	if len(session.Items) > 0 {
+		lines = append(lines, "sessions:")
+		selected := clampSessionSelection(session)
+		for index, item := range session.Items {
+			marker := " "
+			if index == selected {
+				marker = ">"
+			}
+			line := marker + " " + safeText(item.ID) + " status=" + safeText(item.Status) + " memory=" + safeText(item.MemoryStatus)
+			if item.Detail != "" {
+				line += " detail=" + safeText(item.Detail)
+			}
+			lines = append(lines, line)
+		}
+	}
+	if session.Focus {
+		lines = append(lines, "focus: session")
+	}
+	return append(lines, "app-owned", "display-only")
 }
 
 func runtimeStatusLines(state ViewState) []string {
@@ -1100,6 +1163,7 @@ type SemanticSnapshot struct {
 	Layout      SemanticLayout       `json:"layout"`
 	Session     SemanticSession      `json:"session"`
 	Memory      *SemanticMemory      `json:"memory,omitempty"`
+	SessionView *SemanticSessionView `json:"session_view,omitempty"`
 	Diagnostics []SemanticDiagnostic `json:"diagnostics,omitempty"`
 	Interrupt   *SemanticInterrupt   `json:"interrupt,omitempty"`
 	Command     *SemanticCommand     `json:"command,omitempty"`
@@ -1393,6 +1457,8 @@ type SemanticSession struct {
 	ProjectStoreStatus string `json:"project_store_status,omitempty"`
 	ProjectStoreSource string `json:"project_store_source,omitempty"`
 	ProjectStoreDetail string `json:"project_store_detail,omitempty"`
+	SessionID          string `json:"session_id,omitempty"`
+	MemoryStatus       string `json:"memory_status,omitempty"`
 }
 
 // SemanticInterrupt describes injected interrupt display state without implying
@@ -1410,6 +1476,29 @@ type SemanticCommand struct {
 	Surface     string `json:"surface"`
 	Visible     bool   `json:"visible"`
 	Executed    bool   `json:"executed"`
+}
+
+// SemanticSessionView describes an app-injected session lifecycle surface.
+type SemanticSessionView struct {
+	Visible      bool                  `json:"visible"`
+	Action       string                `json:"action"`
+	Source       string                `json:"source"`
+	Status       string                `json:"status"`
+	SessionID    string                `json:"session_id"`
+	MemoryStatus string                `json:"memory_status"`
+	Detail       string                `json:"detail,omitempty"`
+	Focus        bool                  `json:"focus"`
+	Selected     int                   `json:"selected_index"`
+	Items        []SemanticSessionItem `json:"items,omitempty"`
+}
+
+// SemanticSessionItem describes one inert app-injected selectable session row.
+type SemanticSessionItem struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	MemoryStatus string `json:"memory_status"`
+	Detail       string `json:"detail,omitempty"`
+	Selected     bool   `json:"selected"`
 }
 
 // SemanticHistory describes app-injected read-only history presentation state.
@@ -1593,6 +1682,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.QueuedCount > 0 {
 		regions = append(regions, SemanticRegion{Name: "queue", Visible: true, Items: semanticQueueItems(state)})
 	}
+	if state.Session != nil {
+		regions = append(regions, SemanticRegion{Name: "session", Visible: true, Items: semanticSessionViewItems(state.Session)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -1658,8 +1750,11 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 			ProjectStoreStatus: state.ProjectStoreStatus,
 			ProjectStoreSource: state.ProjectStoreSource,
 			ProjectStoreDetail: state.ProjectStoreDetail,
+			SessionID:          semanticSessionID(state),
+			MemoryStatus:       semanticSessionMemoryStatus(state),
 		},
 		Memory:      semanticMemory(state),
+		SessionView: semanticSessionView(state.Session),
 		Diagnostics: semanticDiagnostics(state.Diagnostics),
 		Command:     command,
 		History:     semanticHistory(state),
@@ -1792,6 +1887,72 @@ func semanticDiagnosticItems(diagnostics []DiagnosticView) []string {
 	}
 	items = append(items, "app-owned", "display-only")
 	return items
+}
+
+func semanticSessionID(state ViewState) string {
+	if state.Session != nil && state.Session.SessionID != "" {
+		return safeText(state.Session.SessionID)
+	}
+	return ""
+}
+
+func semanticSessionMemoryStatus(state ViewState) string {
+	if state.Session != nil && state.Session.MemoryStatus != "" {
+		return safeText(state.Session.MemoryStatus)
+	}
+	return ""
+}
+
+func semanticSessionView(session *SessionView) *SemanticSessionView {
+	if session == nil {
+		return nil
+	}
+	selected := clampSessionSelection(*session)
+	items := make([]SemanticSessionItem, 0, len(session.Items))
+	for index, item := range session.Items {
+		items = append(items, SemanticSessionItem{
+			ID:           safeText(item.ID),
+			Status:       safeText(item.Status),
+			MemoryStatus: safeText(item.MemoryStatus),
+			Detail:       safeText(item.Detail),
+			Selected:     index == selected,
+		})
+	}
+	return &SemanticSessionView{
+		Visible:      true,
+		Action:       safeText(session.Action),
+		Source:       safeText(defaultString(session.Source, "app.session")),
+		Status:       safeText(session.Status),
+		SessionID:    safeText(defaultString(session.SessionID, "current")),
+		MemoryStatus: safeText(session.MemoryStatus),
+		Detail:       safeText(session.Detail),
+		Focus:        session.Focus,
+		Selected:     selected,
+		Items:        items,
+	}
+}
+
+func semanticSessionViewItems(session *SessionView) []string {
+	view := semanticSessionView(session)
+	if view == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + view.Source,
+		"action: " + view.Action,
+		"status: " + view.Status,
+		"session_id: " + view.SessionID,
+		"memory_status: " + view.MemoryStatus,
+		"focus: " + boolLabel(view.Focus),
+		fmt.Sprintf("selected_index: %d", view.Selected),
+	}
+	if view.Detail != "" {
+		items = append(items, "detail: "+view.Detail)
+	}
+	for _, item := range view.Items {
+		items = append(items, "item: "+item.ID+" status="+item.Status+" memory="+item.MemoryStatus+" selected="+boolLabel(item.Selected))
+	}
+	return append(items, "app-owned", "display-only")
 }
 
 func semanticMemory(state ViewState) *SemanticMemory {
@@ -2817,6 +2978,9 @@ func safeSearchTarget(value string) string {
 }
 
 func semanticFocus(state ViewState) string {
+	if state.Session != nil && state.Session.Focus {
+		return "session"
+	}
 	if historyVisible(state) && state.HistoryFocus {
 		return "history"
 	}

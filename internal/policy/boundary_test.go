@@ -20,6 +20,9 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		input string
 		want  CommandRoute
 	}{
+		{name: "new", input: "/new", want: CommandRouteNew},
+		{name: "clear", input: "/clear", want: CommandRouteClear},
+		{name: "continue", input: "/continue", want: CommandRouteContinue},
 		{name: "status", input: "/status", want: CommandRouteStatus},
 		{name: "review", input: "/review", want: CommandRouteReview},
 		{name: "help", input: "/help", want: CommandRouteHelp},
@@ -47,6 +50,36 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 
 func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	t.Parallel()
+
+	newSlash, ok := RecommendSlashCommand("/new")
+	if !ok {
+		t.Fatal("/new did not match")
+	}
+	newShortcut, ok := RecommendShortcut("ctrl+x", "n")
+	if !ok {
+		t.Fatal("ctrl+x n did not match")
+	}
+	if newSlash.Route != newShortcut.Route || newSlash.Route != CommandRouteNew {
+		t.Fatalf("new route mismatch: slash=%+v shortcut=%+v", newSlash, newShortcut)
+	}
+	continueSlash, ok := RecommendSlashCommand("/continue")
+	if !ok {
+		t.Fatal("/continue did not match")
+	}
+	continueShortcut, ok := RecommendShortcut("ctrl+x", "c")
+	if !ok {
+		t.Fatal("ctrl+x c did not match")
+	}
+	if continueSlash.Route != continueShortcut.Route || continueSlash.Route != CommandRouteContinue {
+		t.Fatalf("continue route mismatch: slash=%+v shortcut=%+v", continueSlash, continueShortcut)
+	}
+	clearSlash, ok := RecommendSlashCommand("/clear")
+	if !ok {
+		t.Fatal("/clear did not match")
+	}
+	if clearSlash.Route != CommandRouteClear || clearSlash.Kind != CommandInputSlash {
+		t.Fatalf("clear route = %+v, want slash-only clear route", clearSlash)
+	}
 
 	statusSlash, ok := RecommendSlashCommand("/status")
 	if !ok {
@@ -135,6 +168,9 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 	t.Parallel()
 
 	for _, input := range []string{
+		"/new now",
+		"/clear now",
+		"/continue latest",
 		"/status now",
 		"/help commands",
 		"/review now",
@@ -156,6 +192,9 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		prefix string
 		key    string
 	}{
+		{prefix: "ctrl+x", key: "new"},
+		{prefix: "ctrl+x", key: "clear"},
+		{prefix: "ctrl+x", key: "continue"},
 		{prefix: "ctrl+x", key: "status"},
 		{prefix: "ctrl+x", key: "review"},
 		{prefix: "ctrl+x", key: "undo"},

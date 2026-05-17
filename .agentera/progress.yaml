@@ -1,4 +1,75 @@
 cycles:
+  - number: 197
+    timestamp: "2026-05-17 03:43"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M36 by adding the session command family: /new and ctrl+x n start a fresh app-owned session and persist a fresh
+      current snapshot; /clear clears visible session state and removes current memory through the validated state-store path;
+      /continue and ctrl+x c restore current-session memory into a focused display-only session surface; direct Ctrl-C remains
+      the interrupt shortcut.
+    commit: "pending local commit for M36 session command family"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 36; README session command table; ARCHITECTURE.md explicit effects and state-store boundaries; docs/tui-testing.md fixture/semantic/PTY gates"
+    discovered: >-
+      The durable shortcut conflict is resolved by making ctrl+x c the documented continue chord and leaving direct Ctrl-C as
+      interrupt. The existing current-session snapshot store is enough for M36; no multi-session browser, generic command registry,
+      model/autonomy/editor command, compaction, plugin, MCP, workflow DSL, or hosted control-plane behavior was added. New and
+      touched coverage uses behavior-based names rather than new TestM<number> symbols.
+    verified: >-
+      mage fmt passed. Targeted state, policy, app, TUI, and cmd session PTY tests passed. go test ./internal/... -count=1 passed.
+      go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+      ROADMAP.md was updated only after green validation. Fresh/resumed/cleared render and semantic snapshots load at 80x24,
+      100x30, 120x32, and 160x45. Agentera plan/progress validation, git diff --check, changed-line home-path hygiene, and
+      changed-line TestM<number> hygiene are included in final closeout.
+    next: >-
+      Commit the completed M36 slice, leaving Milestone 37: Model And Autonomy Command Family as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current roadmap milestone first after the accidental interrupt, preserving the planera -> orkestrera -> commit
+        loop and Agentera closeout artifacts.
+      constraints: >-
+        Execute only M36; preserve statechart-MVU, explicit effect boundaries, TUI presentation-only behavior, closed policy routing,
+        app-owned session lifecycle effects, state-owned current-session memory operations, behavior-based test names, and no push.
+      unknowns: >-
+        Full multi-session listing/restore UI, named sessions, compaction-aware continuation, source indexing, model switching,
+        autonomy switching, and editor integration remain deferred to later roadmap milestones.
+      scope: >-
+        internal/policy session routes, internal/state current snapshot clear support, internal/app session lifecycle handlers,
+        internal/tui session surface/focus/render semantics, cmd/aila session PTY smoke, snapshots, ROADMAP, and Agentera closeout.
+  - number: 196
+    timestamp: "2026-05-17 04:30"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 36: Session Command Family as the next roadmap milestone, archived the completed M35 plan, and created
+      a new active full plan with five bounded tasks for closed new/clear/continue routing, app-owned session lifecycle store
+      handling, presentation-only session selection/focus, fixture and semantic coverage, PTY smoke, full validation, roadmap
+      closeout, and commit.
+    commit: "N/A: planning artifact before M36 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 36; AGENTS.md; README slash-command table; ARCHITECTURE.md state plane; docs/workflow-architecture.md IDLE/state rules; docs/tui-testing.md semantic snapshot rules; agentera hej --format json --capability-context planera"
+    discovered: >-
+      The durable command conflict is that README assigns ctrl+x c to /continue while the current TUI uses ctrl+x c for interrupt.
+      M36 should make ctrl+x c the documented continue shortcut and preserve direct Ctrl-C as interrupt. Current store support is
+      the single current-session snapshot, so the narrow implementation should restore/clear that current session without inventing
+      a generic multi-session browser or command registry. Behavior-based test names are required; new TestM<number> symbols are out of scope.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, agentera plan/progress/describe state, ROADMAP.md top status and M36 section,
+      docs/notes/PROMPT.md, AGENTS.md, README session command table, ARCHITECTURE.md session/state rules, docs/workflow-architecture.md
+      IDLE and state artifact rules, docs/tui-testing.md semantic snapshot requirements, and current policy/app/state/TUI/cmd session seams were reviewed before writing the plan.
+    next: >-
+      Execute M36 Tasks 2-4: add closed session command routes, add state-owned current-session clear support, implement app-owned new/clear/continue handlers, and refresh fixtures, semantics, keybinding, and PTY coverage without adding undo/redo, model/autonomy/editor, compaction, plugins, MCP, workflow DSL, generic command registry, hosted control-plane, or M37+ behavior.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md, using the Agentera planera startup contract
+        and keeping the active thread goal in its planera -> orkestrera -> commit loop.
+      constraints: >-
+        Plan only M36; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, closed policy routing, state-owned
+        current-session snapshot rules, app-owned lifecycle handlers, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Full multi-session listing/restore UI, named sessions, compaction-aware continuation, source indexing, model switching, autonomy switching,
+        and editor integration remain deferred until later roadmap milestones.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m35.yaml archival, and progress evidence for the M36 planning handoff.
   - number: 195
     timestamp: "2026-05-17 04:12"
     type: build

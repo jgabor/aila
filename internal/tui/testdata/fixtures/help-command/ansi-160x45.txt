@@ -8,6 +8,9 @@
 | route source: policy.command                                                                                     |  | git: placeholder                       |
 | Deterministic placeholder help.                                                                                  |  | context: placeholder                   |
 | commands:                                                                                                        |  |                                        |
+| /new - Start a fresh session and preserve project memory.                                                        |  |                                        |
+| /clear - Clear visible session state and current memory.                                                         |  |                                        |
+| /continue - Restore the current saved session.                                                                   |  |                                        |
 | /status - Inspect current runtime and state.                                                                     |  |                                        |
 | /review - Inspect current changes, risks, and sources.                                                           |  |                                        |
 | /history - Browse runs, edits, checks, and undo data.                                                            |  |                                        |
@@ -17,6 +20,8 @@
 | /redo - Redo the latest supported recovery.                                                                      |  |                                        |
 | /quit - Quit Aila.                                                                                               |  |                                        |
 | shortcuts:                                                                                                       |  |                                        |
+| ctrl+x n - Start a fresh session and preserve project memory.                                                    |  |                                        |
+| ctrl+x c - Restore the current saved session.                                                                    |  |                                        |
 | ctrl+x s - Inspect current runtime and state.                                                                    |  |                                        |
 | ctrl+x i - Inspect current changes, risks, and sources.                                                          |  |                                        |
 | ctrl+x h - Browse runs, edits, checks, and undo data.                                                            |  |                                        |
@@ -24,11 +29,6 @@
 | ctrl+x u - Undo the latest supported mutation.                                                                   |  |                                        |
 | ctrl+x r - Redo the latest supported recovery.                                                                   |  |                                        |
 | ctrl+x q - Quit Aila.                                                                                            |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |

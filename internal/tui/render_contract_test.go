@@ -16,7 +16,7 @@ func TestM6ResponsiveRenderContract(t *testing.T) {
 			t.Parallel()
 
 			plain80 := RenderPlain(fixture.State, Size{Width: 80, Height: 24})
-			assertVisibleAt80(t, fixture.Name, plain80)
+			assertVisibleAt80(t, fixture.Name, fixture.State, plain80)
 			assertActiveContentVisible(t, fixture.Name, plain80)
 			if lines := strings.Count(plain80, "\n") + 1; lines > 24 {
 				t.Fatalf("80x24 render uses %d rows, want at most 24:\n%s", lines, plain80)
@@ -326,15 +326,17 @@ func currentRenderFixtures(t *testing.T) []renderFixture {
 		loadDisplayFixture(t, "model-display"),
 		loadDisplayFixture(t, "autonomy-display"),
 		loadSubmittedPromptFixture(t),
+		loadSessionCommandFixture(t, "fresh-session"),
+		loadSessionCommandFixture(t, "resumed-session"),
+		loadSessionCommandFixture(t, "cleared-session"),
 		loadCommandFixture(t, "status-command", "/status"),
 		loadCommandFixture(t, "help-command", "/help"),
 	}
 }
 
-func assertVisibleAt80(t *testing.T, name string, render string) {
+func assertVisibleAt80(t *testing.T, name string, state ViewState, render string) {
 	t.Helper()
-	state := loadFixtureStateForAssertion(name)
-	statusToken := statusLine(state)
+	statusToken := fitLine(statusLine(state), "", 80)
 	if hasDisplayLabelDetails(state) {
 		statusToken = "Stage " + state.Phase + " | Model " + state.PrimaryModel
 	}
@@ -364,6 +366,9 @@ func assertActiveContentVisible(t *testing.T, name string, render string) {
 		"model-display":    {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: yolo (display-only)"},
 		"autonomy-display": {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: read (display-only)"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
+		"fresh-session":    {"session:", "action: new", "session id: current"},
+		"resumed-session":  {"session:", "action: continue", "session id: current"},
+		"cleared-session":  {"session:", "action: clear", "session id: current"},
 		"status-command":   {"status:", "command route: status", "route source: policy.command", "app-owned status inspection unavailable in presentation-only fallback"},
 		"review-command":   {"review:", "command route: review", "route source: policy.command", "app-owned review inspection unavailable in presentation-only fallback"},
 		"help-command":     {"help:", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
@@ -391,6 +396,9 @@ func assertActiveSemanticContent(t *testing.T, name string, snapshot SemanticSna
 		"model-display":    {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: yolo"},
 		"autonomy-display": {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: read"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
+		"fresh-session":    {"action: new", "session_id: current", "memory_status: fresh"},
+		"resumed-session":  {"action: continue", "session_id: current", "memory_status: visible"},
+		"cleared-session":  {"action: clear", "session_id: current", "memory_status: cleared"},
 		"status-command":   {"status", "command route: status", "route source: policy.command", "app-owned status inspection unavailable in presentation-only fallback"},
 		"review-command":   {"review", "command route: review", "route source: policy.command", "app-owned review inspection unavailable in presentation-only fallback"},
 		"help-command":     {"help", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
@@ -398,7 +406,7 @@ func assertActiveSemanticContent(t *testing.T, name string, snapshot SemanticSna
 	if len(want) == 0 {
 		t.Fatalf("test fixture %q has no semantic active content assertion", name)
 	}
-	content := joined["chat"] + "\n" + joined["command"] + "\n" + joined["model"]
+	content := joined["chat"] + "\n" + joined["command"] + "\n" + joined["session"] + "\n" + joined["model"]
 	if !containsAll(content, want) {
 		t.Fatalf("%s semantic output missing active content %v in %+v", name, want, regions)
 	}
@@ -424,24 +432,6 @@ func assertRightRailDisplayOnly(t *testing.T, state ViewState, render string) {
 	if containsAny(rail, []string{"workflow", "provider", "permission"}) {
 		t.Fatalf("right rail contains behavior or real lookup content:\n%s", rail)
 	}
-}
-
-func loadFixtureStateForAssertion(name string) ViewState {
-	state := IdleEmptyState()
-	state.Phase = testWorkflowPhaseLabel
-	state.PhaseSource = testWorkflowPhaseSource
-	state.Scenario = name
-	switch name {
-	case "model-display":
-		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
-		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
-		state.Autonomy = "yolo"
-	case "autonomy-display":
-		state.PrimaryModel = "opencode-go/deepseek-v4-pro:high"
-		state.UtilityModel = "opencode-go/deepseek-v4-flash:max"
-		state.Autonomy = "read"
-	}
-	return state
 }
 
 func sizeString(size Size) string {

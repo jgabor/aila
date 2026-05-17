@@ -568,6 +568,28 @@ func isJSONNull(raw json.RawMessage) bool {
 	return string(raw) == "null"
 }
 
+// ClearCurrentSessionSnapshot removes `.aila/sessions/current.json` through the same
+// validated current-session path contract used by read and write. Missing memory is a no-op.
+func (s Store) ClearCurrentSessionSnapshot(ctx context.Context) (SessionSnapshotLocation, error) {
+	if err := ctx.Err(); err != nil {
+		return SessionSnapshotLocation{}, err
+	}
+	location, err := CurrentSessionSnapshotLocation(s.layout)
+	if err != nil {
+		return SessionSnapshotLocation{}, err
+	}
+	if err := ValidateCurrentSessionSnapshotPath(s.layout, location.Path); err != nil {
+		return SessionSnapshotLocation{}, err
+	}
+	if err := validateCurrentSessionSnapshotComponents(s.layout, location.Path); err != nil {
+		return SessionSnapshotLocation{}, err
+	}
+	if err := os.Remove(location.Path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return SessionSnapshotLocation{}, fmt.Errorf("clear current session snapshot: %w", err)
+	}
+	return location, nil
+}
+
 // WriteCurrentSessionSnapshot validates, redacts, and atomically replaces `.aila/sessions/current.json`.
 func (s Store) WriteCurrentSessionSnapshot(ctx context.Context, snapshot SessionSnapshot) (SessionSnapshotLocation, error) {
 	if err := ctx.Err(); err != nil {

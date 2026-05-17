@@ -114,6 +114,21 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	controller.view = view
 	controller.view = tui.ApplyCommandRecommendation(controller.view, recommendation)
 	switch recommendation.Route {
+	case policy.CommandRouteNew:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		diagnostics = append(diagnostics, controller.openNewSessionView()...)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		return controller.view
+	case policy.CommandRouteClear:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		diagnostics = append(diagnostics, controller.openClearSessionView()...)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		return controller.view
+	case policy.CommandRouteContinue:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		diagnostics = append(diagnostics, controller.openContinueSessionView()...)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		return controller.view
 	case policy.CommandRouteHistory:
 		controller.openHistoryView()
 		return controller.view

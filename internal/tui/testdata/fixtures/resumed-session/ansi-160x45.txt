@@ -1,0 +1,45 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                                                          [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Runtime status:                                                                                                  |  | phase source: idle                     |
+| status: idle                                                                                                     |  | primary model: placeholder             |
+| status source: runtime.dispatch                                                                                  |  | utility model: placeholder             |
+| detail: resumed current session                                                                                  |  | autonomy: placeholder                  |
+| active: false                                                                                                    |  | status: idle                           |
+| result: remembered result                                                                                        |  | status source: runtime.dispatch        |
+|                                                                                                                  |  | detail: resumed current session        |
+|                                                                                                                  |  | active: false                          |
+| session:                                                                                                         |  | result: remembered result              |
+| command route: continue                                                                                          |  | display-only                           |
+| route source: policy.command                                                                                     |  | git: placeholder                       |
+| source: app.session                                                                                              |  | context: placeholder                   |
+| action: continue                                                                                                 |  |                                        |
+| status: loaded                                                                                                   |  |                                        |
+| session id: current                                                                                              |  |                                        |
+| memory: visible                                                                                                  |  |                                        |
+| detail: restored current session snapshot                                                                        |  |                                        |
+| sessions:                                                                                                        |  |                                        |
+| > current status=loaded memory=visible detail=current session                                                    |  |                                        |
+| focus: session                                                                                                   |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+| Resumed memory:                                                                                                  |  |                                        |
+| source: state.current-session-snapshot                                                                           |  |                                        |
+| session id: current                                                                                              |  |                                        |
+| resumed transcript turns: 2                                                                                      |  |                                        |
+| queued count: 0                                                                                                  |  |                                        |
+| diagnostics: 0                                                                                                   |  |                                        |
+|                                                                                                                  |  |                                        |
+| user: remembered prompt                                                                                          |  |                                        |
+| assistant: remembered answer                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m
+                                                                                                                                                                

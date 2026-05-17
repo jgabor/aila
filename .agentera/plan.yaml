@@ -3,168 +3,173 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M35 must fill the inspection command family without quietly adding model switching, autonomy switching, editor
-    integration, compaction, provider-backed review, plugins, MCP, workflow DSLs, generic command registries, or hosted control-plane
-    behavior.
-  title: Milestone 35 Inspection Command Family
-what: Deliver ROADMAP.md Milestone 35 by making `/status`, `/review`, `/history`, and `/diff` useful inspection surfaces at
-  Aila's current runtime and state depth, with slash/shortcut parity, render and semantic snapshots, representative PTY navigation,
-  and no expansion into unrelated command families.
-why: M28-M34 already provide app-owned diff, history, mutation, approval, run memory, and interactive build evidence. M35
-  should make the inspection commands coherently expose that evidence so users can see what Aila did, what changed, and what
-  needs attention without needing provider-backed review or later session/model/autonomy features.
-constraints: 'Execute only Milestone 35. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may render app-injected status, review, history, diff, runtime, diagnostic, memory, and command-route state, but it must
-  not read files, run git, choose review findings, inspect history, persist state, mutate files, or own runtime/model prompts.
-  Use closed policy routes and app-owned readers/builders for inspection data. Keep model switching, autonomy switching, editor
-  integration, compaction, provider-backed review, arbitrary shell, source indexing, session browsing, plugins, MCP servers,
-  workflow DSLs, generic command registries, hosted control planes, and M36+ session-command expansion out of scope. Use behavior-based
-  test names; do not introduce new `TestM<number>` symbols. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m34.yaml
+  critic_issues: M36 must add only the session command family, resolve the existing ctrl+x c conflict deliberately, preserve
+    state-store ownership, and keep the TUI presentation-only while avoiding undo/redo, model switching, compaction, editor,
+    plugins, MCP, workflow DSL, generic command registry, and hosted control-plane behavior.
+  title: 'Milestone 36: Session Command Family'
+what: Deliver ROADMAP.md Milestone 36 by adding stable TUI paths for `/new`, `/clear`, and `/continue`, backed by app-owned
+  session lifecycle effects over the existing current-session snapshot store, with fixtures, semantic snapshots, command/keybinding
+  parity, focused session selection behavior, bounded PTY smoke, and no expansion into later command families.
+why: M16 introduced current-session snapshot persistence and M31-M35 made stored run memory, history, diff, and inspection
+  surfaces visible. M36 should let users start fresh, clear visible session state, and resume the stored current session from
+  the TUI itself instead of relying only on CLI startup paths.
+constraints: 'Execute only Milestone 36. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected session lifecycle state and update focus/selection over inert session rows, but it must not read
+  `.aila`, delete snapshots, persist session state, choose resume targets from storage, run git, or own runtime/model prompts.
+  Use closed policy routes and app-owned store operations for session lifecycle behavior. Keep undo/redo, model switching,
+  autonomy switching, editor integration, compaction, provider-backed review, arbitrary shell command surfaces, source indexing,
+  multi-session browsing beyond current store support, plugins, MCP servers, workflow DSLs, generic command registries, hosted
+  control planes, and M37+ behavior out of scope. Use behavior-based test names; do not introduce new `TestM<number>` symbols.
+  Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m35.yaml
 source_anchors:
 - ROADMAP.md:16-110
-- ROADMAP.md:1464-1484
+- ROADMAP.md:1486-1508
 - docs/notes/PROMPT.md:1-31
-- AGENTS.md:1-163
-- README.md:280-306
-- ARCHITECTURE.md:744-750
-- docs/workflow-architecture.md:63-79
-- docs/workflow-architecture.md:483-506
-- docs/tui-testing.md:69-74
-- docs/tui-testing.md:250-275
+- AGENTS.md:1-178
+- README.md:292-299
+- ARCHITECTURE.md:448-610
+- docs/workflow-architecture.md:183-190
+- docs/workflow-architecture.md:343-361
+- docs/tui-testing.md:145-185
+- internal/policy/command.go
+- internal/app/session_snapshot.go
+- internal/tui/model.go
+- internal/tui/render.go
 verification_commands:
 - mage fmt
-- go test ./internal/policy -run 'Test.*Command.*|Test.*Shortcut.*' -count=1
-- go test ./internal/app -run 'Test.*Status.*|Test.*Review.*|Test.*History.*|Test.*Diff.*|Test.*Command.*' -count=1
-- go test ./internal/tui -run 'Test.*Status.*|Test.*Review.*|Test.*History.*|Test.*Diff.*|Test.*Command.*|Test.*Shortcut.*'
+- go test ./internal/state -run 'Test.*CurrentSession.*|Test.*Session.*Clear.*' -count=1
+- go test ./internal/policy -run 'Test.*Command.*|Test.*Shortcut.*|Test.*Session.*' -count=1
+- go test ./internal/app -run 'Test.*Session.*|Test.*Continue.*|Test.*Clear.*|Test.*New.*|Test.*Command.*' -count=1
+- go test ./internal/tui -run 'Test.*Session.*|Test.*Command.*|Test.*Shortcut.*|Test.*Help.*|Test.*Fixture.*|Test.*Semantic.*'
   -count=1
-- go test ./cmd/aila -run 'Test.*Inspection.*PTYSmoke|Test.*Status.*PTYSmoke|Test.*History.*PTYSmoke|Test.*Diff.*PTYSmoke|Test.*Review.*PTYSmoke'
-  -count=1
+- go test ./cmd/aila -run 'Test.*Session.*PTYSmoke|Test.*Continue.*PTYSmoke|Test.*Clear.*PTYSmoke|Test.*New.*PTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m34.yaml cmd/aila
-  internal/app internal/policy internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m35.yaml cmd/aila
+  internal/app internal/policy internal/state internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --fields plan,progress,state_presence,next_action
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context planera --fields plan,progress,state_presence,next_action
 scope:
   included:
-  - Add a closed `/review` and shortcut route that shares the same policy/app/TUI command path as the existing inspection
-    commands.
-  - Replace the `/status` placeholder with app-owned current runtime, store, memory, diagnostic, command, queue, and attention
-    evidence available today.
-  - Build `/review` as a read-only app-owned inspection summary from current diff, history, runtime, diagnostics, and memory
-    state; make limitations explicit without invoking a provider review.
-  - Preserve and tighten `/history` and `/diff` behavior so they continue to read through existing app-owned history/diff
-    readers and display current state depth.
-  - Refresh fixtures, semantic snapshots, render snapshots, route/keybinding tests, and PTY smoke for status, review, history,
-    and diff navigation.
+  - Add closed `/new`, `/clear`, and `/continue` slash routes in `internal/policy`, with `ctrl+x n` opening the new-session
+    route and `ctrl+x c` opening the continue route per README. Direct Ctrl-C remains the interrupt path.
+  - 'Add app-owned session lifecycle handlers: `/new` resets visible session state and persists a fresh current snapshot,
+    `/clear` clears visible state and removes the current snapshot when present, and `/continue` reads/restores the current
+    snapshot through the state store.'
+  - Add a presentation-only TUI session surface for fresh, cleared, loaded, no-memory, and recovery states, including inert
+    selection/focus over app-injected session rows.
+  - Refresh help text, route/keybinding tests, session fixtures, semantic snapshots, render snapshots, and PTY smoke for new,
+    clear, continue, session selection, focus, and quit.
+  - Close the milestone with targeted tests, full `mage check`, ROADMAP status, Agentera progress, and one meaningful local
+    commit.
   excluded:
-  - Model switching, autonomy switching, editor integration, compaction, provider-backed code review, arbitrary shell command
-    surfaces, source indexing, session browsing, command palettes, generic command registries, plugins, MCP, workflow DSLs,
-    hosted control planes, and M36+ session command behavior.
+  - Undo/redo changes, model switching, autonomy switching, editor integration, compaction, provider-backed review, arbitrary
+    shell command surfaces, source indexing, multi-session indexing beyond the existing current-session store contract, command
+    palettes, generic command registries, plugins, MCP, workflow DSLs, hosted control planes, and M37+ command behavior.
   deferred:
-  - Richer provider-assisted reviews, source index summaries, session list/restore UX, compacted-context inspection, model/autonomy/editor
-    commands, and expanded command discoverability.
-design: Keep command routing closed in `internal/policy`, and keep all inspection data assembly in `internal/app`. The TUI
-  receives inert `ViewState` data through existing injection helpers plus a narrow review/status display helper if needed.
-  `/history` continues to use the fake history store reader; `/diff` continues to use the safe app diff reader; `/status`
-  becomes a current-state view instead of a deterministic placeholder; `/review` summarizes current diff/history/runtime/diagnostic
-  evidence read by the app. The TUI remains a renderer and input collector only.
+  - Full multi-session listing and restore UI, named session IDs beyond the current snapshot contract, compaction-aware continuation,
+    richer source index summaries, model/autonomy/editor commands, and expanded command discovery.
+design: Keep command routing closed in `internal/policy`. Add store-owned clear semantics beside the existing current-session
+  read/write contract. Keep app-owned lifecycle functions in `internal/app`, where `/new`, `/clear`, and `/continue` may call
+  state store operations and inject a bounded session view into TUI state. The TUI only renders that inert view and updates
+  local focus/selection; it never reads, deletes, writes, or discovers session files. Because README.md:296-297 already assigns
+  `ctrl+x c` to `/continue`, M36 moves the chord to continue while preserving direct Ctrl-C as interrupt.
 overall_acceptance:
-- '`/status` and `ctrl+x s` show current runtime, project-store, memory/run, diagnostics, queue, footer, and command evidence
-  without the old placeholder/deferred marker.'
-- '`/review` and its shortcut route are closed policy recommendations and show a read-only current-change review summary from
-  app-owned diff/history/runtime state, including explicit attention or empty-state evidence.'
-- '`/history` and `ctrl+x h` still browse stored events, mutations, undo metadata, and empty history through the existing
-  state reader.'
-- '`/diff` and `ctrl+x d` still inspect staged, unstaged, and untracked current changes through the existing read-only diff
-  path.'
-- Status, review, history, and diff surfaces have render and semantic snapshots, and command/keybinding tests prove slash/shortcut
-  parity.
-- Representative PTY smoke navigates across inspection views and exits cleanly without mutation, provider review, compaction,
-  model/autonomy/editor behavior, or session-command expansion.
+- '`/new` and `ctrl+x n` start a fresh visible session, preserve app display/config/store labels, reset prompt/transcript/runtime/memory
+  surfaces, and persist a fresh current-session snapshot through app-owned state code.'
+- '`/clear` clears visible session state, removes current-session memory through an app-owned state operation when present,
+  and reports cleared/no-memory status without deleting project store or history artifacts.'
+- '`/continue` and `ctrl+x c` restore the existing current-session snapshot through the state store, show the selected current
+  session in a focused session surface, and expose visible memory status without leaking `.aila` paths.'
+- Direct Ctrl-C remains the interrupt shortcut; `ctrl+x c` no longer interrupts because it is the documented continue shortcut
+  in this command family.
+- Fresh, resumed, cleared, no-memory, and recovery states have deterministic render and semantic coverage, and command/keybinding
+  tests prove supported slash/shortcut parity.
+- Representative PTY smoke navigates new, continue, clear, and quit over an isolated temp workspace without undo/redo, model/autonomy/editor,
+  compaction, plugins, MCP, workflow DSL, hosted control-plane, or M37+ behavior.
 surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the inspection command slice
+  name: Plan and confirm the session command slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN the roadmap and source docs are reviewed WHEN planning finishes THEN the active plan names M35 only and excludes
-    model, autonomy, editor, compaction, provider review, and M36+ session commands.
-  - GIVEN current code is inspected WHEN implementation starts THEN the smallest path is closed routing plus app-owned status/review
-    builders over existing history and diff readers.
+  - GIVEN Agentera state and roadmap docs are reviewed WHEN planning finishes THEN the active plan names M36 only and excludes
+    undo/redo, model, autonomy, editor, compaction, plugin, MCP, workflow DSL, generic registry, hosted control-plane, and
+    M37+ behavior.
+  - GIVEN current code is inspected WHEN implementation starts THEN the smallest path is closed policy routing plus app-owned
+    current-session store operations and inert TUI session rendering.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - agentera plan --format json loads the M35 plan with five tasks, and agentera lint --artifact plan passes.
-  - ROADMAP.md, docs/notes/PROMPT.md, README.md, ARCHITECTURE.md, docs/workflow-architecture.md, docs/tui-testing.md, and
-    policy/app/TUI/cmd inspection seams were reviewed.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to the inspection command family.
+  - Agentera hej with planera capability context, plan/progress/describe state, ROADMAP.md top status and M36 section, docs/notes/PROMPT.md,
+    README command table, ARCHITECTURE.md state plane, docs/workflow-architecture.md IDLE/state rules, docs/tui-testing.md
+    semantic rules, and current policy/app/state/TUI/cmd seams were reviewed.
+  - The plan resolves the README.md:296-297 shortcut conflict by assigning ctrl+x c to `/continue` while preserving direct
+    Ctrl-C interrupt behavior.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to the session command family.
 - number: 2
-  name: Add closed review route and real status view
+  name: Add closed session routes and state-owned clear support
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN `/review` or `ctrl+x i` is entered WHEN policy routes it THEN the recommendation is closed, exact, and shares the
-    same app callback path as the other commands.
-  - GIVEN `/status` or `ctrl+x s` is entered WHEN rendered THEN it shows current app/runtime/state evidence and no longer
-    claims deterministic placeholder status or deferred real sources.
-  - GIVEN status or review is displayed WHEN the TUI is inspected THEN all data came from app-owned inert view state and no
-    filesystem, git, provider, history, or mutation work happened inside the TUI.
+  - GIVEN `/new`, `/clear`, `/continue`, `ctrl+x n`, or `ctrl+x c` is entered WHEN policy routes it THEN the recommendation
+    is closed, exact, and does not create a generic command registry.
+  - GIVEN direct Ctrl-C is pressed WHEN active work exists THEN the interrupt path still routes as interrupt, while `ctrl+x
+    c` routes to continue.
+  - GIVEN current-session memory must be cleared WHEN the app asks the state store to clear it THEN the store removes only
+    the validated current snapshot path and treats missing memory as a successful no-op.
   evidence:
-  - internal/policy adds a closed CommandRouteReview for /review and ctrl+x i, and internal/app/status builds app-owned runtime/status
-    evidence before injecting an inert TUI command surface.
-  - 'internal/tui keeps fallback status/review presentation-only with app-owned-unavailable markers, while live app callbacks
-    replace /status with source: app.status and runtime result evidence.'
-  - go test ./internal/app -run 'TestStatusCommandBuildsAppOwnedRuntimeInspectionSurface|TestReviewCommandBuildsReadOnlyDiffAndHistoryInspectionSurface|Test.*Status.*|Test.*Review.*|Test.*History.*|Test.*Diff.*|Test.*Command.*'
-    -count=1 passed; go test ./internal/policy -count=1 passed.
+  - Closed policy routes were added for /new, /clear, /continue, ctrl+x n, and ctrl+x c; direct Ctrl-C remains the interrupt
+    path.
+  - Store-owned ClearCurrentSessionSnapshot removes only the validated sessions/current.json path and treats missing memory
+    as a no-op.
+  - go test ./internal/state and go test ./internal/policy targeted session command runs passed.
 - number: 3
-  name: Build read-only review evidence from current state
+  name: Implement app-owned new clear and continue handlers
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN current diff data exists WHEN `/review` opens THEN changed paths and diff status are summarized from the app diff
-    reader without invoking provider review.
-  - GIVEN history or run memory exists WHEN `/review` opens THEN recent actions, mutation/undo metadata, or empty-state limitations
-    are visible from app-owned state.
-  - GIVEN no changes or history exist WHEN `/review` opens THEN the surface clearly reports the empty inspection state and
-    suggested attention without fabricating findings.
+  - GIVEN `/new` or `ctrl+x n` is routed WHEN the app handles it THEN visible conversation, queue, memory, focused surfaces,
+    and runtime activity reset to IDLE while config/store labels remain and a fresh current snapshot is persisted.
+  - GIVEN `/clear` is routed WHEN the app handles it THEN visible session state resets, current memory is cleared through
+    the state store, and the UI reports cleared/no-memory status without deleting project store or history artifacts.
+  - GIVEN `/continue` or `ctrl+x c` is routed WHEN current memory exists THEN the app reads and applies the snapshot, opens
+    a focused selected current-session surface, and records command/session evidence without TUI IO.
   evidence:
-  - 'internal/app/inspection.go builds /review from the existing app diff reader and fake history reader, reports source:
-    app.review, model-assisted review: not invoked, changed files, history state/events, latest mutation/undo evidence, and
-    empty-state attention without provider review.'
-  - TestReviewCommandBuildsReadOnlyDiffAndHistoryInspectionSurface proves /review reads diff and history once, does not dispatch
-    runtime effects, preserves unrelated runtime display state, and persists only the command/snapshot evidence.
-  - TestInspectionCommandFamilyPTYSmoke observed /review over a temp workspace with current git diff and seeded history, including
-    changed file internal/demo.txt, latest mutation write completed notes.txt, latest undo action delete_created_file, and
-    attention guidance.
+  - App-owned /new resets visible session state, persists a fresh current snapshot, and reports a fresh app.session surface.
+  - App-owned /clear removes current memory through the state store, resets visible state, and reports cleared/no-memory status
+    without deleting the project store.
+  - App-owned /continue reads and applies current-session memory, opens a focused selected current-session surface, and keeps
+    the TUI free of storage IO.
+  - go test ./internal/app targeted session command run passed.
 - number: 4
-  name: Refresh inspection fixtures, semantics, and keybinding coverage
+  name: Refresh session TUI fixtures semantics and keybinding coverage
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN deterministic fixtures are rendered WHEN tests run THEN status, review, history, and diff have plain, ANSI, and
-    semantic snapshots at appropriate current product sizes.
-  - GIVEN slash and shortcut inputs are exercised WHEN update tests run THEN `/status`, `/review`, `/history`, and `/diff`
-    all route through policy/app callbacks and preserve presentation-only TUI behavior.
-  - GIVEN touched tests are reviewed THEN no new `TestM<number>` symbols are introduced.
+  - GIVEN deterministic fixtures render WHEN tests run THEN fresh session, resumed session, and cleared session states have
+    plain, ANSI, and semantic snapshots.
+  - GIVEN session selection keys are pressed WHEN the session surface is focused THEN selection clamps, Enter/Escape focus
+    behavior is deterministic, and no IO or app command is emitted by the TUI.
+  - GIVEN help and command tests run THEN `/new`, `/clear`, `/continue`, `ctrl+x n`, and `ctrl+x c` are visible where supported
+    and no new TestM<number> names are introduced.
   evidence:
-  - internal/tui/testdata/fixtures/status-command and help-command snapshots were refreshed, and a new review-command fixture
-    matrix was added with plain, ANSI, and semantic snapshots at 80x24, 100x30, 120x32, and 160x45.
-  - TUI route/keybinding coverage now includes /review and ctrl+x i parity; help lists status, review, history, diff, undo,
-    redo, quit and their supported shortcuts without adding model/autonomy/editor/compaction commands.
-  - go test ./internal/tui focused status/help/shortcut/fixture/semantic coverage passed, full layout/semantic contract
-    coverage passed during package validation, and changed-line TestM<number> hygiene returned no matches.
+  - fresh-session, resumed-session, and cleared-session fixtures now have plain, ANSI, and semantic snapshots at 80x24, 100x30,
+    120x32, and 160x45.
+  - TUI tests cover slash/shortcut parity, help entries, and presentation-only session selection/focus behavior with behavior-based
+    test names.
+  - go test ./internal/tui targeted and full package runs passed.
 - number: 5
-  name: Run PTY smoke, full validation, roadmap closeout, and commit
+  name: Run PTY smoke full validation roadmap closeout and commit
   depends_on:
   - 1
   - 2
@@ -172,23 +177,19 @@ tasks:
   - 4
   status: complete
   acceptance:
-  - GIVEN a temp workspace with changes and history WHEN representative PTY smoke navigates `/status`, `/review`, `/history`,
-    and `/diff` THEN the expected inspection evidence appears and the process exits cleanly.
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M35 is
-    recorded complete, M36 is next, and Active milestone is none.
+  - GIVEN an isolated temp workspace with seeded current-session memory WHEN PTY smoke navigates `/continue`, `/clear`, `/new`,
+    and quit THEN the expected session evidence appears and the process exits cleanly.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M36 is
+    recorded complete, M37 is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
     and plan archive are included in one meaningful local commit.
   evidence:
-  - go test ./cmd/aila -run 'TestInspectionCommandFamilyPTYSmoke|TestHistoryViewPTYSmoke|TestHistoryEmptyPTYSmoke|TestDiffViewPTYSmoke'
-    -count=1 passed, proving representative status, review, history, and diff navigation over a temp workspace with current
-    changes and seeded history.
-  - go test ./internal/... -count=1 passed; go test ./cmd/aila -count=1 passed; mage check passed with full cmd/internal tests,
-    0 lint issues, and no vulnerabilities.
-  - ROADMAP.md records Milestone 35 complete, Milestone 36 next, Active milestone none, and the M35 validation summary after
-    green validation.
-  - Agentera plan/lint/progress state loads successfully, git diff --check passes over roadmap, Agentera artifacts, source,
-    and semantic/JSON fixtures; fixed-width plain/ANSI snapshots retain intentional padding; changed-line
-    home-path/TestM<number> hygiene returns no matches.
+  - TestSessionCommandFamilyPTYSmoke navigates /continue, Enter focus release, /clear, /new, and quit in an isolated temp
+    workspace with seeded current memory.
+  - mage fmt, targeted state/policy/app/TUI/cmd tests, go test ./internal/... -count=1, go test ./cmd/aila -count=1, and mage
+    check passed with 0 lint issues and no vulnerabilities.
+  - ROADMAP.md was updated only after green validation; Agentera plan/progress, diff, home-path, and changed-line TestM<number>
+    hygiene are part of final closeout.
 complete: 5
 total: 5
 active: false

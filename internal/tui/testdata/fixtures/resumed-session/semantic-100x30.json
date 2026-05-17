@@ -1,0 +1,165 @@
+{
+  "scenario": "resumed-session",
+  "screen": {
+    "width": 100,
+    "height": 30,
+    "focus": "session"
+  },
+  "layout": {
+    "class": "standard",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "resumed current session",
+    "runtime_result": "remembered result",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "session_id": "current",
+    "memory_status": "visible"
+  },
+  "memory": {
+    "source": "state.current-session-snapshot",
+    "session_id": "current",
+    "transcript_turns": 2,
+    "queued_count": 0,
+    "diagnostics": 0
+  },
+  "session_view": {
+    "visible": true,
+    "action": "continue",
+    "source": "app.session",
+    "status": "loaded",
+    "session_id": "current",
+    "memory_status": "visible",
+    "detail": "restored current session snapshot",
+    "focus": true,
+    "selected_index": 0,
+    "items": [
+      {
+        "id": "current",
+        "status": "loaded",
+        "memory_status": "visible",
+        "detail": "current session",
+        "selected": true
+      }
+    ]
+  },
+  "command": {
+    "route": "continue",
+    "route_source": "policy.command",
+    "surface": "session",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["user: remembered prompt", "assistant: remembered answer"]
+    },
+    {
+      "name": "memory",
+      "visible": true,
+      "items": [
+        "source: state.current-session-snapshot",
+        "session_id: current",
+        "transcript_turns: 2",
+        "queued_count: 0",
+        "diagnostics: 0",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: resumed current session",
+        "active: false",
+        "result: remembered result",
+        "display-only"
+      ]
+    },
+    {
+      "name": "session",
+      "visible": true,
+      "items": [
+        "source: app.session",
+        "action: continue",
+        "status: loaded",
+        "session_id: current",
+        "memory_status: visible",
+        "focus: true",
+        "selected_index: 0",
+        "detail: restored current session snapshot",
+        "item: current status=loaded memory=visible selected=true",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "session",
+        "command route: continue",
+        "route source: policy.command",
+        "source: app.session",
+        "action: continue",
+        "status: loaded",
+        "session id: current",
+        "memory: visible",
+        "detail: restored current session snapshot",
+        "sessions:",
+        "> current status=loaded memory=visible detail=current session",
+        "focus: session",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

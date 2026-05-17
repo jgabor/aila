@@ -390,6 +390,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Approval != nil {
 			return m, m.handleApprovalKey(msg)
 		}
+		if m.sessionFocused() {
+			return m.handleSessionKey(msg), nil
+		}
 		if m.historyFocused() {
 			return m.handleHistoryKey(msg), nil
 		}
@@ -629,9 +632,6 @@ func (m *Model) routeShortcut(msg tea.KeyMsg) tea.Cmd {
 	if msg.Type == tea.KeyRunes {
 		key = string(msg.Runes)
 	}
-	if key == "c" {
-		return m.requestInterrupt("ctrl+x c")
-	}
 	recommendation, ok := policy.RecommendShortcut("ctrl+x", key)
 	if !ok {
 		return nil
@@ -664,6 +664,33 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	state.CommandRoute = string(recommendation.Route)
 	state.RouteSource = "policy.command"
 	switch recommendation.Route {
+	case policy.CommandRouteNew:
+		state = ApplySessionView(state, &SessionView{
+			Action:       "new",
+			Source:       "policy.command",
+			Status:       "fresh",
+			SessionID:    "current",
+			MemoryStatus: "fresh",
+			Detail:       "app-owned new session unavailable in presentation-only fallback",
+		})
+	case policy.CommandRouteClear:
+		state = ApplySessionView(state, &SessionView{
+			Action:       "clear",
+			Source:       "policy.command",
+			Status:       "cleared",
+			SessionID:    "current",
+			MemoryStatus: "cleared",
+			Detail:       "app-owned clear session unavailable in presentation-only fallback",
+		})
+	case policy.CommandRouteContinue:
+		state = ApplySessionView(state, &SessionView{
+			Action:       "continue",
+			Source:       "policy.command",
+			Status:       "no_memory",
+			SessionID:    "current",
+			MemoryStatus: "no_memory",
+			Detail:       "app-owned continue session unavailable in presentation-only fallback",
+		})
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -687,6 +714,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 		state.SurfaceLines = []string{
 			"Deterministic placeholder help.",
 			"commands:",
+			"/new - Start a fresh session and preserve project memory.",
+			"/clear - Clear visible session state and current memory.",
+			"/continue - Restore the current saved session.",
 			"/status - Inspect current runtime and state.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
@@ -696,6 +726,8 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/redo - Redo the latest supported recovery.",
 			"/quit - Quit Aila.",
 			"shortcuts:",
+			"ctrl+x n - Start a fresh session and preserve project memory.",
+			"ctrl+x c - Restore the current saved session.",
 			"ctrl+x s - Inspect current runtime and state.",
 			"ctrl+x i - Inspect current changes, risks, and sources.",
 			"ctrl+x h - Browse runs, edits, checks, and undo data.",
@@ -719,6 +751,42 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	state.SurfaceTitle = title
 	state.SurfaceLines = append([]string(nil), lines...)
 	return state
+}
+
+// ApplySessionView injects app-owned session lifecycle display data into the TUI state.
+func ApplySessionView(state ViewState, session *SessionView) ViewState {
+	if session == nil {
+		return state
+	}
+	state.CommandRoute = session.Action
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = "session"
+	state.Session = cloneSessionView(session)
+	state.Session.Selected = clampSessionSelection(*state.Session)
+	state.SurfaceLines = sessionSurfaceLines(*state.Session)
+	return state
+}
+
+func cloneSessionView(session *SessionView) *SessionView {
+	if session == nil {
+		return nil
+	}
+	clone := *session
+	clone.Items = append([]SessionItemView(nil), session.Items...)
+	return &clone
+}
+
+func clampSessionSelection(session SessionView) int {
+	if len(session.Items) == 0 {
+		return 0
+	}
+	if session.Selected < 0 {
+		return 0
+	}
+	if session.Selected >= len(session.Items) {
+		return len(session.Items) - 1
+	}
+	return session.Selected
 }
 
 // ApplyHistoryView injects app-owned read-only history display data into the TUI state.
@@ -819,6 +887,31 @@ func cloneHistoryItems(items []HistoryItem) []HistoryItem {
 		clone = append(clone, itemClone)
 	}
 	return clone
+}
+
+func (m Model) sessionFocused() bool {
+	return m.state.Session != nil && m.state.Session.Focus && m.state.SurfaceTitle == "session"
+}
+
+func (m Model) handleSessionKey(msg tea.KeyMsg) Model {
+	if m.state.Session == nil {
+		return m
+	}
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.Session.Selected--
+	case tea.KeyDown:
+		m.state.Session.Selected++
+	case tea.KeyHome:
+		m.state.Session.Selected = 0
+	case tea.KeyEnd:
+		m.state.Session.Selected = len(m.state.Session.Items) - 1
+	case tea.KeyEnter, tea.KeyEsc:
+		m.state.Session.Focus = false
+	}
+	m.state.Session.Selected = clampSessionSelection(*m.state.Session)
+	m.state.SurfaceLines = sessionSurfaceLines(*m.state.Session)
+	return m
 }
 
 func (m Model) historyFocused() bool {

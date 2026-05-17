@@ -6,15 +6,18 @@ import "strings"
 type CommandRoute string
 
 const (
-	CommandRouteNone    CommandRoute = ""
-	CommandRouteStatus  CommandRoute = "status"
-	CommandRouteReview  CommandRoute = "review"
-	CommandRouteHelp    CommandRoute = "help"
-	CommandRouteHistory CommandRoute = "history"
-	CommandRouteDiff    CommandRoute = "diff"
-	CommandRouteUndo    CommandRoute = "undo"
-	CommandRouteRedo    CommandRoute = "redo"
-	CommandRouteQuit    CommandRoute = "quit"
+	CommandRouteNone     CommandRoute = ""
+	CommandRouteNew      CommandRoute = "new"
+	CommandRouteClear    CommandRoute = "clear"
+	CommandRouteContinue CommandRoute = "continue"
+	CommandRouteStatus   CommandRoute = "status"
+	CommandRouteReview   CommandRoute = "review"
+	CommandRouteHelp     CommandRoute = "help"
+	CommandRouteHistory  CommandRoute = "history"
+	CommandRouteDiff     CommandRoute = "diff"
+	CommandRouteUndo     CommandRoute = "undo"
+	CommandRouteRedo     CommandRoute = "redo"
+	CommandRouteQuit     CommandRoute = "quit"
 )
 
 // CommandInputKind identifies the closed command input family that produced a route.
@@ -34,6 +37,12 @@ type CommandRecommendation struct {
 // RecommendSlashCommand maps exact slash commands to closed command routes.
 func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 	switch strings.TrimSpace(input) {
+	case "/new":
+		return CommandRecommendation{Route: CommandRouteNew, Kind: CommandInputSlash}, true
+	case "/clear":
+		return CommandRecommendation{Route: CommandRouteClear, Kind: CommandInputSlash}, true
+	case "/continue":
+		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputSlash}, true
 	case "/status":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputSlash}, true
 	case "/review":
@@ -62,6 +71,10 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 	}
 
 	switch key {
+	case "n":
+		return CommandRecommendation{Route: CommandRouteNew, Kind: CommandInputShortcut}, true
+	case "c":
+		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputShortcut}, true
 	case "s":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputShortcut}, true
 	case "i":

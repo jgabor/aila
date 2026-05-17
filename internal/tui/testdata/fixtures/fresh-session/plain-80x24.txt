@@ -1,0 +1,24 @@
+Aila                                                                       80x24
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder         
++ Conversation ----------------------------------------------------------------+
+|                                                                              |
+| session:                                                                     |
+| command route: new                                                           |
+| route source: policy.command                                                 |
+| source: app.session                                                          |
+| action: new                                                                  |
+| status: fresh                                                                |
+| session id: current                                                          |
+| memory: fresh                                                                |
+| detail: started fresh session and preserved project store                    |
+| app-owned                                                                    |
+| display-only                                                                 |
+| No messages yet.                                                             |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
+                                                                                

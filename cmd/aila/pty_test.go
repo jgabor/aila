@@ -1336,8 +1336,8 @@ func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 		"user: interruptible fake work",
 	}, 10*time.Second)
 
-	if _, err := terminal.Write([]byte{0x18, 'c'}); err != nil {
-		t.Fatalf("send ctrl+x c interrupt input: %v", err)
+	if _, err := terminal.Write([]byte{0x03}); err != nil {
+		t.Fatalf("send ctrl-c interrupt input: %v", err)
 	}
 	canceling := readUntilAll(t, terminal, []string{
 		"Runtime canceling",
@@ -1350,8 +1350,8 @@ func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 		"user: interruptible fake work",
 	}, 10*time.Second)
 
-	if _, err := terminal.Write([]byte{0x18, 'c'}); err != nil {
-		t.Fatalf("send second ctrl+x c fake interrupt resolution input: %v", err)
+	if _, err := terminal.Write([]byte{0x03}); err != nil {
+		t.Fatalf("send second ctrl-c fake interrupt resolution input: %v", err)
 	}
 	canceled := readUntilAll(t, terminal, []string{
 		"Runtime canceled",
@@ -1502,6 +1502,109 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	}
 
 	assertInspectionCommandFamilyStoreState(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
+func TestSessionCommandFamilyPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 60, env.vars, func(workspace string) {
+		seedCurrentSessionSnapshot(t, workspace)
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+
+	if _, err := terminal.Write([]byte("/continue\r")); err != nil {
+		t.Fatalf("send /continue command input: %v", err)
+	}
+	resumed := readUntilAll(t, terminal, []string{
+		"session:",
+		"command route: continue",
+		"route source: policy.command",
+		"source: app.session",
+		"action: continue",
+		"status: loaded",
+		"session id: current",
+		"memory: visible",
+		"detail: restored current session snapshot",
+		"> current status=loaded memory=visible detail=current session",
+		"focus: session",
+		"Resumed memory:",
+		"user: remembered smoke prompt",
+		"assistant: remembered smoke answer",
+	}, 10*time.Second)
+	assertNoResumeSmokeLeaks(t, resumed, env, workspace)
+	assertCurrentSessionSnapshotExists(t, workspace)
+
+	if _, err := terminal.Write([]byte("\r")); err != nil {
+		t.Fatalf("send Enter after session resume: %v", err)
+	}
+
+	if _, err := terminal.Write([]byte("/clear\r")); err != nil {
+		t.Fatalf("send /clear command input: %v", err)
+	}
+	cleared := readUntilAll(t, terminal, []string{
+		"session:",
+		"command route: clear",
+		"route source: policy.command",
+		"source: app.session",
+		"action: clear",
+		"status: cleared",
+		"session id: current",
+		"memory: cleared",
+		"detail: cleared visible session and current memory",
+		"No messages yet.",
+	}, 10*time.Second)
+	assertNoResumeSmokeLeaks(t, cleared, env, workspace)
+	for _, forbidden := range []string{"remembered smoke prompt", "remembered smoke answer", "Queued input:", "Resumed memory:"} {
+		if strings.Contains(cleared, forbidden) {
+			t.Fatalf("clear session output retained memory marker %q: %q", forbidden, cleared)
+		}
+	}
+	assertCurrentSessionSnapshotMissing(t, workspace)
+
+	if _, err := terminal.Write([]byte("/new\r")); err != nil {
+		t.Fatalf("send /new command input: %v", err)
+	}
+	fresh := readUntilAll(t, terminal, []string{
+		"command route: new",
+		"source: app.session",
+		"action: new",
+		"status: fresh",
+		"memory: fresh",
+		"detail: started fresh session and preserved project store",
+	}, 10*time.Second)
+	assertNoResumeSmokeLeaks(t, fresh, env, workspace)
+	for _, forbidden := range []string{"remembered smoke prompt", "remembered smoke answer", "Queued input:", "Resumed memory:"} {
+		if strings.Contains(fresh, forbidden) {
+			t.Fatalf("new session output retained memory marker %q: %q", forbidden, fresh)
+		}
+	}
+	assertFreshCurrentSessionSnapshot(t, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after session command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("session command PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("session command PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertFreshCurrentSessionSnapshot(t, workspace)
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
@@ -2063,6 +2166,55 @@ func assertCurrentSessionSnapshotState(t *testing.T, workspace string) {
 	}
 	if len(sessions) != 1 || sessions[0].Name() != "current.json" || sessions[0].IsDir() {
 		t.Fatalf("resume smoke sessions entries = %v, want current.json only", sessions)
+	}
+}
+
+func assertCurrentSessionSnapshotExists(t *testing.T, workspace string) {
+	t.Helper()
+
+	path := filepath.Join(workspace, ".aila", "sessions", "current.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("stat current session snapshot: %v", err)
+	}
+}
+
+func assertCurrentSessionSnapshotMissing(t *testing.T, workspace string) {
+	t.Helper()
+
+	path := filepath.Join(workspace, ".aila", "sessions", "current.json")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("current session snapshot still exists after clear, err=%v", err)
+	}
+}
+
+func assertFreshCurrentSessionSnapshot(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open project store for fresh session snapshot: %v", err)
+	}
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read fresh current session snapshot: %v", err)
+	}
+	if result.State != state.SessionSnapshotLoaded {
+		t.Fatalf("fresh current session snapshot state = %s, want loaded", result.State)
+	}
+	snapshot := result.Snapshot
+	if snapshot.SessionID != "current" {
+		t.Fatalf("fresh current session id = %q, want current", snapshot.SessionID)
+	}
+	if snapshot.Runtime.Status != "idle" || snapshot.Runtime.Source != "app.session" || snapshot.Runtime.Detail != "fresh session started" {
+		t.Fatalf("fresh current session runtime = %+v", snapshot.Runtime)
+	}
+	if len(snapshot.Transcript) != 0 || len(snapshot.Queued) != 0 || len(snapshot.Diagnostics) != 0 || len(snapshot.Blockers) != 0 || snapshot.Run != nil {
+		t.Fatalf("fresh current session snapshot retained visible memory: %+v", snapshot)
+	}
+	for _, concern := range snapshot.Concerns {
+		if strings.Contains(concern.Text, "remembered smoke") {
+			t.Fatalf("fresh current session concern retained remembered memory: %+v", concern)
+		}
 	}
 }
 

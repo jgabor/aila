@@ -1,0 +1,45 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+|                                                                                                                  |  | phase source: idle                     |
+| session:                                                                                                         |  | primary model: placeholder             |
+| command route: new                                                                                               |  | utility model: placeholder             |
+| route source: policy.command                                                                                     |  | autonomy: placeholder                  |
+| source: app.session                                                                                              |  | git: placeholder                       |
+| action: new                                                                                                      |  | context: placeholder                   |
+| status: fresh                                                                                                    |  |                                        |
+| session id: current                                                                                              |  |                                        |
+| memory: fresh                                                                                                    |  |                                        |
+| detail: started fresh session and preserved project store                                                        |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m
+                                                                                                                                                                

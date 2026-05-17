@@ -1,0 +1,45 @@
+Aila                                                                                                                                                      160x45
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+|                                                                                                                  |  | phase source: idle                     |
+| session:                                                                                                         |  | primary model: placeholder             |
+| command route: clear                                                                                             |  | utility model: placeholder             |
+| route source: policy.command                                                                                     |  | autonomy: placeholder                  |
+| source: app.session                                                                                              |  | git: placeholder                       |
+| action: clear                                                                                                    |  | context: placeholder                   |
+| status: cleared                                                                                                  |  |                                        |
+| session id: current                                                                                              |  |                                        |
+| memory: cleared                                                                                                  |  |                                        |
+| detail: cleared visible session and current memory                                                               |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit
+                                                                                                                                                                

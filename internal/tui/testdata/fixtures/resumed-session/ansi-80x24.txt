@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto plac~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| status source: runtime.dispatch                                              |
+| detail: resumed current session                                              |
+| active: false                                                                |
+| result: remembered result                                                    |
+|                                                                              |
+|                                                                              |
+| session:                                                                     |
+| command route: continue                                                      |
+| route source: policy.command                                                 |
+| source: app.session                                                          |
+| action: continue                                                             |
+| status: loaded                                                               |
+| session id: current                                                          |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

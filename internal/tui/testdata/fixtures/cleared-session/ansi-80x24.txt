@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder         [0m
++ [33mConversation[0m ----------------------------------------------------------------+
+|                                                                              |
+| session:                                                                     |
+| command route: clear                                                         |
+| route source: policy.command                                                 |
+| source: app.session                                                          |
+| action: clear                                                                |
+| status: cleared                                                              |
+| session id: current                                                          |
+| memory: cleared                                                              |
+| detail: cleared visible session and current memory                           |
+| app-owned                                                                    |
+| display-only                                                                 |
+| No messages yet.                                                             |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

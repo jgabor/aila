@@ -99,6 +99,64 @@ func loadSubmittedPromptFixture(t *testing.T) renderFixture {
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
+func loadSessionCommandFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	switch name {
+	case "fresh-session":
+		state = ApplySessionView(state, &SessionView{
+			Action:       "new",
+			Source:       "app.session",
+			Status:       "fresh",
+			SessionID:    "current",
+			MemoryStatus: "fresh",
+			Detail:       "started fresh session and preserved project store",
+		})
+	case "cleared-session":
+		state = ApplySessionView(state, &SessionView{
+			Action:       "clear",
+			Source:       "app.session",
+			Status:       "cleared",
+			SessionID:    "current",
+			MemoryStatus: "cleared",
+			Detail:       "cleared visible session and current memory",
+		})
+	case "resumed-session":
+		state.RuntimeStatus = "idle"
+		state.StatusSource = "runtime.dispatch"
+		state.StatusDetail = "resumed current session"
+		state.RuntimeResult = "remembered result"
+		state.MemorySource = "state.current-session-snapshot"
+		state.MemorySessionID = "current"
+		state.Transcript = []TranscriptTurn{
+			{UserText: "remembered prompt"},
+			{AssistantText: "remembered answer"},
+		}
+		state = ApplySessionView(state, &SessionView{
+			Action:       "continue",
+			Source:       "app.session",
+			Status:       "loaded",
+			SessionID:    "current",
+			MemoryStatus: "visible",
+			Detail:       "restored current session snapshot",
+			Focus:        true,
+			Items: []SessionItemView{{
+				ID:           "current",
+				Status:       "loaded",
+				MemoryStatus: "visible",
+				Detail:       "current session",
+			}},
+		})
+	default:
+		t.Fatalf("unknown session command fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
 func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
 	t.Helper()
 
@@ -2835,6 +2893,61 @@ func sameStringSet(first []string, second []string) bool {
 		}
 	}
 	return true
+}
+
+func TestSessionCommandFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"fresh-session", "resumed-session", "cleared-session"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadSessionCommandFixture(t, name)
+			if fixture.Kind != "static_shell" {
+				t.Fatalf("fixture kind = %q, want static_shell", fixture.Kind)
+			}
+			if fixture.TerminalBehavior != "bubbletea_static" {
+				t.Fatalf("terminal behavior = %q, want bubbletea_static", fixture.TerminalBehavior)
+			}
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
+
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					if !containsAll(stripANSI(got), []string{"session:", "source: app.session", "session id: current"}) {
+						t.Fatalf("session fixture missing visible session evidence:\n%s", got)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Session.SessionID != "current" || snapshot.Session.MemoryStatus == "" || snapshot.SessionView == nil || snapshot.SessionView.SessionID != "current" {
+						t.Fatalf("session semantic missing identity/status: session=%+v view=%+v", snapshot.Session, snapshot.SessionView)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					session := strings.Join(regions["session"].Items, "\n")
+					if !containsAll(session, []string{"source: app.session", "session_id: current", "memory_status:", "app-owned", "display-only"}) {
+						t.Fatalf("session semantic region = %v", regions["session"].Items)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestCommandFixtureSet(t *testing.T) {

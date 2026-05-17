@@ -1,0 +1,46 @@
+{
+  "name": "resumed-session",
+  "kind": "static_shell",
+  "terminal_behavior": "bubbletea_static",
+  "quit_input": "q",
+  "states": ["idle", "resumed_memory", "session_selection"],
+  "render_sizes": [
+    {
+      "name": "80x24",
+      "width": 80,
+      "height": 24
+    },
+    {
+      "name": "100x30",
+      "width": 100,
+      "height": 30
+    },
+    {
+      "name": "120x32",
+      "width": 120,
+      "height": 32
+    },
+    {
+      "name": "160x45",
+      "width": 160,
+      "height": 45
+    }
+  ],
+  "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json",
+    "plain_100x30": "plain-100x30.txt",
+    "ansi_100x30": "ansi-100x30.txt",
+    "semantic_100x30": "semantic-100x30.json",
+    "plain_120x32": "plain-120x32.txt",
+    "ansi_120x32": "ansi-120x32.txt",
+    "semantic_120x32": "semantic-120x32.json",
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_160x45": "semantic-160x45.json"
+  },
+  "notes": [
+    "M36 resumed session fixture; current-session memory and selection rows are injected by the app layer."
+  ]
+}

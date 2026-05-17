@@ -1,0 +1,116 @@
+{
+  "scenario": "cleared-session",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "session_id": "current",
+    "memory_status": "cleared"
+  },
+  "session_view": {
+    "visible": true,
+    "action": "clear",
+    "source": "app.session",
+    "status": "cleared",
+    "session_id": "current",
+    "memory_status": "cleared",
+    "detail": "cleared visible session and current memory",
+    "focus": false,
+    "selected_index": 0
+  },
+  "command": {
+    "route": "clear",
+    "route_source": "policy.command",
+    "surface": "session",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "session",
+      "visible": true,
+      "items": [
+        "source: app.session",
+        "action: clear",
+        "status: cleared",
+        "session_id: current",
+        "memory_status: cleared",
+        "focus: false",
+        "selected_index: 0",
+        "detail: cleared visible session and current memory",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "session",
+        "command route: clear",
+        "route source: policy.command",
+        "source: app.session",
+        "action: clear",
+        "status: cleared",
+        "session id: current",
+        "memory: cleared",
+        "detail: cleared visible session and current memory",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

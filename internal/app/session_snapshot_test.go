@@ -158,6 +158,107 @@ func TestContinueStartupInvalidSnapshotSurfacesRecoveryWithoutOverwrite(t *testi
 	}
 }
 
+func TestSessionCommandStartsFreshSessionAndPersistsCurrentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	view := snapshotTestView()
+	view.Transcript = []tui.TranscriptTurn{{UserText: "old prompt", AssistantText: "old answer"}}
+	view.QueuedText = []string{"queued old"}
+	view.QueuedCount = 1
+	view.MemorySource = "state.current-session-snapshot"
+	view.MemorySessionID = "old"
+	controller := newController(context.Background(), workspace, view, newInputRunnerWithDispatch(runtime.Dispatch))
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteNew, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Session == nil || got.Session.Action != "new" || got.Session.Status != "fresh" || got.Session.MemoryStatus != "fresh" {
+		t.Fatalf("new session view = %+v", got.Session)
+	}
+	if got.Phase != workflow.PhaseIdle.DisplayLabel() || len(got.Transcript) != 0 || got.QueuedCount != 0 || got.MemorySource != "" || got.MemorySessionID != "" {
+		t.Fatalf("fresh visible session state = %+v", got)
+	}
+	store := mustOpenAppStore(t, workspace)
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read fresh snapshot: %v", err)
+	}
+	if result.State != state.SessionSnapshotLoaded || len(result.Snapshot.Transcript) != 0 || len(result.Snapshot.Queued) != 0 || result.Snapshot.SessionID != currentSessionID {
+		t.Fatalf("fresh snapshot result = %+v", result)
+	}
+}
+
+func TestSessionCommandClearsVisibleStateAndCurrentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	store := mustOpenAppStore(t, workspace)
+	if _, err := store.WriteCurrentSessionSnapshot(context.Background(), validAppSessionSnapshot()); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	view := snapshotTestView()
+	view.Transcript = []tui.TranscriptTurn{{UserText: "old prompt"}}
+	view.MemorySource = "state.current-session-snapshot"
+	view.MemorySessionID = "current"
+	controller := newController(context.Background(), workspace, view, newInputRunnerWithDispatch(runtime.Dispatch))
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteClear, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Session == nil || got.Session.Action != "clear" || got.Session.Status != "cleared" || got.Session.MemoryStatus != "cleared" {
+		t.Fatalf("clear session view = %+v", got.Session)
+	}
+	if len(got.Transcript) != 0 || got.MemorySource != "" || got.MemorySessionID != "" {
+		t.Fatalf("clear visible state retained memory: %+v", got)
+	}
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read after clear: %v", err)
+	}
+	if result.State != state.SessionSnapshotNoMemory {
+		t.Fatalf("snapshot state after clear = %q, want no memory", result.State)
+	}
+}
+
+func TestSessionCommandContinuesCurrentSnapshotWithFocusedSelection(t *testing.T) {
+	t.Parallel()
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	store := mustOpenAppStore(t, workspace)
+	if _, err := store.WriteCurrentSessionSnapshot(context.Background(), validAppSessionSnapshot()); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	controller := newController(context.Background(), workspace, snapshotTestView(), newInputRunnerWithDispatch(runtime.Dispatch))
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteContinue, Kind: policy.CommandInputShortcut}, controller.view)
+
+	if got.Session == nil || got.Session.Action != "continue" || got.Session.Status != "loaded" || !got.Session.Focus || len(got.Session.Items) != 1 {
+		t.Fatalf("continue session view = %+v", got.Session)
+	}
+	if got.MemorySource != "state.current-session-snapshot" || got.MemorySessionID != "current" || len(got.Transcript) != 2 || got.Transcript[0].UserText != "remembered prompt" {
+		t.Fatalf("continued view = %+v", got)
+	}
+	semantic := tui.Semantic(got, tui.Size{Width: 80, Height: 24})
+	if semantic.Screen.Focus != "session" || semantic.SessionView == nil || semantic.SessionView.MemoryStatus != "visible" || semantic.Session.SessionID != "current" {
+		t.Fatalf("continue semantic = focus %q session %+v session_view %+v", semantic.Screen.Focus, semantic.Session, semantic.SessionView)
+	}
+}
+
+func TestSessionCommandContinueWithoutMemoryReportsNoMemory(t *testing.T) {
+	t.Parallel()
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	controller := newController(context.Background(), workspace, snapshotTestView(), newInputRunnerWithDispatch(runtime.Dispatch))
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteContinue, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Session == nil || got.Session.Action != "continue" || got.Session.Status != string(state.SessionSnapshotNoMemory) || got.Session.MemoryStatus != "no_memory" || got.Session.Focus {
+		t.Fatalf("no-memory continue session = %+v", got.Session)
+	}
+	if got.MemorySource != "" || got.MemorySessionID != "" || len(got.Transcript) != 0 {
+		t.Fatalf("no-memory continue injected memory: %+v", got)
+	}
+}
+
 func TestSessionControllerPersistsQueuedInterruptDiagnosticsBlockersAndConcerns(t *testing.T) {
 	t.Parallel()
 
@@ -318,4 +419,13 @@ func TestContinueStartupSnapshotScopeStaysCurrentMemoryOnly(t *testing.T) {
 			t.Fatalf("snapshot schema introduced future-scope field %q: %s", forbidden, content)
 		}
 	}
+}
+
+func mustOpenAppStore(t *testing.T, workspace string) state.Store {
+	t.Helper()
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open app store: %v", err)
+	}
+	return store
 }

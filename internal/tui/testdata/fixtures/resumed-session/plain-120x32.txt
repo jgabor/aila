@@ -1,0 +1,32 @@
+Aila                                                                                                              120x32
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder                                  
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: resumed current session                                                                                      |
+| active: false                                                                                                        |
+| result: remembered result                                                                                            |
+|                                                                                                                      |
+|                                                                                                                      |
+| session:                                                                                                             |
+| command route: continue                                                                                              |
+| route source: policy.command                                                                                         |
+| source: app.session                                                                                                  |
+| action: continue                                                                                                     |
+| status: loaded                                                                                                       |
+| session id: current                                                                                                  |
+| memory: visible                                                                                                      |
+| detail: restored current session snapshot                                                                            |
+| sessions:                                                                                                            |
+| > current status=loaded memory=visible detail=current session                                                        |
+| focus: session                                                                                                       |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+| Resumed memory:                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit
+                                                                                                                        

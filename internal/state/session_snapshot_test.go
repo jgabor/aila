@@ -124,6 +124,40 @@ func TestWriteAndReadCurrentSessionSnapshotRoundTripsBoundedRedactedSchema(t *te
 	}
 }
 
+func TestClearCurrentSessionSnapshotRemovesOnlyCurrentMemory(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenProjectStore(t, filepath.Join(t.TempDir(), "workspace"))
+	location, err := store.WriteCurrentSessionSnapshot(context.Background(), validSessionSnapshot())
+	if err != nil {
+		t.Fatalf("WriteCurrentSessionSnapshot returned error: %v", err)
+	}
+	assertFileExists(t, location.Path)
+
+	cleared, err := store.ClearCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("ClearCurrentSessionSnapshot returned error: %v", err)
+	}
+	if cleared.Path != location.Path {
+		t.Fatalf("cleared path = %q, want %q", cleared.Path, location.Path)
+	}
+	if _, err := os.Stat(location.Path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("current snapshot after clear stat err = %v, want not exist", err)
+	}
+	assertStoreEntries(t, store.Layout().StoreRoot, []string{"artifacts/", "indexes/", "project.toml", "sessions/"})
+
+	if _, err := store.ClearCurrentSessionSnapshot(context.Background()); err != nil {
+		t.Fatalf("second ClearCurrentSessionSnapshot returned error: %v", err)
+	}
+	result, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("ReadCurrentSessionSnapshot returned error: %v", err)
+	}
+	if result.State != SessionSnapshotNoMemory {
+		t.Fatalf("read state after clear = %q, want %q", result.State, SessionSnapshotNoMemory)
+	}
+}
+
 func TestReadCurrentSessionSnapshotReturnsRecoveryForInvalidDataWithoutOverwrite(t *testing.T) {
 	t.Parallel()
 

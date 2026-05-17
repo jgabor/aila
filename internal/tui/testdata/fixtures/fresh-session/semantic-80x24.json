@@ -1,0 +1,116 @@
+{
+  "scenario": "fresh-session",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder",
+    "session_id": "current",
+    "memory_status": "fresh"
+  },
+  "session_view": {
+    "visible": true,
+    "action": "new",
+    "source": "app.session",
+    "status": "fresh",
+    "session_id": "current",
+    "memory_status": "fresh",
+    "detail": "started fresh session and preserved project store",
+    "focus": false,
+    "selected_index": 0
+  },
+  "command": {
+    "route": "new",
+    "route_source": "policy.command",
+    "surface": "session",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "session",
+      "visible": true,
+      "items": [
+        "source: app.session",
+        "action: new",
+        "status: fresh",
+        "session_id: current",
+        "memory_status: fresh",
+        "focus: false",
+        "selected_index: 0",
+        "detail: started fresh session and preserved project store",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "session",
+        "command route: new",
+        "route source: policy.command",
+        "source: app.session",
+        "action: new",
+        "status: fresh",
+        "session id: current",
+        "memory: fresh",
+        "detail: started fresh session and preserved project store",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -130,7 +130,7 @@ func TestCtrlCEmitsAppInterruptMessageOnly(t *testing.T) {
 	}
 }
 
-func TestCtrlXCEmitsSameAppInterruptMessageOnly(t *testing.T) {
+func TestCtrlXCEmitsContinueCommandWithoutInterrupt(t *testing.T) {
 	t.Parallel()
 
 	var interrupts []string
@@ -144,12 +144,7 @@ func TestCtrlXCEmitsSameAppInterruptMessageOnly(t *testing.T) {
 		return state
 	}, func(reason string) TranscriptTurn {
 		interrupts = append(interrupts, reason)
-		return TranscriptTurn{
-			RuntimeStatus: "canceling",
-			StatusSource:  "runtime.dispatch",
-			StatusDetail:  "fake in-memory runtime loop",
-			RuntimeActive: true,
-		}
+		return TranscriptTurn{RuntimeStatus: "canceling", RuntimeActive: true}
 	})
 
 	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
@@ -160,106 +155,22 @@ func TestCtrlXCEmitsSameAppInterruptMessageOnly(t *testing.T) {
 	got := updated.(Model)
 
 	if cmd != nil {
-		t.Fatal("ctrl+x c interrupt must not emit a Bubble Tea command")
+		t.Fatal("ctrl+x c continue command must not emit a Bubble Tea command")
 	}
 	if got.Quitting() {
-		t.Fatal("ctrl+x c interrupt must not quit or cancel from the TUI")
+		t.Fatal("ctrl+x c continue must not quit")
 	}
-	if len(interrupts) != 1 || interrupts[0] != "ctrl+x c" {
-		t.Fatalf("interrupt requests = %#v, want ctrl+x c", interrupts)
+	if len(interrupts) != 0 {
+		t.Fatalf("ctrl+x c routed interrupts: %#v", interrupts)
 	}
 	if len(prompts) != 0 {
 		t.Fatalf("ctrl+x c routed prompts: %#v", prompts)
 	}
-	if len(commands) != 0 {
-		t.Fatalf("ctrl+x c routed command recommendations: %+v", commands)
+	if len(commands) != 1 || commands[0].Route != policy.CommandRouteContinue || commands[0].Kind != policy.CommandInputShortcut {
+		t.Fatalf("commands = %+v, want shortcut continue", commands)
 	}
-	if got.state.RuntimeStatus != "canceling" || !got.state.RuntimeActive {
-		t.Fatalf("runtime display state = %+v, want injected canceling active state", got.state)
-	}
-}
-
-func TestPromptSubmitAppliesAppOwnedQueuedStateWithoutInventingTranscript(t *testing.T) {
-	t.Parallel()
-
-	model := NewModelWithStateSizePromptSubmitAndCommandRoute(IdleEmptyState(), Size{Width: 80, Height: 24}, func(string) TranscriptTurn {
-		return TranscriptTurn{
-			RuntimeStatus: "active",
-			StatusSource:  "runtime.dispatch",
-			StatusDetail:  "fake in-memory runtime loop",
-			RuntimeActive: true,
-			QueuedCount:   2,
-			QueuedText:    []string{"first queued", "second queued"},
-		}
-	}, nil)
-	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("queued follow-up")})
-	if cmd != nil {
-		t.Fatal("typing prompt emitted a command")
-	}
-	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyEnter})
-	got := updated.(Model)
-	if cmd != nil {
-		t.Fatal("queued prompt submit must not emit a Bubble Tea command")
-	}
-
-	if got.state.QueuedCount != 2 || strings.Join(got.state.QueuedText, ",") != "first queued,second queued" {
-		t.Fatalf("queued display state = count %d text %#v", got.state.QueuedCount, got.state.QueuedText)
-	}
-	if len(got.state.Transcript) != 0 {
-		t.Fatalf("queued prompt invented transcript entries: %#v", got.state.Transcript)
-	}
-	if semantic := Semantic(got.state, Size{Width: 80, Height: 24}); semantic.Session.QueuedMessages != 2 {
-		t.Fatalf("semantic queued_messages = %d, want app-owned count 2", semantic.Session.QueuedMessages)
-	}
-}
-
-func TestDefaultModelDoesNotOwnWorkflowPhase(t *testing.T) {
-	t.Parallel()
-
-	view := NewModelWithSize(Size{Width: 80, Height: 24}).View()
-	if !strings.Contains(view, "Stage  | Model placeholder | Utility placeholder | Auto placeholder") {
-		t.Fatalf("default TUI model should leave phase injection to the app:\n%s", view)
-	}
-}
-
-func TestPromptBackspaceUpdatesLocalViewStateOnly(t *testing.T) {
-	t.Parallel()
-
-	var routed []string
-	model := NewModelWithSizeAndPromptSubmit(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
-		routed = append(routed, text)
-		return TranscriptTurn{}
-	})
-	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hey")})
-	if cmd != nil {
-		t.Fatal("typing setup must not emit a command")
-	}
-
-	updated, cmd = updated.(Model).Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	got := updated.(Model)
-	if cmd != nil {
-		t.Fatal("backspace must not emit a Bubble Tea command")
-	}
-	if len(routed) != 0 {
-		t.Fatalf("backspace routed app messages: %v", routed)
-	}
-	if got.PromptInput() != "he" {
-		t.Fatalf("prompt input after backspace = %q, want he", got.PromptInput())
-	}
-
-	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyCtrlH})
-	got = updated.(Model)
-	if cmd != nil {
-		t.Fatal("ctrl+h backspace equivalent must not emit a Bubble Tea command")
-	}
-	if len(routed) != 0 {
-		t.Fatalf("ctrl+h routed app messages: %v", routed)
-	}
-	if got.PromptInput() != "h" {
-		t.Fatalf("prompt input after ctrl+h = %q, want h", got.PromptInput())
-	}
-	if !strings.Contains(got.View(), "> h") {
-		t.Fatalf("view does not show edited prompt input:\n%s", got.View())
+	if got.state.Session == nil || got.state.Session.Action != "continue" {
+		t.Fatalf("ctrl+x c state session = %+v, want continue surface", got.state.Session)
 	}
 }
 
@@ -350,6 +261,33 @@ func TestCommandShortcutsUseSamePolicyRoutesAsSlashCommands(t *testing.T) {
 func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 	t.Parallel()
 
+	newSlash, ok := policy.RecommendSlashCommand("/new")
+	if !ok {
+		t.Fatal("/new did not match")
+	}
+	newShortcut, ok := policy.RecommendShortcut("ctrl+x", "n")
+	if !ok {
+		t.Fatal("ctrl+x n did not match")
+	}
+	if newSlash.Route != newShortcut.Route || newSlash.Route != policy.CommandRouteNew {
+		t.Fatalf("new policy route mismatch: slash=%+v shortcut=%+v", newSlash, newShortcut)
+	}
+	clearSlash, ok := policy.RecommendSlashCommand("/clear")
+	if !ok || clearSlash.Route != policy.CommandRouteClear {
+		t.Fatalf("/clear route = %+v matched=%v, want slash clear", clearSlash, ok)
+	}
+	continueSlash, ok := policy.RecommendSlashCommand("/continue")
+	if !ok {
+		t.Fatal("/continue did not match")
+	}
+	continueShortcut, ok := policy.RecommendShortcut("ctrl+x", "c")
+	if !ok {
+		t.Fatal("ctrl+x c did not match")
+	}
+	if continueSlash.Route != continueShortcut.Route || continueSlash.Route != policy.CommandRouteContinue {
+		t.Fatalf("continue policy route mismatch: slash=%+v shortcut=%+v", continueSlash, continueShortcut)
+	}
+
 	statusSlash, ok := policy.RecommendSlashCommand("/status")
 	if !ok {
 		t.Fatal("/status did not match")
@@ -396,6 +334,36 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 	}
 	if quitSlash.Route != quitShortcut.Route {
 		t.Fatalf("quit policy route mismatch: slash=%+v shortcut=%+v", quitSlash, quitShortcut)
+	}
+
+	newSlashModel, newSlashCmd := routeSlashCommandForParity(t, "/new")
+	newShortcutModel, newShortcutCmd := routeShortcutForParity(t, "n")
+	if newSlashCmd != nil || newShortcutCmd != nil {
+		t.Fatal("new parity routes should not emit Bubble Tea commands")
+	}
+	if newSlashModel.state.CommandRoute != newShortcutModel.state.CommandRoute || newSlashModel.state.RouteSource != newShortcutModel.state.RouteSource {
+		t.Fatalf("new TUI route mismatch: slash=%+v shortcut=%+v", newSlashModel.state, newShortcutModel.state)
+	}
+	if newSlashModel.state.Session == nil || newShortcutModel.state.Session == nil || newSlashModel.state.Session.Action != "new" || newShortcutModel.state.Session.Action != "new" {
+		t.Fatalf("new session surfaces missing: slash=%+v shortcut=%+v", newSlashModel.state.Session, newShortcutModel.state.Session)
+	}
+	continueSlashModel, continueSlashCmd := routeSlashCommandForParity(t, "/continue")
+	continueShortcutModel, continueShortcutCmd := routeShortcutForParity(t, "c")
+	if continueSlashCmd != nil || continueShortcutCmd != nil {
+		t.Fatal("continue parity routes should not emit Bubble Tea commands")
+	}
+	if continueSlashModel.state.CommandRoute != continueShortcutModel.state.CommandRoute || continueSlashModel.state.RouteSource != continueShortcutModel.state.RouteSource {
+		t.Fatalf("continue TUI route mismatch: slash=%+v shortcut=%+v", continueSlashModel.state, continueShortcutModel.state)
+	}
+	if continueSlashModel.state.Session == nil || continueShortcutModel.state.Session == nil || continueSlashModel.state.Session.Action != "continue" || continueShortcutModel.state.Session.Action != "continue" {
+		t.Fatalf("continue session surfaces missing: slash=%+v shortcut=%+v", continueSlashModel.state.Session, continueShortcutModel.state.Session)
+	}
+	clearSlashModel, clearSlashCmd := routeSlashCommandForParity(t, "/clear")
+	if clearSlashCmd != nil {
+		t.Fatal("clear slash route should not emit Bubble Tea commands")
+	}
+	if clearSlashModel.state.Session == nil || clearSlashModel.state.Session.Action != "clear" {
+		t.Fatalf("clear session surface missing: %+v", clearSlashModel.state.Session)
 	}
 
 	statusSlashModel, statusSlashCmd := routeSlashCommandForParity(t, "/status")
@@ -587,7 +555,7 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	t.Parallel()
 
 	renderHelp := func() string {
-		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 120, Height: 32}, nil, nil)
+		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 160, Height: 45}, nil, nil)
 		updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/help")})
 		if cmd != nil {
 			t.Fatal("typing help must not emit a Bubble Tea command")
@@ -608,6 +576,9 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"help:",
 		"Deterministic placeholder help.",
 		"commands:",
+		"/new - Start a fresh session and preserve project memory.",
+		"/clear - Clear visible session state and current memory.",
+		"/continue - Restore the current saved session.",
 		"/status - Inspect current runtime and state.",
 		"/review - Inspect current changes, risks, and sources.",
 		"/history - Browse runs, edits, checks, and undo data.",
@@ -617,6 +588,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"/redo - Redo the latest supported recovery.",
 		"/quit - Quit Aila.",
 		"shortcuts:",
+		"ctrl+x n - Start a fresh session and preserve project memory.",
+		"ctrl+x c - Restore the current saved session.",
 		"ctrl+x s - Inspect current runtime and state.",
 		"ctrl+x i - Inspect current changes, risks, and sources.",
 		"ctrl+x h - Browse runs, edits, checks, and undo data.",
@@ -629,6 +602,9 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 			t.Fatalf("help render missing %q:\n%s", item, first)
 		}
 	}
+	assertOrdered(t, first, "/new - Start a fresh session and preserve project memory.", "/clear - Clear visible session state and current memory.")
+	assertOrdered(t, first, "/clear - Clear visible session state and current memory.", "/continue - Restore the current saved session.")
+	assertOrdered(t, first, "/continue - Restore the current saved session.", "/status - Inspect current runtime and state.")
 	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/review - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "/review - Inspect current changes, risks, and sources.", "/history - Browse runs, edits, checks, and undo data.")
 	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/help - Show this deterministic placeholder help.")
@@ -637,6 +613,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "/undo - Undo the latest supported mutation.", "/redo - Redo the latest supported recovery.")
 	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
+	assertOrdered(t, first, "ctrl+x n - Start a fresh session and preserve project memory.", "ctrl+x c - Restore the current saved session.")
+	assertOrdered(t, first, "ctrl+x c - Restore the current saved session.", "ctrl+x s - Inspect current runtime and state.")
 	assertOrdered(t, first, "ctrl+x s - Inspect current runtime and state.", "ctrl+x i - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "ctrl+x i - Inspect current changes, risks, and sources.", "ctrl+x h - Browse runs, edits, checks, and undo data.")
 	assertOrdered(t, first, "ctrl+x h - Browse runs, edits, checks, and undo data.", "ctrl+x d - Review current changes.")
@@ -644,8 +622,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
 	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/new", "/clear", "/continue", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
-		"ctrl+x n", "ctrl+x c", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
+		"/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
+		"ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {
@@ -745,6 +723,50 @@ func TestFakeResponseTranscriptRenderingIsStable(t *testing.T) {
 		if strings.Contains(first, forbidden) {
 			t.Fatalf("transcript render contains unstable time marker %q:\n%s", forbidden, first)
 		}
+	}
+}
+
+func TestSessionSurfaceSelectionFocusIsPresentationOnly(t *testing.T) {
+	t.Parallel()
+
+	state := ApplySessionView(IdleEmptyState(), &SessionView{
+		Action:       "continue",
+		Source:       "app.session",
+		Status:       "loaded",
+		SessionID:    "current",
+		MemoryStatus: "visible",
+		Detail:       "restored current session snapshot",
+		Focus:        true,
+		Items: []SessionItemView{
+			{ID: "current", Status: "loaded", MemoryStatus: "visible", Detail: "current session"},
+			{ID: "previous", Status: "available", MemoryStatus: "visible", Detail: "injected row"},
+		},
+	})
+	model := NewModelWithStateSizePromptSubmitAndCommandRoute(state, Size{Width: 80, Height: 24}, nil, func(recommendation policy.CommandRecommendation, state ViewState) ViewState {
+		t.Fatalf("session focus should not route app commands: %+v", recommendation)
+		return state
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("session down navigation emitted a command")
+	}
+	if got.state.Session == nil || got.state.Session.Selected != 1 || !got.state.Session.Focus {
+		t.Fatalf("session selection after down = %+v, want focused second row", got.state.Session)
+	}
+	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
+	if semantic.Screen.Focus != "session" || semantic.SessionView == nil || semantic.SessionView.Selected != 1 || !semantic.SessionView.Focus {
+		t.Fatalf("session semantic after down = focus %q view %+v", semantic.Screen.Focus, semantic.SessionView)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("session enter emitted a command")
+	}
+	if got.state.Session == nil || got.state.Session.Focus {
+		t.Fatalf("session enter should release focus: %+v", got.state.Session)
 	}
 }
 

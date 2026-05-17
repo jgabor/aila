@@ -8,6 +8,9 @@
 | route source: policy.command                                                                     |
 | Deterministic placeholder help.                                                                  |
 | commands:                                                                                        |
+| /new - Start a fresh session and preserve project memory.                                        |
+| /clear - Clear visible session state and current memory.                                         |
+| /continue - Restore the current saved session.                                                   |
 | /status - Inspect current runtime and state.                                                     |
 | /review - Inspect current changes, risks, and sources.                                           |
 | /history - Browse runs, edits, checks, and undo data.                                            |
@@ -17,11 +20,8 @@
 | /redo - Redo the latest supported recovery.                                                      |
 | /quit - Quit Aila.                                                                               |
 | shortcuts:                                                                                       |
-| ctrl+x s - Inspect current runtime and state.                                                    |
-| ctrl+x i - Inspect current changes, risks, and sources.                                          |
-| ctrl+x h - Browse runs, edits, checks, and undo data.                                            |
-| ctrl+x d - Review current changes.                                                               |
-| ctrl+x u - Undo the latest supported mutation.                                                   |
+| ctrl+x n - Start a fresh session and preserve project memory.                                    |
+| ctrl+x c - Restore the current saved session.                                                    |
 +--------------------------------------------------------------------------------------------------+
 + [33mPrompt[0m ------------------------------------------------------------------------------------------+
 | [36m>[0m                                                                                                |
