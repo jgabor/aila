@@ -69,6 +69,7 @@ type ViewState struct {
 	Brief              *BriefView
 	Plan               *PlanView
 	Build              *BuildView
+	Audit              *AuditView
 	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
@@ -470,6 +471,61 @@ type BuildBoundaryRequestView struct {
 	Reason    string
 }
 
+// AuditView is app-injected read-only audit output.
+type AuditView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	Summary              string
+	EvidenceState        string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	SuccessorRejected    bool
+	SuccessorReason      string
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	Findings             []AuditFindingView
+	NextActions          []string
+	Caveats              []string
+	ArtifactRefs         []AuditArtifactRefView
+	SourceRefs           []AuditSourceRefView
+	BoundaryRequests     []AuditBoundaryRequestView
+}
+
+// AuditFindingView records one app-injected audit finding.
+type AuditFindingView struct {
+	ID           string
+	Severity     string
+	Title        string
+	Message      string
+	SourceRefIDs []string
+	NextActions  []string
+}
+
+// AuditArtifactRefView records one audit artifact reference.
+type AuditArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// AuditSourceRefView records one source reference supporting audit output.
+type AuditSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// AuditBoundaryRequestView records one inert audit boundary descriptor.
+type AuditBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // PlanView is app-injected scoped planning output.
 type PlanView struct {
 	Source               string
@@ -606,6 +662,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	items = append(items, briefLines(state.Brief)...)
+	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
 	if state.SurfaceTitle == "agent evidence" {
@@ -1403,6 +1460,83 @@ func buildLines(build *BuildView) []string {
 	return append(lines, "")
 }
 
+func auditLines(audit *AuditView) []string {
+	if audit == nil {
+		return nil
+	}
+	semantic := semanticAudit(audit)
+	lines := []string{
+		"  Audit:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  evidence: " + semantic.EvidenceState,
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+		"  successor rejected: " + boolLabel(semantic.SuccessorRejected),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.SuccessorReason != "" {
+		lines = append(lines, "  successor reason: "+semantic.SuccessorReason)
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	for _, finding := range semantic.Findings {
+		lines = append(lines, "  finding: "+finding.ID+" severity="+finding.Severity+" title="+finding.Title)
+		if finding.Message != "" {
+			lines = append(lines, "  finding message: "+finding.ID+" "+finding.Message)
+		}
+		if len(finding.SourceRefIDs) > 0 {
+			lines = append(lines, "  finding source refs: "+finding.ID+" "+strings.Join(finding.SourceRefIDs, ","))
+		}
+		for _, action := range finding.NextActions {
+			lines = append(lines, "  finding next action: "+finding.ID+" "+action)
+		}
+	}
+	for _, action := range semantic.NextActions {
+		lines = append(lines, "  next action: "+action)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "  app-owned", "  display-only", "")
+}
+
 func compactLines(compact *CompactView) []string {
 	if compact == nil {
 		return nil
@@ -1968,6 +2102,7 @@ type SemanticSnapshot struct {
 	Brief          *SemanticBrief          `json:"brief,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
+	Audit          *SemanticAudit          `json:"audit,omitempty"`
 	History        *SemanticHistory        `json:"history,omitempty"`
 	Diff           *SemanticDiff           `json:"diff,omitempty"`
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
@@ -2556,6 +2691,62 @@ type SemanticBuildBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticAudit describes app-injected read-only audit output.
+type SemanticAudit struct {
+	Visible              bool                           `json:"visible"`
+	Source               string                         `json:"source"`
+	Capability           string                         `json:"capability"`
+	Signal               string                         `json:"signal"`
+	Summary              string                         `json:"summary,omitempty"`
+	EvidenceState        string                         `json:"evidence_state"`
+	RecommendedSuccessor string                         `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                           `json:"successor_valid"`
+	SuccessorRejected    bool                           `json:"successor_rejected"`
+	SuccessorReason      string                         `json:"successor_reason,omitempty"`
+	TransitionClaimed    bool                           `json:"transition_claimed"`
+	DisplayOnly          bool                           `json:"display_only"`
+	Findings             []SemanticAuditFinding         `json:"findings,omitempty"`
+	NextActions          []string                       `json:"next_actions,omitempty"`
+	Caveats              []string                       `json:"caveats,omitempty"`
+	ArtifactRefs         []SemanticAuditArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticAuditSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticAuditBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticAuditFinding records one machine-readable audit finding.
+type SemanticAuditFinding struct {
+	ID           string   `json:"id"`
+	Severity     string   `json:"severity"`
+	Title        string   `json:"title"`
+	Message      string   `json:"message,omitempty"`
+	SourceRefIDs []string `json:"source_ref_ids,omitempty"`
+	NextActions  []string `json:"next_actions,omitempty"`
+}
+
+// SemanticAuditArtifactRef records one audit artifact reference.
+type SemanticAuditArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticAuditSourceRef records one audit source reference.
+type SemanticAuditSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticAuditBoundaryRequest records one inert audit boundary descriptor.
+type SemanticAuditBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticPlan describes app-injected scoped planning output.
 type SemanticPlan struct {
 	Visible              bool                          `json:"visible"`
@@ -2902,6 +3093,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Build != nil {
 		regions = append(regions, SemanticRegion{Name: "build", Visible: true, Items: semanticBuildItems(state.Build)})
 	}
+	if state.Audit != nil {
+		regions = append(regions, SemanticRegion{Name: "audit", Visible: true, Items: semanticAuditItems(state.Audit)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -2987,6 +3181,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Brief:          semanticBrief(state.Brief),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
+		Audit:          semanticAudit(state.Audit),
 		History:        semanticHistory(state),
 		Diff:           semanticDiff(state),
 		Read:           semanticRead(state.Read),
@@ -3950,6 +4145,108 @@ func semanticPolicyRoute(route *PolicyRouteView) *SemanticPolicyRoute {
 		SuccessorReason:      safeText(route.SuccessorReason),
 		TransitionClaimed:    route.TransitionClaimed,
 		Executed:             route.Executed,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticAuditItems(audit *AuditView) []string {
+	semantic := semanticAudit(audit)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"evidence: " + semantic.EvidenceState,
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"successor_rejected: " + boolLabel(semantic.SuccessorRejected),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.SuccessorReason != "" {
+		items = append(items, "successor_reason: "+semantic.SuccessorReason)
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	for _, finding := range semantic.Findings {
+		items = append(items, "finding: "+finding.ID+" severity="+finding.Severity+" title="+finding.Title)
+		if finding.Message != "" {
+			items = append(items, "finding_message: "+finding.ID+" "+finding.Message)
+		}
+		if len(finding.SourceRefIDs) > 0 {
+			items = append(items, "finding_source_refs: "+finding.ID+" "+strings.Join(finding.SourceRefIDs, ","))
+		}
+		for _, action := range finding.NextActions {
+			items = append(items, "finding_next_action: "+finding.ID+" "+action)
+		}
+	}
+	for _, action := range semantic.NextActions {
+		items = append(items, "next_action: "+action)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticAudit(audit *AuditView) *SemanticAudit {
+	if audit == nil {
+		return nil
+	}
+	findings := make([]SemanticAuditFinding, 0, len(audit.Findings))
+	for _, finding := range audit.Findings {
+		findings = append(findings, SemanticAuditFinding{
+			ID:           safeText(finding.ID),
+			Severity:     safeText(finding.Severity),
+			Title:        safeText(finding.Title),
+			Message:      safeText(finding.Message),
+			SourceRefIDs: safeTextSlice(finding.SourceRefIDs),
+			NextActions:  safeTextSlice(finding.NextActions),
+		})
+	}
+	artifactRefs := make([]SemanticAuditArtifactRef, 0, len(audit.ArtifactRefs))
+	for _, ref := range audit.ArtifactRefs {
+		artifactRefs = append(artifactRefs, SemanticAuditArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticAuditSourceRef, 0, len(audit.SourceRefs))
+	for _, ref := range audit.SourceRefs {
+		refs = append(refs, SemanticAuditSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticAuditBoundaryRequest, 0, len(audit.BoundaryRequests))
+	for _, request := range audit.BoundaryRequests {
+		requests = append(requests, SemanticAuditBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticAudit{
+		Visible:              true,
+		Source:               safeText(defaultString(audit.Source, "app.audit")),
+		Capability:           safeText(defaultString(audit.Capability, "audit")),
+		Signal:               safeText(defaultString(audit.Signal, "complete")),
+		Summary:              safeText(audit.Summary),
+		EvidenceState:        safeText(audit.EvidenceState),
+		RecommendedSuccessor: safeText(audit.RecommendedSuccessor),
+		SuccessorValid:       audit.SuccessorValid,
+		SuccessorRejected:    audit.SuccessorRejected,
+		SuccessorReason:      safeText(audit.SuccessorReason),
+		TransitionClaimed:    audit.TransitionClaimed,
+		DisplayOnly:          audit.DisplayOnly,
+		Findings:             findings,
+		NextActions:          safeTextSlice(audit.NextActions),
+		Caveats:              safeTextSlice(audit.Caveats),
+		ArtifactRefs:         artifactRefs,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}

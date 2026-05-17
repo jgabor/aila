@@ -5153,6 +5153,77 @@ func TestBuildActiveFixtureShowsBoundedBuildEvidence(t *testing.T) {
 	}
 }
 
+func TestAuditFindingsFixtureShowsSeveritySourcesAndNextActions(t *testing.T) {
+	fixture := loadRenderFixture(t, "audit-findings", auditFindingsFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage AUDIT", "Audit:", "capability: audit", "signal: flagged", "evidence: diff_available", "finding: current-change-review severity=warning", "finding source refs: current-change-review review-diff"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "finding next action: current-change-review Route back to build after reviewing changed files.")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "requested boundary: state_access operation=state.access target=review.current", "source ref: review-diff kind=diff")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("audit-findings render missing audit evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Audit == nil || snapshot.Audit.Findings[0].Severity != "warning" || snapshot.Audit.Findings[0].SourceRefIDs[0] != "review-diff" || !snapshot.Audit.SuccessorValid || snapshot.Audit.TransitionClaimed || !snapshot.Audit.DisplayOnly {
+			t.Fatalf("audit-findings semantic = %+v", snapshot.Audit)
+		}
+	}
+}
+
+func auditFindingsFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "audit-findings"
+	state.Phase = "AUDIT"
+	state.PhaseSource = "workflow.fixture"
+	state.PrimaryModel = "fake/fake-audit"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "audit capability status"
+	state.RuntimeResult = "Audit found 1 changed file needing review."
+	state.SurfaceTitle = "agent evidence"
+	state.Audit = &AuditView{
+		Source:               "app.audit.fixture",
+		Capability:           "audit",
+		Signal:               "flagged",
+		Summary:              "Audit found 1 changed file needing review.",
+		EvidenceState:        "diff_available",
+		RecommendedSuccessor: "build",
+		SuccessorValid:       true,
+		SuccessorRejected:    false,
+		SuccessorReason:      "workflow FSM accepted recommended successor",
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		Findings: []AuditFindingView{{
+			ID:           "current-change-review",
+			Severity:     "warning",
+			Title:        "Review current changes before continuing",
+			Message:      "1 changed file needs review before another build step.",
+			SourceRefIDs: []string{"review-diff"},
+			NextActions:  []string{"Route back to build after reviewing changed files.", "Re-plan if findings change scope."},
+		}},
+		NextActions:      []string{"Route back to build after reviewing changed files.", "Re-plan if findings change scope."},
+		Caveats:          []string{"audit used app-supplied review evidence only"},
+		ArtifactRefs:     []AuditArtifactRefView{{ID: "review", Kind: "app_display", Path: "review"}},
+		SourceRefs:       []AuditSourceRefView{{ID: "review-command", Kind: "command", Command: "/review", Excerpt: "app-owned read-only review command"}, {ID: "review-diff", Kind: "diff", Path: "internal/app/inspection.go", Excerpt: "status=ready changed_files=1"}},
+		BoundaryRequests: []AuditBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "review.current", Reason: "audit uses app-owned review evidence"}, {Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "audit uses supplied source refs and context evidence"}},
+	}
+	return state
+}
+
 func TestReadOnlyProviderFailureFixtureSnapshots(t *testing.T) {
 	for _, name := range []string{"provider-auth-failed", "provider-timeout", "rate-limited", "model-unavailable"} {
 		name := name

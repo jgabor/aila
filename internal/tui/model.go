@@ -58,6 +58,7 @@ type TranscriptTurn struct {
 	Brief              *BriefView
 	Plan               *PlanView
 	Build              *BuildView
+	Audit              *AuditView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -670,6 +671,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Build != nil {
 		state.Build = cloneBuildView(turn.Build)
 	}
+	if turn.Audit != nil {
+		state.Audit = cloneAuditView(turn.Audit)
+	}
 	if state.Context != nil && state.Context.Meter != "" {
 		state.FooterContext = state.Context.Meter
 	}
@@ -810,6 +814,24 @@ func cloneBuildView(build *BuildView) *BuildView {
 	return &clone
 }
 
+func cloneAuditView(audit *AuditView) *AuditView {
+	if audit == nil {
+		return nil
+	}
+	clone := *audit
+	clone.Findings = append([]AuditFindingView(nil), audit.Findings...)
+	for index := range clone.Findings {
+		clone.Findings[index].SourceRefIDs = append([]string(nil), audit.Findings[index].SourceRefIDs...)
+		clone.Findings[index].NextActions = append([]string(nil), audit.Findings[index].NextActions...)
+	}
+	clone.NextActions = append([]string(nil), audit.NextActions...)
+	clone.Caveats = append([]string(nil), audit.Caveats...)
+	clone.ArtifactRefs = append([]AuditArtifactRefView(nil), audit.ArtifactRefs...)
+	clone.SourceRefs = append([]AuditSourceRefView(nil), audit.SourceRefs...)
+	clone.BoundaryRequests = append([]AuditBoundaryRequestView(nil), audit.BoundaryRequests...)
+	return &clone
+}
+
 func cloneRecoveryView(recovery *RecoveryView) *RecoveryView {
 	if recovery == nil {
 		return nil
@@ -924,6 +946,9 @@ func (m *Model) requestInterrupt(reason string) tea.Cmd {
 func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRecommendation) ViewState {
 	state.CommandRoute = string(recommendation.Route)
 	state.RouteSource = "policy.command"
+	if recommendation.Route != policy.CommandRouteReview {
+		state.Audit = nil
+	}
 	if recommendation.Route != policy.CommandRouteModel {
 		state.ModelSwitch = nil
 	}
@@ -1069,6 +1094,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	state.CommandRoute = string(route)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = title
+	if route != policy.CommandRouteReview {
+		state.Audit = nil
+	}
 	state.SurfaceLines = append([]string(nil), lines...)
 	return state
 }
@@ -1146,6 +1174,7 @@ func ApplySessionView(state ViewState, session *SessionView) ViewState {
 	state.CommandRoute = session.Action
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "session"
+	state.Audit = nil
 	state.Session = cloneSessionView(session)
 	state.Session.Selected = clampSessionSelection(*state.Session)
 	state.SurfaceLines = sessionSurfaceLines(*state.Session)
@@ -1273,6 +1302,7 @@ func ApplyModelSwitchView(state ViewState, modelSwitch *ModelSwitchView) ViewSta
 	state.CommandRoute = string(policy.CommandRouteModel)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "model"
+	state.Audit = nil
 	state.ModelSwitch = cloneModelSwitchView(modelSwitch)
 	state.ModelSwitch.Selected = clampModelSwitchSelection(*state.ModelSwitch)
 	state.SurfaceLines = modelSwitchSurfaceLines(*state.ModelSwitch)
@@ -1309,6 +1339,7 @@ func ApplyAutonomySwitchView(state ViewState, autonomySwitch *AutonomySwitchView
 	state.CommandRoute = string(policy.CommandRouteAuto)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "auto"
+	state.Audit = nil
 	state.AutonomySwitch = cloneAutonomySwitchView(autonomySwitch)
 	state.AutonomySwitch.Selected = clampAutonomySwitchSelection(*state.AutonomySwitch)
 	state.SurfaceLines = autonomySwitchSurfaceLines(*state.AutonomySwitch)
@@ -1342,6 +1373,7 @@ func ApplyHistoryView(state ViewState, items []HistoryItem, selected int, focus 
 	state.CommandRoute = string(policy.CommandRouteHistory)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "history"
+	state.Audit = nil
 	state.HistoryItems = cloneHistoryItems(items)
 	state.HistoryEmpty = len(items) == 0
 	state.HistoryFocus = focus
@@ -1358,6 +1390,7 @@ func ApplyRecoveryView(state ViewState, recovery *RecoveryView) ViewState {
 		state.CommandRoute = recovery.Command
 	}
 	state.SurfaceTitle = "recovery"
+	state.Audit = nil
 	state.Recovery = cloneRecoveryView(recovery)
 	state.SurfaceLines = recoverySurfaceLines(recovery)
 	return state
@@ -1368,6 +1401,7 @@ func ApplyDiffView(state ViewState, diff *DiffView, selected int, focus bool) Vi
 	state.CommandRoute = string(policy.CommandRouteDiff)
 	state.RouteSource = "policy.command"
 	state.SurfaceTitle = "diff"
+	state.Audit = nil
 	state.Diff = cloneDiffView(diff)
 	if state.Diff == nil {
 		state.Diff = &DiffView{Source: "app.diff", Status: "empty", Empty: true}

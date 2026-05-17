@@ -91,7 +91,10 @@ func (controller *sessionController) openReviewView() []diagnostic.Diagnostic {
 		diagnostics = append(diagnostics, result.Diagnostics...)
 	}
 
+	auditRequest := auditRequestFromReview(controller.view, diff, historyState, events)
+	turn := controller.runner.proposeCapability(auditRequest)
 	controller.view = tui.ApplyCommandSurface(controller.view, policy.CommandRouteReview, "review", reviewInspectionLines(controller.view, diff, historyState, events))
+	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 	return diagnostics
 }
 

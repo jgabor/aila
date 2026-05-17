@@ -1,4 +1,85 @@
 cycles:
+  - number: 231
+    timestamp: 2026-05-17 14:35
+    type: build
+    phase: closeout
+    what: Completed Milestone 49 by adding deterministic audit payloads, /review runtime/app audit routing, TUI audit render
+      and semantic evidence, and PTY audit display coverage.
+    commit: 'pending local commit: add audit capability'
+    inspiration: .agentera/plan.yaml tasks 2-6; ROADMAP.md Milestone 49; audit PTY smoke; full cmd/internal tests; mage check;
+      Agentera validation
+    discovered: Audit stays bounded when capability code only emits findings from app-supplied evidence and app/runtime own
+      inspection, state, and display wiring. /review can make audit primary while preserving the read-only inspection surface
+      in app state, and stale audit output must clear when navigating to history or diff.
+    verified: 'mage fmt passed. Focused capability/runtime/app/TUI/cmd checks passed. go test ./internal/... -count=1 passed.
+      go test -v ./cmd/aila -count=1 -timeout=15m passed with cmd/aila in 350.817s. Final mage check passed with explicit exit
+      print: cmd/aila in 321.935s, internal packages green, 0 lint issues, and no vulnerabilities. PTY audit smoke proves tracked
+      git status unchanged and no build output mutation. Agentera validation, git diff checks, home-path hygiene, and added
+      func TestM<number> hygiene are part of final closeout.'
+    next: 'Commit the completed M49 slice locally, leaving Milestone 50: Vision Capability as the next roadmap milestone.'
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera
+        capability usage.
+      constraints: Execute only M49; keep audit read-only and app-supplied; no provider-backed review, automatic fixes, broad
+        capability parity, direct workflow phase mutation, plugin/MCP/workflow DSL behavior, M50+ behavior, or push.
+      unknowns: Vision/discuss/research capabilities, provider-backed audits, automatic fix loops, richer audit persistence,
+        and multi-cycle orchestration remain deferred.
+      scope: internal/capability, internal/runtime, internal/app, internal/tui, cmd/aila PTY coverage, audit-findings fixtures,
+        ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M48 plan.
+  - number: 230
+    timestamp: 2026-05-17 14:05
+    type: build
+    phase: implementation
+    what: Implemented deterministic M49 audit capability behavior and wired /review to display app-owned audit findings.
+    commit: 'pending local commit: add audit capability'
+    inspiration: .agentera/plan.yaml tasks 2-5; ROADMAP.md Milestone 49; docs/workflow-architecture AUDIT successor rules; docs/tui-testing
+      audit-findings fixture gate
+    discovered: Audit output needed to be primary in review render output, and stale audit state needed clearing on history/diff
+      navigation so later command surfaces stayed visible and leak checks remained meaningful.
+    verified: go test ./internal/capability -run 'Test.*Audit.*|Test.*Capability.*|TestRunBuiltIn' -count=1 passed; go test
+      ./internal/runtime -run 'Test.*Audit.*|Test.*Capability.*' -count=1 passed; go test ./internal/app -run 'Test.*Audit.*|Test.*Review.*|Test.*Inspection.*'
+      -count=1 passed; go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Audit.*|Test.*Review.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+      -count=1 passed; go test ./cmd/aila -run 'TestReviewCommandShowsAuditFindingsPTYSmoke|TestInspectionCommandFamilyPTYSmoke'
+      -count=1 passed.
+    next: Run broad validation, update ROADMAP and Agentera closeout artifacts, then commit M49.
+    context:
+      intent: Complete product behavior and display evidence before roadmap closeout.
+      constraints: Behavior-named tests only; no provider review, audit-side IO, file/git mutation from audit, direct workflow
+        phase mutation, broad capability command parity, or M50+ behavior.
+      unknowns: Final full-suite and Agentera validation remained before closeout.
+      scope: internal/capability, internal/runtime, internal/app, internal/tui, cmd/aila, and audit-findings fixture snapshots.
+  - number: 229
+    timestamp: 2026-05-17 13:13
+    type: plan
+    phase: plan
+    what: 'Planned Milestone 49: Audit Capability as the next roadmap milestone, archived the completed M48 plan, and created
+      a new active plan with six bounded tasks for deterministic audit payloads, /review runtime wiring, audit render and semantic
+      evidence, PTY smoke validation, roadmap closeout, and commit.'
+    commit: 'N/A: planning artifact before M49 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 49; AGENTS.md; README workflow, capability, and command sections;
+      ARCHITECTURE workflow/capability/command boundaries; docs/workflow-architecture AUDIT successor table and capability rules;
+      docs/tui-testing audit-findings gate; installed Agentera CLI hej with planera context; Agentera plan/progress/describe
+      state
+    discovered: M49 can stay narrow by making audit deterministic over app-supplied /review inspection evidence, rendering findings
+      with severity/source refs/next actions, and validating follow-up through the existing FSM without provider-backed review
+      or broad capability command parity.
+    verified: Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; Agentera plan/progress/describe
+      exposed plan and progress artifact locations; ROADMAP.md top status and M49 section, docs/notes/PROMPT.md, AGENTS.md,
+      README workflow/capability/command sections, ARCHITECTURE capability and command boundaries, docs/workflow-architecture
+      audit successor table, docs/tui-testing audit-findings gate, and current capability/runtime/app/policy/TUI seams were
+      reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids new TestM<number> symbols.
+    next: 'Execute M49 Tasks 2-5: add deterministic audit capability payloads, wire /review through runtime audit evidence,
+      render audit findings with semantic snapshots, and add PTY smoke coverage before validation, roadmap closeout, and commit.'
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M48, selecting M49 and preparing an
+        executable plan before implementation.
+      constraints: Execute only M49; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, TUI presentation-only
+        behavior, fixed product posture, read-only audit display, behavior-based test names, and no push.
+      unknowns: Exact AuditView field shape, whether /review keeps the existing inspection lines before or after audit output,
+        and the smallest metadata shape for deterministic findings are implementation-owned; provider-backed audits, automatic
+        fixes, and multi-cycle orchestration remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m48.yaml archival, and progress evidence for
+        the M49 planning handoff.
   - number: 228
     timestamp: 2026-05-17 13:02
     type: build

@@ -211,6 +211,7 @@ type ExitPayload struct {
 	BoundaryRequests     []BoundaryRequest
 	Plan                 *PlanOutput
 	Build                *BuildOutput
+	Audit                *AuditOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -298,6 +299,18 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		build.Caveats = append([]string(nil), payload.Build.Caveats...)
 		build.SourceRefs = append([]SourceRef(nil), payload.Build.SourceRefs...)
 		payload.Build = &build
+	}
+	if payload.Audit != nil {
+		audit := *payload.Audit
+		audit.Findings = append([]AuditFinding(nil), payload.Audit.Findings...)
+		for index := range audit.Findings {
+			audit.Findings[index].SourceRefIDs = append([]string(nil), payload.Audit.Findings[index].SourceRefIDs...)
+			audit.Findings[index].NextActions = append([]string(nil), payload.Audit.Findings[index].NextActions...)
+		}
+		audit.NextActions = append([]string(nil), payload.Audit.NextActions...)
+		audit.Caveats = append([]string(nil), payload.Audit.Caveats...)
+		audit.SourceRefs = append([]SourceRef(nil), payload.Audit.SourceRefs...)
+		payload.Audit = &audit
 	}
 	for index := range payload.BoundaryRequests {
 		payload.BoundaryRequests[index].Metadata = cloneMap(payload.BoundaryRequests[index].Metadata)

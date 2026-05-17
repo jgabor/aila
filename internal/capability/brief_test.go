@@ -97,11 +97,11 @@ func TestBriefCapabilityUsesBoundaryDescriptorsForStateHistoryContextAndHealth(t
 	}
 }
 
-func TestBuiltInRunnerRejectsUnsupportedCapabilities(t *testing.T) {
+func TestBuiltInRunnerRejectsCapabilitiesWithoutBuiltInRunner(t *testing.T) {
 	t.Parallel()
 
-	if _, err := RunBuiltIn(context.Background(), Request{Capability: NameAudit}); err == nil {
-		t.Fatal("RunBuiltIn accepted unsupported audit capability")
+	if _, err := RunBuiltIn(context.Background(), Request{Capability: NameResearch}); err == nil {
+		t.Fatal("RunBuiltIn accepted unsupported research capability")
 	}
 }
 

@@ -250,6 +250,52 @@ func TestUpdateRoutesBuildCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesAuditCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "audit-review",
+		Capability: capability.NameAudit,
+		Phase:      workflow.PhaseAudit,
+		SourceRefs: []capability.SourceRef{{ID: "review-diff", Kind: "diff", Path: "internal/app/inspection.go", Excerpt: "changed file: internal/app/inspection.go"}},
+		Metadata: map[string]string{
+			capability.AuditMetadataFindingSeverity: "warning",
+			capability.AuditMetadataFindingTitle:    "Review current changes",
+			capability.AuditMetadataFindingMessage:  "Changed files need review before continuing.",
+			capability.AuditMetadataEvidenceState:   "diff_available",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameAudit {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "audit", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameAudit || completed.Payload.RecommendedSuccessor != workflow.PhaseBuild || completed.Payload.Audit == nil {
+		t.Fatalf("audit payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameAudit || model.LastCapability.Audit == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestBriefCapabilityProposalQueuesWhileRuntimeActive(t *testing.T) {
 	t.Parallel()
 

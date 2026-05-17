@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage AUDIT | Model fake/fake-audit | Utility placeholder | Auto read           [0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Audit:                                                                       |
+| source: app.audit.fixture                                                    |
+| capability: audit                                                            |
+| signal: flagged                                                              |
+| evidence: diff_available                                                     |
+| recommended successor: build                                                 |
+| successor valid: true                                                        |
+| successor rejected: false                                                    |
+| transition claimed: false                                                    |
+| display-only: true                                                           |
+| successor reason: workflow FSM accepted recommended successor                |
+| summary: Audit found 1 changed file needing review.                          |
+| finding: current-change-review severity=warning title=Review current change~ |
+| finding message: current-change-review 1 changed file needs review before a~ |
+| finding source refs: current-change-review review-diff                       |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m

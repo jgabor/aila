@@ -208,26 +208,26 @@ func TestPlanCommandRunsCapabilityPersistsArtifactAndDisplaysPlan(t *testing.T) 
 	}
 }
 
-func TestReviewCommandBuildsReadOnlyDiffAndHistoryInspectionSurface(t *testing.T) {
+func TestReviewCommandRunsReadOnlyAuditOverDiffAndHistoryInspectionSurface(t *testing.T) {
 	t.Parallel()
 
 	view := snapshotTestView()
 	view.RuntimeStatus = "idle"
 	view.RuntimeResult = "stable before review"
 	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
 	var historyReads int
 	var diffReads int
 	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
-		t.Fatalf("review inspection dispatched runtime effects: %#v", effects)
-		return nil
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
 	})
 	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
 		snapshots = append(snapshots, command)
 		return SnapshotPersistenceResult{}
 	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
-		if command.Event.Kind != history.EventKindCommand {
-			t.Fatalf("review persisted non-command history event: %#v", command.Event)
-		}
+		historyEvents = append(historyEvents, command)
 		return HistoryPersistenceResult{}
 	}, func(context.Context, HistoryReadCommand) HistoryReadResult {
 		historyReads++
@@ -270,8 +270,14 @@ func TestReviewCommandBuildsReadOnlyDiffAndHistoryInspectionSurface(t *testing.T
 	if got.SurfaceTitle != "review" || got.CommandRoute != "review" || got.RouteSource != "policy.command" {
 		t.Fatalf("review command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
 	}
-	if got.RuntimeResult != view.RuntimeResult || got.HistoryFocus || got.DiffFocus {
-		t.Fatalf("review mutated unrelated display state: before=%+v after=%+v", view, got)
+	if got.HistoryFocus || got.DiffFocus {
+		t.Fatalf("review mutated unrelated focus state: before=%+v after=%+v", view, got)
+	}
+	if got.Audit == nil || got.Audit.Capability != "audit" || got.Audit.Signal != "flagged" || got.Audit.EvidenceState != "diff_available" || !got.Audit.SuccessorValid || got.Audit.TransitionClaimed || !got.Audit.DisplayOnly {
+		t.Fatalf("audit view = %+v", got.Audit)
+	}
+	if got.RuntimeResult != "Audit found 2 changed file(s) needing review." {
+		t.Fatalf("review runtime result = %q", got.RuntimeResult)
 	}
 	lines := strings.Join(got.SurfaceLines, "\n")
 	for _, want := range []string{
@@ -295,10 +301,33 @@ func TestReviewCommandBuildsReadOnlyDiffAndHistoryInspectionSurface(t *testing.T
 			t.Fatalf("review inspection missing %q in:\n%s", want, lines)
 		}
 	}
-	if strings.Contains(lines, "provider") {
-		t.Fatalf("review inspection claimed provider work:\n%s", lines)
+	auditPlain := tui.RenderPlain(got, tui.Size{Width: 120, Height: 32})
+	for _, want := range []string{
+		"Audit:",
+		"capability: audit",
+		"signal: flagged",
+		"evidence: diff_available",
+		"finding: current-change-review severity=warning title=Review current changes before continuing",
+		"finding source refs: current-change-review review-diff",
+		"finding next action: current-change-review Route back to build after reviewing changed files.",
+		"successor valid: true",
+		"transition claimed: false",
+		"display-only: true",
+	} {
+		if !strings.Contains(auditPlain, want) {
+			t.Fatalf("review audit render missing %q in:\n%s", want, auditPlain)
+		}
 	}
-	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result != view.RuntimeResult {
-		t.Fatalf("review snapshots = %#v, want one snapshot preserving runtime state", snapshots)
+	if strings.Contains(lines, "provider") || strings.Contains(auditPlain, "provider") {
+		t.Fatalf("review inspection claimed provider work:\n%s\n---\n%s", lines, auditPlain)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("review dispatches = %#v, want one audit capability effect", dispatched)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("review history events = %#v, want command then runtime", historyEvents)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result != "Audit found 2 changed file(s) needing review." {
+		t.Fatalf("review snapshots = %#v, want one snapshot with audit result", snapshots)
 	}
 }

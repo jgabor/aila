@@ -1,0 +1,193 @@
+{
+  "scenario": "audit-findings",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "AUDIT",
+    "phase_source": "workflow.fixture",
+    "status_detail": "audit capability status",
+    "runtime_result": "Audit found 1 changed file needing review.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-audit",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "command": {
+    "route": "",
+    "route_source": "",
+    "surface": "agent evidence",
+    "visible": true,
+    "executed": false
+  },
+  "audit": {
+    "visible": true,
+    "source": "app.audit.fixture",
+    "capability": "audit",
+    "signal": "flagged",
+    "summary": "Audit found 1 changed file needing review.",
+    "evidence_state": "diff_available",
+    "recommended_successor": "build",
+    "successor_valid": true,
+    "successor_rejected": false,
+    "successor_reason": "workflow FSM accepted recommended successor",
+    "transition_claimed": false,
+    "display_only": true,
+    "findings": [
+      {
+        "id": "current-change-review",
+        "severity": "warning",
+        "title": "Review current changes before continuing",
+        "message": "1 changed file needs review before another build step.",
+        "source_ref_ids": ["review-diff"],
+        "next_actions": [
+          "Route back to build after reviewing changed files.",
+          "Re-plan if findings change scope."
+        ]
+      }
+    ],
+    "next_actions": [
+      "Route back to build after reviewing changed files.",
+      "Re-plan if findings change scope."
+    ],
+    "caveats": ["audit used app-supplied review evidence only"],
+    "artifact_refs": [
+      {
+        "id": "review",
+        "kind": "app_display",
+        "path": "review"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "review-command",
+        "kind": "command",
+        "command": "/review",
+        "excerpt": "app-owned read-only review command"
+      },
+      {
+        "id": "review-diff",
+        "kind": "diff",
+        "path": "internal[path-redacted]",
+        "excerpt": "status=ready changed_files=1"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "review.current",
+        "reason": "audit uses app-owned review evidence"
+      },
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "audit uses supplied source refs and context evidence"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["AUDIT", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-audit",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-audit",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "audit",
+      "visible": true,
+      "items": [
+        "source: app.audit.fixture",
+        "capability: audit",
+        "signal: flagged",
+        "evidence: diff_available",
+        "recommended_successor: build",
+        "successor_valid: true",
+        "successor_rejected: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "successor_reason: workflow FSM accepted recommended successor",
+        "summary: Audit found 1 changed file needing review.",
+        "finding: current-change-review severity=warning title=Review current changes before continuing",
+        "finding_message: current-change-review 1 changed file needs review before another build step.",
+        "finding_source_refs: current-change-review review-diff",
+        "finding_next_action: current-change-review Route back to build after reviewing changed files.",
+        "finding_next_action: current-change-review Re-plan if findings change scope.",
+        "next_action: Route back to build after reviewing changed files.",
+        "next_action: Re-plan if findings change scope.",
+        "caveat: audit used app-supplied review evidence only",
+        "source_ref: review-command kind=command excerpt=app-owned read-only review command",
+        "source_ref: review-diff kind=diff path=internal[path-redacted] excerpt=status=ready changed_files=1"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": ["agent evidence"]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: workflow.fixture",
+        "primary model: fake/fake-audit",
+        "utility model: placeholder",
+        "autonomy: read",
+        "git: placeholder",
+        "context: placeholder"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

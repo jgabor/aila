@@ -1264,7 +1264,7 @@ func TestManualCompactCommandPTYSmoke(t *testing.T) {
 	}
 
 	env := newAilaPTYEnv(t)
-	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 70, env.vars, func(workspace string) {
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
 		runPTYGit(t, workspace, "init")
 		if err := os.WriteFile(filepath.Join(workspace, "compact-smoke.txt"), []byte("manual compact smoke\n"), 0o644); err != nil {
 			t.Fatalf("write compact smoke file: %v", err)
@@ -1663,6 +1663,86 @@ func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestReviewCommandShowsAuditFindingsPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		seedDiffSmokeWorkspace(t, workspace)
+		seedFakeHistoryEvents(t, workspace)
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "internal/demo.txt")
+
+	if _, err := terminal.Write([]byte("/review\r")); err != nil {
+		t.Fatalf("send /review command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"detail: audit capability status",
+		"result: Audit found 1 changed file(s) needing review.",
+		"Audit:",
+		"source: app.audit",
+		"capability: audit",
+		"signal: flagged",
+		"evidence: diff_available",
+		"recommended successor: build",
+		"successor valid: true",
+		"successor rejected: false",
+		"transition claimed: false",
+		"display-only: true",
+		"summary: Audit found 1 changed file(s) needing review.",
+		"finding: current-change-review severity=warning title=Review current changes before continuing",
+		"finding message: current-change-review 1 changed file(s) need review before another build step.",
+		"finding source refs: current-change-review review-diff",
+		"finding next action: current-change-review Route back to build after reviewing changed files.",
+		"requested boundary: artifact_access operation=artifact.access target=history",
+		"source ref: review-diff kind=diff path=internal/demo.txt excerpt=status=ready changed_files=1",
+		"source ref: review-history kind=history excerpt=state=loaded events=6",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, output, env, workspace)
+	for _, forbidden := range []string{"provider-backed", "provider review", "transition claimed: true", "Approval pending:", "path: docs/aila-build-output.md"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("review audit PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	assertFileContent(t, filepath.Join(workspace, "internal", "demo.txt"), "new value\nsecond value\n")
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "internal/demo.txt")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("review audit PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("review audit PTY changed build output git status: %q", docsStatus)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "aila-build-output.md")); !os.IsNotExist(err) {
+		t.Fatalf("review audit PTY unexpectedly created build output, err=%v", err)
+	}
+
+	cancel()
+	_ = terminal.Close()
+	select {
+	case <-wait:
+	case <-time.After(5 * time.Second):
+		t.Fatal("review audit PTY did not stop after cancellation")
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -1739,17 +1819,19 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		t.Fatalf("send /review command input: %v", err)
 	}
 	review := readUntilAll(t, terminal, []string{
-		"review:",
-		"command route: review",
-		"source: app.review",
-		"model-assisted review: not invoked",
-		"diff source: git diff",
-		"diff status: ready",
-		"changed file: internal/demo.txt status=modified",
-		"history state: loaded",
-		"latest mutation: write completed notes.txt",
-		"latest undo action: delete_created_file",
-		"attention: inspect changed files before committing",
+		"Audit:",
+		"source: app.audit",
+		"capability: audit",
+		"signal: flagged",
+		"evidence: diff_available",
+		"summary: Audit found 1 changed file(s) needing review.",
+		"finding: current-change-review severity=warning title=Review current changes before continuing",
+		"finding source refs: current-change-review review-diff",
+		"successor valid: true",
+		"transition claimed: false",
+		"requested boundary: artifact_access operation=artifact.access target=history",
+		"source ref: review-diff kind=diff path=internal/demo.txt excerpt=status=ready changed_files=1",
+		"source ref: review-history kind=history excerpt=state=loaded events=10",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, review, env, workspace)
 	for _, forbidden := range []string{"provider-backed", "provider review", "model switch", "autonomy switch"} {
@@ -2389,6 +2471,11 @@ func seedDiffSmokeWorkspace(t *testing.T, workspace string) {
 
 func runPTYGit(t *testing.T, workspace string, args ...string) {
 	t.Helper()
+	runPTYGitOutput(t, workspace, args...)
+}
+
+func runPTYGitOutput(t *testing.T, workspace string, args ...string) string {
+	t.Helper()
 
 	cmd := exec.Command("git", args...)
 	cmd.Dir = workspace
@@ -2396,6 +2483,7 @@ func runPTYGit(t *testing.T, workspace string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
 	}
+	return string(output)
 }
 
 func seedFakeHistoryEvents(t *testing.T, workspace string) {

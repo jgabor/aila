@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
@@ -198,7 +199,11 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		return controller.view
 	case policy.CommandRouteReview:
 		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
 		diagnostics = append(diagnostics, diagnosticViews(controller.openReviewView())...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
@@ -247,7 +252,15 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		before.LastCapability.NextAction != after.LastCapability.NextAction ||
 		len(before.LastCapability.Concerns) != len(after.LastCapability.Concerns) ||
 		len(before.LastCapability.SourceRefs) != len(after.LastCapability.SourceRefs) ||
-		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests)
+		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests) ||
+		auditPayloadChanged(before.LastCapability.Audit, after.LastCapability.Audit)
+}
+
+func auditPayloadChanged(before, after *capability.AuditOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.EvidenceState != after.EvidenceState || len(before.Findings) != len(after.Findings) || len(before.NextActions) != len(after.NextActions) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func utilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bool {

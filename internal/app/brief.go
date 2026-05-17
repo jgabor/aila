@@ -76,6 +76,11 @@ func (runner *inputRunner) proposeCapability(request capability.Request) tui.Tra
 		if turn.Build != nil {
 			turn.StatusDetail = "build capability status"
 		}
+	case capability.NameAudit:
+		turn.Audit = auditView(runner.model.LastCapability, request.Phase)
+		if turn.Audit != nil {
+			turn.StatusDetail = "audit capability status"
+		}
 	}
 	return turn
 }
