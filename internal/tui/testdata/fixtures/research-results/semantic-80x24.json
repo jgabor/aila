@@ -1,0 +1,308 @@
+{
+  "scenario": "research-results",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "research capability status",
+    "runtime_result": "Research folded 3 pattern(s) into context for external-pattern context folding.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-research",
+    "utility_model": "placeholder",
+    "autonomy": "read",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "research": {
+    "visible": true,
+    "source": "app.research.fixture",
+    "capability": "research",
+    "signal": "complete",
+    "current_phase": "build",
+    "cross_cutting_status": "context_only",
+    "summary": "Research folded 3 pattern(s) into context for external-pattern context folding.",
+    "topic": "external-pattern context folding",
+    "context": "runtime=idle phase=build context=Milestone 51 research capability",
+    "patterns": [
+      {
+        "id": "pattern-1",
+        "concept": "Cross-cutting helpers return context evidence",
+        "applicability": "adapt as context, not workflow authority",
+        "evidence_ref_ids": ["research-workflow-doc"]
+      },
+      {
+        "id": "pattern-2",
+        "concept": "Source refs travel with condensed claims",
+        "applicability": "preserve exact evidence",
+        "evidence_ref_ids": ["research-session-state"]
+      },
+      {
+        "id": "pattern-3",
+        "concept": "Deterministic fixtures precede PTY smoke",
+        "applicability": "test the display contract first",
+        "evidence_ref_ids": ["research-tui-doc"]
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence-1",
+        "summary": "docs/workflow-architecture.md keeps research cross-cutting",
+        "source_ref_id": "research-workflow-doc"
+      },
+      {
+        "id": "evidence-2",
+        "summary": "ARCHITECTURE.md requires FSM-owned transitions",
+        "source_ref_id": "research-architecture-doc"
+      },
+      {
+        "id": "evidence-3",
+        "summary": "docs/tui-testing.md requires render and semantic fixtures before PTY smoke",
+        "source_ref_id": "research-tui-doc"
+      }
+    ],
+    "confidence": "medium",
+    "caveats": [
+      "deterministic app-supplied pattern evidence only",
+      "live external fetching remains deferred"
+    ],
+    "next_action": "Use this research as non-authoritative context for the current workflow phase.",
+    "context_summary": "research refs ready for context folding",
+    "context_folded": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "research-command",
+        "kind": "command",
+        "command": "/research",
+        "excerpt": "app-owned research command"
+      },
+      {
+        "id": "research-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "research is cross-cutting"
+      },
+      {
+        "id": "research-tui-doc",
+        "kind": "doc",
+        "path": "docs/tui-testing.md",
+        "excerpt": "fixtures before PTY"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "project.current",
+        "reason": "research uses app-supplied project state evidence"
+      },
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "research folds results into current context"
+      }
+    ]
+  },
+  "context": {
+    "source": "app.research.context",
+    "status": "folded",
+    "meter": "research refs: 3",
+    "blocks": [
+      {
+        "id": "research-summary",
+        "kind": "research",
+        "title": "external-pattern context folding",
+        "text": "research refs ready for context folding",
+        "source_ref_ids": [
+          "research-command",
+          "research-workflow-doc",
+          "research-tui-doc"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "text": "research pattern: Cross-cutting helpers return context evidence",
+        "source_ref_ids": ["research-workflow-doc"]
+      },
+      {
+        "text": "research evidence: docs/workflow-architecture.md keeps research cross-cutting",
+        "source_ref_ids": ["research-workflow-doc"]
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "research-command",
+        "kind": "command",
+        "command": "/research",
+        "excerpt": "app-owned research command"
+      },
+      {
+        "id": "research-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "research is cross-cutting"
+      },
+      {
+        "id": "research-tui-doc",
+        "kind": "doc",
+        "path": "docs/tui-testing.md",
+        "excerpt": "fixtures before PTY"
+      }
+    ],
+    "warnings": [
+      "deterministic app-supplied pattern evidence only",
+      "live external fetching remains deferred"
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-research",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-research",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: research capability status",
+        "active: false",
+        "result: Research folded 3 pattern(s) into context for external-pattern context folding.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "context",
+      "visible": true,
+      "items": [
+        "source: app.research.context",
+        "status: folded",
+        "meter: research refs: 3",
+        "block: research-summary research external-pattern context folding",
+        "block_text: research refs ready for context folding",
+        "block_ref: research-summary research-command",
+        "block_ref: research-summary research-workflow-doc",
+        "block_ref: research-summary research-tui-doc",
+        "claim: research pattern: Cross-cutting helpers return context evidence",
+        "claim_ref: research pattern: Cross-cutting helpers return context evidence -> research-workflow-doc",
+        "claim: research evidence: docs/workflow-architecture.md keeps research cross-cutting",
+        "claim_ref: research evidence: docs/workflow-architecture.md keeps research cross-cutting -> research-workflow-doc",
+        "source_ref: research-command kind=command command=/research excerpt=app-owned research command",
+        "source_ref: research-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=research is cross-cutting",
+        "source_ref: research-tui-doc kind=doc path=docs/tui-testing.md excerpt=fixtures before PTY",
+        "warning: deterministic app-supplied pattern evidence only",
+        "warning: live external fetching remains deferred",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "research",
+      "visible": true,
+      "items": [
+        "source: app.research.fixture",
+        "capability: research",
+        "signal: complete",
+        "current_phase: build",
+        "cross_cutting_status: context_only",
+        "context_folded: true",
+        "recommended_successor: ",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Research folded 3 pattern(s) into context for external-pattern context folding.",
+        "topic: external-pattern context folding",
+        "context: runtime=idle phase=build context=Milestone 51 research capability",
+        "pattern: pattern-1 concept=Cross-cutting helpers return context evidence applicability=adapt as context, not workflow authority",
+        "pattern_ref: pattern-1 research-workflow-doc",
+        "pattern: pattern-2 concept=Source refs travel with condensed claims applicability=preserve exact evidence",
+        "pattern_ref: pattern-2 research-session-state",
+        "pattern: pattern-3 concept=Deterministic fixtures precede PTY smoke applicability=test the display contract first",
+        "pattern_ref: pattern-3 research-tui-doc",
+        "evidence: evidence-1 summary=docs/workflow-architecture.md keeps research cross-cutting source=research-workflow-doc",
+        "evidence: evidence-2 summary=ARCHITECTURE.md requires FSM-owned transitions source=research-architecture-doc",
+        "evidence: evidence-3 summary=docs/tui-testing.md requires render and semantic fixtures before PTY smoke source=research-tui-doc",
+        "confidence: medium",
+        "caveat: deterministic app-supplied pattern evidence only",
+        "caveat: live external fetching remains deferred",
+        "context_summary: research refs ready for context folding",
+        "next_action: Use this research as non-authoritative context for the current workflow phase.",
+        "boundary_request: state_access operation=state.access target=project.current",
+        "boundary_request: context_access operation=context.access target=current_context",
+        "source_ref: research-command kind=command excerpt=app-owned research command",
+        "source_ref: research-workflow-doc kind=doc excerpt=research is cross-cutting",
+        "source_ref: research-tui-doc kind=doc excerpt=fixtures before PTY"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: Milestone 51 research capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -58,6 +58,7 @@ type TranscriptTurn struct {
 	Brief              *BriefView
 	Vision             *VisionView
 	Discuss            *DiscussView
+	Research           *ResearchView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -673,6 +674,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Discuss != nil {
 		state.Discuss = cloneDiscussView(turn.Discuss)
 	}
+	if turn.Research != nil {
+		state.Research = cloneResearchView(turn.Research)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -960,6 +964,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteDiscuss {
 		state.Discuss = nil
 	}
+	if recommendation.Route != policy.CommandRouteResearch {
+		state.Research = nil
+	}
 	if recommendation.Route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1027,6 +1034,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	case policy.CommandRouteDiscuss:
 		state.SurfaceTitle = "discuss"
 		state.SurfaceLines = []string{"Deterministic placeholder discussion."}
+	case policy.CommandRouteResearch:
+		state.SurfaceTitle = "research"
+		state.SurfaceLines = []string{"Deterministic placeholder research."}
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -1120,6 +1130,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	if route != policy.CommandRouteDiscuss {
 		state.Discuss = nil
 	}
+	if route != policy.CommandRouteResearch {
+		state.Research = nil
+	}
 	if route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1189,6 +1202,22 @@ func cloneDiscussView(discuss *DiscussView) *DiscussView {
 	clone.ArtifactRefs = append([]DiscussArtifactRefView(nil), discuss.ArtifactRefs...)
 	clone.SourceRefs = append([]DiscussSourceRefView(nil), discuss.SourceRefs...)
 	clone.BoundaryRequests = append([]DiscussBoundaryRequestView(nil), discuss.BoundaryRequests...)
+	return &clone
+}
+
+func cloneResearchView(research *ResearchView) *ResearchView {
+	if research == nil {
+		return nil
+	}
+	clone := *research
+	clone.Patterns = append([]ResearchPatternView(nil), research.Patterns...)
+	for index := range clone.Patterns {
+		clone.Patterns[index].EvidenceRefIDs = append([]string(nil), research.Patterns[index].EvidenceRefIDs...)
+	}
+	clone.Evidence = append([]ResearchEvidenceView(nil), research.Evidence...)
+	clone.Caveats = append([]string(nil), research.Caveats...)
+	clone.SourceRefs = append([]ResearchSourceRefView(nil), research.SourceRefs...)
+	clone.BoundaryRequests = append([]ResearchBoundaryRequestView(nil), research.BoundaryRequests...)
 	return &clone
 }
 

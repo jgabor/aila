@@ -1,0 +1,139 @@
+{
+  "scenario": "research-waiting",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "PLAN",
+    "phase_source": "plan",
+    "runtime_status": "waiting",
+    "status_detail": "research capability status",
+    "runtime_result": "Research needs a topic before it can adapt external patterns.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-research",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "research": {
+    "visible": true,
+    "source": "app.research.fixture",
+    "capability": "research",
+    "signal": "waiting",
+    "current_phase": "plan",
+    "cross_cutting_status": "context_only",
+    "summary": "Research needs a topic before it can adapt external patterns.",
+    "caveats": ["research evidence unavailable until a topic is provided"],
+    "needed_input": "Describe the pattern, concept, library, or solution space to research.",
+    "next_action": "Provide a research topic, then run research again.",
+    "context_folded": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "research-command",
+        "kind": "command",
+        "command": "/research",
+        "excerpt": "waiting for research topic"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "context_access",
+        "operation": "context.access",
+        "target": "current_context",
+        "reason": "research folds results into current context"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["PLAN", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-research",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-research",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: research capability status",
+        "active: false",
+        "result: Research needs a topic before it can adapt external patterns.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "research",
+      "visible": true,
+      "items": [
+        "source: app.research.fixture",
+        "capability: research",
+        "signal: waiting",
+        "current_phase: plan",
+        "cross_cutting_status: context_only",
+        "context_folded: false",
+        "recommended_successor: ",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Research needs a topic before it can adapt external patterns.",
+        "needed_input: Describe the pattern, concept, library, or solution space to research.",
+        "caveat: research evidence unavailable until a topic is provided",
+        "next_action: Provide a research topic, then run research again.",
+        "boundary_request: context_access operation=context.access target=current_context",
+        "source_ref: research-command kind=command excerpt=waiting for research topic"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -197,6 +197,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
+	case policy.CommandRouteResearch:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, diagnosticViews(controller.openResearchView())...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRoutePlan:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
@@ -279,7 +291,8 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests) ||
 		auditPayloadChanged(before.LastCapability.Audit, after.LastCapability.Audit) ||
 		visionPayloadChanged(before.LastCapability.Vision, after.LastCapability.Vision) ||
-		discussPayloadChanged(before.LastCapability.Discuss, after.LastCapability.Discuss)
+		discussPayloadChanged(before.LastCapability.Discuss, after.LastCapability.Discuss) ||
+		researchPayloadChanged(before.LastCapability.Research, after.LastCapability.Research)
 }
 
 func discussPayloadChanged(before, after *capability.DiscussOutput) bool {
@@ -287,6 +300,13 @@ func discussPayloadChanged(before, after *capability.DiscussOutput) bool {
 		return before != after
 	}
 	return before.Question != after.Question || before.Selected != after.Selected || before.ArtifactPath != after.ArtifactPath || len(before.Options) != len(after.Options) || len(before.Blockers) != len(after.Blockers) || len(before.SourceRefs) != len(after.SourceRefs)
+}
+
+func researchPayloadChanged(before, after *capability.ResearchOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.Topic != after.Topic || before.Confidence != after.Confidence || before.ContextSummary != after.ContextSummary || len(before.Patterns) != len(after.Patterns) || len(before.Evidence) != len(after.Evidence) || len(before.Caveats) != len(after.Caveats) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func visionPayloadChanged(before, after *capability.VisionOutput) bool {

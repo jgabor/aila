@@ -3,57 +3,50 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M50A must add structured deliberation without turning discuss into research, profile, optimization, build
-    execution, or orchestration. It should persist decision artifacts through the Aila state store, emit exactly one typed
-    exit payload per invocation, validate any DELIBERATE successor through the FSM, keep the TUI presentation-only, and use
-    behavior-based test names rather than TestM<number> names.
-  title: 'Milestone 50A: Discuss Capability'
-what: Deliver ROADMAP.md Milestone 50A by implementing the discuss capability so Aila can deliberate on consequential decisions,
-  persist the resulting decision artifact, and surface waiting, output, and recorded-decision evidence without bypassing workflow
-  authority.
-why: M50 shaped vision before planning. M50A adds the next DELIBERATE-phase capability so consequential choices can be captured
-  as durable app-owned decision evidence before plan, build, or renewed vision work.
-constraints: Execute only Milestone 50A. Preserve statechart-MVU and explicit effect boundaries. Discuss may recommend only
-  FSM-valid DELIBERATE successors such as PLAN, BUILD, or ENVISION; it must not directly mutate workflow phase. Persist decision
-  artifacts through the state.Store logical artifact path, not direct writes outside the store. Keep research, profile, optimization,
-  build execution, orchestration, provider-backed strategy synthesis, plugins, MCP, workflow DSLs, generic graph engines,
-  hosted control planes, M51+ behavior, and pushes out of scope. Use behavior-based test names; do not introduce new TestM<number>
-  symbols.
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m50.yaml
+  critic_issues: M51 must make research cross-cutting context evidence, not a new workflow authority. It should emit one typed
+    payload, fold results into visible context without direct phase mutation, keep profile, optimization, and build execution
+    out of scope, keep the TUI presentation-only, and use behavior-based test names rather than TestM<number> names.
+  title: 'Milestone 51: Research Capability'
+what: Deliver ROADMAP.md Milestone 51 by implementing the research capability so Aila can adapt external patterns, concepts,
+  and solution evidence into context without triggering workflow transitions.
+why: M50A separated deliberation and durable decision capture. M51 adds the cross-cutting research path so current work can
+  be informed by external-pattern evidence while the workflow FSM remains the only lifecycle authority.
+constraints: Execute only Milestone 51. Preserve statechart-MVU and explicit effect boundaries. Research is cross-cutting,
+  display-only, and context-folding; it must not recommend or mutate workflow phases. Keep profile, optimization, build execution,
+  orchestration, provider-backed live web/library fetching, plugins, MCP, workflow DSLs, generic graph engines, hosted control
+  planes, M51A+ behavior, and pushes out of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m50a.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:22-28
 - ROADMAP.md:112-130
-- ROADMAP.md:1938-1963
-- README.md:196-211
-- README.md:226-272
+- ROADMAP.md:1965-1984
+- README.md:196-272
 - ARCHITECTURE.md:168-206
-- ARCHITECTURE.md:363-400
-- ARCHITECTURE.md:538-592
-- docs/workflow-architecture.md:122-175
+- ARCHITECTURE.md:308-400
+- ARCHITECTURE.md:612-642
+- docs/workflow-architecture.md:193-260
 - docs/workflow-architecture.md:264-279
-- docs/workflow-architecture.md:348-368
-- docs/workflow-architecture.md:451-468
+- docs/workflow-architecture.md:445-475
+- docs/tui-testing.md:54-88
 - docs/tui-testing.md:124-230
 - internal/capability/contract.go
-- internal/capability/vision.go
-- internal/state/store.go
-- internal/policy/command.go
-- internal/app/vision.go
+- internal/capability/discuss.go
+- internal/app/discuss.go
 - internal/app/session_snapshot.go
 - internal/tui/render.go
+- internal/tui/model.go
 - cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/capability -run 'Test.*Discuss.*|Test.*Capability.*|TestRunBuiltIn' -count=1
-- go test ./internal/runtime -run 'Test.*Discuss.*|Test.*Capability.*' -count=1
-- go test ./internal/state -run 'Test.*Decision.*|Test.*Artifact.*' -count=1
-- go test ./internal/app -run 'Test.*Discuss.*|Test.*Command.*|Test.*Session.*' -count=1
-- go test ./internal/policy -run 'Test.*Discuss.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability' -count=1
-- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Discuss.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+- go test ./internal/capability -run 'Test.*Research.*|Test.*Capability.*|TestRunBuiltIn' -count=1
+- go test ./internal/runtime -run 'Test.*Research.*|Test.*Capability.*' -count=1
+- go test ./internal/app -run 'Test.*Research.*|Test.*Command.*|Test.*Session.*|Test.*Context.*' -count=1
+- go test ./internal/policy -run 'Test.*Research.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Research.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
   -count=1
-- go test ./cmd/aila -run 'TestDiscussCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
+- go test ./cmd/aila -run 'TestResearchCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
@@ -61,163 +54,144 @@ verification_commands:
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m50.yaml internal/capability
-  internal/runtime internal/state internal/app internal/policy internal/tui cmd/aila ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- git diff --check
 - changed-line home-path and added func TestM<number> hygiene returns no matches
 scope:
   included:
-  - Add deterministic discuss capability request metadata and typed output for question, context, decision options, selected
-    decision, reasoning, confidence, blockers or needed input, artifact refs, source refs, and one exit payload.
-  - Validate discuss successor recommendations through the existing workflow FSM so DELIBERATE can route only to valid successors
-    and never direct-mutates phase.
-  - Extend the state artifact catalog and app wiring so completed discussion output is persisted through the state store as
-    an app-owned logical decisions artifact.
-  - Expose discuss display state in the TUI with phase, active capability, decision options, selected decision, needed input,
-    blockers, artifact status/path, source refs, successor validation, display-only state, and transition_claimed=false.
-  - Add or update discussion output, waiting-for-input, and recorded-decision fixtures plus behavior-named capability/runtime/state/app/policy/TUI/PTY
-    coverage when interactive /discuss behavior is added.
+  - Add deterministic research capability request metadata and typed output for topic, current context, patterns, evidence,
+    confidence, caveats, source refs, inert boundary descriptors, next action, and one exit payload.
+  - Mark research as cross-cutting in the fixed built-in capability registry and ensure research completion never recommends,
+    claims, or mutates a workflow phase.
+  - Wire an exact /research command through policy, runtime capability effects, and app-owned context folding so research
+    results become visible context evidence rather than project-artifact writes.
+  - Expose research display state in the TUI with cross-cutting status, evidence, confidence, caveats, context-folding state,
+    source refs, display-only state, and transition_claimed=false.
+  - Add or update research results/evidence/confidence/caveats fixtures plus behavior-named capability/runtime/app/policy/TUI/PTY
+    coverage because /research changes the interactive surface.
   excluded:
-  - Research, profile, optimization, build execution, orchestration, provider-backed strategy generation, automatic plan/build
-    execution, broad capability parity, direct workflow phase mutation, plugins, MCP, workflow DSLs, generic graph engines,
-    hosted control planes, M51+ behavior, and push operations.
+  - Profile, optimization, build execution, orchestration, provider-backed live web/library fetching, automatic context authority,
+    direct workflow phase mutation, project artifact writes from research, plugins, MCP, workflow DSLs, generic graph engines,
+    hosted control planes, M51A+ behavior, and push operations.
   deferred:
-  - Inspirera research source gathering, profilera decision-pattern analysis, optimera objectives, provider-backed deliberation,
-    multi-cycle decision-to-plan orchestration, Agentera .agentera/decisions.yaml synchronization, and full natural-language
-    command alias activation.
-design: Keep discuss deterministic and host-owned. internal/capability defines DiscussCapability and DiscussOutput over app-supplied
-  decision evidence; it emits waiting when no decision question is available and complete or flagged when it can record a
-  choice. internal/runtime reuses CapabilityProposed, CapabilityEffect, and CapabilityCompleted. internal/state adds a logical
-  decisions artifact owned by the app. internal/app invokes discuss from the exact /discuss surface, persists the produced
-  document through state.Store, maps the payload into tui.DiscussView, and records runtime/session evidence. internal/tui
-  renders injected DiscussView state and semantic JSON only; it never reads files, writes artifacts, judges transitions, or
-  changes workflow phase.
+  - Live external fetching, library-specific research integrations, profilera decision-pattern analysis, optimera objectives,
+    provider-backed synthesis, multi-cycle orchestration, and durable research artifact persistence.
+design: Keep research deterministic and host-owned. internal/capability defines ResearchCapability and ResearchOutput over
+  app-supplied pattern/evidence context; it emits waiting when no topic is available and complete or flagged when it can contribute
+  caveated research evidence. internal/runtime reuses CapabilityProposed, CapabilityEffect, and CapabilityCompleted. internal/app
+  invokes research from the exact /research surface, folds the produced claims/source refs into tui.ContextView, and records
+  runtime/session evidence without state-artifact writes. internal/tui renders injected ResearchView and ContextView state
+  only; it never reads files, fetches remote content, writes artifacts, judges transitions, or changes workflow phase.
 overall_acceptance:
-- Capability tests prove discuss emits exactly one payload with deterministic question, context, options, selected decision,
-  reasoning, confidence, blockers or needed input, artifact/source refs, boundary descriptors, and valid DELIBERATE successor
-  recommendations without direct phase mutation.
-- State/app tests prove decision artifacts are resolved and written through state.Store as OwnerApp, and that /discuss routes
-  through typed capability effects without provider calls, tool execution, direct filesystem writes outside the store, or
-  workflow phase mutation.
-- Policy/workflow checks prove /discuss command routing is closed and any discuss follow-up recommendation accepts only valid
-  DELIBERATE successors through the existing FSM validation path.
-- TUI render and semantic snapshots show phase, active capability, decision options, selected decision, needed input, blockers,
-  decision artifact path/status, source refs, successor validation, display_only=true, and transition_claimed=false in discussion
-  output, waiting-for-input, and recorded-decision fixtures where visible.
-- PTY smoke proves the selected interactive /discuss behavior shows discussion evidence and, for complete output, persists
-  the decision artifact in an isolated temp workspace without mutating unrelated files or git state.
+- Capability tests prove research emits exactly one payload with deterministic topic, patterns, evidence, confidence, caveats
+  or needed input, source refs, boundary descriptors, context summary, and no recommended successor.
+- Registry/policy/workflow checks prove research is cross-cutting and cannot claim or trigger direct phase transitions.
+- App/runtime tests prove /research routes through typed capability effects, folds research results into visible context,
+  avoids provider calls, tool execution, project artifact writes, and workflow phase mutation.
+- TUI render and semantic snapshots show cross-cutting status, evidence, confidence, caveats, source refs, context-folded
+  state, display_only=true, and transition_claimed=false in research fixtures where visible.
+- PTY smoke proves the interactive /research surface shows research evidence and context folding in an isolated temp workspace
+  without mutating unrelated files, git state, or .aila project artifacts beyond normal session state.
 - Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
   is updated.
-surprises: []
+surprises:
+- apply_patch unavailable because the local PreToolUse hook references missing /hooks/validate_artifact.py; edits were applied
+  with narrow scripted replacements instead.
 tasks:
 - number: 1
-  name: Plan and confirm the M50A discuss scope
+  name: Plan and confirm the M51 research scope
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M50A only and excludes
-    research, profile, optimization, build execution, orchestration, provider-backed strategy work, broad command parity,
-    plugins, MCP, workflow DSLs, hosted control planes, and M51+ behavior.
-  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/state/FSM
-    ownership, state-store artifact persistence, and TUI presentation-only behavior.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M51 only and excludes
+    profile, optimization, build execution, orchestration, provider-backed live fetching, plugins, MCP, workflow DSLs, hosted
+    control planes, and M51A+ behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/FSM
+    ownership, cross-cutting capability status, context folding, and TUI presentation-only behavior.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
     names.
   evidence:
-  - Installed Agentera CLI hej with planera context showed M50 complete, progress available, no active plan, and M50A as the
-    roadmap next milestone after commit 5f393fd.
-  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M50A section, README workflow/capability sections, ARCHITECTURE
-    phase/capability/state-store sections, docs/workflow-architecture DELIBERATE successor/tool/artifact rules, docs/tui-testing
-    render/semantic/PTY gates, Agentera decisions state, and current vision/capability/runtime/state/app/policy/TUI seams
-    were reviewed.
-  - The plan keeps M50A bounded to deterministic discussion, state-store decisions persistence, TUI evidence, validation,
-    roadmap closeout, and local commit, and it forbids new TestM<number> symbols.
+  - Installed Agentera CLI hej with planera context showed M50A complete, progress available, no active plan, and M51 as the
+    roadmap next milestone after commit 77ca1b3.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M51 section, README workflow/capability sections, ARCHITECTURE
+    phase/capability/context rules, docs/workflow-architecture cross-cutting research/tool exposure rules, docs/tui-testing
+    render/semantic/PTY gates, and current discuss/capability/runtime/app/policy/TUI seams were reviewed.
+  - The plan keeps M51 bounded to deterministic research, cross-cutting registry/policy status, app-owned context folding,
+    TUI evidence, validation, roadmap closeout, and local commit, and it forbids new TestM<number> symbols.
 - number: 2
-  name: Add deterministic discuss capability payloads
+  name: Add deterministic research capability payloads
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN app-supplied decision evidence is provided WHEN discuss runs THEN it emits one payload with question, context, options,
-    selected decision, reasoning, confidence, source refs, artifact refs, boundary descriptors, next action, and final summary.
-  - GIVEN decision evidence is missing WHEN discuss runs THEN it returns waiting with needed input and no successor instead
-    of inventing a consequential decision or calling a provider.
-  - GIVEN discuss recommends follow-up WHEN the payload is inspected THEN the successor is valid from DELIBERATE or omitted,
-    and workflow phase is not directly mutated.
+  - GIVEN app-supplied research evidence is provided WHEN research runs THEN it emits one payload with topic, context, patterns,
+    evidence, confidence, caveats, source refs, boundary descriptors, next action, and context summary.
+  - GIVEN the topic is missing WHEN research runs THEN it returns waiting with needed input and no successor instead of inventing
+    a research target or calling a provider.
+  - GIVEN research completes WHEN the payload is inspected THEN recommended_successor is empty, transition_claimed remains
+    false in presentation, and no phase mutation is attempted.
   evidence:
-  - Added internal/capability/discuss.go with deterministic DiscussCapability metadata, DiscussOutput, decision options, selected
-    choice, reasoning, confidence, blockers, artifact/source refs, boundary descriptors, waiting behavior, and DELIBERATE
-    successor validation.
-  - Validated with `go test ./internal/capability -run 'Test.*Discuss.*|TestRunBuiltInDispatchesDiscussCapability|TestRunBuiltIn'
-    -count=1`.
+  - Added internal/capability/research.go with deterministic ResearchCapability metadata, ResearchOutput, patterns, evidence,
+    confidence, caveats, source refs, boundary descriptors, waiting behavior, context summary, and no recommended successor.
+  - Extended ExitPayload cloning and RunBuiltIn dispatch for research while keeping research cross-cutting and artifact-write
+    free.
+  - Validated with `go test ./internal/capability -run 'Test.*Research.*|Test.*Capability.*|TestRunBuiltIn' -count=1`.
 - number: 3
-  name: Persist decisions through state-store app paths
+  name: Wire cross-cutting research routing and context folding
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN a complete discuss payload exists WHEN the app handles /discuss THEN the decision document is written through state.Store
-    using the logical decisions artifact and OwnerApp.
-  - GIVEN persistence fails WHEN /discuss completes THEN a visible diagnostic is returned and no direct fallback write bypasses
-    the store.
-  - GIVEN runtime state changes WHEN control returns THEN command/runtime/session evidence is persisted while transition_claimed
-    remains false.
+  - GIVEN /research is typed WHEN command policy routes input THEN it uses a closed CommandRouteResearch path and does not
+    invoke profile, optimize, build, or orchestration paths.
+  - GIVEN the app opens /research WHEN runtime effects are inspected THEN one capability effect dispatches through RunBuiltIn
+    and the resulting evidence is folded into ContextView.
+  - GIVEN research folds context WHEN workspace state is inspected THEN no project artifact write is performed by research
+    and workflow phase remains unchanged.
   evidence:
-  - Added logical state artifact `decisions` at `.aila/artifacts/decisions.md`, app-owned persistence through state.Store,
-    and /discuss app tests proving one capability effect, snapshot/history evidence, no diff read, and no bypass write.
-  - Validated with focused state/app tests and broad `go test ./internal/... -count=1`.
+  - Added closed CommandRouteResearch and exact `/research` routing through policy, session controller handling, runtime CapabilityEffect
+    dispatch, and app-owned research context folding into ContextView.
+  - App/runtime tests prove one capability effect, runtime/session evidence, no diff read, no project research artifact, no
+    recommended successor, and no workflow phase mutation.
+  - Validated with policy/runtime/app focused checks and `go test ./internal/... -count=1`.
 - number: 4
-  name: Wire closed discuss command routing
+  name: Render research evidence confidence and caveats
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN /discuss is typed WHEN command policy routes input THEN it uses a closed CommandRouteDiscuss path and does not invoke
-    research, profile, optimize, build, or orchestration paths.
-  - GIVEN the app opens /discuss WHEN runtime effects are inspected THEN one capability effect dispatches through RunBuiltIn
-    and persistence stays app-owned.
-  - GIVEN stale discuss output exists WHEN another command route opens THEN unrelated command surfaces clear or preserve discuss
-    state only where intentionally visible.
+  - GIVEN ResearchView state is injected WHEN fixtures render THEN cross-cutting status, topic, patterns, evidence, confidence,
+    caveats, source refs, and context-folded state are visible where space allows.
+  - GIVEN waiting research state is injected WHEN fixtures render THEN needed input and caveats are visible without source
+    or context authority claims.
+  - GIVEN semantic snapshots are inspected WHEN research exists THEN evidence, confidence, caveats, source refs, context folding,
+    transition_claimed=false, and display_only=true are machine-readable.
   evidence:
-  - Added closed CommandRouteDiscuss and exact `/discuss` routing, RunBuiltIn discuss dispatch, app route handling, and stale
-    DiscussView clearing on unrelated command surfaces.
-  - Validated with policy/runtime/app focused tests and `go test ./internal/... -count=1`.
-- number: 5
-  name: Render discussion output waiting and recorded-decision evidence
-  depends_on:
-  - 2
-  - 3
-  - 4
-  status: complete
-  acceptance:
-  - GIVEN DiscussView state is injected WHEN fixtures render THEN phase, active capability, question, options, selected decision,
-    reasoning, confidence, artifact status/path, source refs, and successor validation are visible where space allows.
-  - GIVEN waiting discuss state is injected WHEN fixtures render THEN needed input and blockers are visible without a persisted
-    artifact claim.
-  - GIVEN semantic snapshots are inspected WHEN discuss exists THEN decision options, selected decision, needed input, blockers,
-    artifact refs, source refs, successor validation, transition_claimed=false, and display_only=true are machine-readable.
-  evidence:
-  - Added DiscussView render and semantic state with output, waiting, and recorded-decision fixtures under internal/tui/testdata/fixtures/discuss-*.
-  - Validated with `go test ./internal/tui -run 'TestDiscuss.*Fixture|TestCommandFixtureSet|Test.*Discuss.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+  - Added ResearchView render and semantic structures for cross-cutting status, topic, patterns, evidence, confidence, caveats,
+    source refs, context-folded state, boundary requests, transition_claimed=false, and display_only=true.
+  - Added `research-results` and `research-waiting` fixtures with plain, ANSI, and semantic snapshots.
+  - Validated with `go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Research.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
     -count=1`.
-- number: 6
-  name: Add interactive discuss smoke coverage
+- number: 5
+  name: Add interactive research smoke coverage
   depends_on:
   - 3
   - 4
-  - 5
   status: complete
   acceptance:
-  - GIVEN an isolated temp workspace is used WHEN /discuss is invoked THEN discussion evidence renders in the terminal and
+  - GIVEN an isolated temp workspace is used WHEN /research is invoked THEN research evidence renders in the terminal and
     the runtime returns to an observable held or idle state.
-  - GIVEN complete discuss output is produced WHEN the smoke inspects the workspace THEN the decisions artifact exists under
-    .aila artifacts and unrelated files/git state are unchanged.
-  - GIVEN the screen is inspected WHEN discussion completes THEN any follow-up route is shown as validated display evidence
-    only.
+  - GIVEN complete research output is produced WHEN the smoke inspects the workspace THEN unrelated files and git state are
+    unchanged and no durable research project artifact is written.
+  - GIVEN the screen is inspected WHEN research completes THEN context-folded evidence is shown as non-authoritative display
+    evidence only.
   evidence:
-  - Added behavior-named `/discuss` PTY smoke proving terminal discussion evidence and `.aila/artifacts/decisions.md` persistence
-    in an isolated temp git workspace with tracked README unchanged and no build output mutation.
-  - Validated with `go test ./cmd/aila -run TestDiscussCommandPersistsDecisionArtifactPTYSmoke -count=1`.
-- number: 7
+  - Added TestResearchCommandFoldsContextWithoutArtifactPTYSmoke for the real `/research` terminal surface in an isolated
+    temp git workspace.
+  - PTY evidence proves visible research output and folded context, tracked README unchanged, no build-output mutation, no
+    research.md project artifact, and persisted command/runtime session evidence.
+  - Validated with `go test ./cmd/aila -run 'TestResearchCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1`.
+- number: 6
   name: Run validation roadmap closeout and commit
   depends_on:
   - 1
@@ -225,18 +199,17 @@ tasks:
   - 3
   - 4
   - 5
-  - 6
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M50A is
-    recorded complete, M51 is selected next, and Active milestone is none.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M51 is
+    recorded complete, M51A is selected next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and M50 plan archive are included in one meaningful local commit.
+    and M50A plan archive are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
     validation evidence.
   evidence:
-  - Ran `mage fmt`, focused capability/runtime/state/app/policy/TUI/cmd checks, `go test ./internal/... -count=1`, `go test
-    ./cmd/aila -count=1` with cmd/aila in 318.879s, and final `mage check` with cmd/aila in 323.530s, 0 lint issues, and no
-    vulnerabilities before ROADMAP closeout.
-  - Updated ROADMAP.md to mark M50A complete, M51 next, and active milestone none; Agentera plan/progress/lint/hej
-    validation passed, `git diff --check` passed, and changed-line home-path plus added func TestM<number> hygiene returned no matches.
+  - '`mage fmt` passed after edits and snapshot updates.'
+  - '`go test ./internal/... -count=1` passed and `go test ./cmd/aila -count=1` passed with cmd/aila in 328.904s.'
+  - Final `mage check` passed with cmd/aila in 335.523s, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md records M51 complete with M51A next; Agentera plan/progress/lint/hej validation passed; git diff --check passed;
+    changed-line home-path and added TestM<number> hygiene returned no matches.

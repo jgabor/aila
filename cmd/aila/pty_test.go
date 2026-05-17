@@ -2066,6 +2066,95 @@ func TestDiscussCommandPersistsDecisionArtifactPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestResearchCommandFoldsContextWithoutArtifactPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nResearch command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed research PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/research\r")); err != nil {
+		t.Fatalf("send /research command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Research folded",
+		"Research:",
+		"source: app.research",
+		"capability: research",
+		"signal: complete",
+		"current phase: idle",
+		"cross-cutting status: context_only",
+		"context folded: true",
+		"recommended successor:",
+		"transition claimed: false",
+		"display-only: true",
+		"topic: Research external patterns for Aila.",
+		"pattern: pattern-1 concept=Cross-cutting helpers return context evidence without owning phase transitions",
+		"evidence: evidence-1 summary=docs/workflow-architecture.md keeps research cross-cutting",
+		"confidence: medium",
+		"caveat: deterministic app-supplied pattern evidence only",
+		"Context:",
+		"source: app.research.context",
+		"status: folded",
+		"meter: research refs: 4",
+		"claim: research pattern: Cross-cutting helpers return context evidence without owning phase transitions",
+		"source ref: research-command kind=command command=/research",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "Discuss:", "state_write", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("research PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(workspace, ".aila", "artifacts", "research.md")); !os.IsNotExist(err) {
+		t.Fatalf("research command should not write research artifact, stat err=%v", err)
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("research PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("research PTY changed build output git status: %q", docsStatus)
+	}
+	assertResearchCommandStoreState(t, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after research command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("research command PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("research command PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -3100,6 +3189,45 @@ func assertDiscussCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawDiscussCommand || !sawDiscussRuntime {
 		t.Fatalf("discuss command history markers command=%v runtime=%v events=%+v", sawDiscussCommand, sawDiscussRuntime, history.Events)
+	}
+}
+
+func assertResearchCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open research command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read research command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("research command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Research folded") {
+		t.Fatalf("research command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read research command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("research command history state = %q, want loaded", history.State)
+	}
+	var sawResearchCommand, sawResearchRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "research via slash" {
+			sawResearchCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Research folded") {
+			sawResearchRuntime = true
+		}
+	}
+	if !sawResearchCommand || !sawResearchRuntime {
+		t.Fatalf("research command history markers command=%v runtime=%v events=%+v", sawResearchCommand, sawResearchRuntime, history.Events)
 	}
 }
 

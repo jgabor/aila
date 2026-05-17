@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-research | Utility placeholder | A~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-research                                            |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: research capability status                                           |
+| active: false                                                                |
+| result: Research folded 3 pattern(s) into context for external-pattern cont~ |
+|                                                                              |
+| Research:                                                                    |
+| source: app.research.fixture                                                 |
+| capability: research                                                         |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m           git: placeholder | context: Milestone 51 research capability | q quit[0m

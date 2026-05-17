@@ -1,4 +1,60 @@
 cycles:
+  - number: 238
+    timestamp: 2026-05-17 16:50
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 51 by adding deterministic research payloads, closed /research routing, app-owned context folding,
+      TUI research/result and waiting evidence, behavior-named PTY smoke coverage, ROADMAP closeout, and Agentera task completion.
+    commit: 'pending local commit: add research capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 51; targeted capability/runtime/policy/app/TUI/cmd tests;
+      full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Research can stay cross-cutting by emitting deterministic app-supplied external-pattern evidence, folding claims and source
+      refs into visible context, and leaving workflow transitions, profile, optimization, build execution, provider-backed fetching,
+      and project artifact writes out of scope.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/policy/app/TUI checks passed. `/research` PTY smoke and the inspection-family
+      smoke passed. `go test ./internal/... -count=1` passed. `go test ./cmd/aila -count=1` passed with cmd/aila in 328.904s.
+      Final `mage check` passed with cmd/aila in 335.523s, 0 lint issues, and no vulnerabilities. Agentera plan/progress/lint/hej validation passed. `git diff --check` passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
+    next: >-
+      Commit the completed M51 slice locally, leaving Milestone 51A: Profile Capability as the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: Execute only M51; no profile, optimization, build execution, orchestration, provider-backed live fetching,
+        direct workflow phase mutation, project research artifact writes, plugin/MCP/workflow DSL behavior, M51A+ behavior, or push.
+      unknowns: Profile capability semantics, live external fetching, provider-backed synthesis, durable research artifact persistence,
+        optimization objectives, and multi-cycle orchestration remain deferred.
+      scope: internal/capability, internal/runtime, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage, research fixtures,
+        ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M50A plan.
+  - number: 237
+    timestamp: 2026-05-17 16:35
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 51: Research Capability as the next roadmap milestone, archived the completed M50A plan, and created
+      a new active plan with six bounded tasks for deterministic research payloads, cross-cutting /research routing, app-owned
+      context folding, TUI evidence, PTY smoke validation, roadmap closeout, and commit.
+    commit: 'N/A: planning artifact before M51 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 51; AGENTS.md; README workflow and capability sections; ARCHITECTURE phase/capability/context rules; docs/workflow-architecture cross-cutting research and tool exposure rules; docs/tui-testing render, semantic, and PTY gates; installed Agentera CLI hej with planera context
+    discovered: >-
+      M51 can stay narrow by making research deterministic over app-supplied external-pattern evidence, marking it cross-cutting,
+      rendering confidence/evidence/caveats, and folding the result into visible ContextView without project-artifact writes,
+      direct workflow phase mutation, profile, optimization, or build execution behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; ROADMAP.md top status and M51
+      section, docs/notes/PROMPT.md, AGENTS.md, README workflow/capability sections, ARCHITECTURE phase/capability/context
+      rules, docs/workflow-architecture cross-cutting research/tool exposure rules, docs/tui-testing render/semantic/PTY gates,
+      and current discuss/capability/runtime/app/policy/TUI seams were reviewed before writing the plan. The plan explicitly
+      uses behavior-based test names and forbids new TestM<number> symbols.
+    next: >-
+      Execute M51 Tasks 2-5: add deterministic research payloads, wire cross-cutting /research and context folding, render
+      research evidence/confidence/caveats, and add PTY smoke coverage before validation, roadmap closeout, and commit.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M50A, selecting M51 and preparing an executable plan before implementation.
+      constraints: Execute only M51; preserve statechart-MVU, runtime/effect/FSM authority boundaries, context folding as non-authoritative display evidence, TUI presentation-only behavior, fixed product posture, behavior-based test names, and no push.
+      unknowns: Exact ResearchView field shape and minimal ContextView folding details are implementation-owned; profile, optimization, live external fetching, provider-backed synthesis, and multi-cycle orchestration remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m50a.yaml archival, and progress evidence for the M51 planning handoff.
   - number: 236
     timestamp: 2026-05-17 16:22
     type: build

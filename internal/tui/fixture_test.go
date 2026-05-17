@@ -4241,6 +4241,161 @@ func discussRecordedDecisionFixtureState() ViewState {
 	return state
 }
 
+func TestResearchResultsFixtureShowsEvidenceConfidenceCaveatsAndContext(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "research-results", researchResultsFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Research:", "capability: research"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "cross-cutting status: context_only", "context folded: true", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "pattern: pattern-1 concept=Cross-cutting helpers return context evidence", "evidence: evidence-1 summary=docs/workflow-architecture.md keeps research cross-cutting", "confidence: medium", "caveat: deterministic app-supplied pattern evidence only", "source: app.research.context", "status: folded")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("research-results render missing research evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Research == nil || snapshot.Research.CrossCuttingStatus != "context_only" || !snapshot.Research.ContextFolded || snapshot.Research.RecommendedSuccessor != "" || snapshot.Research.TransitionClaimed || !snapshot.Research.DisplayOnly || len(snapshot.Research.Patterns) != 3 || len(snapshot.Research.Evidence) != 3 || snapshot.Research.Confidence != "medium" || len(snapshot.Research.Caveats) != 2 {
+			t.Fatalf("research semantic = %+v", snapshot.Research)
+		}
+		if snapshot.Context == nil || snapshot.Context.Status != "folded" || len(snapshot.Context.Claims) == 0 || len(snapshot.Context.SourceRefs) == 0 {
+			t.Fatalf("research context semantic = %+v", snapshot.Context)
+		}
+	}
+}
+
+func TestResearchWaitingFixtureShowsNeededInputWithoutContextFold(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "research-waiting", researchWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage PLAN", "Research:", "capability: research", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "context folded: false", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Describe the pattern, concept, library, or solution space to research.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("research-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Research == nil || snapshot.Research.Signal != "waiting" || snapshot.Research.NeededInput == "" || len(snapshot.Research.Caveats) == 0 || snapshot.Research.ContextFolded || snapshot.Research.RecommendedSuccessor != "" || snapshot.Research.TransitionClaimed || !snapshot.Research.DisplayOnly {
+			t.Fatalf("research waiting semantic = %+v", snapshot.Research)
+		}
+	}
+}
+
+func researchResultsFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "research-results"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-research"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "research capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Research folded 3 pattern(s) into context for external-pattern context folding."
+	state.FooterContext = "Milestone 51 research capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Research = &ResearchView{
+		Source:             "app.research.fixture",
+		Capability:         "research",
+		Signal:             "complete",
+		CurrentPhase:       "build",
+		CrossCuttingStatus: "context_only",
+		Summary:            "Research folded 3 pattern(s) into context for external-pattern context folding.",
+		Topic:              "external-pattern context folding",
+		Context:            "runtime=idle phase=build context=Milestone 51 research capability",
+		Patterns: []ResearchPatternView{
+			{ID: "pattern-1", Concept: "Cross-cutting helpers return context evidence", Applicability: "adapt as context, not workflow authority", EvidenceRefIDs: []string{"research-workflow-doc"}},
+			{ID: "pattern-2", Concept: "Source refs travel with condensed claims", Applicability: "preserve exact evidence", EvidenceRefIDs: []string{"research-session-state"}},
+			{ID: "pattern-3", Concept: "Deterministic fixtures precede PTY smoke", Applicability: "test the display contract first", EvidenceRefIDs: []string{"research-tui-doc"}},
+		},
+		Evidence: []ResearchEvidenceView{
+			{ID: "evidence-1", Summary: "docs/workflow-architecture.md keeps research cross-cutting", SourceRefID: "research-workflow-doc"},
+			{ID: "evidence-2", Summary: "ARCHITECTURE.md requires FSM-owned transitions", SourceRefID: "research-architecture-doc"},
+			{ID: "evidence-3", Summary: "docs/tui-testing.md requires render and semantic fixtures before PTY smoke", SourceRefID: "research-tui-doc"},
+		},
+		Confidence:           "medium",
+		Caveats:              []string{"deterministic app-supplied pattern evidence only", "live external fetching remains deferred"},
+		NextAction:           "Use this research as non-authoritative context for the current workflow phase.",
+		ContextSummary:       "research refs ready for context folding",
+		ContextFolded:        true,
+		RecommendedSuccessor: "",
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		SourceRefs:           []ResearchSourceRefView{{ID: "research-command", Kind: "command", Command: "/research", Excerpt: "app-owned research command"}, {ID: "research-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "research is cross-cutting"}, {ID: "research-tui-doc", Kind: "doc", Path: "docs/tui-testing.md", Excerpt: "fixtures before PTY"}},
+		BoundaryRequests:     []ResearchBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "project.current", Reason: "research uses app-supplied project state evidence"}, {Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "research folds results into current context"}},
+	}
+	state.Context = &ContextView{
+		Source:     "app.research.context",
+		Status:     "folded",
+		Meter:      "research refs: 3",
+		Blocks:     []ContextBlockView{{ID: "research-summary", Kind: "research", Title: "external-pattern context folding", Text: "research refs ready for context folding", SourceRefIDs: []string{"research-command", "research-workflow-doc", "research-tui-doc"}}},
+		Claims:     []ContextClaimView{{Text: "research pattern: Cross-cutting helpers return context evidence", SourceRefIDs: []string{"research-workflow-doc"}}, {Text: "research evidence: docs/workflow-architecture.md keeps research cross-cutting", SourceRefIDs: []string{"research-workflow-doc"}}},
+		SourceRefs: []ContextSourceRefView{{ID: "research-command", Kind: "command", Command: "/research", Excerpt: "app-owned research command"}, {ID: "research-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "research is cross-cutting"}, {ID: "research-tui-doc", Kind: "doc", Path: "docs/tui-testing.md", Excerpt: "fixtures before PTY"}},
+		Warnings:   []string{"deterministic app-supplied pattern evidence only", "live external fetching remains deferred"},
+	}
+	return state
+}
+
+func researchWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "research-waiting"
+	state.Phase = "PLAN"
+	state.PhaseSource = "plan"
+	state.PrimaryModel = "fake/fake-research"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "research capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Research needs a topic before it can adapt external patterns."
+	state.Research = &ResearchView{
+		Source:             "app.research.fixture",
+		Capability:         "research",
+		Signal:             "waiting",
+		CurrentPhase:       "plan",
+		CrossCuttingStatus: "context_only",
+		Summary:            "Research needs a topic before it can adapt external patterns.",
+		NeededInput:        "Describe the pattern, concept, library, or solution space to research.",
+		Caveats:            []string{"research evidence unavailable until a topic is provided"},
+		NextAction:         "Provide a research topic, then run research again.",
+		ContextFolded:      false,
+		TransitionClaimed:  false,
+		DisplayOnly:        true,
+		SourceRefs:         []ResearchSourceRefView{{ID: "research-command", Kind: "command", Command: "/research", Excerpt: "waiting for research topic"}},
+		BoundaryRequests:   []ResearchBoundaryRequestView{{Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "research folds results into current context"}},
+	}
+	return state
+}
+
 func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

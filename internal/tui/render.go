@@ -69,6 +69,7 @@ type ViewState struct {
 	Brief              *BriefView
 	Vision             *VisionView
 	Discuss            *DiscussView
+	Research           *ResearchView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -584,6 +585,63 @@ type DiscussBoundaryRequestView struct {
 	Reason    string
 }
 
+// ResearchView is app-injected external-pattern research output.
+type ResearchView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	CurrentPhase         string
+	CrossCuttingStatus   string
+	Summary              string
+	Topic                string
+	Context              string
+	Patterns             []ResearchPatternView
+	Evidence             []ResearchEvidenceView
+	Confidence           string
+	Caveats              []string
+	NeededInput          string
+	NextAction           string
+	ContextSummary       string
+	ContextFolded        bool
+	RecommendedSuccessor string
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	SourceRefs           []ResearchSourceRefView
+	BoundaryRequests     []ResearchBoundaryRequestView
+}
+
+// ResearchPatternView records one research pattern adapted into context.
+type ResearchPatternView struct {
+	ID             string
+	Concept        string
+	Applicability  string
+	EvidenceRefIDs []string
+}
+
+// ResearchEvidenceView records one source-backed research observation.
+type ResearchEvidenceView struct {
+	ID          string
+	Summary     string
+	SourceRefID string
+}
+
+// ResearchSourceRefView records one source reference supporting research output.
+type ResearchSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// ResearchBoundaryRequestView records one inert research boundary descriptor.
+type ResearchBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // AuditView is app-injected read-only audit output.
 type AuditView struct {
 	Source               string
@@ -777,6 +835,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, briefLines(state.Brief)...)
 	items = append(items, visionLines(state.Vision)...)
 	items = append(items, discussLines(state.Discuss)...)
+	items = append(items, researchLines(state.Research)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1746,6 +1805,93 @@ func discussLines(discuss *DiscussView) []string {
 	return append(lines, "  app-owned", "  display-only", "")
 }
 
+func researchLines(research *ResearchView) []string {
+	if research == nil {
+		return nil
+	}
+	semantic := semanticResearch(research)
+	lines := []string{
+		"  Research:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  current phase: " + semantic.CurrentPhase,
+		"  cross-cutting status: " + semantic.CrossCuttingStatus,
+		"  context folded: " + boolLabel(semantic.ContextFolded),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.Topic != "" {
+		lines = append(lines, "  topic: "+semantic.Topic)
+	}
+	if semantic.Context != "" {
+		lines = append(lines, "  context: "+semantic.Context)
+	}
+	for _, pattern := range semantic.Patterns {
+		line := "  pattern: " + pattern.ID + " concept=" + pattern.Concept
+		if pattern.Applicability != "" {
+			line += " applicability=" + pattern.Applicability
+		}
+		if len(pattern.EvidenceRefIDs) > 0 {
+			line += " evidence=" + strings.Join(pattern.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line)
+	}
+	for _, evidence := range semantic.Evidence {
+		line := "  evidence: " + evidence.ID + " summary=" + evidence.Summary
+		if evidence.SourceRefID != "" {
+			line += " source=" + evidence.SourceRefID
+		}
+		lines = append(lines, line)
+	}
+	if semantic.Confidence != "" {
+		lines = append(lines, "  confidence: "+semantic.Confidence)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	if semantic.ContextSummary != "" {
+		lines = append(lines, "  context summary: "+semantic.ContextSummary)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "  app-owned", "  display-only", "")
+}
+
 func auditLines(audit *AuditView) []string {
 	if audit == nil {
 		return nil
@@ -2388,6 +2534,7 @@ type SemanticSnapshot struct {
 	Brief          *SemanticBrief          `json:"brief,omitempty"`
 	Vision         *SemanticVision         `json:"vision,omitempty"`
 	Discuss        *SemanticDiscuss        `json:"discuss,omitempty"`
+	Research       *SemanticResearch       `json:"research,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3092,6 +3239,64 @@ type SemanticDiscussBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticResearch describes app-injected external-pattern research output.
+type SemanticResearch struct {
+	Visible              bool                              `json:"visible"`
+	Source               string                            `json:"source"`
+	Capability           string                            `json:"capability"`
+	Signal               string                            `json:"signal"`
+	CurrentPhase         string                            `json:"current_phase"`
+	CrossCuttingStatus   string                            `json:"cross_cutting_status"`
+	Summary              string                            `json:"summary,omitempty"`
+	Topic                string                            `json:"topic,omitempty"`
+	Context              string                            `json:"context,omitempty"`
+	Patterns             []SemanticResearchPattern         `json:"patterns,omitempty"`
+	Evidence             []SemanticResearchEvidence        `json:"evidence,omitempty"`
+	Confidence           string                            `json:"confidence,omitempty"`
+	Caveats              []string                          `json:"caveats,omitempty"`
+	NeededInput          string                            `json:"needed_input,omitempty"`
+	NextAction           string                            `json:"next_action,omitempty"`
+	ContextSummary       string                            `json:"context_summary,omitempty"`
+	ContextFolded        bool                              `json:"context_folded"`
+	RecommendedSuccessor string                            `json:"recommended_successor,omitempty"`
+	TransitionClaimed    bool                              `json:"transition_claimed"`
+	DisplayOnly          bool                              `json:"display_only"`
+	SourceRefs           []SemanticResearchSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticResearchBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticResearchPattern records one machine-readable research pattern.
+type SemanticResearchPattern struct {
+	ID             string   `json:"id"`
+	Concept        string   `json:"concept"`
+	Applicability  string   `json:"applicability,omitempty"`
+	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
+}
+
+// SemanticResearchEvidence records one machine-readable research evidence item.
+type SemanticResearchEvidence struct {
+	ID          string `json:"id"`
+	Summary     string `json:"summary"`
+	SourceRefID string `json:"source_ref_id,omitempty"`
+}
+
+// SemanticResearchSourceRef records one research source reference.
+type SemanticResearchSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticResearchBoundaryRequest records one inert research boundary descriptor.
+type SemanticResearchBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticAudit describes app-injected read-only audit output.
 type SemanticAudit struct {
 	Visible              bool                           `json:"visible"`
@@ -3494,6 +3699,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Discuss != nil {
 		regions = append(regions, SemanticRegion{Name: "discuss", Visible: true, Items: semanticDiscussItems(state.Discuss)})
 	}
+	if state.Research != nil {
+		regions = append(regions, SemanticRegion{Name: "research", Visible: true, Items: semanticResearchItems(state.Research)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -3588,6 +3796,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Brief:          semanticBrief(state.Brief),
 		Vision:         semanticVision(state.Vision),
 		Discuss:        semanticDiscuss(state.Discuss),
+		Research:       semanticResearch(state.Research),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -4798,6 +5007,129 @@ func semanticDiscuss(discuss *DiscussView) *SemanticDiscuss {
 		TransitionClaimed:    discuss.TransitionClaimed,
 		DisplayOnly:          discuss.DisplayOnly,
 		ArtifactRefs:         artifactRefs,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticResearchItems(research *ResearchView) []string {
+	semantic := semanticResearch(research)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"current_phase: " + semantic.CurrentPhase,
+		"cross_cutting_status: " + semantic.CrossCuttingStatus,
+		"context_folded: " + boolLabel(semantic.ContextFolded),
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.Topic != "" {
+		items = append(items, "topic: "+semantic.Topic)
+	}
+	if semantic.Context != "" {
+		items = append(items, "context: "+semantic.Context)
+	}
+	for _, pattern := range semantic.Patterns {
+		item := "pattern: " + pattern.ID + " concept=" + pattern.Concept
+		if pattern.Applicability != "" {
+			item += " applicability=" + pattern.Applicability
+		}
+		items = append(items, item)
+		for _, refID := range pattern.EvidenceRefIDs {
+			items = append(items, "pattern_ref: "+pattern.ID+" "+refID)
+		}
+	}
+	for _, evidence := range semantic.Evidence {
+		item := "evidence: " + evidence.ID + " summary=" + evidence.Summary
+		if evidence.SourceRefID != "" {
+			item += " source=" + evidence.SourceRefID
+		}
+		items = append(items, item)
+	}
+	if semantic.Confidence != "" {
+		items = append(items, "confidence: "+semantic.Confidence)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	if semantic.ContextSummary != "" {
+		items = append(items, "context_summary: "+semantic.ContextSummary)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticResearch(research *ResearchView) *SemanticResearch {
+	if research == nil {
+		return nil
+	}
+	patterns := make([]SemanticResearchPattern, 0, len(research.Patterns))
+	for _, pattern := range research.Patterns {
+		patterns = append(patterns, SemanticResearchPattern{ID: safeText(pattern.ID), Concept: safeText(pattern.Concept), Applicability: safeText(pattern.Applicability), EvidenceRefIDs: safeTextSlice(pattern.EvidenceRefIDs)})
+	}
+	evidence := make([]SemanticResearchEvidence, 0, len(research.Evidence))
+	for _, item := range research.Evidence {
+		evidence = append(evidence, SemanticResearchEvidence{ID: safeText(item.ID), Summary: safeText(item.Summary), SourceRefID: safeText(item.SourceRefID)})
+	}
+	refs := make([]SemanticResearchSourceRef, 0, len(research.SourceRefs))
+	for _, ref := range research.SourceRefs {
+		refs = append(refs, SemanticResearchSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticResearchBoundaryRequest, 0, len(research.BoundaryRequests))
+	for _, request := range research.BoundaryRequests {
+		requests = append(requests, SemanticResearchBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticResearch{
+		Visible:              true,
+		Source:               safeText(defaultString(research.Source, "app.research")),
+		Capability:           safeText(defaultString(research.Capability, "research")),
+		Signal:               safeText(defaultString(research.Signal, "complete")),
+		CurrentPhase:         safeText(research.CurrentPhase),
+		CrossCuttingStatus:   safeText(defaultString(research.CrossCuttingStatus, "context_only")),
+		Summary:              safeText(research.Summary),
+		Topic:                safeText(research.Topic),
+		Context:              safeText(research.Context),
+		Patterns:             patterns,
+		Evidence:             evidence,
+		Confidence:           safeText(research.Confidence),
+		Caveats:              safeTextSlice(research.Caveats),
+		NeededInput:          safeText(research.NeededInput),
+		NextAction:           safeText(research.NextAction),
+		ContextSummary:       safeText(research.ContextSummary),
+		ContextFolded:        research.ContextFolded,
+		RecommendedSuccessor: safeText(research.RecommendedSuccessor),
+		TransitionClaimed:    research.TransitionClaimed,
+		DisplayOnly:          research.DisplayOnly,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
 	}

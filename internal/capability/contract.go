@@ -30,7 +30,7 @@ var orderedDefinitions = []Definition{
 	{Name: NameBrief, OwningPhase: workflow.PhaseIdle, CrossCutting: true, Description: "project status briefing and next action"},
 	{Name: NameVision, OwningPhase: workflow.PhaseEnvision, Description: "project vision and long-term goals"},
 	{Name: NameDiscuss, OwningPhase: workflow.PhaseDeliberate, Description: "structured deliberation before consequential choices"},
-	{Name: NameResearch, OwningPhase: workflow.PhaseDeliberate, Description: "adapt concepts, patterns, and solutions"},
+	{Name: NameResearch, OwningPhase: workflow.PhaseIdle, CrossCutting: true, Description: "adapt concepts, patterns, and solutions"},
 	{Name: NamePlan, OwningPhase: workflow.PhasePlan, Description: "scoped planning with behavioral acceptance criteria"},
 	{Name: NameBuild, OwningPhase: workflow.PhaseBuild, Description: "execute a single task or plan step and hold"},
 	{Name: NameOptimize, OwningPhase: workflow.PhaseBuild, Description: "design and run metric-driven optimization work"},
@@ -214,6 +214,7 @@ type ExitPayload struct {
 	Audit                *AuditOutput
 	Vision               *VisionOutput
 	Discuss              *DiscussOutput
+	Research             *ResearchOutput
 }
 
 // Invocation guards the one-exit-payload rule for a capability run.
@@ -328,6 +329,17 @@ func cloneExitPayload(payload ExitPayload) ExitPayload {
 		discussion.Blockers = append([]string(nil), payload.Discuss.Blockers...)
 		discussion.SourceRefs = append([]SourceRef(nil), payload.Discuss.SourceRefs...)
 		payload.Discuss = &discussion
+	}
+	if payload.Research != nil {
+		research := *payload.Research
+		research.Patterns = append([]ResearchPattern(nil), payload.Research.Patterns...)
+		for index := range research.Patterns {
+			research.Patterns[index].EvidenceRefIDs = append([]string(nil), payload.Research.Patterns[index].EvidenceRefIDs...)
+		}
+		research.Evidence = append([]ResearchEvidence(nil), payload.Research.Evidence...)
+		research.Caveats = append([]string(nil), payload.Research.Caveats...)
+		research.SourceRefs = append([]SourceRef(nil), payload.Research.SourceRefs...)
+		payload.Research = &research
 	}
 	for index := range payload.BoundaryRequests {
 		payload.BoundaryRequests[index].Metadata = cloneMap(payload.BoundaryRequests[index].Metadata)

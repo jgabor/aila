@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage PLAN | Runtime waiting | Model fake/fake-research | Utility placeholder | Auto read                                                                       [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: plan                     |
+| primary model: fake/fake-research                                                                                |  | primary model: fake/fake-research      |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: waiting                        |
+| Runtime status:                                                                                                  |  | detail: research capability status     |
+| status: waiting                                                                                                  |  | active: false                          |
+| detail: research capability status                                                                               |  | result: Research needs a topic before~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: Research needs a topic before it can adapt external patterns.                                            |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Research:                                                                                                        |  |                                        |
+| source: app.research.fixture                                                                                     |  |                                        |
+| capability: research                                                                                             |  |                                        |
+| signal: waiting                                                                                                  |  |                                        |
+| current phase: plan                                                                                              |  |                                        |
+| cross-cutting status: context_only                                                                               |  |                                        |
+| context folded: false                                                                                            |  |                                        |
+| recommended successor:                                                                                           |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| summary: Research needs a topic before it can adapt external patterns.                                           |  |                                        |
+| needed input: Describe the pattern, concept, library, or solution space to research.                             |  |                                        |
+| caveat: research evidence unavailable until a topic is provided                                                  |  |                                        |
+| next action: Provide a research topic, then run research again.                                                  |  |                                        |
+| requested boundary: context_access operation=context.access target=current_context reason=research folds result~ |  |                                        |
+| source ref: research-command kind=command command=/research excerpt=waiting for research topic                   |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

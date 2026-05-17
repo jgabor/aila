@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-research | Utility placeholder | Auto read                                                                         [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: build                    |
+| primary model: fake/fake-research                                                                                |  | primary model: fake/fake-research      |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: research capability status                                                                               |  | detail: research capability status     |
+| active: false                                                                                                    |  | active: false                          |
+| result: Research folded 3 pattern(s) into context for external-pattern context folding.                          |  | result: Research folded 3 pattern(s) ~ |
+|                                                                                                                  |  | display-only                           |
+| Research:                                                                                                        |  | source: app.research.context           |
+| source: app.research.fixture                                                                                     |  | status: folded                         |
+| capability: research                                                                                             |  | meter: research refs: 3                |
+| signal: complete                                                                                                 |  | block: research-summary research exte~ |
+| current phase: build                                                                                             |  | block_text: research refs ready for c~ |
+| cross-cutting status: context_only                                                                               |  | block_ref: research-summary research-~ |
+| context folded: true                                                                                             |  | block_ref: research-summary research-~ |
+| recommended successor:                                                                                           |  | block_ref: research-summary research-~ |
+| transition claimed: false                                                                                        |  | claim: research pattern: Cross-cuttin~ |
+| display-only: true                                                                                               |  | claim_ref: research pattern: Cross-cu~ |
+| summary: Research folded 3 pattern(s) into context for external-pattern context folding.                         |  | claim: research evidence: docs/workfl~ |
+| topic: external-pattern context folding                                                                          |  | claim_ref: research evidence: docs/wo~ |
+| context: runtime=idle phase=build context=Milestone 51 research capability                                       |  | source_ref: research-command kind=com~ |
+| pattern: pattern-1 concept=Cross-cutting helpers return context evidence applicability=adapt as context, not wo~ |  | source_ref: research-workflow-doc kin~ |
+| pattern: pattern-2 concept=Source refs travel with condensed claims applicability=preserve exact evidence evide~ |  | source_ref: research-tui-doc kind=doc~ |
+| pattern: pattern-3 concept=Deterministic fixtures precede PTY smoke applicability=test the display contract fir~ |  | warning: deterministic app-supplied p~ |
+| evidence: evidence-1 summary=docs/workflow-architecture.md keeps research cross-cutting source=research-workflo~ |  | warning: live external fetching remai~ |
+| evidence: evidence-2 summary=ARCHITECTURE.md requires FSM-owned transitions source=research-architecture-doc     |  | app-owned                              |
+| evidence: evidence-3 summary=docs/tui-testing.md requires render and semantic fixtures before PTY smoke source=~ |  | display-only                           |
+| confidence: medium                                                                                               |  | git: placeholder                       |
+| caveat: deterministic app-supplied pattern evidence only                                                         |  | context: Milestone 51 research capabi~ |
+| caveat: live external fetching remains deferred                                                                  |  |                                        |
+| context summary: research refs ready for context folding                                                         |  |                                        |
+| next action: Use this research as non-authoritative context for the current workflow phase.                      |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                           git: placeholder | context: Milestone 51 research capability | q quit[0m

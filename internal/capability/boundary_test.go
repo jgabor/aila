@@ -26,7 +26,7 @@ func TestCapabilityRegistryIsFixedAndPhaseOwned(t *testing.T) {
 		{NameBrief, workflow.PhaseIdle, true},
 		{NameVision, workflow.PhaseEnvision, false},
 		{NameDiscuss, workflow.PhaseDeliberate, false},
-		{NameResearch, workflow.PhaseDeliberate, false},
+		{NameResearch, workflow.PhaseIdle, true},
 		{NamePlan, workflow.PhasePlan, false},
 		{NameBuild, workflow.PhaseBuild, false},
 		{NameOptimize, workflow.PhaseBuild, false},

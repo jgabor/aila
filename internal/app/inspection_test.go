@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -349,6 +350,72 @@ func TestDiscussCommandRunsCapabilityPersistsArtifactAndDisplaysDecision(t *test
 	}
 	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
 		t.Fatalf("discuss history events = %#v, want command then runtime", historyEvents)
+	}
+}
+
+func TestResearchCommandRunsCapabilityAndFoldsContextWithoutArtifactWrite(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	view := snapshotTestView()
+	view.Phase = "BUILD"
+	view.PhaseSource = "build"
+	view.RuntimeStatus = "idle"
+	view.StatusSource = "runtime.dispatch"
+	view.FooterContext = "Milestone 51 research capability"
+	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		historyEvents = append(historyEvents, command)
+		return HistoryPersistenceResult{}
+	}, nil, func(context.Context, DiffReadCommand) DiffReadResult {
+		t.Fatal("research command must not read diff state")
+		return DiffReadResult{}
+	})
+	controller.workspacePath = workspace
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteResearch, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Research == nil {
+		t.Fatal("research view is nil")
+	}
+	if got.SurfaceTitle != "" || got.CommandRoute != "research" || got.RouteSource != "policy.command" {
+		t.Fatalf("research command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
+	}
+	if got.Research.CurrentPhase != workflow.PhaseBuild.String() || got.Research.RecommendedSuccessor != "" || got.Research.TransitionClaimed || !got.Research.DisplayOnly || !got.Research.ContextFolded {
+		t.Fatalf("research transition/display = %+v", got.Research)
+	}
+	if got.Context == nil || got.Context.Source != "app.research.context" || got.Context.Status != "folded" || len(got.Context.Claims) == 0 || len(got.Context.SourceRefs) == 0 {
+		t.Fatalf("research context = %+v", got.Context)
+	}
+	if len(got.Research.Patterns) != 3 || len(got.Research.Evidence) != 3 || got.Research.Confidence != "medium" || len(got.Research.Caveats) != 2 {
+		t.Fatalf("research evidence = %+v", got.Research)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("research dispatches = %#v, want one capability effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("research dispatch = %T, want runtime.CapabilityEffect", dispatched[0][0])
+	}
+	if runner.model.LastCapability.Research == nil || runner.model.LastCapability.RecommendedSuccessor != "" {
+		t.Fatalf("runtime last capability = %+v", runner.model.LastCapability)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".aila", "artifacts", "research.md")); !os.IsNotExist(err) {
+		t.Fatalf("research artifact should not exist, stat err=%v", err)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result == "" || snapshots[0].Snapshot.Runtime.Result != runner.model.Result {
+		t.Fatalf("research snapshots = %#v", snapshots)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("research history events = %#v, want command then runtime", historyEvents)
 	}
 }
 

@@ -245,6 +245,50 @@ func TestUpdateRoutesDiscussCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesResearchCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "research-status",
+		Capability: capability.NameResearch,
+		Input:      "Research cross-cutting context patterns.",
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.ResearchMetadataTopic:    "cross-cutting context patterns",
+			capability.ResearchMetadataPatterns: "Fold evidence into context|Keep workflow transitions FSM-owned",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameResearch {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "research", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameResearch || completed.Payload.RecommendedSuccessor != "" || completed.Payload.Research == nil {
+		t.Fatalf("research payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameResearch || model.LastCapability.Research == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestUpdateRoutesPlanCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

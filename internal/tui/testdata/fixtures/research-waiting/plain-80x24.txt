@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage PLAN | Runtime waiting | Model fake/fake-research | Utility placeholder |~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-research                                            |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: research capability status                                           |
+| active: false                                                                |
+| result: Research needs a topic before it can adapt external patterns.        |
+|                                                                              |
+| Research:                                                                    |
+| source: app.research.fixture                                                 |
+| capability: research                                                         |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit
