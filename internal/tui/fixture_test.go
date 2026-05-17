@@ -262,6 +262,23 @@ func loadUtilityFixture(t *testing.T, name string) renderFixture {
 		state.Utility.Summary = "fake utility suggestion ready"
 		state.Utility.Suggestions = []UtilitySuggestionView{{Text: "Review current status before starting new background utility work.", EvidenceRefIDs: []string{"utility-evidence-1"}}}
 		state.Utility.EvidenceRefs = []UtilityEvidenceRefView{{ID: "utility-evidence-1", Kind: "runtime_state", Source: "app.status", Detail: "primary runtime idle; fake utility job only"}}
+	case "utility-context-prep":
+		state.Utility.Status = "completed"
+		state.Utility.JobID = "status-context-prep"
+		state.Utility.JobKind = "context_prep"
+		state.Utility.Summary = "prepared context ready"
+		state.Utility.PreparedContext = UtilityPreparedContextView{
+			Summary:          "Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence.",
+			EvidenceRefIDs:   []string{"context-prep-roadmap", "context-prep-runtime"},
+			Caveats:          []string{"prepared context is non-authoritative; foreground work must re-check source refs before acting"},
+			NonAuthoritative: true,
+		}
+		state.Utility.Suggestions = []UtilitySuggestionView{{Text: "Use prepared context only as a starting point for the next foreground step.", EvidenceRefIDs: []string{"context-prep-roadmap", "context-prep-runtime"}}}
+		state.Utility.EvidenceRefs = []UtilityEvidenceRefView{
+			{ID: "context-prep-roadmap", Kind: "roadmap", Source: "ROADMAP.md", Detail: "Milestone 42 requires visible non-authoritative utility context prep"},
+			{ID: "context-prep-runtime", Kind: "runtime_state", Source: "app.status", Detail: "primary runtime idle; context prep allowed by utility scheduler"},
+		}
+		state.Utility.Caveats = []string{"prepared context is non-authoritative; foreground capability decides whether to use it"}
 	default:
 		t.Fatalf("unknown utility fixture %q", name)
 	}
@@ -3580,6 +3597,12 @@ func TestUtilityWorkerFixtureSnapshots(t *testing.T) {
 			status:     "completed",
 			wantRender: []string{"Utility worker:", "status: completed", "summary: fake utility suggestion ready", "suggestion: Review current status before starting new background utility work. refs=utility-evidence-1", "utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only"},
 			wantRegion: []string{"status: completed", "summary: fake utility suggestion ready", "suggestion: Review current status before starting new background utility work. refs=utility-evidence-1", "evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only"},
+		},
+		{
+			name:       "utility-context-prep",
+			status:     "completed",
+			wantRender: []string{"Utility worker:", "job: context_prep status-context-prep", "summary: prepared context ready", "prepared context: Likely next context:", "prepared context non-authoritative: true", "utility evidence: context-prep-roadmap roadmap ROADMAP.md"},
+			wantRegion: []string{"status: completed", "job: context_prep status-context-prep", "summary: prepared context ready", "prepared_context: Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence. refs=context-prep-roadmap,context-prep-runtime", "prepared_context_non_authoritative: true"},
 		},
 	} {
 		tc := tc

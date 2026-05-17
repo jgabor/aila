@@ -49,7 +49,7 @@ type CompactContextProposed struct {
 
 func (CompactContextProposed) runtimeMessage() {}
 
-// UtilityJobProposed records caller intent to run an idle-only fake utility job.
+// UtilityJobProposed records caller intent to run an idle-only utility job.
 type UtilityJobProposed struct {
 	Request utility.JobRequest
 }
@@ -214,7 +214,7 @@ type CompactContextCompleted struct {
 
 func (CompactContextCompleted) runtimeMessage() {}
 
-// UtilityJobCompleted reports a deterministic fake utility job result.
+// UtilityJobCompleted reports a deterministic utility job result.
 type UtilityJobCompleted struct {
 	Operation OperationMetadata
 	Result    utility.JobResult
@@ -359,7 +359,7 @@ func (effect CompactContextEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
-// UtilityJobEffect requests a deterministic idle-only fake utility job.
+// UtilityJobEffect requests a deterministic idle-only utility job.
 type UtilityJobEffect struct {
 	Operation OperationMetadata
 	Request   utility.JobRequest
@@ -505,7 +505,7 @@ func dispatchOne(effect Effect) (messages []Message) {
 	case UtilityJobEffect:
 		return []Message{UtilityJobCompleted{
 			Operation: typed.Operation,
-			Result:    utility.RunFakeJob(typed.Request),
+			Result:    utility.RunJob(typed.Request),
 		}}
 	case FakeInterruptEffect:
 		return []Message{FakeInterruptResolved(typed)}

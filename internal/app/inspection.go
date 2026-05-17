@@ -203,6 +203,16 @@ func utilityStatusLines(view *tui.UtilityView, model runtime.Model) []string {
 	if view.Summary != "" {
 		lines = append(lines, "utility summary: "+view.Summary)
 	}
+	if view.PreparedContext.Summary != "" {
+		line := "utility prepared context: " + view.PreparedContext.Summary
+		if len(view.PreparedContext.EvidenceRefIDs) > 0 {
+			line += " refs=" + strings.Join(view.PreparedContext.EvidenceRefIDs, ",")
+		}
+		lines = append(lines, line, "utility prepared context non-authoritative: "+boolText(view.PreparedContext.NonAuthoritative))
+		for _, caveat := range view.PreparedContext.Caveats {
+			lines = append(lines, "utility prepared context caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range view.Suggestions {
 		line := "utility suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {

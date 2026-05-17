@@ -10,13 +10,13 @@ import (
 
 func defaultUtilityJobRequest(model string) utility.JobRequest {
 	return utility.NormalizeJobRequest(utility.JobRequest{
-		ID:    "status-utility-suggestion",
-		Kind:  utility.JobSuggestion,
+		ID:    "status-context-prep",
+		Kind:  utility.JobContextPrep,
 		Model: model,
 		Source: utility.Source{
 			Caller:      "app.status",
-			RequestID:   "status-utility-suggestion",
-			Description: "fake idle-only utility status suggestion",
+			RequestID:   "status-context-prep",
+			Description: "idle-only utility context preparation",
 		},
 	})
 }
@@ -43,18 +43,19 @@ func utilityView(model runtime.Model) *tui.UtilityView {
 		status = string(utility.StatusIdle)
 	}
 	return &tui.UtilityView{
-		Source:       defaultString(request.Source.Caller, "app.utility"),
-		Status:       status,
-		JobID:        request.ID,
-		JobKind:      string(request.Kind),
-		Model:        request.Model,
-		Summary:      strings.TrimSpace(result.Summary),
-		Suggestions:  utilitySuggestionViews(result.Suggestions),
-		EvidenceRefs: utilityEvidenceRefViews(result.EvidenceRefs),
-		Caveats:      append([]string(nil), result.Caveats...),
-		DeniedReason: string(result.Denial.Reason),
-		DeniedDetail: result.Denial.Detail,
-		ReadOnly:     true,
+		Source:          defaultString(request.Source.Caller, "app.utility"),
+		Status:          status,
+		JobID:           request.ID,
+		JobKind:         string(request.Kind),
+		Model:           request.Model,
+		Summary:         strings.TrimSpace(result.Summary),
+		PreparedContext: utilityPreparedContextView(result.PreparedContext),
+		Suggestions:     utilitySuggestionViews(result.Suggestions),
+		EvidenceRefs:    utilityEvidenceRefViews(result.EvidenceRefs),
+		Caveats:         append([]string(nil), result.Caveats...),
+		DeniedReason:    string(result.Denial.Reason),
+		DeniedDetail:    result.Denial.Detail,
+		ReadOnly:        true,
 		Safety: tui.UtilitySafetyView{
 			FileMutation:            result.Safety.FileMutation,
 			GitMutation:             result.Safety.GitMutation,
@@ -63,6 +64,15 @@ func utilityView(model runtime.Model) *tui.UtilityView {
 			WorkflowPhaseTransition: result.Safety.WorkflowPhaseTransition,
 			FinalJudgment:           result.Safety.FinalJudgment,
 		},
+	}
+}
+
+func utilityPreparedContextView(prepared utility.PreparedContext) tui.UtilityPreparedContextView {
+	return tui.UtilityPreparedContextView{
+		Summary:          strings.TrimSpace(prepared.Summary),
+		EvidenceRefIDs:   append([]string(nil), prepared.EvidenceRefIDs...),
+		Caveats:          append([]string(nil), prepared.Caveats...),
+		NonAuthoritative: prepared.NonAuthoritative,
 	}
 }
 

@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-flash:max | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: placeholder                                                                                           |
+| utility model: opencode-go/deepseek-v4-flash:max                                                                     |
+| autonomy: placeholder (display-only)                                                                                 |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: utility worker status                                                                                        |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Utility worker:                                                                                                      |
+| source: app.status                                                                                                   |
+| status: completed                                                                                                    |
+| job: context_prep status-context-prep                                                                                |
+| model: opencode-go/deepseek-v4-flash:max                                                                             |
+| read-only: true                                                                                                      |
+| summary: prepared context ready                                                                                      |
+| prepared context: Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence.~ |
+| prepared context non-authoritative: true                                                                             |
+| prepared caveat: prepared context is non-authoritative; foreground work must re-check source refs before acting      |
+| suggestion: Use prepared context only as a starting point for the next foreground step. refs=context-prep-roadmap, ~ |
+| utility evidence: context-prep-roadmap roadmap ROADMAP.md Milestone 42 requires visible non-authoritative utility c~ |
+| utility evidence: context-prep-runtime runtime_state app.status primary runtime idle; context prep allowed by utili~ |
+| caveat: prepared context is non-authoritative; foreground capability decides whether to use it                       |
+| file mutation: false                                                                                                 |
+| git mutation: false                                                                                                  |
+| artifact mutation: false                                                                                             |
+| permission approval: false                                                                                           |
+| workflow transition: false                                                                                           |
+| final judgment: false                                                                                                |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

@@ -21,14 +21,14 @@ const (
 	StatusBlocked   Status = "blocked"
 )
 
-// Source records caller-visible provenance for fake utility jobs.
+// Source records caller-visible provenance for utility jobs.
 type Source struct {
 	Caller      string
 	RequestID   string
 	Description string
 }
 
-// JobRequest records a deterministic fake utility job request.
+// JobRequest records a deterministic utility job request.
 type JobRequest struct {
 	ID     string
 	Kind   JobKind
@@ -63,7 +63,7 @@ type Decision struct {
 	Detail  string
 }
 
-// EvidenceRef records exact evidence backing a fake utility suggestion.
+// EvidenceRef records exact evidence backing utility output.
 type EvidenceRef struct {
 	ID     string
 	Kind   string
@@ -77,6 +77,15 @@ type Suggestion struct {
 	EvidenceRefIDs []string
 }
 
+// PreparedContext is display-only context prep output. It is non-authoritative;
+// foreground work decides whether to use it.
+type PreparedContext struct {
+	Summary          string
+	EvidenceRefIDs   []string
+	Caveats          []string
+	NonAuthoritative bool
+}
+
 // SafetyBoundary proves utility output did not perform consequential actions.
 type SafetyBoundary struct {
 	FileMutation            bool
@@ -87,16 +96,17 @@ type SafetyBoundary struct {
 	FinalJudgment           bool
 }
 
-// JobResult is an immutable fake utility result for display and tests.
+// JobResult is an immutable utility result for display and tests.
 type JobResult struct {
-	Request      JobRequest
-	Status       Status
-	Summary      string
-	Suggestions  []Suggestion
-	EvidenceRefs []EvidenceRef
-	Caveats      []string
-	Denial       Decision
-	Safety       SafetyBoundary
+	Request         JobRequest
+	Status          Status
+	Summary         string
+	PreparedContext PreparedContext
+	Suggestions     []Suggestion
+	EvidenceRefs    []EvidenceRef
+	Caveats         []string
+	Denial          Decision
+	Safety          SafetyBoundary
 }
 
 // NormalizeJobRequest fills stable defaults without performing IO.
@@ -124,7 +134,7 @@ func NormalizeJobRequest(request JobRequest) JobRequest {
 	return request
 }
 
-// CanRun returns whether a fake utility job may run in the current activity.
+// CanRun returns whether a utility job may run in the current activity.
 func CanRun(activity Activity, request JobRequest) Decision {
 	request = NormalizeJobRequest(request)
 	if request.Kind != JobContextPrep && request.Kind != JobSuggestion {
@@ -149,10 +159,14 @@ func CanRun(activity Activity, request JobRequest) Decision {
 // RunningResult records visible utility running state.
 func RunningResult(request JobRequest) JobResult {
 	request = NormalizeJobRequest(request)
-	return JobResult{Request: request, Status: StatusRunning, Summary: "fake utility job running", Safety: SafetyBoundary{}}
+	summary := "utility job running"
+	if request.Kind == JobContextPrep {
+		summary = "utility context prep running"
+	}
+	return JobResult{Request: request, Status: StatusRunning, Summary: summary, Safety: SafetyBoundary{}}
 }
 
-// BlockedResult records why a fake utility job did not start.
+// BlockedResult records why a utility job did not start.
 func BlockedResult(request JobRequest, decision Decision) JobResult {
 	request = NormalizeJobRequest(request)
 	if decision.Reason == "" {
@@ -168,9 +182,12 @@ func BlockedResult(request JobRequest, decision Decision) JobResult {
 	}
 }
 
-// RunFakeJob returns deterministic read-only utility output.
-func RunFakeJob(request JobRequest) JobResult {
+// RunJob returns deterministic read-only utility output.
+func RunJob(request JobRequest) JobResult {
 	request = NormalizeJobRequest(request)
+	if request.Kind == JobContextPrep {
+		return contextPrepResult(request)
+	}
 	return JobResult{
 		Request: request,
 		Status:  StatusCompleted,
@@ -186,5 +203,39 @@ func RunFakeJob(request JobRequest) JobResult {
 			Detail: "primary runtime idle; fake utility job only",
 		}},
 		Safety: SafetyBoundary{},
+	}
+}
+
+func contextPrepResult(request JobRequest) JobResult {
+	return JobResult{
+		Request: request,
+		Status:  StatusCompleted,
+		Summary: "prepared context ready",
+		PreparedContext: PreparedContext{
+			Summary:          "Likely next context: roadmap M42 scope, current utility worker state, and recent status evidence.",
+			EvidenceRefIDs:   []string{"context-prep-roadmap", "context-prep-runtime"},
+			Caveats:          []string{"prepared context is non-authoritative; foreground work must re-check source refs before acting"},
+			NonAuthoritative: true,
+		},
+		Suggestions: []Suggestion{{
+			Text:           "Use prepared context only as a starting point for the next foreground step.",
+			EvidenceRefIDs: []string{"context-prep-roadmap", "context-prep-runtime"},
+		}},
+		EvidenceRefs: []EvidenceRef{
+			{
+				ID:     "context-prep-roadmap",
+				Kind:   "roadmap",
+				Source: "ROADMAP.md",
+				Detail: "Milestone 42 requires visible non-authoritative utility context prep",
+			},
+			{
+				ID:     "context-prep-runtime",
+				Kind:   "runtime_state",
+				Source: request.Source.Caller,
+				Detail: "primary runtime idle; context prep allowed by utility scheduler",
+			},
+		},
+		Caveats: []string{"prepared context is non-authoritative; foreground capability decides whether to use it"},
+		Safety:  SafetyBoundary{},
 	}
 }

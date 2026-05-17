@@ -1673,7 +1673,7 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 
 	env := newAilaPTYEnv(t)
 	baseline := captureDurableStateBaseline(t)
-	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 60, env.vars, func(workspace string) {
 		seedDiffSmokeWorkspace(t, workspace)
 		seedFakeHistoryEvents(t, workspace)
 	})
@@ -1696,9 +1696,10 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 		"Utility worker:",
 		"source: app.status",
 		"status: completed",
-		"summary: fake utility suggestion ready",
-		"suggestion: Review current status before starting new background utility work. refs=utility-evidence-1",
-		"utility evidence: utility-evidence-1 runtime_state app.status primary runtime idle; fake utility job only",
+		"summary: prepared context ready",
+		"prepared context: Likely next context:",
+		"prepared context non-authoritative: true",
+		"utility evidence: context-prep-runtime",
 		"file mutation: false",
 	}, 10*time.Second)
 	assertNoDiffSmokeLeaks(t, status, env, workspace)

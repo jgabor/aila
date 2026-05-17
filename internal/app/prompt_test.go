@@ -725,7 +725,10 @@ func TestUtilityJobRoutesThroughRuntimeAndStaysDisplayOnly(t *testing.T) {
 	if turn.Utility == nil || turn.Utility.Status != "completed" || turn.Utility.Model != "test/utility" || !turn.Utility.ReadOnly {
 		t.Fatalf("utility view = %+v, want completed display-only result", turn.Utility)
 	}
-	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 1 {
+	if turn.Utility.JobKind != "context_prep" || turn.Utility.PreparedContext.Summary == "" || !turn.Utility.PreparedContext.NonAuthoritative {
+		t.Fatalf("utility view missing prepared context: %+v", turn.Utility)
+	}
+	if len(turn.Utility.Suggestions) != 1 || len(turn.Utility.EvidenceRefs) != 2 {
 		t.Fatalf("utility view missing suggestion/evidence: %+v", turn.Utility)
 	}
 	if turn.Utility.Safety.FileMutation || turn.Utility.Safety.GitMutation || turn.Utility.Safety.ProjectArtifactMutation || turn.Utility.Safety.ApprovalGrant || turn.Utility.Safety.WorkflowPhaseTransition || turn.Utility.Safety.FinalJudgment {

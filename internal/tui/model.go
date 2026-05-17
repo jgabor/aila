@@ -184,19 +184,28 @@ type CommandView struct {
 // UtilityView is app-injected idle-only utility worker state. It is display-only;
 // TUI code must never schedule jobs, mutate files, run git, or change workflow phase.
 type UtilityView struct {
-	Source       string
-	Status       string
-	JobID        string
-	JobKind      string
-	Model        string
-	Summary      string
-	Suggestions  []UtilitySuggestionView
-	EvidenceRefs []UtilityEvidenceRefView
-	Caveats      []string
-	DeniedReason string
-	DeniedDetail string
-	ReadOnly     bool
-	Safety       UtilitySafetyView
+	Source          string
+	Status          string
+	JobID           string
+	JobKind         string
+	Model           string
+	Summary         string
+	PreparedContext UtilityPreparedContextView
+	Suggestions     []UtilitySuggestionView
+	EvidenceRefs    []UtilityEvidenceRefView
+	Caveats         []string
+	DeniedReason    string
+	DeniedDetail    string
+	ReadOnly        bool
+	Safety          UtilitySafetyView
+}
+
+// UtilityPreparedContextView records non-authoritative context prep output.
+type UtilityPreparedContextView struct {
+	Summary          string
+	EvidenceRefIDs   []string
+	Caveats          []string
+	NonAuthoritative bool
 }
 
 // UtilitySuggestionView records one display-only utility suggestion.
@@ -690,6 +699,8 @@ func cloneUtilityView(utility *UtilityView) *UtilityView {
 		return nil
 	}
 	clone := *utility
+	clone.PreparedContext.EvidenceRefIDs = append([]string(nil), utility.PreparedContext.EvidenceRefIDs...)
+	clone.PreparedContext.Caveats = append([]string(nil), utility.PreparedContext.Caveats...)
 	clone.Suggestions = make([]UtilitySuggestionView, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		item := suggestion

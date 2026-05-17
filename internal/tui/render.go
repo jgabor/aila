@@ -834,6 +834,16 @@ func utilityLines(utility *UtilityView) []string {
 	if semantic.Summary != "" {
 		lines = append(lines, "  summary: "+semantic.Summary)
 	}
+	if semantic.PreparedContext != nil {
+		line := "  prepared context: " + semantic.PreparedContext.Summary
+		if len(semantic.PreparedContext.EvidenceRefIDs) > 0 {
+			line += " refs=" + strings.Join(semantic.PreparedContext.EvidenceRefIDs, ", ")
+		}
+		lines = append(lines, line, "  prepared context non-authoritative: "+boolLabel(semantic.PreparedContext.NonAuthoritative))
+		for _, caveat := range semantic.PreparedContext.Caveats {
+			lines = append(lines, "  prepared caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range semantic.Suggestions {
 		line := "  suggestion: " + suggestion.Text
 		if len(suggestion.EvidenceRefIDs) > 0 {
@@ -1533,22 +1543,31 @@ type SemanticBash struct {
 
 // SemanticUtility describes app-injected idle-only utility worker state.
 type SemanticUtility struct {
-	Source       string                      `json:"source"`
-	Status       string                      `json:"status"`
-	JobID        string                      `json:"job_id"`
-	JobKind      string                      `json:"job_kind"`
-	Model        string                      `json:"model"`
-	Summary      string                      `json:"summary,omitempty"`
-	Suggestions  []SemanticUtilitySuggestion `json:"suggestions,omitempty"`
-	EvidenceRefs []SemanticUtilityEvidence   `json:"evidence_refs,omitempty"`
-	Caveats      []string                    `json:"caveats,omitempty"`
-	DeniedReason string                      `json:"denied_reason,omitempty"`
-	DeniedDetail string                      `json:"denied_detail,omitempty"`
-	ReadOnly     bool                        `json:"read_only"`
-	Safety       SemanticUtilitySafety       `json:"safety"`
+	Source          string                          `json:"source"`
+	Status          string                          `json:"status"`
+	JobID           string                          `json:"job_id"`
+	JobKind         string                          `json:"job_kind"`
+	Model           string                          `json:"model"`
+	Summary         string                          `json:"summary,omitempty"`
+	PreparedContext *SemanticUtilityPreparedContext `json:"prepared_context,omitempty"`
+	Suggestions     []SemanticUtilitySuggestion     `json:"suggestions,omitempty"`
+	EvidenceRefs    []SemanticUtilityEvidence       `json:"evidence_refs,omitempty"`
+	Caveats         []string                        `json:"caveats,omitempty"`
+	DeniedReason    string                          `json:"denied_reason,omitempty"`
+	DeniedDetail    string                          `json:"denied_detail,omitempty"`
+	ReadOnly        bool                            `json:"read_only"`
+	Safety          SemanticUtilitySafety           `json:"safety"`
 }
 
-// SemanticUtilitySuggestion records one fake utility suggestion.
+// SemanticUtilityPreparedContext records non-authoritative context prep output.
+type SemanticUtilityPreparedContext struct {
+	Summary          string   `json:"summary"`
+	EvidenceRefIDs   []string `json:"evidence_ref_ids,omitempty"`
+	Caveats          []string `json:"caveats,omitempty"`
+	NonAuthoritative bool     `json:"non_authoritative"`
+}
+
+// SemanticUtilitySuggestion records one utility suggestion.
 type SemanticUtilitySuggestion struct {
 	Text           string   `json:"text"`
 	EvidenceRefIDs []string `json:"evidence_ref_ids,omitempty"`
@@ -3063,6 +3082,13 @@ func semanticUtilityItems(utility *UtilityView) []string {
 	if semantic.Summary != "" {
 		items = append(items, "summary: "+semantic.Summary)
 	}
+	if semantic.PreparedContext != nil {
+		items = append(items, "prepared_context: "+semantic.PreparedContext.Summary+" refs="+strings.Join(semantic.PreparedContext.EvidenceRefIDs, ","))
+		items = append(items, "prepared_context_non_authoritative: "+boolLabel(semantic.PreparedContext.NonAuthoritative))
+		for _, caveat := range semantic.PreparedContext.Caveats {
+			items = append(items, "prepared_context_caveat: "+caveat)
+		}
+	}
 	for _, suggestion := range semantic.Suggestions {
 		items = append(items, "suggestion: "+suggestion.Text+" refs="+strings.Join(suggestion.EvidenceRefIDs, ","))
 	}
@@ -3082,6 +3108,15 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 	if utility == nil {
 		return nil
 	}
+	var prepared *SemanticUtilityPreparedContext
+	if utility.PreparedContext.Summary != "" || len(utility.PreparedContext.EvidenceRefIDs) > 0 || len(utility.PreparedContext.Caveats) > 0 || utility.PreparedContext.NonAuthoritative {
+		prepared = &SemanticUtilityPreparedContext{
+			Summary:          safeText(utility.PreparedContext.Summary),
+			EvidenceRefIDs:   safeTextSlice(utility.PreparedContext.EvidenceRefIDs),
+			Caveats:          safeTextSlice(utility.PreparedContext.Caveats),
+			NonAuthoritative: utility.PreparedContext.NonAuthoritative,
+		}
+	}
 	suggestions := make([]SemanticUtilitySuggestion, 0, len(utility.Suggestions))
 	for _, suggestion := range utility.Suggestions {
 		suggestions = append(suggestions, SemanticUtilitySuggestion{Text: safeText(suggestion.Text), EvidenceRefIDs: safeTextSlice(suggestion.EvidenceRefIDs)})
@@ -3091,18 +3126,19 @@ func semanticUtility(utility *UtilityView) *SemanticUtility {
 		evidence = append(evidence, SemanticUtilityEvidence{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Source: safeText(ref.Source), Detail: safeText(ref.Detail)})
 	}
 	return &SemanticUtility{
-		Source:       safeText(defaultString(utility.Source, "app.utility")),
-		Status:       safeText(defaultString(utility.Status, "idle")),
-		JobID:        safeText(utility.JobID),
-		JobKind:      safeText(utility.JobKind),
-		Model:        safeText(utility.Model),
-		Summary:      safeText(utility.Summary),
-		Suggestions:  suggestions,
-		EvidenceRefs: evidence,
-		Caveats:      safeTextSlice(utility.Caveats),
-		DeniedReason: safeText(utility.DeniedReason),
-		DeniedDetail: safeText(utility.DeniedDetail),
-		ReadOnly:     utility.ReadOnly,
+		Source:          safeText(defaultString(utility.Source, "app.utility")),
+		Status:          safeText(defaultString(utility.Status, "idle")),
+		JobID:           safeText(utility.JobID),
+		JobKind:         safeText(utility.JobKind),
+		Model:           safeText(utility.Model),
+		Summary:         safeText(utility.Summary),
+		PreparedContext: prepared,
+		Suggestions:     suggestions,
+		EvidenceRefs:    evidence,
+		Caveats:         safeTextSlice(utility.Caveats),
+		DeniedReason:    safeText(utility.DeniedReason),
+		DeniedDetail:    safeText(utility.DeniedDetail),
+		ReadOnly:        utility.ReadOnly,
 		Safety: SemanticUtilitySafety{
 			FileMutation:            utility.Safety.FileMutation,
 			GitMutation:             utility.Safety.GitMutation,

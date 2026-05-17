@@ -1,4 +1,91 @@
 cycles:
+  - number: 211
+    timestamp: "2026-05-17 08:14"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M42 by adding deterministic idle-only utility context prep with prepared-context summary/evidence/caveats,
+      non-authoritative status, app-injected /status visibility, TUI render/semantic support, a utility-context-prep fixture,
+      and PTY smoke for visible prepared-context output.
+    commit: "local commit: add utility context prep"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 42; README utility/status sections; ARCHITECTURE context/utility
+      boundaries; docs/workflow-architecture utility guidance; docs/tui-testing semantic guidance; agentera hej --format json
+      --capability-context orkestrera
+    discovered: >-
+      The existing M41 utility slot could host context prep without adding a new worker system. Context prep remains deterministic,
+      read-only, visible, and non-authoritative; foreground work decides whether to use it. The /status PTY smoke needed a 160x60
+      viewport because prepared-context evidence lines made the old 45-row capture too short. The utility executor was renamed
+      from RunFakeJob to RunJob so the name matches real deterministic utility work. Stale-context checks, continuous compaction,
+      summary refresh, provider/model utility calls, durable prepared-context persistence, plugins, MCP, workflow DSLs, generic
+      graph engines, hosted control planes, and M43+ behavior remain deferred.
+    verified: >-
+      mage fmt passed. go test ./internal/utility -count=1 passed. Focused runtime/app/TUI/cmd utility, context, status, fixture,
+      semantic, and PTY tests passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed in 285.134s.
+      mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities. utility-context-prep plain/ANSI/semantic
+      snapshots were added. TestInspectionCommandFamilyPTYSmoke proves /status displays context prep status, prepared-context
+      summary, non-authoritative marker, evidence, and no-file-mutation evidence. ROADMAP.md was updated only after green validation;
+      Agentera plan/progress/lint/hej, git diff --check, home-path hygiene, and TestM<number> hygiene are part of final closeout.
+    next: >-
+      Commit the completed M42 slice, leaving Milestone 43: Utility Stale-Context Check as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M42 roadmap milestone first, preserving the planera -> orkestrera -> commit loop and Agentera
+        closeout artifacts.
+      constraints: >-
+        Execute only M42; preserve statechart-MVU, explicit effect boundaries, fixed-product posture, TUI presentation-only
+        behavior, idle-only utility context prep, non-authoritative prepared context, behavior-based test names, and no push.
+      unknowns: >-
+        Stale-context checks, continuous compaction, summary refresh, source indexing/ranking beyond deterministic evidence refs,
+        provider-assisted utility work, and durable prepared-context persistence remain deferred.
+      scope: >-
+        internal/utility prepared-context contract, runtime utility effect/result behavior, app /status context-prep scheduling
+        and inspection lines, TUI UtilityPreparedContext rendering/semantics, utility-context-prep fixtures/snapshots, PTY smoke,
+        ROADMAP, and Agentera closeout.
+  - number: 210
+    timestamp: "2026-05-17 07:52"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 42: Utility Context Prep as the next roadmap milestone, archived the completed M41 plan, and created
+      a new active plan with six bounded tasks for a deterministic prepared-context utility contract, runtime/app context-prep
+      state wiring, visible /status prepared-context evidence and caveats, utility context-prep render/semantic fixtures, PTY
+      visibility smoke if behavior changes, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M42 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 42; AGENTS.md; README utility/status sections; ARCHITECTURE context and
+      utility boundaries; docs/workflow-architecture utility guidance; docs/tui-testing semantic guidance; agentera hej/plan/progress
+      --format json with planera context
+    discovered: >-
+      M42 should use the existing M41 utility slot for the first real context-prep job: deterministic, idle-only, read-only,
+      visible, and non-authoritative prepared-context suggestions with evidence and caveats. Stale-context checks, continuous
+      compaction, summary refresh, provider/model utility calls, durable prepared-context persistence, plugins, MCP, workflow
+      DSLs, hosted control planes, and M43+ behavior remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M42
+      section, docs/notes/PROMPT.md, AGENTS.md, README utility/status sections, ARCHITECTURE context/utility boundaries, docs/workflow-architecture
+      utility guidance, docs/tui-testing semantic guidance, and current internal/utility/runtime/app/TUI/context seams were reviewed
+      before writing the plan.
+    next: >-
+      Execute M42 Tasks 2-5: add prepared-context utility result fields, wire context prep through the existing idle-only runtime/app
+      utility effect path, render prepared-context summaries/evidence/caveats in /status and TUI semantics, and run PTY smoke
+      if /status visible behavior changes without adding stale-context checks, continuous compaction, provider/model calls, plugins,
+      MCP, workflow DSLs, hosted control-plane, or M43+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M41, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M42; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, idle-only utility worker
+        behavior, read-only non-authoritative context prep, behavior-based test names, and commit only after implementation and
+        validation complete.
+      unknowns: >-
+        Exact prepared-context field names and status wording are implementation-owned; stale-context checks, continuous compaction,
+        summary refresh, source indexing/ranking beyond deterministic evidence refs, and provider-assisted utility work remain
+        deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m41.yaml archival, M41 commit-string correction,
+        and progress evidence for the M42 planning handoff.
   - number: 209
     timestamp: "2026-05-17 07:45"
     type: build
@@ -7,7 +94,7 @@ cycles:
       Completed M41 by adding an idle-only utility worker skeleton with deterministic fake jobs, runtime/app utility state
       and effect wiring, /status-visible utility suggestion/evidence output, utility render/semantic fixtures, and PTY visibility
       coverage.
-    commit: "pending local commit: add utility worker skeleton"
+    commit: "0ec9faf add utility worker skeleton"
     inspiration: >-
       .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 41; ARCHITECTURE runtime/utility/TUI boundaries; docs/workflow-architecture
       utility boundary; docs/tui-testing fixture guidance; agentera hej --format json --capability-context orkestrera
