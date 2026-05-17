@@ -1,29 +1,29 @@
 Aila                                                                                                              120x32
-Stage BUILD | Runtime active | Model fake/fake-readonly | Utility placeholder | Auto read
+Stage BUILD | Runtime active | Model fake/fake-build | Utility placeholder | Auto write
 + Conversation --------------------------------------------------------------------------------------------------------+
 | Runtime status:                                                                                                      |
 | status: active                                                                                                       |
+| status source: runtime.fixture                                                                                       |
+| detail: bounded build fixture                                                                                        |
 | active: true                                                                                                         |
 |                                                                                                                      |
-| user: summarize the build                                                                                            |
-| assistant streaming: I will inspect README.md before answering.                                                      |
-| assistant status: incomplete                                                                                         |
-| Read tool:                                                                                                           |
-| tool: read                                                                                                           |
-| status: running                                                                                                      |
-| read-only: true                                                                                                      |
-| path: README.md                                                                                                      |
-| requested range: limit 6                                                                                             |
-| completed: false                                                                                                     |
-| preview truncated: false                                                                                             |
-| line limit hit: false                                                                                                |
-|                                                                                                                      |
-|                                                                                                                      |
-| agent evidence:                                                                                                      |
-|                                                                                                                      |
-|                                                                                                                      |
-|                                                                                                                      |
-|                                                                                                                      |
+| Build:                                                                                                               |
+| source: app.build.fixture                                                                                            |
+| capability: build                                                                                                    |
+| signal: complete                                                                                                     |
+| plan item: implement status=active text=Implement only the scoped plan behavior                                      |
+| step: write-build-output status=completed text=Write bounded build output and hold.                                  |
+| tool: write status=completed                                                                                         |
+| path: docs/aila-build-output.md                                                                                      |
+| decision source: autonomy_policy                                                                                     |
+| decision autonomy: write                                                                                             |
+| decision allowed: true                                                                                               |
+| approval required: false                                                                                             |
+| bytes written: 122                                                                                                   |
+| recommended successor: audit                                                                                         |
+| successor valid: true                                                                                                |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
 +----------------------------------------------------------------------------------------------------------------------+
 + Prompt --------------------------------------------------------------------------------------------------------------+
 | >                                                                                                                    |

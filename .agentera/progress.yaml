@@ -1,4 +1,34 @@
 cycles:
+  - number: 228
+    timestamp: 2026-05-17 13:02
+    type: build
+    phase: closeout
+    what: 'Completed Milestone 48: Build Capability by adding deterministic build payloads, /build app execution through safety paths, TUI build evidence, snapshots, and PTY coverage.'
+    commit: 'pending local commit: add build capability'
+    inspiration: .agentera/plan.yaml tasks 2-6; ROADMAP.md Milestone 48; mage check; build PTY smoke; Agentera validation
+    discovered: PTY evidence was initially hidden below retained plan output, so build evidence now renders before retained plan evidence when both are present. The TUI-facing struct uses Operation naming while preserving lower-case rendered and semantic tool evidence.
+    verified: mage fmt passed. Focused capability/runtime/app/TUI checks passed. go test ./internal/... passed. go test ./cmd/aila -run TestBuildCommandExecutesOnePlannedStepPTYSmoke -count=1 passed. mage check passed with cmd/aila in 306.839s, internal packages green, 0 lint issues, and no vulnerabilities. Added func TestM<number> hygiene passed for new coverage.
+    next: 'Commit the completed M48 slice locally, leaving Milestone 49: Audit Capability as the next roadmap milestone.'
+    context:
+      intent: Close Milestone 48 after validation and before local commit.
+      constraints: Execute only M48; no audit capability, provider-backed build loops, multi-step orchestration, plugin/MCP/workflow DSL behavior, direct workflow phase mutation, or push.
+      unknowns: Audit feedback routing, richer multi-step plan execution, and provider-backed build loops remain deferred to later milestones.
+      scope: internal/capability, internal/runtime, internal/app, internal/policy, internal/tui, cmd/aila, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, build-command fixtures, build-active fixtures, and archived M47 plan.
+  - number: 227
+    timestamp: 2026-05-17 12:23
+    type: plan
+    phase: plan
+    what: 'Planned Milestone 48: Build Capability as the next roadmap milestone, archived the completed M47 plan, and created a new active plan with six bounded tasks for deterministic build payloads, app/runtime safety-path execution, TUI render and semantic evidence, PTY smoke validation, roadmap closeout, and commit.'
+    commit: 'N/A: planning artifact before M48 implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 48; AGENTS.md; README capability table; ARCHITECTURE capability, effect, artifact, and permission sections; docs/workflow-architecture build and permission sections; docs/tui-testing required fixtures; installed Agentera CLI hej --format json with planera context; Agentera describe artifact locations
+    discovered: M48 should consume M47 plan-shaped state but execute only one bounded task or step through existing runtime/effect, tool, permission, history, and state paths. The capability can stay deterministic by describing the plan item and result, while app-owned execution performs any world-touching step and the TUI receives injected evidence only.
+    verified: Installed Agentera CLI hej with planera context passed; Agentera describe exposed plan/progress artifact locations; ROADMAP.md top status and M48 section, docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability/artifact/permission sections, docs/workflow-architecture build and permission sections, docs/tui-testing required fixture list, and current capability/runtime/app/TUI seams were reviewed before writing the plan. The plan explicitly uses behavior-based test names and forbids new TestM<number> symbols.
+    next: 'Execute M48 Tasks 2-5: add deterministic build capability payloads, wire one bounded app-owned build step through existing safety paths, render build evidence with required fixtures, and add PTY smoke coverage before validation, roadmap closeout, and commit.'
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M47, selecting M48 and preparing an executable plan before implementation.
+      constraints: Execute only M48; preserve statechart-MVU, runtime/effect/tool/permission/history/state/FSM authority boundaries, TUI presentation-only behavior, fixed product posture, behavior-based test names, one bounded step then hold, and no push.
+      unknowns: Exact BuildView field shape, whether the PTY smoke uses direct /build or a deterministic prompt route, and the smallest existing mutation/history seam to reuse are implementation-owned; audit feedback, multi-step orchestration, provider-backed build loops, and progress/todo/changelog generation remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m47.yaml archival, and progress evidence for the M48 planning handoff.
   - number: 226
     timestamp: 2026-05-17 13:15
     type: build
@@ -18,7 +48,7 @@ cycles:
       and no vulnerabilities. git diff --check with fixed-width snapshot txt files excluded passed. Added-line home-path
       hygiene passed, and new M47 files introduced no func TestM<number> names. Installed Agentera CLI plan/progress/lint/hej
       validation passed after closeout.
-    next: Commit the completed M47 slice locally, leaving Milestone 48: Build Capability as the next roadmap milestone.
+    next: 'Commit the completed M47 slice locally, leaving Milestone 48: Build Capability as the next roadmap milestone.'
     context:
       intent: Close the milestone after validation and before local commit.
       constraints: Execute only M47; no build execution, audit behavior, provider/model planning, broad capability parity,
@@ -6697,7 +6727,7 @@ cycles:
     discovered: >-
       The first `mage check` run exposed a test fragility in
       TestDescribeStoreDerivesWorkspaceOwnedLayout: it treated the substring `home` inside
-      the repository path `/home/...` as evidence that HOME was used. The test assertion was
+      the repository path `$HOME/...` as evidence that HOME was used. The test assertion was
       tightened to reject only exact or descendant paths under the configured HOME, XDG,
       Agentera, and TUI roots.
     verified: >-

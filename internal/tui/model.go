@@ -57,6 +57,7 @@ type TranscriptTurn struct {
 	Context            *ContextView
 	Brief              *BriefView
 	Plan               *PlanView
+	Build              *BuildView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -666,6 +667,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
+	if turn.Build != nil {
+		state.Build = cloneBuildView(turn.Build)
+	}
 	if state.Context != nil && state.Context.Meter != "" {
 		state.FooterContext = state.Context.Meter
 	}
@@ -789,6 +793,20 @@ func cloneMutationView(mutation *MutationView) *MutationView {
 	}
 	clone := *mutation
 	clone.Decision = cloneDecisionView(mutation.Decision)
+	return &clone
+}
+
+func cloneBuildView(build *BuildView) *BuildView {
+	if build == nil {
+		return nil
+	}
+	clone := *build
+	clone.ChangedPaths = append([]string(nil), build.ChangedPaths...)
+	clone.Blockers = append([]string(nil), build.Blockers...)
+	clone.Caveats = append([]string(nil), build.Caveats...)
+	clone.ArtifactRefs = append([]BuildArtifactRefView(nil), build.ArtifactRefs...)
+	clone.SourceRefs = append([]BuildSourceRefView(nil), build.SourceRefs...)
+	clone.BoundaryRequests = append([]BuildBoundaryRequestView(nil), build.BoundaryRequests...)
 	return &clone
 }
 
@@ -919,8 +937,11 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 		state.Utility = nil
 		state.Brief = nil
 	}
-	if recommendation.Route != policy.CommandRoutePlan {
+	if recommendation.Route != policy.CommandRoutePlan && recommendation.Route != policy.CommandRouteBuild {
 		state.Plan = nil
+	}
+	if recommendation.Route != policy.CommandRouteBuild {
+		state.Build = nil
 	}
 	state.FileReference = nil
 	switch recommendation.Route {
@@ -979,6 +1000,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"read-only: false",
 			"capability: plan",
 		}
+	case policy.CommandRouteBuild:
+		state.SurfaceTitle = "build"
+		state.SurfaceLines = []string{
+			"app-owned build execution unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: build",
+		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"
 		state.SurfaceLines = []string{
@@ -1000,6 +1028,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/auto - Choose the active autonomy level for this session.",
 			"/status - Inspect current runtime and state.",
 			"/plan - Create and display scoped work without executing it.",
+			"/build - Execute one planned task through safety paths, then hold.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
 			"/compact - Immediately compact the current conversation.",

@@ -1,0 +1,45 @@
+Aila                                                                                                                                                      160x45
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| No messages yet.                                                                                                 |  | phase source: idle                     |
+|                                                                                                                  |  | primary model: placeholder             |
+| build:                                                                                                           |  | utility model: placeholder             |
+| command route: build                                                                                             |  | autonomy: placeholder                  |
+| route source: policy.command                                                                                     |  | git: placeholder                       |
+| app-owned build execution unavailable in presentation-only fallback                                              |  | context: placeholder                   |
+| read-only: false                                                                                                 |  |                                        |
+| capability: build                                                                                                |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit
+                                                                                                                                                                

@@ -3,208 +3,194 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M47 must add only the plan capability. It should create and display scoped work with behavioral
-    acceptance criteria, persist a plan artifact through Aila state-store/resolver ownership, prove one exit payload
-    and valid FSM recommendation, and keep build execution, audit, provider execution, broad slash-command parity,
-    plugins, MCP, workflow DSLs, hosted control planes, and M48+ behavior out of scope.
-  title: 'Milestone 47: Plan Capability'
-what: Deliver ROADMAP.md Milestone 47 by implementing a smallest useful plan capability over project/session state,
-  persisting a scoped plan artifact through the state store, rendering active plan/pending/blocker/next-action evidence
-  in the TUI, and validating that Aila can create and display scoped work without executing it.
-why: M46 proved one concrete capability can run through runtime/app/TUI boundaries. M47 should use those same boundaries
-  for the first state-primary capability that creates durable scoped work while still leaving build execution and
-  audit to later milestones.
-constraints: Execute only Milestone 47. Preserve statechart-MVU and explicit effect boundaries. Plan may recommend
-  the PLAN successor through the exit payload and the FSM validator, but it must not directly mutate workflow phase.
-  Plan artifact reads and writes must go through state-store/resolver ownership and app/runtime effects, not direct
-  capability file IO. Use deterministic app-supplied project/session evidence; no provider/model call is required
-  for this slice. Keep build execution, audit, tool execution, permission approval for workspace mutation, plugin/MCP/workflow
-  DSL/generic graph/hosted control-plane behavior, broad capability command parity, and M48+ behavior out of scope.
-  Use behavior-based test names; do not introduce new TestM<number> symbols. Do not push.
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m46.yaml
+  critic_issues: M48 must connect plan items to one bounded build step through existing runtime/effect, tool, permission,
+    history, state, and TUI visibility paths. It must execute exactly one planned task or step and then hold, preserve surprises
+    and caveats, keep audit/optimization/document/design/orchestration/provider marketplace/plugins/MCP/workflow DSL/generic
+    graph/hosted control-plane behavior out of scope, and use behavior-based test names instead of TestM<number> names.
+  title: 'Milestone 48: Build Capability'
+what: Deliver ROADMAP.md Milestone 48 by implementing the build capability so Aila can take one active plan item, execute
+  one bounded fake or temp-workspace build step through the existing safety and visibility paths, preserve changes/blockers/caveats/final
+  summary, and then hold.
+why: M47 created scoped work without executing it. M48 should consume that plan-shaped state and prove the first build step
+  uses Aila-owned runtime effects, tool and permission gates, mutation history, state persistence, and TUI evidence instead
+  of bypassing the product architecture.
+constraints: Execute only Milestone 48. Preserve statechart-MVU and explicit effect boundaries. Build may recommend a valid
+  BUILD or AUDIT successor through one exit payload and the FSM validator, but it must not directly mutate workflow phase.
+  Build execution must use existing runtime message/effect, tool, permission, history, and state paths; no direct capability-side
+  file IO. Execute one bounded task or step, then hold. Preserve surprises, caveats, blockers, changed paths, approval evidence,
+  tool state, and final summary visibly. Keep audit findings, optimization, document/design/orchestrate behavior, provider/model
+  autonomous loops beyond a deterministic fake/temp-workspace step, broad capability command parity, plugins, MCP, workflow
+  DSLs, generic graph engines, hosted control planes, M49+ behavior, and pushes out of scope. Use behavior-based test names;
+  do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m47.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
-- ROADMAP.md:20-35
-- ROADMAP.md:108-126
-- ROADMAP.md:1842-1860
-- README.md:240-271
-- ARCHITECTURE.md:340-405
-- ARCHITECTURE.md:560-600
-- docs/workflow-architecture.md:335-405
-- docs/workflow-architecture.md:451-475
+- ROADMAP.md:22-28
+- ROADMAP.md:1864-1887
+- README.md:245-255
+- ARCHITECTURE.md:1-19
+- ARCHITECTURE.md:350-399
+- ARCHITECTURE.md:574-592
+- docs/workflow-architecture.md:363-405
+- docs/workflow-architecture.md:560-620
+- docs/tui-testing.md:63-84
 - internal/capability/contract.go
-- internal/capability/brief.go
+- internal/capability/plan.go
 - internal/runtime/runtime.go
-- internal/app/brief.go
-- internal/state/store.go
-- internal/tui/model.go
+- internal/app/plan.go
 - internal/tui/render.go
-- internal/tui/fixture_test.go
+- cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/state -run 'Test.*Plan.*|Test.*Artifact.*' -count=1
-- go test ./internal/capability -run 'Test.*Plan.*|Test.*Capability.*' -count=1
-- go test ./internal/runtime -run 'Test.*Plan.*|Test.*Capability.*' -count=1
-- go test ./internal/app -run 'Test.*Plan.*|Test.*Status.*' -count=1
-- AILA_UPDATE_TUI_SNAPSHOTS=1 go test ./internal/tui -run TestPlanCapabilityFixtureSnapshots -count=1
-- go test ./internal/tui -run 'TestPlanCapabilityFixtureSnapshots|TestPlanCapabilitySemanticSnapshotExposesItemsAndSourceRefs|Test.*Plan.*'
-  -count=1
-- go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1
+- go test ./internal/capability -run 'Test.*Build.*|Test.*Capability.*' -count=1
+- go test ./internal/runtime -run 'Test.*Build.*|Test.*Capability.*|Test.*Approval.*|Test.*Mutation.*' -count=1
+- go test ./internal/app -run 'Test.*Build.*|Test.*Plan.*|Test.*Status.*|Test.*History.*' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Build.*|Test.*Approval.*|Test.*Tool.*|Test.*Diff.*' -count=1
+- go test ./cmd/aila -run 'Test.*Build.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format
-  json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields
-  plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m46.yaml
-  internal/capability internal/runtime internal/app internal/state internal/tui cmd/aila ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m47.yaml internal/capability
+  internal/runtime internal/app internal/tui cmd/aila ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and added func TestM<number> hygiene returns no matches
 scope:
   included:
-  - Add a state-store logical plan artifact with resolver/write ownership tests and atomic store persistence for
-    M47 plan output.
-  - Add deterministic plan capability behavior in internal/capability that turns app-supplied project/session evidence
-    and requested scope into plan items with behavioral acceptance criteria, blockers, next action, artifact refs,
-    source refs, and one exit payload.
-  - Wire plan through existing runtime capability messages/effects and app-owned invocation/persistence seams so
-    plan output is persisted through the state store and displayed without executing build work.
-  - Render plan capability output in TUI display state and semantic snapshots with active plan, pending/done items,
-    blockers, next action, artifact refs, source refs, and valid FSM successor recommendation evidence.
-  - Add behavior-named state/capability/runtime/app/TUI/PTY coverage proving one exit payload, valid successor recommendation,
-    store-owned artifact persistence, visible display, and no build/audit execution.
+  - Add a deterministic build capability contract/output over one active plan item with attempted step, tool/permission/history/state
+    boundary descriptors, blockers/caveats, changed paths, final summary, and one exit payload.
+  - Wire build through existing runtime capability proposal/effect/completion and app-owned execution so the bounded step
+    uses existing tool, permission, mutation history, and state persistence paths instead of direct capability IO.
+  - Expose build display state in the TUI with active plan item, tool state, approval evidence, changes, blockers, caveats,
+    final summary, and valid successor recommendation evidence.
+  - Keep existing build-active, queued-message, approval-pending, diff-view, tool-running, and tool-failed fixtures current
+    and cover 80x24, 120x32, and 160x45 active plan/tool/approval states.
+  - Add behavior-named capability/runtime/app/TUI/PTY coverage proving one planned task executes through real safety and visibility
+    paths, then holds without audit or multi-step orchestration.
   excluded:
-  - Build execution, audit behavior, provider/model planning loops, tool execution, workspace file mutation, permission
-    approvals, broad capability slash/keybinding parity, multi-agent orchestration, optimization/document/design
-    behavior, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, and M48+ behavior.
+  - Audit findings, optimize/document/design/orchestrate capability behavior, provider-driven autonomous multi-step execution,
+    broad capability slash/keybinding parity, direct workflow phase mutation, direct file IO inside capability code, plugins,
+    MCP, workflow DSLs, generic graph engines, hosted control planes, M49+ behavior, and push operations.
   deferred:
-  - Provider-backed plan generation, richer dependency planning, editing an existing plan interactively, full capability
-    command alias activation, build execution from plan items, audit feedback loops, and durable progress updates
-    beyond the initial plan artifact.
-design: Keep plan deterministic and state-primary. internal/capability owns PlanCapability request metadata, item/blocker/next-action
-  composition, artifact/source refs, boundary descriptors, one ExitPayload, and a PLAN successor recommendation.
-  internal/state owns a logical plan artifact path and write authorization. internal/runtime reuses CapabilityProposed/Effect/Completed
-  and records LastCapability. internal/app builds a bounded plan request from current view/runtime/session/store
-  evidence, asks runtime to run the capability, persists the plan artifact through state.Store, and injects PlanView
-  display state. internal/tui renders only app-injected PlanView data and semantic snapshots; it never creates plans,
-  writes artifacts, executes build work, or changes workflow phase.
+  - Provider-backed build loops, multi-step plan execution, automatic task selection beyond the first bounded item, audit
+    feedback routing, retry orchestration, progress/todo/changelog authoring, richer plan editing, and full capability command
+    alias activation.
+design: Keep build small and host-owned. internal/capability defines BuildCapability request metadata and typed BuildOutput,
+  but concrete world-touching work is represented by boundary descriptors and executed through app/runtime/tool effects. internal/runtime
+  reuses CapabilityProposed/CapabilityEffect/CapabilityCompleted and existing approval/mutation/tool state. internal/app selects
+  one active plan item from app-owned PlanView or a deterministic temp-workspace request, dispatches exactly one bounded write
+  or tool step through the existing permission and mutation/history paths, records the result, then builds a BuildView for
+  display. internal/tui renders injected BuildView state plus existing approval/tool/diff/history evidence; it never selects
+  work, executes tools, approves mutations, or changes workflow phase.
 overall_acceptance:
-- State tests prove the plan logical artifact resolves inside .aila/artifacts, rejects unsafe/unknown names, requires
-  an owning writer, and writes atomically through the state store.
-- Plan capability tests prove one complete exit payload, scoped plan items with behavioral acceptance criteria,
-  pending/done state, blockers when evidence is missing, artifact refs, source refs, and a valid PLAN successor
-  recommendation without direct phase mutation.
-- Runtime/app tests prove plan uses typed capability update/effect/completion messages, app persists the plan artifact
-  through the store, and plan display does not execute build/audit/provider/tool behavior.
-- TUI fixtures and semantic snapshots show active plan, pending items, blockers, done state, next action, artifact
-  refs, source refs, successor recommendation, transition_claimed=false, and display-only semantics.
-- PTY smoke covers plan display if interactive status/plan display changes; otherwise the skip is documented with
-  unchanged interactive behavior.
-- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass
-  before ROADMAP.md is updated.
-surprises: []
+- Capability tests prove build emits exactly one payload with one active plan item, attempted step, changed paths or blockers,
+  caveats, final summary, source/artifact refs, boundary descriptors, and a valid BUILD/AUDIT successor recommendation without
+  direct phase mutation.
+- Runtime/app tests prove build proposals route through typed capability effects and that app-owned bounded execution uses
+  existing tool, permission, mutation history, and state persistence paths, including approval-required and denial/blocker
+  branches.
+- TUI render and semantic snapshots show active plan item, tool state, approvals, changed paths, blockers, caveats, final
+  summary, display-only state, and transition_claimed=false at required sizes while keeping existing required fixtures current.
+- PTY smoke proves a bounded fake or temp-workspace build task executes one planned step through real safety and visibility
+  paths and then returns to a held/idle observable state.
+- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises:
+- PTY validation showed /build evidence could land below the retained plan; TUI content now renders fresh BuildView evidence
+  before retained PlanView evidence while preserving plan state.
 tasks:
 - number: 1
-  name: Plan and confirm the M47 scope
+  name: Plan and confirm the M48 scope
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M47 only and
-    excludes build execution, audit, provider execution, tool execution, permission approval, broad command parity,
-    plugins, MCP, workflow DSLs, hosted control planes, and M48+ behavior.
-  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves state-store
-    ownership, runtime/effect boundaries, FSM ownership, and TUI presentation-only behavior.
-  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather
-    than milestone-number names.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M48 only and excludes
+    audit, optimization, document/design/orchestrate, provider multi-step loops, broad command parity, plugins, MCP, workflow
+    DSLs, hosted control planes, and M49+ behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/tool/permission/history/state
+    ownership, FSM ownership, and TUI presentation-only behavior.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
   evidence:
-  - Installed Agentera CLI hej with planera context, Agentera plan/progress state, ROADMAP.md top status and M47
-    section, docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability/state sections, docs/workflow-architecture
-    capability/artifact sections, and current capability/runtime/app/state/TUI seams were reviewed.
-  - The plan keeps M47 bounded to plan capability behavior, state-store plan artifact persistence, runtime/app invocation,
-    display/semantic evidence, status or plan display validation, roadmap closeout, and commit.
+  - Installed Agentera CLI hej with planera context, Agentera describe artifact locations, ROADMAP.md top status and M48 section,
+    docs/notes/PROMPT.md, AGENTS.md, README capability table, ARCHITECTURE capability/artifact/permission sections, docs/workflow-architecture
+    build and permission sections, docs/tui-testing required fixture list, and current capability/runtime/app/TUI seams were
+    reviewed.
+  - The plan keeps M48 bounded to one build capability step through existing safety and visibility paths, TUI semantic evidence,
+    roadmap closeout, and local commit.
   - The plan explicitly forbids new TestM<number> symbols and requires behavior-named tests only.
 - number: 2
-  name: Add state-store plan artifact support
+  name: Add deterministic build capability payloads
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN the state artifact catalog is inspected WHEN M47 adds plan persistence THEN plan resolves to .aila/artifacts/plan.md
-    with provenance and store-owned write authorization.
-  - GIVEN an unowned or unsafe plan write is attempted WHEN store APIs are used THEN the write is rejected without
-    final mutation.
-  - GIVEN plan content is written WHEN the store succeeds THEN the artifact is written atomically and no temp artifact
-    remains.
+  - GIVEN one active plan item is supplied WHEN build runs THEN it emits one payload with active item, attempted step, source/artifact
+    refs, boundary descriptors, changed paths or blockers, caveats, and final summary.
+  - GIVEN no plan item or unsafe/missing evidence is supplied WHEN build runs THEN it returns waiting or flagged/stuck with
+    explicit blockers instead of inventing work.
+  - GIVEN build completes or flags caveats WHEN the exit payload is inspected THEN successor recommendations are FSM-valid
+    and workflow phase is not directly mutated.
   evidence:
-  - internal/state/store.go adds ArtifactPlan resolving to .aila/artifacts/plan.md and authorizes app-owned writes
-    only.
-  - internal/state/store_test.go covers plan path/provenance resolution, app writer authorization, state-writer rejection
-    without mutation, atomic plan writes, and generalized temp-file cleanup checks.
-  - go test ./internal/state -run 'Test.*Artifact.*|TestResolveKnownArtifactIncludesPathAndProvenance' -count=1
-    passed.
+  - Added internal/capability/build.go and behavior-named build capability tests for success, waiting, denied/flagged, source/artifact
+    refs, boundary descriptors, caveats, changed paths, final summary, and FSM-valid successor recommendations.
+  - go test ./internal/capability -run 'Test.*Build.*|Test.*Capability.*|TestRunBuiltIn' -count=1 passed.
 - number: 3
-  name: Implement deterministic plan capability behavior
+  name: Execute one bounded step through app runtime safety paths
   depends_on:
-  - 1
   - 2
   status: complete
   acceptance:
-  - GIVEN project/session evidence and requested scope are supplied WHEN plan runs THEN it emits one complete payload
-    with scoped plan items, behavioral acceptance criteria, pending/done state, blockers or gaps, next action, artifact
-    refs, source refs, and boundary requests.
-  - GIVEN required evidence is missing WHEN plan runs THEN the payload is flagged or waiting with explicit blockers/needed
-    input rather than inventing build work.
-  - GIVEN the plan can proceed WHEN the exit payload is inspected THEN it recommends the PLAN successor while relying
-    on FSM validation rather than mutating phase directly.
+  - GIVEN build is invoked through the app WHEN one temp-workspace or fake planned write step is selected THEN execution uses
+    existing runtime/tool/permission/mutation history/state paths and records the result.
+  - GIVEN approval is required or denied WHEN build reaches a risky operation THEN the existing approval proposal and decision
+    flow is visible and no mutation occurs before approval.
+  - GIVEN the bounded step finishes WHEN control returns THEN only one planned step has run and the runtime is held in an
+    observable idle or waiting state with caveats preserved.
   evidence:
-  - internal/capability/plan.go adds deterministic PlanCapability output with typed PlanOutput/PlanItem data, one ExitPayload,
-    behavioral acceptance criteria, blockers, next action, artifact/source refs, and inert boundary descriptors only.
-  - Plan recommends workflow.PhasePlan only when workflow.ValidateProtocolSuccessor accepts the request phase; it does
-    not mutate workflow phase.
-  - go test ./internal/capability -run 'Test.*Plan.*|Test.*Capability.*|TestBuiltIn.*' -count=1 passed.
+  - Wired /build through runtime CapabilityProposed/CapabilityEffect/CapabilityCompleted plus app-owned selection of the first
+    pending plan item and existing write mutation, permission, history, snapshot, and state-store paths.
+  - go test ./internal/runtime -run 'Test.*Build.*|Test.*Capability.*' -count=1 passed; go test ./internal/app -run 'TestBuildCommand|Test.*Plan.*'
+    -count=1 passed.
 - number: 4
-  name: Wire plan through runtime app and store persistence
+  name: Render build evidence and keep required fixtures current
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN plan is proposed through runtime WHEN Update handles it THEN a typed capability effect is emitted and
-    completion records LastCapability while returning runtime to idle.
-  - GIVEN the app invokes plan WHEN the payload includes a plan artifact THEN app persists the artifact through
-    state.Store and records display evidence without executing build/audit/provider/tool behavior.
-  - GIVEN plan completes WHEN view state is updated THEN workflow phase is not directly mutated and the TUI receives
-    only app-owned PlanView data.
+  - GIVEN BuildView state is injected WHEN fixtures render THEN active plan item, tool state, approvals, changed paths, blockers,
+    caveats, and final summary are visible.
+  - GIVEN semantic snapshots are inspected WHEN build exists THEN active plan item, tool state, approvals, changes, blockers,
+    caveats, final summary, successor recommendation, transition_claimed=false, and display_only=true are machine-readable.
+  - GIVEN required existing fixtures are regenerated or checked WHEN validation runs THEN build-active, queued-message, approval-pending,
+    diff-view, tool-running, and tool-failed remain current at 80x24, 120x32, and 160x45 where applicable.
   evidence:
-  - internal/runtime/runtime_test.go proves plan proposals emit CapabilityEffect, dispatch to PlanCapability, record LastCapability,
-    and return to idle with a valid PLAN successor.
-  - internal/app/plan.go and internal/app/inspection_test.go wire exact /plan through app-owned capability invocation,
-    persist the generated document through state.Store as OwnerApp, and inject PlanView without diff/build/audit/tool/provider execution.
-  - go test ./internal/runtime -run 'Test.*Plan.*|Test.*Capability.*' -count=1 passed.
-  - go test ./internal/app -run 'Test.*Plan.*|Test.*Status.*' -count=1 passed.
+  - Added BuildView render and semantic state with plan item, step, lower-case tool evidence, approval decision, changed paths,
+    caveats, final summary, artifact/source refs, boundary requests, transition_claimed=false, and display_only=true.
+  - Updated build-active, help-command, and build-command snapshots; go test ./internal/tui -run 'TestBuildActiveFixtureShowsBoundedBuildEvidence|TestCommandFixtureSet|TestRenderFixturesStayWithinLayoutContract|TestSemanticSnapshotsExposeContract'
+    -count=1 passed; go test ./internal/tui passed.
 - number: 5
-  name: Render plan output and semantic evidence
+  name: Add PTY smoke for one bounded planned build step
   depends_on:
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN PlanView state is injected WHEN fixtures render THEN active plan title, pending items, done state, blockers,
-    next action, and artifact refs are visible in plain and ANSI snapshots.
-  - GIVEN semantic snapshots are inspected WHEN plan exists THEN plan items, acceptance criteria, done state, blockers,
-    source refs, artifact refs, successor recommendation, transition_claimed=false, and display_only=true are machine-readable.
-  - GIVEN interactive display changes WHEN PTY smoke runs THEN plan display is visible; otherwise the unchanged
-    interactive path is explicitly documented.
+  - GIVEN an isolated temp workspace is used WHEN the PTY smoke invokes the build path THEN one planned step executes through
+    real safety and visibility paths.
+  - GIVEN the bounded step completes WHEN the screen is inspected THEN final summary, changed path or blocker, caveat preservation,
+    and hold/idle state are visible.
+  - GIVEN the smoke exits WHEN workspace files are inspected THEN expected mutation/history evidence exists only when approval
+    or configured autonomy permitted it.
   evidence:
-  - internal/tui render and semantic support now includes app-owned PlanView data with items, acceptance criteria, blockers,
-    next action, artifact refs, source refs, boundary descriptors, successor validation, transition_claimed=false, and display_only=true.
-  - internal/tui/testdata/fixtures/plan-capability snapshots cover visible plan output and semantic plan evidence.
-  - cmd/aila TestInspectionCommandFamilyPTYSmoke covers /plan display and verifies .aila/artifacts/plan.md contains scoped acceptance criteria.
-  - go test ./internal/tui -run 'TestCommandFixtureSet|TestPlanCapabilityFixtureSnapshots|TestPlanCapabilitySemanticSnapshotExposesItemsAndSourceRefs' -count=1 passed.
-  - go test ./cmd/aila -run TestInspectionCommandFamilyPTYSmoke -count=1 passed.
+  - Added behavior-named PTY smoke TestBuildCommandExecutesOnePlannedStepPTYSmoke covering /plan -> /build in an isolated
+    temp workspace, visible build evidence, docs/aila-build-output.md content, fake history mutation evidence, session snapshot
+    result, and clean quit.
+  - go test ./cmd/aila -run TestBuildCommandExecutesOnePlannedStepPTYSmoke -count=1 passed.
 - number: 6
   name: Run validation roadmap closeout and commit
   depends_on:
@@ -215,21 +201,14 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN
-    M47 is recorded complete, M48 is selected next, and Active milestone is none.
-  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan,
-    progress, and M47 plan archive are included in one meaningful local commit.
-  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with
-    concrete validation evidence.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M48 is
+    recorded complete, M49 is selected next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    and M48 plan archive are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
   evidence:
-  - mage fmt passed.
-  - Targeted state, capability, runtime, app, policy, TUI, and cmd/aila PTY checks passed.
-  - go test ./internal/... -count=1 passed.
-  - go test ./cmd/aila -count=1 passed in 286.740s before the state test isolation fix; final mage check reran
-    cmd/aila in 297.771s after the fix.
-  - mage check passed with cmd/aila in 297.771s, internal packages green, 0 lint issues, and no vulnerabilities.
-  - ROADMAP.md records Milestone 47 complete, Milestone 48 next, Active milestone none, and M47 validation details.
-  - git diff --check -- . ':(exclude)internal/tui/testdata/fixtures/*/*.txt' passed.
-  - Added-line home-path and new-file func TestM<number> hygiene passed; existing legacy names and redaction-fixture
-    paths were not introduced by M47.
-  - Installed Agentera CLI plan/progress/lint/hej validation passed after closeout.
+  - Updated ROADMAP.md to mark M48 complete and M49 next after validation; Agentera plan/progress artifacts carry M48 closeout
+    evidence.
+  - mage fmt passed; go test ./internal/... passed; go test ./cmd/aila -run TestBuildCommandExecutesOnePlannedStepPTYSmoke
+    -count=1 passed; mage check passed with cmd/aila in 306.839s, internal packages green, 0 lint issues, and no vulnerabilities.

@@ -1,0 +1,24 @@
+[1mAila                                                                       80x24[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder         [0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| No messages yet.                                                             |
+|                                                                              |
+| build:                                                                       |
+| command route: build                                                         |
+| route source: policy.command                                                 |
+| app-owned build execution unavailable in presentation-only fallback          |
+| read-only: false                                                             |
+| capability: build                                                            |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m
+                                                                                

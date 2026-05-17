@@ -1804,6 +1804,95 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 70, env.vars, nil)
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+
+	if _, err := terminal.Write([]byte("/plan\r")); err != nil {
+		t.Fatalf("send /plan command input before build: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Plan:",
+		"item: scope status=done",
+		"item: implement status=pending",
+		"successor valid: true",
+		"transition claimed: false",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte("/build\r")); err != nil {
+		t.Fatalf("send /build command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"active: false",
+		"Build:",
+		"capability: build",
+		"signal: complete",
+		"plan item: implement status=active",
+		"step: write-build-output status=completed",
+		"tool: write status=completed",
+		"path: docs/aila-build-output.md",
+		"decision source: autonomy_policy",
+		"decision autonomy: yolo",
+		"approval required: false",
+		"changed path: docs/aila-build-output.md",
+		"final summary: Executed one bounded write step",
+		"recommended successor: audit",
+		"transition claimed: false",
+	}, 10*time.Second)
+	if strings.Contains(output, "Approval pending:") {
+		t.Fatalf("build command PTY output exposed out-of-scope approval prompt: %q", output)
+	}
+
+	content, err := os.ReadFile(filepath.Join(workspace, "docs", "aila-build-output.md"))
+	if err != nil {
+		t.Fatalf("read build command output file: %v", err)
+	}
+	if !strings.Contains(string(content), "Plan item: Implement only the scoped plan behavior") || !strings.Contains(string(content), "executed one bounded build step and held") {
+		t.Fatalf("build command output content = %q", content)
+	}
+	assertBuildCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit input after build command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("build command PTY returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		_ = terminal.Close()
+		t.Fatal("build command PTY did not quit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(5 * time.Second):
+		t.Fatal("build command PTY drain did not finish after quit")
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestModelAndAutonomyCommandFamilyPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -2665,6 +2754,51 @@ func assertInspectionCommandFamilyStoreState(t *testing.T, workspace string) {
 		if strings.Contains(encoded, leaked) {
 			t.Fatalf("inspection smoke history leaked %q: %s", leaked, encoded)
 		}
+	}
+}
+
+func assertBuildCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open build command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read build command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("build command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || snapshot.Snapshot.Runtime.Detail != "build capability status" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Build completed one bounded step for plan item implement") {
+		t.Fatalf("build command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read build command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("build command history state = %q, want loaded", history.State)
+	}
+	var sawBuildCommand, sawBuildRuntime, sawMutation bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "build via slash" {
+			sawBuildCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Build completed one bounded step for plan item implement") {
+			sawBuildRuntime = true
+		}
+		if event.Kind == historypkg.EventKindMutation && event.Mutation != nil && event.Mutation.RequestID == "build-implement" {
+			sawMutation = true
+			if event.Mutation.ToolName != "write" || event.Mutation.Status != "completed" || !reflect.DeepEqual(event.Mutation.ChangedPaths, []string{"docs/aila-build-output.md"}) || event.Mutation.CommandSource != "build" || event.Undo == nil || !event.Undo.Available || event.Undo.Action != "delete_created_file" {
+				t.Fatalf("build command mutation history = mutation=%+v undo=%+v", event.Mutation, event.Undo)
+			}
+		}
+	}
+	if !sawBuildCommand || !sawBuildRuntime || !sawMutation {
+		t.Fatalf("build command history markers command=%v runtime=%v mutation=%v events=%+v", sawBuildCommand, sawBuildRuntime, sawMutation, history.Events)
 	}
 }
 

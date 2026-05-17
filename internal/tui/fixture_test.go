@@ -3610,6 +3610,7 @@ func TestCommandFixtureSet(t *testing.T) {
 	}{
 		{name: "status-command", input: "/status", route: policy.CommandRouteStatus},
 		{name: "plan-command", input: "/plan", route: policy.CommandRoutePlan},
+		{name: "build-command", input: "/build", route: policy.CommandRouteBuild},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3692,6 +3693,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned review inspection unavailable in presentation-only fallback"
 	case "plan":
 		return "app-owned plan creation unavailable in presentation-only fallback"
+	case "build":
+		return "app-owned build execution unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -5035,21 +5038,50 @@ func readOnlyAgentFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
 }
 
-func loadReadOnlyBuildActiveFixture(t *testing.T) renderFixture {
+func loadBuildActiveFixture(t *testing.T) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
 	state.Scenario = "build-active"
 	state.Phase = "BUILD"
 	state.PhaseSource = "workflow.fixture"
-	state.PrimaryModel = "fake/fake-readonly"
+	state.PrimaryModel = "fake/fake-build"
 	state.UtilityModel = "placeholder"
-	state.Autonomy = "read"
+	state.Autonomy = "write"
 	state.RuntimeStatus = "active"
+	state.StatusSource = "runtime.fixture"
+	state.StatusDetail = "bounded build fixture"
 	state.RuntimeActive = true
 	state.SurfaceTitle = "agent evidence"
-	state.Read = &ReadView{Name: "read", Status: "running", ReadOnly: true, Path: "README.md", RequestedRange: ReadLineRangeView{Limit: 6}}
-	state.Transcript = []TranscriptTurn{{UserText: "summarize the build", AssistantText: "I will inspect README.md before answering.", AssistantStreaming: true}}
+	state.Build = &BuildView{
+		Source:               "app.build.fixture",
+		Capability:           "build",
+		Signal:               "complete",
+		Summary:              "Executed one bounded step and held.",
+		RecommendedSuccessor: "audit",
+		SuccessorValid:       true,
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		PlanItem:             BuildPlanItemView{ID: "implement", Text: "Implement only the scoped plan behavior", Status: "active"},
+		Step:                 BuildStepView{ID: "write-build-output", Text: "Write bounded build output and hold.", Status: "completed"},
+		Operation: BuildOperationView{
+			Name:             "write",
+			Status:           "completed",
+			Path:             "docs/aila-build-output.md",
+			ExpectedEffect:   "create bounded build output for plan item implement",
+			DecisionSource:   "autonomy_policy",
+			DecisionAutonomy: "write",
+			DecisionAllowed:  true,
+			ApprovalRequired: false,
+			BytesWritten:     122,
+		},
+		ChangedPaths:     []string{"docs/aila-build-output.md"},
+		Caveats:          []string{"bounded build executed one step and then held"},
+		FinalSummary:     "Executed one bounded write step on docs/aila-build-output.md for plan item implement and held.",
+		ArtifactRefs:     []BuildArtifactRefView{{ID: "plan", Kind: "project_state", Path: ".aila/artifacts/plan.md"}, {ID: "history", Kind: "event_log", Path: ".aila/history/fake-events.jsonl"}},
+		SourceRefs:       []BuildSourceRefView{{ID: "build-plan-item", Kind: "plan_item", Excerpt: "Implement only the scoped plan behavior"}},
+		BoundaryRequests: []BuildBoundaryRequestView{{Kind: "tool", Operation: "write", Target: "docs/aila-build-output.md", Reason: "execute one bounded build step"}, {Kind: "state", Operation: "history_record", Target: ".aila/history/fake-events.jsonl", Reason: "record mutation evidence"}},
+	}
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
@@ -5090,15 +5122,22 @@ func loadReadOnlyProviderFailureFixture(t *testing.T, name string) renderFixture
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
-func TestReadOnlyBuildActiveFixtureSnapshots(t *testing.T) {
-	fixture := loadReadOnlyBuildActiveFixture(t)
+func TestBuildActiveFixtureShowsBoundedBuildEvidence(t *testing.T) {
+	fixture := loadBuildActiveFixture(t)
 	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
 	for _, renderCase := range fixture.TextCases() {
 		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 		assertTextSnapshot(t, fixture, renderCase.file, got)
 		plain := stripANSI(got)
-		if !containsAll(plain, []string{"Runtime active", "Model fake/fake-readonly", "Read tool:", "status: running", "assistant streaming:", "assistant status: incomplete"}) {
-			t.Fatalf("read-only build-active render missing evidence:\n%s", plain)
+		want := []string{"Runtime active", "Model fake/fake-build", "Build:", "plan item: implement", "tool: write status=completed"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "approval required: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "changed path: docs/aila-build-output.md", "final summary:")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("build-active render missing bounded build evidence:\n%s", plain)
 		}
 	}
 	for _, semanticCase := range fixture.SemanticCases() {
@@ -5108,7 +5147,7 @@ func TestReadOnlyBuildActiveFixtureSnapshots(t *testing.T) {
 		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
 			t.Fatalf("unmarshal semantic snapshot: %v", err)
 		}
-		if !snapshot.Session.Active || snapshot.Read == nil || snapshot.Read.Status != "running" || snapshot.Session.PrimaryModel != "fake/fake-readonly" {
+		if !snapshot.Session.Active || snapshot.Build == nil || snapshot.Build.PlanItem.ID != "implement" || snapshot.Build.Operation.Status != "completed" || !snapshot.Build.Operation.DecisionAllowed || len(snapshot.Build.ChangedPaths) != 1 || snapshot.Build.FinalSummary == "" {
 			t.Fatalf("build-active semantic = %+v", snapshot)
 		}
 	}

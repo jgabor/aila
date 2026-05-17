@@ -1,21 +1,21 @@
 [1mAila                                                                       80x24[0m
-[2mStage BUILD | Runtime active | Model fake/fake-readonly | Utility placeholder |~[0m
+[2mStage BUILD | Runtime active | Model fake/fake-build | Utility placeholder | Au~[0m
 + [33mConversation[0m ----------------------------------------------------------------+
 | Runtime status:                                                              |
 | status: active                                                               |
+| status source: runtime.fixture                                               |
+| detail: bounded build fixture                                                |
 | active: true                                                                 |
 |                                                                              |
-| user: summarize the build                                                    |
-| assistant streaming: I will inspect README.md before answering.              |
-| assistant status: incomplete                                                 |
-| Read tool:                                                                   |
-| tool: read                                                                   |
-| status: running                                                              |
-| read-only: true                                                              |
-| path: README.md                                                              |
-| requested range: limit 6                                                     |
-| completed: false                                                             |
-| preview truncated: false                                                     |
+| Build:                                                                       |
+| source: app.build.fixture                                                    |
+| capability: build                                                            |
+| signal: complete                                                             |
+| plan item: implement status=active text=Implement only the scoped plan beha~ |
+| step: write-build-output status=completed text=Write bounded build output a~ |
+| tool: write status=completed                                                 |
+| path: docs/aila-build-output.md                                              |
+| decision source: autonomy_policy                                             |
 +------------------------------------------------------------------------------+
 + [33mPrompt[0m ----------------------------------------------------------------------+
 | [36m>[0m                                                                            |

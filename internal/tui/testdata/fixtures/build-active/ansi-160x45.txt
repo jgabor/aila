@@ -1,41 +1,41 @@
 [1mAila                                                                                                                                                      160x45[0m
-[2mStage BUILD | Runtime active | Model fake/fake-readonly | Utility placeholder | Auto read                                                                       [0m
+[2mStage BUILD | Runtime active | Model fake/fake-build | Utility placeholder | Auto write                                                                         [0m
 + [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
 | Runtime status:                                                                                                  |  | phase source: workflow.fixture         |
-| status: active                                                                                                   |  | primary model: fake/fake-readonly      |
-| active: true                                                                                                     |  | utility model: placeholder             |
-|                                                                                                                  |  | autonomy: read                         |
-| user: summarize the build                                                                                        |  | status: active                         |
-| assistant streaming: I will inspect README.md before answering.                                                  |  | active: true                           |
-| assistant status: incomplete                                                                                     |  | display-only                           |
-| Read tool:                                                                                                       |  | git: placeholder                       |
-| tool: read                                                                                                       |  | context: placeholder                   |
-| status: running                                                                                                  |  |                                        |
-| read-only: true                                                                                                  |  |                                        |
-| path: README.md                                                                                                  |  |                                        |
-| requested range: limit 6                                                                                         |  |                                        |
-| completed: false                                                                                                 |  |                                        |
-| preview truncated: false                                                                                         |  |                                        |
-| line limit hit: false                                                                                            |  |                                        |
+| status: active                                                                                                   |  | primary model: fake/fake-build         |
+| status source: runtime.fixture                                                                                   |  | utility model: placeholder             |
+| detail: bounded build fixture                                                                                    |  | autonomy: write                        |
+| active: true                                                                                                     |  | status: active                         |
+|                                                                                                                  |  | status source: runtime.fixture         |
+| Build:                                                                                                           |  | detail: bounded build fixture          |
+| source: app.build.fixture                                                                                        |  | active: true                           |
+| capability: build                                                                                                |  | display-only                           |
+| signal: complete                                                                                                 |  | git: placeholder                       |
+| plan item: implement status=active text=Implement only the scoped plan behavior                                  |  | context: placeholder                   |
+| step: write-build-output status=completed text=Write bounded build output and hold.                              |  |                                        |
+| tool: write status=completed                                                                                     |  |                                        |
+| path: docs/aila-build-output.md                                                                                  |  |                                        |
+| decision source: autonomy_policy                                                                                 |  |                                        |
+| decision autonomy: write                                                                                         |  |                                        |
+| decision allowed: true                                                                                           |  |                                        |
+| approval required: false                                                                                         |  |                                        |
+| bytes written: 122                                                                                               |  |                                        |
+| recommended successor: audit                                                                                     |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| summary: Executed one bounded step and held.                                                                     |  |                                        |
+| final summary: Executed one bounded write step on docs/aila-build-output.md for plan item implement and held.    |  |                                        |
+| changed path: docs/aila-build-output.md                                                                          |  |                                        |
+| caveat: bounded build executed one step and then held                                                            |  |                                        |
+| expected effect: create bounded build output for plan item implement                                             |  |                                        |
+| artifact ref: plan kind=project_state path=[path-redacted]                                                       |  |                                        |
+| artifact ref: history kind=event_log path=[path-redacted]                                                        |  |                                        |
+| requested boundary: tool operation=write target=docs/aila-build-output.md reason=execute one bounded build step  |  |                                        |
+| requested boundary: state operation=history_record target=[path-redacted] reason=record mutation evidence        |  |                                        |
+| source ref: build-plan-item kind=plan_item excerpt=Implement only the scoped plan behavior                       |  |                                        |
 |                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-| agent evidence:                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
-|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
 |                                                                                                                  |  |                                        |
 +------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
 + [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+

@@ -68,6 +68,7 @@ type ViewState struct {
 	PolicyRoute        *PolicyRouteView
 	Brief              *BriefView
 	Plan               *PlanView
+	Build              *BuildView
 	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
@@ -394,6 +395,81 @@ type BriefBoundaryRequestView struct {
 	Reason    string
 }
 
+// BuildView is app-injected bounded build output.
+type BuildView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	Summary              string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	PlanItem             BuildPlanItemView
+	Step                 BuildStepView
+	Operation            BuildOperationView
+	ChangedPaths         []string
+	Blockers             []string
+	Caveats              []string
+	FinalSummary         string
+	ArtifactRefs         []BuildArtifactRefView
+	SourceRefs           []BuildSourceRefView
+	BoundaryRequests     []BuildBoundaryRequestView
+}
+
+// BuildPlanItemView records the app-selected plan item for build.
+type BuildPlanItemView struct {
+	ID     string
+	Text   string
+	Status string
+}
+
+// BuildStepView records the one bounded step and held result.
+type BuildStepView struct {
+	ID     string
+	Text   string
+	Status string
+}
+
+// BuildOperationView records command, permission, and mutation evidence for build.
+type BuildOperationView struct {
+	Name             string
+	Status           string
+	Path             string
+	ExpectedEffect   string
+	DecisionSource   string
+	DecisionAutonomy string
+	DecisionAllowed  bool
+	ApprovalRequired bool
+	BytesWritten     int
+	ErrorKind        string
+	ErrorMessage     string
+}
+
+// BuildArtifactRefView records one build artifact reference.
+type BuildArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// BuildSourceRefView records one source reference supporting build output.
+type BuildSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// BuildBoundaryRequestView records one inert build boundary descriptor.
+type BuildBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // PlanView is app-injected scoped planning output.
 type PlanView struct {
 	Source               string
@@ -530,6 +606,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, runtimeStatusLines(state)...)
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	items = append(items, briefLines(state.Brief)...)
+	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
 	if state.SurfaceTitle == "agent evidence" {
 		items = append(items, diagnosticLines(state.Diagnostics)...)
@@ -1248,6 +1325,84 @@ func planLines(plan *PlanView) []string {
 	return lines
 }
 
+func buildLines(build *BuildView) []string {
+	if build == nil {
+		return nil
+	}
+	semantic := semanticBuild(build)
+	lines := []string{
+		"  Build:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  plan item: " + semantic.PlanItem.ID + " status=" + semantic.PlanItem.Status + " text=" + semantic.PlanItem.Text,
+		"  step: " + semantic.Step.ID + " status=" + semantic.Step.Status + " text=" + semantic.Step.Text,
+		"  tool: " + semantic.Operation.Name + " status=" + semantic.Operation.Status,
+		"  path: " + semantic.Operation.Path,
+		"  decision source: " + semantic.Operation.DecisionSource,
+		"  decision autonomy: " + semantic.Operation.DecisionAutonomy,
+		"  decision allowed: " + boolLabel(semantic.Operation.DecisionAllowed),
+		"  approval required: " + boolLabel(semantic.Operation.ApprovalRequired),
+		"  bytes written: " + fmt.Sprint(semantic.Operation.BytesWritten),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.FinalSummary != "" {
+		lines = append(lines, "  final summary: "+semantic.FinalSummary)
+	}
+	for _, path := range semantic.ChangedPaths {
+		lines = append(lines, "  changed path: "+path)
+	}
+	for _, blocker := range semantic.Blockers {
+		lines = append(lines, "  blocker: "+blocker)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	if semantic.Operation.ExpectedEffect != "" {
+		lines = append(lines, "  expected effect: "+semantic.Operation.ExpectedEffect)
+	}
+	if semantic.Operation.ErrorKind != "" {
+		lines = append(lines, "  error kind: "+semantic.Operation.ErrorKind)
+	}
+	if semantic.Operation.ErrorMessage != "" {
+		lines = append(lines, "  error message: "+semantic.Operation.ErrorMessage)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "")
+}
+
 func compactLines(compact *CompactView) []string {
 	if compact == nil {
 		return nil
@@ -1812,6 +1967,7 @@ type SemanticSnapshot struct {
 	PolicyRoute    *SemanticPolicyRoute    `json:"policy_route,omitempty"`
 	Brief          *SemanticBrief          `json:"brief,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
+	Build          *SemanticBuild          `json:"build,omitempty"`
 	History        *SemanticHistory        `json:"history,omitempty"`
 	Diff           *SemanticDiff           `json:"diff,omitempty"`
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
@@ -2324,6 +2480,82 @@ type SemanticBriefBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticBuild describes app-injected bounded build output.
+type SemanticBuild struct {
+	Visible              bool                           `json:"visible"`
+	Source               string                         `json:"source"`
+	Capability           string                         `json:"capability"`
+	Signal               string                         `json:"signal"`
+	Summary              string                         `json:"summary,omitempty"`
+	RecommendedSuccessor string                         `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                           `json:"successor_valid"`
+	TransitionClaimed    bool                           `json:"transition_claimed"`
+	DisplayOnly          bool                           `json:"display_only"`
+	PlanItem             SemanticBuildPlanItem          `json:"plan_item"`
+	Step                 SemanticBuildStep              `json:"step"`
+	Operation            SemanticBuildOperation         `json:"tool"`
+	ChangedPaths         []string                       `json:"changed_paths,omitempty"`
+	Blockers             []string                       `json:"blockers,omitempty"`
+	Caveats              []string                       `json:"caveats,omitempty"`
+	FinalSummary         string                         `json:"final_summary,omitempty"`
+	ArtifactRefs         []SemanticBuildArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticBuildSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticBuildBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticBuildPlanItem records the selected plan item.
+type SemanticBuildPlanItem struct {
+	ID     string `json:"id"`
+	Text   string `json:"text"`
+	Status string `json:"status"`
+}
+
+// SemanticBuildStep records the one bounded build step.
+type SemanticBuildStep struct {
+	ID     string `json:"id"`
+	Text   string `json:"text"`
+	Status string `json:"status"`
+}
+
+// SemanticBuildOperation records command, permission, and mutation result evidence.
+type SemanticBuildOperation struct {
+	Name             string `json:"tool_name"`
+	Status           string `json:"status"`
+	Path             string `json:"path,omitempty"`
+	ExpectedEffect   string `json:"expected_effect,omitempty"`
+	DecisionSource   string `json:"decision_source,omitempty"`
+	DecisionAutonomy string `json:"decision_autonomy,omitempty"`
+	DecisionAllowed  bool   `json:"decision_allowed"`
+	ApprovalRequired bool   `json:"approval_required"`
+	BytesWritten     int    `json:"bytes_written,omitempty"`
+	ErrorKind        string `json:"error_kind,omitempty"`
+	ErrorMessage     string `json:"error_message,omitempty"`
+}
+
+// SemanticBuildArtifactRef records one build artifact reference.
+type SemanticBuildArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticBuildSourceRef records one build source reference.
+type SemanticBuildSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticBuildBoundaryRequest records one inert build boundary descriptor.
+type SemanticBuildBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticPlan describes app-injected scoped planning output.
 type SemanticPlan struct {
 	Visible              bool                          `json:"visible"`
@@ -2667,6 +2899,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
+	if state.Build != nil {
+		regions = append(regions, SemanticRegion{Name: "build", Visible: true, Items: semanticBuildItems(state.Build)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -2751,6 +2986,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		PolicyRoute:    semanticPolicyRoute(state.PolicyRoute),
 		Brief:          semanticBrief(state.Brief),
 		Plan:           semanticPlan(state.Plan),
+		Build:          semanticBuild(state.Build),
 		History:        semanticHistory(state),
 		Diff:           semanticDiff(state),
 		Read:           semanticRead(state.Read),
@@ -3716,6 +3952,133 @@ func semanticPolicyRoute(route *PolicyRouteView) *SemanticPolicyRoute {
 		Executed:             route.Executed,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
+	}
+}
+
+func semanticBuildItems(build *BuildView) []string {
+	semantic := semanticBuild(build)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"plan_item: " + semantic.PlanItem.ID + " status=" + semantic.PlanItem.Status + " text=" + semantic.PlanItem.Text,
+		"step: " + semantic.Step.ID + " status=" + semantic.Step.Status + " text=" + semantic.Step.Text,
+		"tool: " + semantic.Operation.Name + " status=" + semantic.Operation.Status,
+		"path: " + semantic.Operation.Path,
+		"decision_source: " + semantic.Operation.DecisionSource,
+		"decision_autonomy: " + semantic.Operation.DecisionAutonomy,
+		"decision_allowed: " + boolLabel(semantic.Operation.DecisionAllowed),
+		"approval_required: " + boolLabel(semantic.Operation.ApprovalRequired),
+		"bytes_written: " + fmt.Sprint(semantic.Operation.BytesWritten),
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.FinalSummary != "" {
+		items = append(items, "final_summary: "+semantic.FinalSummary)
+	}
+	for _, path := range semantic.ChangedPaths {
+		items = append(items, "changed_path: "+path)
+	}
+	for _, blocker := range semantic.Blockers {
+		items = append(items, "blocker: "+blocker)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticBuild(build *BuildView) *SemanticBuild {
+	if build == nil {
+		return nil
+	}
+	artifactRefs := make([]SemanticBuildArtifactRef, 0, len(build.ArtifactRefs))
+	for _, ref := range build.ArtifactRefs {
+		artifactRefs = append(artifactRefs, SemanticBuildArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticBuildSourceRef, 0, len(build.SourceRefs))
+	for _, ref := range build.SourceRefs {
+		refs = append(refs, SemanticBuildSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticBuildBoundaryRequest, 0, len(build.BoundaryRequests))
+	for _, request := range build.BoundaryRequests {
+		requests = append(requests, SemanticBuildBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticBuild{
+		Visible:              true,
+		Source:               safeText(defaultString(build.Source, "app.build")),
+		Capability:           safeText(defaultString(build.Capability, "build")),
+		Signal:               safeText(defaultString(build.Signal, "complete")),
+		Summary:              safeText(build.Summary),
+		RecommendedSuccessor: safeText(build.RecommendedSuccessor),
+		SuccessorValid:       build.SuccessorValid,
+		TransitionClaimed:    build.TransitionClaimed,
+		DisplayOnly:          build.DisplayOnly,
+		PlanItem: SemanticBuildPlanItem{
+			ID:     safeText(build.PlanItem.ID),
+			Text:   safeText(build.PlanItem.Text),
+			Status: safeText(build.PlanItem.Status),
+		},
+		Step: SemanticBuildStep{
+			ID:     safeText(build.Step.ID),
+			Text:   safeText(build.Step.Text),
+			Status: safeText(build.Step.Status),
+		},
+		Operation: SemanticBuildOperation{
+			Name:             safeText(build.Operation.Name),
+			Status:           safeText(build.Operation.Status),
+			Path:             safeText(build.Operation.Path),
+			ExpectedEffect:   safeText(build.Operation.ExpectedEffect),
+			DecisionSource:   safeText(build.Operation.DecisionSource),
+			DecisionAutonomy: safeText(build.Operation.DecisionAutonomy),
+			DecisionAllowed:  build.Operation.DecisionAllowed,
+			ApprovalRequired: build.Operation.ApprovalRequired,
+			BytesWritten:     build.Operation.BytesWritten,
+			ErrorKind:        safeText(build.Operation.ErrorKind),
+			ErrorMessage:     safeText(build.Operation.ErrorMessage),
+		},
+		ChangedPaths:     safeTextSlice(build.ChangedPaths),
+		Blockers:         safeTextSlice(build.Blockers),
+		Caveats:          safeTextSlice(build.Caveats),
+		FinalSummary:     safeText(build.FinalSummary),
+		ArtifactRefs:     artifactRefs,
+		SourceRefs:       refs,
+		BoundaryRequests: requests,
 	}
 }
 

@@ -17,6 +17,7 @@
 | /auto - Choose the active autonomy level for this session.                                                       |  |                                        |
 | /status - Inspect current runtime and state.                                                                     |  |                                        |
 | /plan - Create and display scoped work without executing it.                                                     |  |                                        |
+| /build - Execute one planned task through safety paths, then hold.                                               |  |                                        |
 | /review - Inspect current changes, risks, and sources.                                                           |  |                                        |
 | /history - Browse runs, edits, checks, and undo data.                                                            |  |                                        |
 | /compact - Immediately compact the current conversation.                                                         |  |                                        |
@@ -36,7 +37,6 @@
 | ctrl+x k - Immediately compact the current conversation.                                                         |  |                                        |
 | ctrl+x d - Review current changes.                                                                               |  |                                        |
 | ctrl+x u - Undo the latest supported mutation.                                                                   |  |                                        |
-| ctrl+x r - Redo the latest supported recovery.                                                                   |  |                                        |
 +------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
 + [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
 | [36m>[0m                                                                                                                                                            |

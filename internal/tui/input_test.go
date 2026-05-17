@@ -691,7 +691,7 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	t.Parallel()
 
 	renderHelp := func() string {
-		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 160, Height: 45}, nil, nil)
+		model := NewModelWithSizePromptSubmitAndCommandRoute(Size{Width: 160, Height: 50}, nil, nil)
 		updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/help")})
 		if cmd != nil {
 			t.Fatal("typing help must not emit a Bubble Tea command")
@@ -720,6 +720,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"/model --utility - Choose the active utility model for this session.",
 		"/auto - Choose the active autonomy level for this session.",
 		"/status - Inspect current runtime and state.",
+		"/plan - Create and display scoped work without executing it.",
+		"/build - Execute one planned task through safety paths, then hold.",
 		"/review - Inspect current changes, risks, and sources.",
 		"/history - Browse runs, edits, checks, and undo data.",
 		"/compact - Immediately compact the current conversation.",
@@ -752,7 +754,9 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "/model - Choose the active primary model for this session.", "/model --utility - Choose the active utility model for this session.")
 	assertOrdered(t, first, "/model --utility - Choose the active utility model for this session.", "/auto - Choose the active autonomy level for this session.")
 	assertOrdered(t, first, "/auto - Choose the active autonomy level for this session.", "/status - Inspect current runtime and state.")
-	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/review - Inspect current changes, risks, and sources.")
+	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/plan - Create and display scoped work without executing it.")
+	assertOrdered(t, first, "/plan - Create and display scoped work without executing it.", "/build - Execute one planned task through safety paths, then hold.")
+	assertOrdered(t, first, "/build - Execute one planned task through safety paths, then hold.", "/review - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "/review - Inspect current changes, risks, and sources.", "/history - Browse runs, edits, checks, and undo data.")
 	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/compact - Immediately compact the current conversation.")
 	assertOrdered(t, first, "/compact - Immediately compact the current conversation.", "/diff - Review current changes.")
