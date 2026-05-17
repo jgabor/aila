@@ -43,6 +43,7 @@ type ViewState struct {
 	Approval           *ApprovalProposalView
 	ApprovalDecision   *ApprovalDecisionView
 	Command            *CommandView
+	Context            *ContextView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -425,6 +426,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, approvalLines(state.Approval)...)
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
+	items = append(items, contextLines(state.Context)...)
 	items = append(items, commandLines(state.Command)...)
 	items = append(items, fetchLines(state.Fetch)...)
 	items = append(items, recoveryLines(state.Recovery)...)
@@ -808,6 +810,54 @@ func commandLines(command *CommandView) []string {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
 	lines = appendDecisionLines(lines, semantic.Decision)
+	lines = append(lines, "")
+	return lines
+}
+
+func contextLines(contextView *ContextView) []string {
+	if contextView == nil {
+		return nil
+	}
+	lines := []string{
+		"  Context:",
+		"  source: " + safeText(defaultString(contextView.Source, "app.context")),
+		"  status: " + safeText(defaultString(contextView.Status, "ready")),
+		"  meter: " + safeText(contextView.Meter),
+	}
+	for _, block := range contextView.Blocks {
+		lines = append(lines, "  block: "+safeText(block.Kind)+" "+safeText(block.Title))
+		if block.Text != "" {
+			lines = append(lines, "  | "+safeText(block.Text))
+		}
+		if len(block.SourceRefIDs) > 0 {
+			lines = append(lines, "  block refs: "+strings.Join(safeTextSlice(block.SourceRefIDs), ", "))
+		}
+	}
+	for _, claim := range contextView.Claims {
+		lines = append(lines, "  claim: "+safeText(claim.Text))
+		if len(claim.SourceRefIDs) > 0 {
+			lines = append(lines, "  claim refs: "+strings.Join(safeTextSlice(claim.SourceRefIDs), ", "))
+		}
+	}
+	for _, ref := range contextView.SourceRefs {
+		label := safeText(ref.ID) + " " + safeText(ref.Kind)
+		if ref.Path != "" {
+			label += " " + safeText(ref.Path)
+		}
+		if ref.Command != "" {
+			label += " command=" + safeText(ref.Command)
+		}
+		if ref.Stream != "" {
+			label += " stream=" + safeText(ref.Stream)
+		}
+		if ref.Excerpt != "" {
+			label += " excerpt=" + safeText(ref.Excerpt)
+		}
+		lines = append(lines, "  source ref: "+label)
+	}
+	for _, warning := range contextView.Warnings {
+		lines = append(lines, "  warning: "+safeText(warning))
+	}
 	lines = append(lines, "")
 	return lines
 }
@@ -1291,6 +1341,7 @@ type SemanticSnapshot struct {
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
 	Search         *SemanticSearch         `json:"search_tool,omitempty"`
 	Bash           *SemanticBash           `json:"bash_tool,omitempty"`
+	Context        *SemanticContext        `json:"context,omitempty"`
 	Fetch          *SemanticFetch          `json:"fetch_tool,omitempty"`
 	Mutation       *SemanticMutation       `json:"mutation_tool,omitempty"`
 	Recovery       *SemanticRecovery       `json:"recovery,omitempty"`
@@ -1413,6 +1464,45 @@ type SemanticFetch struct {
 	ErrorMessage      string            `json:"error_message,omitempty"`
 	Decision          *SemanticDecision `json:"decision,omitempty"`
 	Completed         bool              `json:"completed"`
+}
+
+// SemanticContext describes app-injected context assembly state.
+type SemanticContext struct {
+	Source     string                     `json:"source"`
+	Status     string                     `json:"status"`
+	Meter      string                     `json:"meter"`
+	Blocks     []SemanticContextBlock     `json:"blocks,omitempty"`
+	Claims     []SemanticContextClaim     `json:"claims,omitempty"`
+	SourceRefs []SemanticContextSourceRef `json:"source_refs,omitempty"`
+	Warnings   []string                   `json:"warnings,omitempty"`
+}
+
+// SemanticContextBlock records one context block and supporting refs.
+type SemanticContextBlock struct {
+	ID           string   `json:"id"`
+	Kind         string   `json:"kind"`
+	Title        string   `json:"title"`
+	Text         string   `json:"text"`
+	SourceRefIDs []string `json:"source_ref_ids,omitempty"`
+}
+
+// SemanticContextClaim records a rendered claim and supporting refs.
+type SemanticContextClaim struct {
+	Text         string   `json:"text"`
+	SourceRefIDs []string `json:"source_ref_ids,omitempty"`
+}
+
+// SemanticContextSourceRef records exact source evidence for context.
+type SemanticContextSourceRef struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Label     string `json:"label,omitempty"`
+	Path      string `json:"path,omitempty"`
+	LineStart int    `json:"line_start,omitempty"`
+	LineEnd   int    `json:"line_end,omitempty"`
+	Command   string `json:"command,omitempty"`
+	Stream    string `json:"stream,omitempty"`
+	Excerpt   string `json:"excerpt,omitempty"`
 }
 
 // SemanticRecovery describes injected undo/redo result state for snapshots.
@@ -1838,6 +1928,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Command != nil {
 		regions = append(regions, SemanticRegion{Name: "bash_tool", Visible: true, Items: semanticBashItems(state.Command)})
 	}
+	if state.Context != nil {
+		regions = append(regions, SemanticRegion{Name: "context", Visible: true, Items: semanticContextItems(state.Context)})
+	}
 	if state.Fetch != nil {
 		regions = append(regions, SemanticRegion{Name: "fetch_tool", Visible: true, Items: semanticFetchItems(state.Fetch)})
 	}
@@ -1951,6 +2044,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Read:           semanticRead(state.Read),
 		Search:         semanticSearch(state.Search),
 		Bash:           semanticBash(state.Command),
+		Context:        semanticContext(state.Context),
 		Fetch:          semanticFetch(state.Fetch),
 		Mutation:       semanticMutation(state.Mutation),
 		Recovery:       semanticRecovery(state.Recovery),
@@ -2798,6 +2892,97 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticContextItems(contextView *ContextView) []string {
+	semantic := semanticContext(contextView)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"status: " + semantic.Status,
+		"meter: " + semantic.Meter,
+	}
+	for _, block := range semantic.Blocks {
+		items = append(items, "block: "+block.ID+" "+block.Kind+" "+block.Title)
+		if block.Text != "" {
+			items = append(items, "block_text: "+block.Text)
+		}
+		for _, refID := range block.SourceRefIDs {
+			items = append(items, "block_ref: "+block.ID+" "+refID)
+		}
+	}
+	for _, claim := range semantic.Claims {
+		items = append(items, "claim: "+claim.Text)
+		for _, refID := range claim.SourceRefIDs {
+			items = append(items, "claim_ref: "+claim.Text+" -> "+refID)
+		}
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Stream != "" {
+			item += " stream=" + ref.Stream
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	for _, warning := range semantic.Warnings {
+		items = append(items, "warning: "+warning)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticContext(contextView *ContextView) *SemanticContext {
+	if contextView == nil {
+		return nil
+	}
+	blocks := make([]SemanticContextBlock, 0, len(contextView.Blocks))
+	for _, block := range contextView.Blocks {
+		blocks = append(blocks, SemanticContextBlock{
+			ID:           safeText(block.ID),
+			Kind:         safeText(block.Kind),
+			Title:        safeText(block.Title),
+			Text:         safeText(block.Text),
+			SourceRefIDs: safeTextSlice(block.SourceRefIDs),
+		})
+	}
+	claims := make([]SemanticContextClaim, 0, len(contextView.Claims))
+	for _, claim := range contextView.Claims {
+		claims = append(claims, SemanticContextClaim{Text: safeText(claim.Text), SourceRefIDs: safeTextSlice(claim.SourceRefIDs)})
+	}
+	refs := make([]SemanticContextSourceRef, 0, len(contextView.SourceRefs))
+	for _, ref := range contextView.SourceRefs {
+		refs = append(refs, SemanticContextSourceRef{
+			ID:        safeText(ref.ID),
+			Kind:      safeText(ref.Kind),
+			Label:     safeText(ref.Label),
+			Path:      safeText(ref.Path),
+			LineStart: ref.LineStart,
+			LineEnd:   ref.LineEnd,
+			Command:   safeText(ref.Command),
+			Stream:    safeText(ref.Stream),
+			Excerpt:   safeText(ref.Excerpt),
+		})
+	}
+	return &SemanticContext{
+		Source:     safeText(defaultString(contextView.Source, "app.context")),
+		Status:     safeText(defaultString(contextView.Status, "ready")),
+		Meter:      safeText(contextView.Meter),
+		Blocks:     blocks,
+		Claims:     claims,
+		SourceRefs: refs,
+		Warnings:   safeTextSlice(contextView.Warnings),
+	}
 }
 
 func semanticRecoveryItems(recovery *RecoveryView) []string {
@@ -4019,6 +4204,9 @@ func rightRailSemanticItems(state ViewState) []string {
 	}
 	if state.Command != nil {
 		items = append(items, semanticBashItems(state.Command)...)
+	}
+	if state.Context != nil {
+		items = append(items, semanticContextItems(state.Context)...)
 	}
 	if state.Mutation != nil {
 		items = append(items, semanticMutationItems(state.Mutation)...)

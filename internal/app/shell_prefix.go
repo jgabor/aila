@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	ailacontext "github.com/jgabor/aila/internal/context"
 	"github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
@@ -17,7 +18,7 @@ func (controller *sessionController) submitShellPrefix(recommendation policy.She
 	case policy.ShellPrefixExecutable:
 		return controller.submitExecutableShellPrefix(recommendation)
 	case policy.ShellPrefixSummarized:
-		return controller.submitDeferredSummarizedShellPrefix(recommendation)
+		return controller.submitSummarizedShellPrefix(recommendation)
 	default:
 		return tui.TranscriptTurn{}
 	}
@@ -41,26 +42,25 @@ func (controller *sessionController) submitExecutableShellPrefix(recommendation 
 	return controller.persistCurrentSnapshot(turn)
 }
 
-func (controller *sessionController) submitDeferredSummarizedShellPrefix(recommendation policy.ShellPrefixRecommendation) tui.TranscriptTurn {
-	message := "summarized shell output is deferred until Milestone 39 context builder"
-	turn := tui.TranscriptTurn{
-		UserText:      recommendation.ExactInput,
-		RuntimeStatus: "idle",
-		StatusSource:  shellPrefixSource,
-		StatusDetail:  message,
-		RuntimeResult: message,
-		Command: &tui.CommandView{
-			Name:           "bash",
-			Status:         "deferred",
-			ReadOnly:       true,
-			Argv:           shellPrefixArgv(recommendation.CommandText),
-			WorkingDir:     ".",
-			CommandFamily:  "summarized shell",
-			ExpectedEffect: "summarize shell output for context in Milestone 39",
-			ErrorKind:      "deferred",
-			ErrorMessage:   message,
+func (controller *sessionController) submitSummarizedShellPrefix(recommendation policy.ShellPrefixRecommendation) tui.TranscriptTurn {
+	turn := controller.runner.proposeBashTool(runtime.BashToolRequest{
+		Argv:       shellPrefixArgv(recommendation.CommandText),
+		WorkingDir: ".",
+		Source: runtime.BashSourceMetadata{
+			Caller:      shellPrefixSource,
+			RequestID:   shellPrefixRequestID(recommendation),
+			Description: "user summarized shell prefix command",
 		},
+	})
+	turn.UserText = recommendation.ExactInput
+	if turn.Command != nil {
+		turn.Command.CommandFamily = "summarized shell"
+		turn.Command.ExpectedEffect = "summarize shell output for context with source refs"
 	}
+	built := buildShellPrefixContext(recommendation, turn)
+	turn.Context = contextViewFromBuiltContext(built)
+	turn.StatusDetail = "summarized shell output added to context with source refs"
+	turn.RuntimeResult = summarizedShellRuntimeResult(turn)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 	diagnostics := controller.persistShellPrefixHistory(recommendation, turn)
 	turn.Diagnostics = append(turn.Diagnostics, diagnostics...)
@@ -86,4 +86,88 @@ func shellPrefixRequestID(recommendation policy.ShellPrefixRecommendation) strin
 
 func shellPrefixArgv(command string) []string {
 	return strings.Fields(command)
+}
+
+func buildShellPrefixContext(recommendation policy.ShellPrefixRecommendation, turn tui.TranscriptTurn) ailacontext.BuiltContext {
+	command := recommendation.CommandText
+	input := ailacontext.BuildInput{
+		Prompts: []ailacontext.PromptInput{{Text: recommendation.ExactInput}},
+		Commands: []ailacontext.CommandOutputInput{{
+			Command:      command,
+			Status:       "unknown",
+			ExitCode:     0,
+			ErrorKind:    "",
+			ErrorMessage: "",
+		}},
+		MaxBytes: 4096,
+	}
+	if turn.Command != nil {
+		input.Commands[0] = ailacontext.CommandOutputInput{
+			Command:         strings.Join(turn.Command.Argv, " "),
+			Status:          turn.Command.Status,
+			ExitCode:        turn.Command.ExitCode,
+			StdoutLines:     turn.Command.StdoutLines,
+			StderrLines:     turn.Command.StderrLines,
+			StdoutTruncated: turn.Command.StdoutTruncated,
+			StderrTruncated: turn.Command.StderrTruncated,
+			ErrorKind:       turn.Command.ErrorKind,
+			ErrorMessage:    turn.Command.ErrorMessage,
+		}
+		if strings.TrimSpace(input.Commands[0].Command) == "" {
+			input.Commands[0].Command = command
+		}
+	}
+	return ailacontext.Build(input)
+}
+
+func contextViewFromBuiltContext(built ailacontext.BuiltContext) *tui.ContextView {
+	view := &tui.ContextView{
+		Source:   "app.context",
+		Status:   "ready",
+		Meter:    built.MeterLabel(),
+		Warnings: append([]string(nil), built.Warnings...),
+	}
+	view.Blocks = make([]tui.ContextBlockView, 0, len(built.Blocks))
+	for _, block := range built.Blocks {
+		view.Blocks = append(view.Blocks, tui.ContextBlockView{
+			ID:           block.ID,
+			Kind:         block.Kind,
+			Title:        block.Title,
+			Text:         block.Text,
+			SourceRefIDs: append([]string(nil), block.SourceRefIDs...),
+		})
+	}
+	view.Claims = make([]tui.ContextClaimView, 0, len(built.Claims))
+	for _, claim := range built.Claims {
+		view.Claims = append(view.Claims, tui.ContextClaimView{Text: claim.Text, SourceRefIDs: append([]string(nil), claim.SourceRefIDs...)})
+	}
+	view.SourceRefs = make([]tui.ContextSourceRefView, 0, len(built.SourceRefs))
+	for _, ref := range built.SourceRefs {
+		view.SourceRefs = append(view.SourceRefs, tui.ContextSourceRefView{
+			ID:        ref.ID,
+			Kind:      string(ref.Kind),
+			Label:     ref.Label,
+			Path:      ref.Path,
+			LineStart: ref.LineStart,
+			LineEnd:   ref.LineEnd,
+			Command:   ref.Command,
+			Stream:    ref.Stream,
+			Excerpt:   ref.Excerpt,
+		})
+	}
+	return view
+}
+
+func summarizedShellRuntimeResult(turn tui.TranscriptTurn) string {
+	if turn.Command == nil {
+		return "summarized shell output added to context"
+	}
+	command := strings.Join(turn.Command.Argv, " ")
+	if command == "" {
+		command = "requested command"
+	}
+	if turn.Command.ErrorKind != "" && turn.Command.ErrorKind != string(runtime.BashToolErrorNone) {
+		return "summarized shell command " + command + " failed with source refs"
+	}
+	return "summarized shell command " + command + " added to context with source refs"
 }

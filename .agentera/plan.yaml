@@ -3,203 +3,203 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M38 must implement only the shell prefix command path. `!command` must route through the existing runtime
-    bash tool, permission decision, visible result, and history recording path. `!!command` is reserved for the M39 context
-    builder and must show a clear deferred app-owned message without running summarization or provider/context logic. Keep
-    mutating shell commands guarded by existing permission rules, keep the TUI presentation-only, and do not add context assembly,
-    /compact, provider calls, file mutation shortcuts, plugins, MCP, workflow DSLs, generic registries, or M39+ behavior.
-  title: 'Milestone 38: Shell Prefixes'
-what: 'Deliver ROADMAP.md Milestone 38 by adding README-promised shell input prefixes: `!command` executes through Aila''s
-  existing safe bash runtime effect and permission/history path, while `!!command` is recognized as summarized-shell syntax
-  and visibly deferred until the context builder lands in Milestone 39.'
-why: M20 established the safe bash tool, M22/M26 established permission decisions, M28-M30 made command/history state visible,
-  and M33-M37A stabilized interactive prompt command routing. M38 turns shell-like user input into typed runtime work instead
-  of a hidden TUI or raw shell bypass.
-constraints: 'Execute only Milestone 38. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may submit exact prompt text and render app-injected shell result/deferred state, but it must not parse shell syntax
-  for execution, run shell commands, classify permissions, write history, persist sessions, assemble model context, call providers,
-  or mutate workflow phase. Use app-owned prefix routing backed by policy parsing and the existing runtime BashToolProposed
-  path. Route `!command` through validation, permission, bash effect dispatch, visible result, current snapshot persistence,
-  and history. Route `!!command` to a reserved/deferred visible result and command history only; do not execute the command
-  or build context. Keep mutating shell commands guarded by existing permission rules. Do not add /compact, ctrl+x k, context
-  builder/source refs, summarized-shell provider behavior, generic command registries, plugins, MCP, workflow DSLs, hosted
-  control planes, or M39+ behavior. Use behavior-based test names; do not introduce new TestM<number> symbols. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m37a.yaml
+  critic_issues: M39 must implement only the context-builder/source-reference slice. The context package owns structured context
+    blocks, source refs, source-backed claims, and budget metadata. `!!command` must now reuse the existing bash permission/history/result
+    path before adding summarized command context with exact preserved failure/output references. Keep `/compact`, ctrl+x
+    k, background utility jobs, stale-context checks, provider summarization, prompt-provider rewrites, plugins, MCP, workflow
+    DSLs, generic graph engines, and M40+ behavior out of scope.
+  title: 'Milestone 39: Context Builder With Source Refs'
+what: Deliver ROADMAP.md Milestone 39 by adding Aila-owned structured context assembly with exact source references, visible
+  context evidence, and completed `!!command` handling that routes through bash permission/history before feeding summarized
+  command output into context.
+why: M38 made `!!command` a visible deferred shell-prefix path. M39 turns context into a typed product boundary so prompts,
+  tool results, diffs, command output, and user constraints can be assembled without losing the references needed for trust,
+  while still avoiding manual compaction and background utility work.
+constraints: 'Execute only Milestone 39. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected context meter, source refs, source-backed claims, and summarized shell context, but it must not
+  assemble context, execute shell commands, summarize output, call providers, read files, classify permissions, write history,
+  persist sessions, or mutate workflow phase. Use `internal/context` for pure source-ref/context assembly. Route `!!command`
+  through the existing runtime BashToolProposed/dispatchBashEffect path and existing permission/history recording before context
+  is built. Preserve exact command, output, stderr, failure lines, paths, diffs, and user constraints when correctness may
+  depend on them. Do not add `/compact`, ctrl+x k, compaction effects, background utility jobs, stale-context checks, provider
+  summarization, model prompt rewrites beyond bounded context data assembly, source indexing, plugins, MCP, workflow DSLs,
+  generic graph engines, hosted control planes, or M40+ behavior. Use behavior-based test names; do not introduce new TestM<number>
+  symbols. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m38.yaml
 source_anchors:
-- ROADMAP.md:16-110
-- ROADMAP.md:1570-1594
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
-- README.md:186-187
-- README.md:281-329
-- ARCHITECTURE.md:459-524
-- ARCHITECTURE.md:681-745
-- docs/workflow-architecture.md:63-70
-- docs/workflow-architecture.md:535-552
-- docs/tui-testing.md:60-82
-- docs/tui-testing.md:100-121
-- internal/policy/command.go
-- internal/app/session_snapshot.go
+- ROADMAP.md:16-110
+- ROADMAP.md:1597-1622
+- README.md:125-333
+- ARCHITECTURE.md:600-641
+- docs/workflow-architecture.md:475-547
+- docs/workflow-architecture.md:633-644
+- docs/tui-testing.md:130-210
+- internal/context/doc.go
+- internal/app/shell_prefix.go
 - internal/app/prompt.go
 - internal/app/shutdown.go
-- internal/tools/bash.go
 - internal/runtime/runtime.go
+- internal/state/session_snapshot.go
 - internal/tui/model.go
 - internal/tui/render.go
 - cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/policy -run 'Test.*Shell.*Prefix.*|Test.*Command.*' -count=1
-- go test ./internal/app -run 'Test.*Shell.*Prefix.*|Test.*Bash.*|Test.*History.*|Test.*Prompt.*' -count=1
-- go test ./internal/tui -run 'Test.*Shell.*Prefix.*|Test.*Bash.*|Test.*Command.*|Test.*Fixture.*|Test.*Semantic.*' -count=1
-- go test ./cmd/aila -run 'Test.*Shell.*Prefix.*PTYSmoke|Test.*Bash.*PTYSmoke' -count=1
+- go test ./internal/context -count=1
+- go test ./internal/app -run 'Test.*Context.*|Test.*Summarized.*Shell.*|Test.*Shell.*Prefix.*|Test.*Bash.*|Test.*History.*|Test.*Prompt.*'
+  -count=1
+- go test ./internal/tui -run 'Test.*Context.*|Test.*Summarized.*Shell.*|Test.*Command.*|Test.*Fixture.*|Test.*Semantic.*'
+  -count=1
+- go test ./cmd/aila -run 'Test.*Summarized.*Shell.*PTYSmoke|Test.*Shell.*Prefix.*PTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m37a.yaml cmd/aila
-  internal/app internal/policy internal/runtime internal/tools internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
-- changed-line home-path and milestone-numbered test-name hygiene returns no matches
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m38.yaml cmd/aila
+  internal/app internal/context internal/policy internal/runtime internal/state internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
+- changed-line home-path and milestone-numbered test-name hygiene returns no matches
 scope:
   included:
-  - Add policy-owned shell prefix parsing for exact `!command` and reserved `!!command` inputs without expanding slash commands
-    or generic registries.
-  - 'Add app-owned shell prefix handling from submitted prompt text: `!command` parses argv, proposes a runtime bash tool
-    request, applies visible result state, records command/history evidence, and persists the current snapshot.'
-  - Add app-owned reserved summarized-shell handling for `!!command` that preserves the exact command, displays a clear M39-deferred
-    result, records command/history evidence, and performs no shell execution, provider call, or context assembly.
-  - Preserve existing bash validation, permission decisions, safe read-only allowlist, and denial/failure rendering for unsafe
-    or mutating commands.
-  - Add shell-result, shell-failure, and summarized-shell-deferred fixtures with render and semantic snapshots that expose
-    command, status, output summary, and exact preserved failure lines.
-  - Add prefix routing, history, semantic, key/update, and PTY smoke coverage for a safe temp command such as `!git status
-    --short`.
+  - Add an `internal/context` source reference model plus pure context builder for prompts, tool results, diffs, command output,
+    and user constraints.
+  - Add context budget/meter data, source-backed claims, exact critical detail preservation, and deterministic summaries without
+    provider calls.
+  - '`!!command` runs through the existing bash validation, permission, effect dispatch, visible result, command/history recording,
+    and current snapshot path before building summarized shell context.'
+  - Expose app-injected context state in the TUI with source refs supporting rendered claims and summarized shell output when
+    visible.
+  - Add context builder tests proving source refs survive assembly and exact command/failure details remain available.
+  - Add/update render, ANSI, and semantic fixtures for context meter, source-backed claims, and summarized shell output; run
+    PTY smoke only for visible terminal behavior changed by `!!`.
   excluded:
-  - Context builder/source references, actual summarized-shell context feeding, provider reasoning over command output, /compact,
-    ctrl+x k, expanded shell grammar, shell pipelines, mutating-shell execution bypasses, config editing, plugins, MCP, workflow
-    DSLs, generic command registries, hosted control planes, and M39+ behavior.
+  - /compact, ctrl+x k, compaction effects, background continuous compaction, utility context-prep jobs, stale-context checks,
+    summary refresh jobs, provider summarization/model reasoning over shell output, source indexing, generic registries, plugins,
+    MCP, workflow DSLs, hosted control planes, config writes, and M40+ behavior.
   deferred:
-  - Feeding `!!command` output into the context builder, source-ref preservation for summarized command output, richer shell
-    parsing, command result summarization, and model reasoning over shell output.
-design: Keep the single prompt submit path and add a small app-owned shell-prefix router in front of ordinary prompt submission.
-  Policy parses only leading `!` and `!!` forms into typed prefix recommendations. For `!`, the app converts the command into
-  argv without shell evaluation, calls the existing inputRunner.proposeBashTool path, and reuses dispatchBashEffect for validation,
-  autonomy policy, effect execution, and result mapping. The controller then records command/history evidence and persists
-  the visible snapshot. For `!!`, the app injects a display-only deferred CommandView with the parsed argv and exact command
-  metadata, records history, and skips runtime effects. The TUI remains display-only for command result/deferred state.
+  - Manual `/compact`, compaction persistence, background context prep, stale-context detection, source indexing/ranking,
+    provider-assisted summarization, and model prompt optimization beyond deterministic context assembly.
+design: Introduce a small pure `internal/context` package that accepts typed input records and returns `BuiltContext` with
+  blocks, source refs, source-backed claims, budget/meter fields, and warnings. Add a TUI `ContextView` as app-injected display
+  data. For `!!`, reuse the same bash request path as `!`; after the result is visible and history-safe, build deterministic
+  summarized shell context from stdout/stderr/error details, attach refs to the command and exact output/failure lines, and
+  render the context meter plus claims. The TUI only renders and snapshots this data.
 overall_acceptance:
-- '`!git status --short` submitted through the prompt routes to runtime BashToolProposed, dispatchBashEffect, autonomy permission,
-  safe bash execution, visible command output, command/history recording, and current snapshot persistence.'
-- Unsafe or unsupported `!` commands return visible validation or permission failures through the same bash result surface,
-  preserving exact failure lines and decision evidence without executing rejected shell syntax.
-- '`!!git status --short` is recognized as reserved summarized-shell syntax, shows a clear deferred-to-M39 message, preserves
-  the exact command, records command/history evidence, and does not execute shell, assemble context, summarize output, or
-  call providers.'
-- Fixtures for shell-result, shell-failure, and summarized-shell-deferred have deterministic plain, ANSI, and semantic snapshots
-  exposing command, status, stdout/stderr summary, exact preserved failure lines, decision/source markers, and app-owned/display-only
-  markers.
-- Prefix routing tests prove `!` and `!!` are app/policy-owned input paths and do not bypass command routing, permission checks,
-  runtime bash effects, history recording, or TUI presentation-only boundaries.
-- Representative PTY smoke runs `!git status --short` in an isolated temp workspace and verifies visible shell output, clean
-  quit, no provider/context behavior, and no hidden workspace mutation.
+- Pure context builder tests prove prompts, read/tool output, diffs, command output, and user constraints become context blocks
+  with stable source refs and budget metadata.
+- '`!!git status --short` submitted through the prompt routes through runtime BashToolProposed, dispatchBashEffect, autonomy
+  permission, bash result mapping, command/history recording, and current snapshot persistence before context is assembled.'
+- Summarized shell context preserves the exact command, stdout/stderr summary, exact failure lines when present, and source
+  refs that support each visible claim.
+- TUI render and semantic snapshots show context meter, source-backed claims, summarized shell output, and machine-readable
+  source refs without TUI-owned context assembly.
+- No `/compact`, background utility job, stale-context check, provider summarization, plugin, MCP, workflow DSL, generic graph
+  engine, hosted control plane, or M40+ behavior is added.
+- Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
+  updated.
 surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the shell prefix slice
+  name: Plan and confirm the context-builder source-ref slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera state and roadmap docs are reviewed WHEN planning finishes THEN the active plan names M38 only and excludes
-    context builder, /compact, provider summarization, plugins, MCP, workflow DSL, hosted control-plane, and M39+ behavior.
-  - GIVEN current prompt, bash, permission, history, app, and TUI seams are inspected WHEN implementation starts THEN the
-    smallest path is app-owned prefix routing into the existing runtime bash effect plus display-only deferred `!!`.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M39 only and excludes
+    /compact, background utility jobs, stale-context checks, provider summarization, plugins, MCP, workflow DSLs, hosted control-plane,
+    and M40+ behavior.
+  - GIVEN current context, shell-prefix, runtime, app, state, and TUI seams are inspected WHEN implementation starts THEN
+    the plan routes context assembly through a pure internal/context package and app-owned display data.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - Agentera hej with planera capability context, ROADMAP.md top status and M38 section, docs/notes/PROMPT.md, AGENTS.md,
-    README shell prefix/autonomy sections, ARCHITECTURE tool-permission and TUI boundaries, docs/workflow-architecture event/history
-    boundaries, docs/tui-testing shell fixture guidance, and current policy/app/runtime/tools/TUI seams were reviewed.
-  - The plan routes `!` through existing BashToolProposed/dispatchBashEffect permission and history paths, and leaves `!!`
-    context feeding deferred to M39.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to shell prefixes only.
+  - Agentera hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M39 section, docs/notes/PROMPT.md,
+    AGENTS.md, README context/shell/command sections, ARCHITECTURE context boundaries, docs/workflow-architecture context/compaction
+    invariants, docs/tui-testing semantic source-ref guidance, and current internal/context/app/runtime/state/TUI seams were
+    reviewed.
+  - The plan keeps `!!` on the existing BashToolProposed/dispatchBashEffect permission and history path, then feeds a pure
+    context builder with the command result.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to context/source refs only.
 - number: 2
-  name: Add policy parsing and app-owned prefix dispatch
+  name: Add pure context source-ref model and builder
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN `!command` is submitted WHEN policy parses it THEN the recommendation preserves exact command text and marks it
-    as executable shell-prefix input without invoking a shell.
-  - GIVEN `!!command` is submitted WHEN policy parses it THEN the recommendation preserves exact command text and marks it
-    as reserved summarized-shell input.
-  - GIVEN ordinary prompts or slash commands are submitted WHEN parsing runs THEN existing prompt and command behavior is
-    unchanged.
+  - GIVEN typed prompt, tool result, diff, command output, and user-constraint inputs WHEN the builder runs THEN it returns
+    context blocks with stable source refs, source-backed claims, budget data, and warnings only from provided data.
+  - GIVEN exact paths, commands, diffs, errors, and user constraints are present WHEN context is assembled THEN those details
+    remain available through SourceRef or block text.
+  - GIVEN duplicate or empty refs are supplied WHEN assembly runs THEN refs are normalized without dropping supporting evidence
+    for claims.
   evidence:
-  - internal/policy/shell_prefix.go adds closed ShellPrefixExecutable and ShellPrefixSummarized recommendations preserving
-    exact input and command text.
-  - internal/app/session_snapshot.go now checks shell prefixes before ordinary prompt submission, leaving non-prefix prompts
-    and slash commands on their existing paths.
-  - internal/policy/boundary_test.go proves !, !!, ordinary prompt, slash command, and empty-prefix behavior without a generic
-    registry.
+  - Added internal/context with typed SourceKind, SourceRef, ContextBlock, SourceBackedClaim, ContextBudget, BuiltContext,
+    BuildInput, and pure Build assembly for prompts, tool results, diffs, command output, and user constraints.
+  - Context builder preserves exact paths, commands, stdout, stderr, failure text, diffs, and user constraints through refs
+    or block text, including duplicate and empty source-ref normalization.
+  - go test ./internal/context -count=1 passed with behavior-named coverage for source-ref preservation, duplicate/empty ref
+    normalization, and exact command failure lines.
 - number: 3
-  name: Route executable shell prefixes through bash permission history and visible results
+  name: Attach app-owned context display state
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN a safe `!git status --short` prompt WHEN handled by the app THEN it reaches runtime BashToolProposed, dispatchBashEffect,
-    permission decision, visible command result, command/history recording, and current snapshot persistence.
-  - GIVEN an unsafe or unsupported `!` command WHEN handled by the app THEN validation or permission denial is visible with
-    exact failure details and no shell bypass.
-  - GIVEN shell prefix handling completes WHEN history is inspected THEN a command/history event records the shell prefix
-    and status.
+  - GIVEN a BuiltContext is produced WHEN the app applies a turn THEN the TUI receives only app-injected ContextView data
+    and an updated context meter/footer label.
+  - GIVEN context is rendered WHEN semantic snapshots are produced THEN source refs supporting rendered claims are machine-readable.
+  - GIVEN ordinary prompts and `!command` are submitted WHEN context display support exists THEN existing prompt and shell-prefix
+    behavior remains unchanged unless context data is explicitly attached.
   evidence:
-  - internal/app/shell_prefix.go routes ! commands through inputRunner.proposeBashTool, which reuses runtime BashToolProposed,
-    dispatchBashEffect, autonomy decisions, visible CommandView results, history events, and current snapshot persistence.
-  - internal/app/shell_prefix_test.go proves completed !ls -1 output, unsafe !git checkout failure, shell-prefix history event
-    recording, and persisted shell-prefix transcript state.
-  - Existing bash validation and permission behavior remain authoritative; unsupported or unsafe commands return visible bash
-    failures instead of shell bypasses.
+  - Added app-injected ContextView, ContextBlockView, ContextClaimView, and ContextSourceRefView data on TranscriptTurn with
+    cloned TUI state and footer context meter updates.
+  - Added context render lines and semantic context output with machine-readable blocks, claims, and source refs while keeping
+    the TUI presentation-only.
+  - Focused app/TUI tests passed proving context attachment is explicit and ordinary prompt and ! shell-prefix behavior stays
+    on existing paths unless context is attached.
 - number: 4
-  name: Add reserved summarized-shell deferred surface
+  name: Complete summarized shell prefix through bash plus context
   depends_on:
   - 2
+  - 3
   status: complete
   acceptance:
-  - GIVEN `!!command` is submitted WHEN handled by the app THEN no bash effect is emitted and no provider/context path runs.
-  - GIVEN the deferred result is rendered WHEN the user inspects the TUI THEN it clearly states summarized shell output is
-    deferred to Milestone 39.
-  - GIVEN history is inspected WHEN `!!command` was submitted THEN command/history evidence records the reserved prefix and
-    exact command.
+  - GIVEN `!!git status --short` is submitted WHEN handled by the app THEN it routes through the same bash validation, permission,
+    visible result, history, and snapshot path as `!` before context is assembled.
+  - GIVEN command output or failure lines are available WHEN summarized shell context is built THEN exact stdout/stderr/failure
+    lines remain referenced and visible.
+  - GIVEN unsafe or denied `!!` commands are handled WHEN the result is visible THEN failure details are preserved and no
+    provider/context bypass occurs.
   evidence:
-  - internal/app/shell_prefix.go renders !! commands as a display-only deferred CommandView with exact argv and Milestone
-    39 context-builder messaging.
-  - App tests prove !! emits no runtime bash effect, does not touch LastBash or runtime transcript, records command history,
-    and preserves exact command text.
-  - No context builder, source-ref assembly, provider call, summarization path, /compact, plugin, MCP, workflow DSL, generic
-    registry, or M39+ behavior was added.
+  - Changed ShellPrefixSummarized handling to submitSummarizedShellPrefix, reusing the existing bash proposal, permission/effect
+    dispatch, result mapping, command history, and current snapshot persistence path before context is built.
+  - Added deterministic summarized-shell context assembly from BashToolRuntimeResult with exact command, stdout, stderr, exit
+    code, and failure details preserved through source refs and claims.
+  - Focused app tests passed for successful summarized shell context and failure-context preservation without provider summarization
+    or compaction.
 - number: 5
-  name: Add shell prefix fixtures semantics and PTY coverage
+  name: Add context fixtures semantics and terminal smoke coverage
   depends_on:
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN deterministic fixtures render WHEN tests run THEN shell-result, shell-failure, and summarized-shell-deferred have
-    plain, ANSI, and semantic snapshots.
-  - GIVEN semantic snapshots are inspected THEN command, status, output summary, exact preserved failure lines, decision/source
-    markers, and deferred context status are machine-readable.
-  - GIVEN PTY smoke runs in a temp workspace WHEN `!git status --short` is submitted THEN visible shell output appears and
-    quitting exits cleanly without provider/context behavior.
+  - GIVEN deterministic fixtures render WHEN tests run THEN context meter, source-backed claims, and summarized shell output
+    have plain, ANSI, and semantic snapshots.
+  - GIVEN semantic snapshots are inspected THEN source refs supporting rendered claims are machine-readable and exact command/failure
+    evidence is preserved.
+  - GIVEN PTY smoke runs WHEN `!!git status --short` is submitted THEN visible summarized shell context appears and quitting
+    exits cleanly without provider summarization or compaction.
   evidence:
-  - Added shell-result, shell-failure, and summarized-shell-deferred fixture directories with fixture metadata plus plain,
-    ANSI, and semantic snapshots at 120x34.
-  - internal/tui/fixture_test.go proves render and semantic evidence for command, status, output/failure lines, decision/source
-    markers, and app-owned/display-only markers.
-  - internal/tui/input_test.go proves shell-prefix text is submitted exactly through the app prompt callback rather than being
-    executed or classified by the TUI; cmd/aila PTY smoke covers !git status --short in an isolated temp git workspace.
+  - Added summarized-shell-context render fixture with plain, ANSI, and semantic snapshots showing context meter, source-backed
+    claim, exact command output, and source refs.
+  - Added TUI context render/semantic tests and included the summarized-shell-context fixture in command-tool fixture snapshot
+    coverage.
+  - Added TestSummarizedShellContextPTYSmoke covering !!git status --short in a temp git workspace with visible context meter,
+    claim, stdout source ref, command output, bash command detail, and clean quit.
 - number: 6
   name: Run full validation roadmap closeout and commit
   depends_on:
@@ -210,22 +210,19 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M38 is
-    recorded complete, M39 is next, and Active milestone is none.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M39 is
+    recorded complete, M40 is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and plan archive are included in one meaningful local commit.
+    and M38 plan archive are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
     validation evidence.
   evidence:
-  - mage fmt passed.
-  - go test ./internal/policy -run 'Test.*Shell.*Prefix.*|Test.*Command.*' -count=1 passed.
-  - go test ./internal/app -run 'Test.*Shell.*Prefix.*|Test.*Bash.*|Test.*History.*|Test.*Prompt.*' -count=1 passed.
-  - go test ./internal/tui -run 'Test.*Shell.*Prefix.*|Test.*Command.*|Test.*Fixture.*|Test.*Semantic.*' -count=1 passed.
-  - go test ./cmd/aila -run 'Test.*Shell.*Prefix.*PTYSmoke|Test.*Bash.*PTYSmoke' -count=1 passed.
-  - go test ./internal/... -count=1 passed.
-  - go test ./cmd/aila -count=1 passed.
-  - mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
-  - ROADMAP.md was updated after validation to mark M38 complete and M39 next.
+  - 'Validation passed: mage fmt; go test ./internal/context -count=1; focused app/TUI/cmd context and shell-prefix tests;
+    go test ./internal/... -count=1; go test ./cmd/aila -count=1; mage check with 0 lint issues and no vulnerabilities.'
+  - ROADMAP.md was updated only after green validation to mark M39 complete, M40 next, active none, and record the M39 completion
+    log row.
+  - Agentera plan/progress/lint/hej validation plus diff, home-path, and TestM<number> hygiene checks are part of final closeout
+    before staging and commit.
 complete: 6
 total: 6
 active: false

@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.fixture                                                                                       |
+| detail: bash tool dispatch                                                                                           |
+| active: false                                                                                                        |
+|                                                                                                                      |
+| Context:                                                                                                             |
+| source: app.context                                                                                                  |
+| status: ready                                                                                                        |
+| meter: 2 blocks / 4 refs / 156 bytes                                                                                 |
+| block: prompt User prompt                                                                                            |
+| | !!git status --short                                                                                               |
+| block refs: prompt-1                                                                                                 |
+| block: command_output Summarized shell output                                                                        |
+| | command git status --short completed exit 0 stdout: M internal[path-redacted] stdout: ?? docs/context-notes.md     |
+| block refs: command-1, command-1-stdout-1, command-1-stdout-2                                                        |
+| claim: command git status --short completed exit 0                                                                   |
+| claim refs: command-1, command-1-stdout-1, command-1-stdout-2                                                        |
+| source ref: prompt-1 prompt excerpt=!!git status --short                                                             |
+| source ref: command-1 command command=git status --short excerpt=git status --short                                  |
+| source ref: command-1-stdout-1 command_stdout command=git status --short stream=stdout excerpt=M internal[path-reda~ |
+| source ref: command-1-stdout-2 command_stdout command=git status --short stream=stdout excerpt=?? docs/context-note~ |
+|                                                                                                                      |
+| Bash command:                                                                                                        |
+| tool: bash                                                                                                           |
+| status: completed                                                                                                    |
+| read-only: true                                                                                                      |
+| command: git status --short                                                                                          |
+| working dir: .                                                                                                       |
+| completed: true                                                                                                      |
+| command family: summarized shell                                                                                     |
+| expected effect: summarize shell output for context with source refs                                                 |
+| exit code: 0                                                                                                         |
+| stdout:                                                                                                              |
+| | M internal/context/context.go                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                      git: placeholder | context: 2 blocks / 4 refs / 156 bytes | q quit

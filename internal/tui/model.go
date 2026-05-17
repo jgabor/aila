@@ -52,6 +52,7 @@ type TranscriptTurn struct {
 	Read               *ReadView
 	Search             *SearchView
 	Command            *CommandView
+	Context            *ContextView
 	Fetch              *FetchView
 	Mutation           *MutationView
 	Recovery           *RecoveryView
@@ -176,6 +177,46 @@ type CommandView struct {
 	ErrorKind       string
 	ErrorMessage    string
 	Decision        *DecisionView
+}
+
+// ContextView is app-injected context assembly evidence. It is display-only;
+// TUI code must never assemble context, read files, execute commands, or call providers.
+type ContextView struct {
+	Source     string
+	Status     string
+	Meter      string
+	Blocks     []ContextBlockView
+	Claims     []ContextClaimView
+	SourceRefs []ContextSourceRefView
+	Warnings   []string
+}
+
+// ContextBlockView records one app-injected context block.
+type ContextBlockView struct {
+	ID           string
+	Kind         string
+	Title        string
+	Text         string
+	SourceRefIDs []string
+}
+
+// ContextClaimView records visible summary text plus supporting refs.
+type ContextClaimView struct {
+	Text         string
+	SourceRefIDs []string
+}
+
+// ContextSourceRefView records exact evidence that supports context claims.
+type ContextSourceRefView struct {
+	ID        string
+	Kind      string
+	Label     string
+	Path      string
+	LineStart int
+	LineEnd   int
+	Command   string
+	Stream    string
+	Excerpt   string
 }
 
 // MutationView is app-injected edit/write presentation data. It is display-only;
@@ -523,6 +564,10 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
+	state.Context = cloneContextView(turn.Context)
+	if state.Context != nil && state.Context.Meter != "" {
+		state.FooterContext = state.Context.Meter
+	}
 	state.Fetch = cloneFetchView(turn.Fetch)
 	state.Mutation = cloneMutationView(turn.Mutation)
 	state.Recovery = cloneRecoveryView(turn.Recovery)
@@ -579,6 +624,28 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
 	clone.Decision = cloneDecisionView(command.Decision)
+	return &clone
+}
+
+func cloneContextView(contextView *ContextView) *ContextView {
+	if contextView == nil {
+		return nil
+	}
+	clone := *contextView
+	clone.Blocks = make([]ContextBlockView, 0, len(contextView.Blocks))
+	for _, block := range contextView.Blocks {
+		cloned := block
+		cloned.SourceRefIDs = append([]string(nil), block.SourceRefIDs...)
+		clone.Blocks = append(clone.Blocks, cloned)
+	}
+	clone.Claims = make([]ContextClaimView, 0, len(contextView.Claims))
+	for _, claim := range contextView.Claims {
+		cloned := claim
+		cloned.SourceRefIDs = append([]string(nil), claim.SourceRefIDs...)
+		clone.Claims = append(clone.Claims, cloned)
+	}
+	clone.SourceRefs = append([]ContextSourceRefView(nil), contextView.SourceRefs...)
+	clone.Warnings = append([]string(nil), contextView.Warnings...)
 	return &clone
 }
 

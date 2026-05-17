@@ -1305,6 +1305,39 @@ func loadCommandToolFixture(t *testing.T, name string) renderFixture {
 			ErrorKind:      "unsafe_command",
 			ErrorMessage:   "git subcommand is not allowed",
 		})
+	case "summarized-shell-context":
+		state = commandToolState(&CommandView{
+			Name:           "bash",
+			Status:         "completed",
+			ReadOnly:       true,
+			Argv:           []string{"git", "status", "--short"},
+			WorkingDir:     ".",
+			CommandFamily:  "summarized shell",
+			ExpectedEffect: "summarize shell output for context with source refs",
+			ExitCode:       0,
+			StdoutLines:    []string{" M internal/context/context.go", "?? docs/context-notes.md"},
+			DurationMillis: 8,
+			Decision:       allowedReadDecisionView("bash", []string{"git", "status", "--short"}, ".", "inspect git working tree status"),
+		})
+		state.Context = &ContextView{
+			Source: "app.context",
+			Status: "ready",
+			Meter:  "2 blocks / 4 refs / 156 bytes",
+			Blocks: []ContextBlockView{
+				{ID: "block-1", Kind: "prompt", Title: "User prompt", Text: "!!git status --short", SourceRefIDs: []string{"prompt-1"}},
+				{ID: "block-2", Kind: "command_output", Title: "Summarized shell output", Text: "command git status --short completed exit 0\nstdout:  M internal/context/context.go\nstdout: ?? docs/context-notes.md", SourceRefIDs: []string{"command-1", "command-1-stdout-1", "command-1-stdout-2"}},
+			},
+			Claims: []ContextClaimView{
+				{Text: "command git status --short completed exit 0", SourceRefIDs: []string{"command-1", "command-1-stdout-1", "command-1-stdout-2"}},
+			},
+			SourceRefs: []ContextSourceRefView{
+				{ID: "prompt-1", Kind: "prompt", Label: "user prompt", Excerpt: "!!git status --short"},
+				{ID: "command-1", Kind: "command", Label: "command", Command: "git status --short", Excerpt: "git status --short"},
+				{ID: "command-1-stdout-1", Kind: "command_stdout", Label: "stdout", Command: "git status --short", Stream: "stdout", Excerpt: " M internal/context/context.go"},
+				{ID: "command-1-stdout-2", Kind: "command_stdout", Label: "stdout", Command: "git status --short", Stream: "stdout", Excerpt: "?? docs/context-notes.md"},
+			},
+		}
+		state.FooterContext = state.Context.Meter
 	case "summarized-shell-deferred":
 		state = commandToolState(&CommandView{
 			Name:           "bash",
@@ -1322,6 +1355,31 @@ func loadCommandToolFixture(t *testing.T, name string) renderFixture {
 	}
 	state.Scenario = name
 	return loadRenderFixture(t, name, state)
+}
+
+func TestContextViewRenderAndSemantic(t *testing.T) {
+	t.Parallel()
+
+	state := loadCommandToolFixture(t, "summarized-shell-context").State
+	render := RenderPlain(state, Size{Width: 120, Height: 44})
+	if !containsAll(render, []string{
+		"Context:",
+		"meter: 2 blocks / 4 refs / 156 bytes",
+		"claim: command git status --short completed exit 0",
+		"claim refs: command-1, command-1-stdout-1, command-1-stdout-2",
+		"source ref: command-1-stdout-1 command_stdout",
+	}) {
+		t.Fatalf("context render missing source-backed evidence:\n%s", render)
+	}
+	snapshot := Semantic(state, Size{Width: 120, Height: 44})
+	if snapshot.Context == nil || snapshot.Context.Meter != "2 blocks / 4 refs / 156 bytes" || len(snapshot.Context.Claims) != 1 || len(snapshot.Context.SourceRefs) != 4 {
+		t.Fatalf("context semantic = %+v", snapshot.Context)
+	}
+	regions := semanticRegionsByName(t, snapshot)
+	contextRegion := strings.Join(regions["context"].Items, "\n")
+	if !containsAll(contextRegion, []string{"claim_ref: command git status --short completed exit 0 -> command-1-stdout-1", "source_ref: command-1-stdout-2 kind=command_stdout command=git status --short stream=stdout excerpt=?? docs/context-notes.md", "app-owned", "display-only"}) {
+		t.Fatalf("context semantic region missing refs: %v", regions["context"].Items)
+	}
 }
 
 func TestShellPrefixCommandRenderAndSemantic(t *testing.T) {
@@ -1478,7 +1536,7 @@ func TestM20CommandRenderAndSemantic(t *testing.T) {
 func TestCommandToolFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 
-	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed", "shell-result", "shell-failure", "summarized-shell-deferred"} {
+	for _, name := range []string{"command-tool-running", "command-result", "command-failure", "tool-failed", "shell-result", "shell-failure", "summarized-shell-context", "summarized-shell-deferred"} {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

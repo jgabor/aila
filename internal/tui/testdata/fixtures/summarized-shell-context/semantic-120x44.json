@@ -1,0 +1,241 @@
+{
+  "scenario": "summarized-shell-context",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "workflow.fixture",
+    "runtime_status": "idle",
+    "status_source": "runtime.fixture",
+    "status_detail": "bash tool dispatch",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "bash_tool": {
+    "tool_name": "bash",
+    "status": "completed",
+    "read_only": true,
+    "argv": ["git", "status", "--short"],
+    "working_dir": ".",
+    "command_family": "summarized shell",
+    "expected_effect": "summarize shell output for context with source refs",
+    "exit_code": 0,
+    "stdout_lines": [
+      "M internal/context/context.go",
+      "?? docs/context-notes.md"
+    ],
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "duration_millis": 8,
+    "decision": {
+      "autonomy": "read",
+      "source": "autonomy_policy",
+      "allowed": true,
+      "automatic": true,
+      "approval_required": false,
+      "reason": "safe read-only operation",
+      "operation_kind": "read",
+      "tool": "bash",
+      "target": "requested path",
+      "command": ["git", "status", "--short"],
+      "working_dir": ".",
+      "expected_effect": "inspect git working tree status",
+      "reversible": true
+    },
+    "completed": true
+  },
+  "context": {
+    "source": "app.context",
+    "status": "ready",
+    "meter": "2 blocks / 4 refs / 156 bytes",
+    "blocks": [
+      {
+        "id": "block-1",
+        "kind": "prompt",
+        "title": "User prompt",
+        "text": "!!git status --short",
+        "source_ref_ids": ["prompt-1"]
+      },
+      {
+        "id": "block-2",
+        "kind": "command_output",
+        "title": "Summarized shell output",
+        "text": "command git status --short completed exit 0 stdout: M internal[path-redacted] stdout: ?? docs/context-notes.md",
+        "source_ref_ids": [
+          "command-1",
+          "command-1-stdout-1",
+          "command-1-stdout-2"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "text": "command git status --short completed exit 0",
+        "source_ref_ids": [
+          "command-1",
+          "command-1-stdout-1",
+          "command-1-stdout-2"
+        ]
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "prompt-1",
+        "kind": "prompt",
+        "label": "user prompt",
+        "excerpt": "!!git status --short"
+      },
+      {
+        "id": "command-1",
+        "kind": "command",
+        "label": "command",
+        "command": "git status --short",
+        "excerpt": "git status --short"
+      },
+      {
+        "id": "command-1-stdout-1",
+        "kind": "command_stdout",
+        "label": "stdout",
+        "command": "git status --short",
+        "stream": "stdout",
+        "excerpt": "M internal[path-redacted]"
+      },
+      {
+        "id": "command-1-stdout-2",
+        "kind": "command_stdout",
+        "label": "stdout",
+        "command": "git status --short",
+        "stream": "stdout",
+        "excerpt": "?? docs/context-notes.md"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.fixture",
+        "detail: bash tool dispatch",
+        "active: false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "bash_tool",
+      "visible": true,
+      "items": [
+        "tool_name: bash",
+        "status: completed",
+        "read_only: true",
+        "command: git status --short",
+        "working_dir: .",
+        "completed: true",
+        "command_family: summarized shell",
+        "expected_effect: summarize shell output for context with source refs",
+        "exit_code: 0",
+        "stdout_line: M internal/context/context.go",
+        "stdout_line: ?? docs/context-notes.md",
+        "stdout_truncated: false",
+        "stderr_truncated: false",
+        "decision_source: autonomy_policy",
+        "decision: allowed",
+        "decision_automatic: true",
+        "approval_required: false",
+        "decision_autonomy: read",
+        "operation_kind: read",
+        "decision_tool: bash",
+        "decision_target: requested path",
+        "decision_command: git status --short",
+        "decision_working_dir: .",
+        "decision_expected_effect: inspect git working tree status",
+        "decision_reversible: true",
+        "decision_reason: safe read-only operation",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "context",
+      "visible": true,
+      "items": [
+        "source: app.context",
+        "status: ready",
+        "meter: 2 blocks / 4 refs / 156 bytes",
+        "block: block-1 prompt User prompt",
+        "block_text: !!git status --short",
+        "block_ref: block-1 prompt-1",
+        "block: block-2 command_output Summarized shell output",
+        "block_text: command git status --short completed exit 0 stdout: M internal[path-redacted] stdout: ?? docs/context-notes.md",
+        "block_ref: block-2 command-1",
+        "block_ref: block-2 command-1-stdout-1",
+        "block_ref: block-2 command-1-stdout-2",
+        "claim: command git status --short completed exit 0",
+        "claim_ref: command git status --short completed exit 0 -> command-1",
+        "claim_ref: command git status --short completed exit 0 -> command-1-stdout-1",
+        "claim_ref: command git status --short completed exit 0 -> command-1-stdout-2",
+        "source_ref: prompt-1 kind=prompt excerpt=!!git status --short",
+        "source_ref: command-1 kind=command command=git status --short excerpt=git status --short",
+        "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short stream=stdout excerpt=M internal[path-redacted]",
+        "source_ref: command-1-stdout-2 kind=command_stdout command=git status --short stream=stdout excerpt=?? docs/context-notes.md",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: 2 blocks / 4 refs / 156 bytes",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

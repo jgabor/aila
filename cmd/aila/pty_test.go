@@ -1211,6 +1211,50 @@ func TestShellPrefixCommandPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestSummarizedShellContextPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 60, env.vars, func(workspace string) {
+		runPTYGit(t, workspace, "init")
+		if err := os.WriteFile(filepath.Join(workspace, "context-smoke.txt"), []byte("summarized shell context\n"), 0o644); err != nil {
+			t.Fatalf("write summarized shell context smoke file: %v", err)
+		}
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("!!git status --short\r")); err != nil {
+		t.Fatalf("send summarized shell command: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Context:",
+		"meter:",
+		"claim: command git status --short completed exit 0",
+		"source ref: command-1-stdout-1 command_stdout",
+		"?? context-smoke.txt",
+		"Bash command:",
+		"command family: summarized shell",
+	}, 10*time.Second)
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after summarized shell context smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("summarized shell context PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("summarized shell context PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
 func TestPromptPastePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

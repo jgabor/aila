@@ -8,6 +8,7 @@ import (
 	"github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/runtime"
+	"github.com/jgabor/aila/internal/tui"
 )
 
 func TestShellPrefixPromptRoutesThroughBashPermissionHistoryAndSnapshot(t *testing.T) {
@@ -65,33 +66,57 @@ func TestShellPrefixPromptSurfacesValidationFailureThroughBashResult(t *testing.
 	}
 }
 
-func TestReservedSummarizedShellPrefixDefersWithoutBashEffect(t *testing.T) {
+func TestSummarizedShellPrefixRoutesThroughBashPermissionHistoryAndContext(t *testing.T) {
 	t.Parallel()
 
-	var dispatched []runtime.Effect
-	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
-		dispatched = append(dispatched, effects...)
-		return nil
-	})
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "notes.txt", "alpha\n")
+	runner := newInputRunnerWithReadContext(t.Context(), workspace, string(permission.AutonomyRead))
+	var snapshots []SnapshotPersistenceCommand
 	var historyEvents []HistoryPersistenceCommand
-	controller := newSessionControllerWithPersistenceAndHistory(context.Background(), snapshotTestView(), runner, nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+	controller := newSessionControllerWithPersistenceAndHistory(context.Background(), snapshotTestView(), runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
 		historyEvents = append(historyEvents, command)
 		return HistoryPersistenceResult{}
 	})
 
-	turn := controller.submitPrompt("!!git status --short")
+	turn := controller.submitPrompt("!!ls -1")
 
-	if len(dispatched) != 0 || runner.model.LastBash.ToolName != "" || len(runner.model.Transcript) != 0 {
-		t.Fatalf("deferred summarized shell touched runtime: effects=%#v model=%+v", dispatched, runner.model)
+	if turn.UserText != "!!ls -1" || turn.Command == nil || turn.Command.Status != "completed" || turn.Command.CommandFamily != "summarized shell" {
+		t.Fatalf("summarized shell turn = %+v", turn)
 	}
-	if turn.Command == nil || turn.Command.Status != "deferred" || turn.Command.ErrorKind != "deferred" || !strings.Contains(turn.Command.ErrorMessage, "Milestone 39") {
-		t.Fatalf("deferred command view = %+v", turn.Command)
+	if runner.model.LastBash.ToolName != "bash" || runner.model.LastBash.Source.Caller != shellPrefixSource || !containsAnyString(turn.Command.StdoutLines, "notes.txt") {
+		t.Fatalf("last bash=%+v command=%+v, want summarized shell output", runner.model.LastBash, turn.Command)
 	}
-	if turn.RuntimeStatus != "idle" || turn.StatusSource != shellPrefixSource || !strings.Contains(turn.RuntimeResult, "Milestone 39") {
-		t.Fatalf("deferred runtime surface = %+v", turn)
+	if turn.Context == nil || turn.Context.Source != "app.context" || !strings.Contains(turn.Context.Meter, "refs") || len(turn.Context.Claims) == 0 {
+		t.Fatalf("context view = %+v, want source-backed summarized shell context", turn.Context)
 	}
-	if len(historyEvents) != 1 || historyEvents[0].Event.Kind != history.EventKindCommand || !strings.Contains(historyEvents[0].Event.DisplayText, "shell-prefix summarized_shell deferred !!git status --short") {
+	if !contextHasSourceRef(turn.Context, "command-1-stdout-1", "notes.txt") || !contextHasClaimRef(turn.Context, "command ls -1 completed exit 0", "command-1-stdout-1") {
+		t.Fatalf("context refs/claims = %+v", turn.Context)
+	}
+	if len(historyEvents) != 1 || historyEvents[0].Event.Kind != history.EventKindCommand || !strings.Contains(historyEvents[0].Event.DisplayText, "shell-prefix summarized_shell completed !!ls -1") {
 		t.Fatalf("history events = %+v", historyEvents)
+	}
+	if len(snapshots) == 0 || len(snapshots[len(snapshots)-1].Snapshot.Transcript) < 2 {
+		t.Fatalf("snapshots = %+v, want persisted summarized shell transcript", snapshots)
+	}
+}
+
+func TestSummarizedShellPrefixPreservesFailureContext(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithReadContext(t.Context(), t.TempDir(), string(permission.AutonomyRead))
+	controller := newSessionControllerWithPersistence(context.Background(), snapshotTestView(), runner, nil)
+
+	turn := controller.submitPrompt("!!git checkout main")
+
+	if turn.Command == nil || turn.Command.Status != "failed" || turn.Command.ErrorKind != string(runtime.BashToolErrorUnsafeCommand) {
+		t.Fatalf("summarized shell failure turn = %+v", turn)
+	}
+	if turn.Context == nil || !contextHasSourceRef(turn.Context, "command-1-failure", "git subcommand") || !contextHasClaimRef(turn.Context, "command git checkout main failed: unsafe_command: git subcommand is not allowed", "command-1-failure") {
+		t.Fatalf("failure context = %+v", turn.Context)
 	}
 }
 
@@ -106,4 +131,33 @@ func TestOrdinaryPromptBypassesShellPrefixRouting(t *testing.T) {
 	if turn.UserText != "explain status" || turn.Command != nil || runner.model.LastBash.ToolName != "" {
 		t.Fatalf("ordinary prompt turn=%+v model=%+v", turn, runner.model)
 	}
+}
+
+func contextHasSourceRef(contextView *tui.ContextView, id string, excerpt string) bool {
+	if contextView == nil {
+		return false
+	}
+	for _, ref := range contextView.SourceRefs {
+		if ref.ID == id && strings.Contains(ref.Excerpt, excerpt) {
+			return true
+		}
+	}
+	return false
+}
+
+func contextHasClaimRef(contextView *tui.ContextView, claimText string, refID string) bool {
+	if contextView == nil {
+		return false
+	}
+	for _, claim := range contextView.Claims {
+		if claim.Text != claimText {
+			continue
+		}
+		for _, id := range claim.SourceRefIDs {
+			if id == refID {
+				return true
+			}
+		}
+	}
+	return false
 }

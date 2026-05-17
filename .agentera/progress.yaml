@@ -1,4 +1,81 @@
 cycles:
+  - number: 205
+    timestamp: "2026-05-17 06:05"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M39 by adding a pure source-referenced context builder, app-injected context display state, and completed
+      summarized-shell `!!` routing through the existing bash permission/history/result path before deterministic context assembly.
+    commit: "pending local commit for M39 context builder with source refs"
+    inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 39; README context and shell-prefix behavior; ARCHITECTURE.md context/TUI/effect boundaries; docs/workflow-architecture.md context and compaction boundaries; docs/tui-testing.md source-ref semantic guidance; agentera hej --format json --capability-context orkestrera"
+    discovered: >-
+      The narrow M39 path is to make context assembly pure and source-backed, attach display data from the app, and let `!!`
+      reuse the same bash validation, permission, visible result, history, and current snapshot path as `!` before context is
+      built. Manual /compact, ctrl+x k, provider summarization, background utility jobs, stale-context checks, source indexing,
+      plugins, MCP, workflow DSL, generic graph engines, hosted control-plane, and M40+ behavior remain deferred.
+    verified: >-
+      mage fmt passed. go test ./internal/context -count=1 passed. Focused app/TUI/cmd summarized-shell and context tests
+      passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal
+      tests, 0 lint issues, and no vulnerabilities. Summarized-shell context render, ANSI, and semantic snapshots were updated,
+      and TestSummarizedShellContextPTYSmoke passed in an isolated temp git workspace. ROADMAP.md was updated only after green
+      validation. Agentera plan/progress/lint/hej validation, git diff --check, changed-line home-path hygiene, and changed-line
+      TestM<number> hygiene are included in final closeout.
+    next: >-
+      Commit the completed M39 slice, leaving Milestone 40: Manual Compact Command as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M39 roadmap milestone first, preserving the planera -> orkestrera -> commit loop and Agentera
+        closeout artifacts.
+      constraints: >-
+        Execute only M39; preserve statechart-MVU, explicit effect boundaries, fixed-product posture, TUI presentation-only
+        behavior, pure internal/context assembly, existing bash permission/history paths for `!!`, behavior-based test names,
+        and no push.
+      unknowns: >-
+        Manual /compact, ctrl+x k, compaction persistence, background context prep, stale-context detection, source indexing/ranking,
+        provider-assisted summarization, and model prompt optimization remain deferred to later milestones.
+      scope: >-
+        internal/context source-ref builder, app summarized-shell context routing, TUI context display and semantic state,
+        summarized-shell-context fixture snapshots, cmd PTY smoke, ROADMAP, and Agentera closeout.
+  - number: 204
+    timestamp: "2026-05-17 05:41"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 39: Context Builder With Source Refs as the next roadmap milestone, archived the completed M38 plan,
+      and created a new active plan with six bounded tasks for pure source-ref context assembly, app-injected context display,
+      completed `!!` shell-prefix routing through bash permission/history plus deterministic context summarization, context
+      fixtures, semantic snapshots, PTY smoke if visible terminal behavior changes, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M39 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 39; AGENTS.md; README context, shell prefix, and command sections; ARCHITECTURE.md context system; docs/workflow-architecture.md context/source-ref and compaction boundaries; docs/tui-testing.md semantic source-ref guidance; agentera hej --format json --capability-context planera"
+    discovered: >-
+      M39 should stay a context/source-ref slice. The pure builder belongs in internal/context, while the app owns attaching
+      context display data to turns. `!!command` should now execute through the existing bash permission/history path before
+      feeding a deterministic summarized-shell context block. `/compact`, background utility jobs, stale-context checks, provider
+      summarization, plugins, MCP, workflow DSL, generic graph engines, hosted control-plane, and M40+ behavior remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M39
+      section, docs/notes/PROMPT.md, AGENTS.md, README context/shell/command sections, ARCHITECTURE context boundaries,
+      docs/workflow-architecture context and compaction invariants, docs/tui-testing semantic source-ref guidance, and current
+      internal/context/app/runtime/state/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M39 Tasks 2-5: add pure context source-ref assembly, app-injected context display, summarized-shell `!!` context
+      routing through bash permission/history, and context render/semantic/PTY evidence without adding /compact, provider
+      summarization, background utility work, stale-context checks, plugins, MCP, workflow DSL, generic graph engines,
+      hosted control-plane, or M40+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M38, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M39; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, pure internal/context
+        assembly, existing bash permission/history paths for `!!`, behavior-based test names, and commit only after implementation
+        and validation complete.
+      unknowns: >-
+        Manual /compact, compaction persistence, provider summarization, source indexing/ranking, stale-context checks, background
+        utility context prep, and model prompt optimization remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m38.yaml archival, and progress evidence for the
+        M39 planning handoff.
   - number: 203
     timestamp: "2026-05-17 05:33"
     type: build
@@ -7,7 +84,7 @@ cycles:
       Completed M38 by adding shell prefixes: policy-owned `!` and `!!` parsing, app-owned `!` dispatch through the existing
       runtime bash effect and permission/history/current-snapshot path, reserved `!!` summarized-shell deferred display for
       Milestone 39, shell-result/shell-failure/deferred fixtures and semantic snapshots, and PTY smoke for `!git status --short`.
-    commit: "pending local commit for M38 shell prefixes"
+    commit: "ca30a6e add shell prefix commands"
     inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 38; README shell prefixes; ARCHITECTURE.md tool/permission and TUI boundaries; docs/workflow-architecture.md event/history boundary; docs/tui-testing.md shell fixture and PTY gates; agentera hej --format json --capability-context orkestrera"
     discovered: >-
       The bounded M38 path is to keep the TUI as an exact prompt submitter and route shell prefixes in the app. `!` can reuse
