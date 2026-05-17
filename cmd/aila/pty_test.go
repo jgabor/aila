@@ -1255,6 +1255,81 @@ func TestSummarizedShellContextPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestManualCompactCommandPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 70, env.vars, func(workspace string) {
+		runPTYGit(t, workspace, "init")
+		if err := os.WriteFile(filepath.Join(workspace, "compact-smoke.txt"), []byte("manual compact smoke\n"), 0o644); err != nil {
+			t.Fatalf("write compact smoke file: %v", err)
+		}
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("!!git status --short\r")); err != nil {
+		t.Fatalf("send summarized shell command before compact: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Context:",
+		"claim: command git status --short completed exit 0",
+		"source ref: command-1-stdout-1 command_stdout",
+		"?? compact-smoke.txt",
+	}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte("/compact\r")); err != nil {
+		t.Fatalf("send manual compact command: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"detail: manual context compaction",
+		"Compact:",
+		"status: completed",
+		"summary: manual compaction preserved 5 source refs",
+		"compact source ref: command-1-stdout-2 command_stdout",
+		"Context:",
+		"block: compacted_context Compacted context",
+		"claim: manual compaction preserved 5 source refs",
+		"?? compact-smoke.txt",
+	}, 10*time.Second)
+	for _, forbidden := range []string{workspace, env.home, env.xdgConfigHome, "app-owned manual compaction unavailable", "background compaction"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("manual compact PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit after manual compact smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("manual compact PTY quit returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		_ = terminal.Close()
+		t.Fatal("manual compact PTY did not quit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(5 * time.Second):
+		t.Fatal("manual compact PTY drain did not finish after quit")
+	}
+}
+
 func TestPromptPastePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -2057,7 +2132,7 @@ func startAilaPTYWithArgsSizeEnvAndWorkspace(t *testing.T, args []string, cols u
 func startAilaPTYWithArgsAndSetup(t *testing.T, args []string, cols uint16, rows uint16, env []string, setup func(string)) (context.Context, context.CancelFunc, *os.File, <-chan error, string, *exec.Cmd) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	tmp := t.TempDir()
 	workspace := filepath.Join(tmp, "workspace")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {

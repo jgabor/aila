@@ -1,4 +1,89 @@
 cycles:
+  - number: 207
+    timestamp: "2026-05-17 06:57"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M40 by adding the manual /compact command and ctrl+x k shortcut with closed routing, explicit runtime/app
+      compact effects, deterministic source-ref-preserving compaction, app-injected compact/context TUI state, compact-running
+      and compact-result fixtures, semantic snapshots, and PTY smoke for manual compaction.
+    commit: "pending local commit: add manual context compaction"
+    inspiration: >-
+      .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 40; README command/context sections; ARCHITECTURE.md context/runtime/state/TUI
+      boundaries; docs/workflow-architecture.md manual compact guidance; docs/tui-testing.md compact-running fixture guidance;
+      agentera hej --format json --capability-context orkestrera
+    discovered: >-
+      Manual compaction can stay deterministic in internal/context for this slice: it compacts existing blocks and claims,
+      carries every source ref forward, preserves exact command/path/error/user-constraint detail in refs or compacted text,
+      and reports caveats without provider summarization. The app owns the compact effect, history/snapshot persistence, and
+      injected view state. The TUI remains rendering-only. Background continuous compaction, utility workers, stale checks,
+      provider summarization, source indexing/ranking, plugins, MCP, workflow DSLs, generic graph engines, hosted control
+      planes, and M41+ behavior remain deferred.
+    verified: >-
+      mage fmt passed. go test ./internal/context -count=1 passed. Focused compact policy/runtime/app/TUI/cmd tests passed.
+      go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. Final mage check passed with full cmd/internal
+      tests, 0 lint issues, and no vulnerabilities. compact-running and compact-result plain/ANSI/semantic snapshots were added.
+      TestManualCompactCommandPTYSmoke passed in an isolated temp git workspace and exits through /quit while draining the large
+      compact frame. ROADMAP.md was updated only after green validation; Agentera plan/progress/lint/hej, git diff --check,
+      home-path hygiene, and TestM<number> hygiene are part of final closeout.
+    next: >-
+      Commit the completed M40 slice, leaving Milestone 41: Utility Worker Skeleton as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M40 roadmap milestone first, preserving the planera -> orkestrera -> commit loop and Agentera
+        closeout artifacts.
+      constraints: >-
+        Execute only M40; preserve statechart-MVU, explicit effect boundaries, fixed-product posture, TUI presentation-only
+        behavior, app-owned compact effects, deterministic source-ref preservation, behavior-based test names, and no push.
+      unknowns: >-
+        Idle utility worker scheduling, background compaction, stale context detection, source indexing/ranking, provider-assisted
+        summarization, and durable compaction policy tuning remain deferred to later milestones.
+      scope: >-
+        internal/context compaction, policy/runtime/app compact route and effect wiring, TUI compact rendering and semantics,
+        compact fixtures/snapshots, PTY smoke, ROADMAP, and Agentera closeout.
+  - number: 206
+    timestamp: "2026-05-17 06:10"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 40: Manual Compact Command as the next roadmap milestone, archived the completed M39 plan, and created
+      a new active plan with six bounded tasks for deterministic source-ref-preserving compaction, closed /compact and ctrl+x k
+      routing, explicit runtime/app compaction effects, compact TUI state, fixtures, semantic snapshots, PTY smoke, full validation,
+      roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M40 implementation commit"
+    inspiration: >-
+      docs/notes/PROMPT.md; ROADMAP.md Milestone 40; AGENTS.md; README command/context sections; ARCHITECTURE.md runtime/state/context
+      boundaries; docs/workflow-architecture.md manual compact guidance; docs/tui-testing.md compact-running fixture guidance;
+      agentera hej --format json --capability-context planera
+    discovered: >-
+      M40 should stay a foreground manual compaction command. The TUI can route /compact and ctrl+x k and render injected state,
+      but compaction must be runtime/app-owned explicit effect handling over deterministic internal/context logic. Background
+      continuous compaction, utility worker scheduling, stale-context checks, provider/model summarization, source indexing,
+      plugins, MCP, workflow DSL, generic graph engines, hosted control-plane, and M41+ behavior remain deferred.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M40
+      section, docs/notes/PROMPT.md, AGENTS.md, README command/context sections, ARCHITECTURE context/state/runtime boundaries,
+      docs/workflow-architecture compact command notes, docs/tui-testing compact-running fixture guidance, and current policy/app/runtime/context/TUI
+      seams were reviewed before writing the plan.
+    next: >-
+      Execute M40 Tasks 2-5: add deterministic source-ref compaction, wire /compact and ctrl+x k through explicit runtime/app
+      effects, add compact rendering/semantic fixtures, and run PTY smoke without adding background utility work, stale checks,
+      provider summarization, source indexing, plugins, MCP, workflow DSL, generic graph engines, hosted control-plane, or M41+
+      behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M39, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M40; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, explicit runtime/app
+        compaction effects, source-ref preservation, behavior-based test names, and commit only after implementation and validation
+        complete.
+      unknowns: >-
+        Exact compact result field names and visible caveat wording are implementation-owned; utility worker integration, background
+        compaction, stale context detection, source indexing/ranking, and provider-assisted summarization remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m39.yaml archival, M39 commit-string correction,
+        and progress evidence for the M40 planning handoff.
   - number: 205
     timestamp: "2026-05-17 06:05"
     type: build
@@ -6,7 +91,7 @@ cycles:
     what: >-
       Completed M39 by adding a pure source-referenced context builder, app-injected context display state, and completed
       summarized-shell `!!` routing through the existing bash permission/history/result path before deterministic context assembly.
-    commit: "pending local commit for M39 context builder with source refs"
+    commit: "ddd6ddf add source-referenced context builder"
     inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 39; README context and shell-prefix behavior; ARCHITECTURE.md context/TUI/effect boundaries; docs/workflow-architecture.md context and compaction boundaries; docs/tui-testing.md source-ref semantic guidance; agentera hej --format json --capability-context orkestrera"
     discovered: >-
       The narrow M39 path is to make context assembly pure and source-backed, attach display data from the app, and let `!!`

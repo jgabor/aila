@@ -1,0 +1,43 @@
+[1mAila                                                                                                              120x44[0m
+[2mStage IDLE | Runtime active | Model placeholder | Utility placeholder | Auto placeholder                                [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: active                                                                                                       |
+| status source: runtime.dispatch                                                                                      |
+| detail: manual context compaction                                                                                    |
+| active: true                                                                                                         |
+|                                                                                                                      |
+| Compact:                                                                                                             |
+| source: app.compact                                                                                                  |
+| status: running                                                                                                      |
+| summary: manual context compaction running                                                                           |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m

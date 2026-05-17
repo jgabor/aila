@@ -1,6 +1,7 @@
 package context
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -89,6 +90,79 @@ func TestCommandContextPreservesExactFailureLines(t *testing.T) {
 	assertHasRef(t, built, "command-1-stderr-2", SourceCommandStderr, "", "exact failure line: git checkout main")
 	assertHasRef(t, built, "command-1-failure", SourceCommandFailure, "", "git subcommand is not allowed")
 	assertHasClaimWithRef(t, built, "command git checkout main failed: unsafe_command: git subcommand is not allowed", "command-1-failure")
+}
+
+func TestCompactPreservesSourceRefsAndExactCriticalDetails(t *testing.T) {
+	t.Parallel()
+
+	built := Build(BuildInput{
+		Prompts: []PromptInput{{Text: "review the compact command"}},
+		ToolResults: []ToolResultInput{{
+			ToolName: "read",
+			Status:   "completed",
+			Summary:  "ROADMAP.md names manual compact",
+			SourceRefs: []SourceRef{{
+				ID:        "roadmap-compact",
+				Kind:      SourceToolResult,
+				Path:      "ROADMAP.md",
+				LineStart: 1624,
+				LineEnd:   1645,
+				Excerpt:   "Manual compaction runs through explicit effects.",
+			}},
+		}},
+		Diffs: []DiffInput{{
+			Path:      "internal/context/context.go",
+			Summary:   "compaction result carries source refs",
+			HunkLines: []string{"+ CompactResult"},
+		}},
+		Commands: []CommandOutputInput{{
+			Command:      "go test ./internal/context",
+			Status:       "failed",
+			ExitCode:     1,
+			StderrLines:  []string{"exact failure: missing source ref"},
+			ErrorKind:    "execution_error",
+			ErrorMessage: "exact failure: missing source ref",
+		}},
+		UserConstraints: []UserConstraintInput{{Text: "Do not add background compaction."}},
+	})
+
+	compacted := Compact(CompactInput{Context: built, MaxBytes: 128})
+	if compacted.OriginalBudget.BlockCount != built.Budget.BlockCount {
+		t.Fatalf("original budget = %+v, want %d blocks", compacted.OriginalBudget, built.Budget.BlockCount)
+	}
+	if len(compacted.Context.Blocks) != 1 || len(compacted.Context.SourceRefs) != len(built.SourceRefs) {
+		t.Fatalf("compacted counts = blocks:%d refs:%d, want one block and preserved refs:%d", len(compacted.Context.Blocks), len(compacted.Context.SourceRefs), len(built.SourceRefs))
+	}
+	text := compacted.Context.Blocks[0].Text
+	for _, exact := range []string{
+		"ROADMAP.md",
+		"Manual compaction runs through explicit effects.",
+		"go test ./internal/context",
+		"exact failure: missing source ref",
+		"Do not add background compaction.",
+	} {
+		if !strings.Contains(text, exact) {
+			t.Fatalf("compacted text missing %q:\n%s", exact, text)
+		}
+	}
+	assertHasRef(t, compacted.Context, "roadmap-compact", SourceToolResult, "ROADMAP.md", "Manual compaction runs through explicit effects.")
+	assertHasRef(t, compacted.Context, "command-1-failure", SourceCommandFailure, "", "exact failure: missing source ref")
+	assertHasClaimWithRef(t, compacted.Context, "manual compaction preserved "+strconv.Itoa(len(built.SourceRefs))+" source refs", "roadmap-compact")
+	if !compacted.Context.Budget.Truncated || len(compacted.Caveats) == 0 {
+		t.Fatalf("compacted budget/caveats = %+v %#v, want over-budget caveat", compacted.Context.Budget, compacted.Caveats)
+	}
+}
+
+func TestCompactReportsEmptyContextCaveat(t *testing.T) {
+	t.Parallel()
+
+	compacted := Compact(CompactInput{MaxBytes: 80})
+	if len(compacted.Context.Blocks) != 0 || len(compacted.Caveats) != 1 || !strings.Contains(compacted.Caveats[0], "no context") {
+		t.Fatalf("empty compaction = blocks:%d caveats:%#v", len(compacted.Context.Blocks), compacted.Caveats)
+	}
+	if compacted.Context.Budget.MaxBytes != 80 || compacted.Context.Budget.SourceRefCount != 0 {
+		t.Fatalf("empty budget = %+v", compacted.Context.Budget)
+	}
 }
 
 func assertHasRef(t *testing.T, built BuiltContext, id string, kind SourceKind, path string, excerpt string) {

@@ -17,6 +17,7 @@ const (
 	CommandRouteReview   CommandRoute = "review"
 	CommandRouteHelp     CommandRoute = "help"
 	CommandRouteHistory  CommandRoute = "history"
+	CommandRouteCompact  CommandRoute = "compact"
 	CommandRouteDiff     CommandRoute = "diff"
 	CommandRouteUndo     CommandRoute = "undo"
 	CommandRouteRedo     CommandRoute = "redo"
@@ -75,6 +76,8 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteHelp, Kind: CommandInputSlash}, true
 	case "/history":
 		return CommandRecommendation{Route: CommandRouteHistory, Kind: CommandInputSlash}, true
+	case "/compact":
+		return CommandRecommendation{Route: CommandRouteCompact, Kind: CommandInputSlash}, true
 	case "/diff":
 		return CommandRecommendation{Route: CommandRouteDiff, Kind: CommandInputSlash}, true
 	case "/undo":
@@ -111,6 +114,8 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteReview, Kind: CommandInputShortcut}, true
 	case "h":
 		return CommandRecommendation{Route: CommandRouteHistory, Kind: CommandInputShortcut}, true
+	case "k":
+		return CommandRecommendation{Route: CommandRouteCompact, Kind: CommandInputShortcut}, true
 	case "d":
 		return CommandRecommendation{Route: CommandRouteDiff, Kind: CommandInputShortcut}, true
 	case "u":

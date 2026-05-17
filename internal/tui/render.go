@@ -43,6 +43,7 @@ type ViewState struct {
 	Approval           *ApprovalProposalView
 	ApprovalDecision   *ApprovalDecisionView
 	Command            *CommandView
+	Compact            *CompactView
 	Context            *ContextView
 	Fetch              *FetchView
 	Mutation           *MutationView
@@ -426,6 +427,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, approvalLines(state.Approval)...)
 	items = append(items, readLines(state.Read)...)
 	items = append(items, searchLines(state.Search)...)
+	items = append(items, compactLines(state.Compact)...)
 	items = append(items, contextLines(state.Context)...)
 	items = append(items, commandLines(state.Command)...)
 	items = append(items, fetchLines(state.Fetch)...)
@@ -810,6 +812,44 @@ func commandLines(command *CommandView) []string {
 		lines = append(lines, "  error message: "+semantic.ErrorMessage)
 	}
 	lines = appendDecisionLines(lines, semantic.Decision)
+	lines = append(lines, "")
+	return lines
+}
+
+func compactLines(compact *CompactView) []string {
+	if compact == nil {
+		return nil
+	}
+	lines := []string{
+		"  Compact:",
+		"  source: " + safeText(defaultString(compact.Source, "app.compact")),
+		"  status: " + safeText(defaultString(compact.Status, "completed")),
+	}
+	if compact.Summary != "" {
+		lines = append(lines, "  summary: "+safeText(compact.Summary))
+	}
+	if compact.OriginalMeter != "" {
+		lines = append(lines, "  original meter: "+safeText(compact.OriginalMeter))
+	}
+	if compact.Meter != "" {
+		lines = append(lines, "  meter: "+safeText(compact.Meter))
+	}
+	for _, caveat := range compact.Caveats {
+		lines = append(lines, "  caveat: "+safeText(caveat))
+	}
+	for _, ref := range compact.SourceRefs {
+		label := safeText(ref.ID) + " " + safeText(ref.Kind)
+		if ref.Path != "" {
+			label += " " + safeText(ref.Path)
+		}
+		if ref.Command != "" {
+			label += " command=" + safeText(ref.Command)
+		}
+		if ref.Excerpt != "" {
+			label += " excerpt=" + safeText(ref.Excerpt)
+		}
+		lines = append(lines, "  compact source ref: "+label)
+	}
 	lines = append(lines, "")
 	return lines
 }
@@ -1341,6 +1381,7 @@ type SemanticSnapshot struct {
 	Read           *SemanticRead           `json:"read_tool,omitempty"`
 	Search         *SemanticSearch         `json:"search_tool,omitempty"`
 	Bash           *SemanticBash           `json:"bash_tool,omitempty"`
+	Compact        *SemanticCompact        `json:"compact,omitempty"`
 	Context        *SemanticContext        `json:"context,omitempty"`
 	Fetch          *SemanticFetch          `json:"fetch_tool,omitempty"`
 	Mutation       *SemanticMutation       `json:"mutation_tool,omitempty"`
@@ -1464,6 +1505,17 @@ type SemanticFetch struct {
 	ErrorMessage      string            `json:"error_message,omitempty"`
 	Decision          *SemanticDecision `json:"decision,omitempty"`
 	Completed         bool              `json:"completed"`
+}
+
+// SemanticCompact describes app-injected manual compaction state.
+type SemanticCompact struct {
+	Source        string                     `json:"source"`
+	Status        string                     `json:"status"`
+	Summary       string                     `json:"summary,omitempty"`
+	Meter         string                     `json:"meter,omitempty"`
+	OriginalMeter string                     `json:"original_meter,omitempty"`
+	Caveats       []string                   `json:"caveats,omitempty"`
+	SourceRefs    []SemanticContextSourceRef `json:"source_refs,omitempty"`
 }
 
 // SemanticContext describes app-injected context assembly state.
@@ -1928,6 +1980,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Command != nil {
 		regions = append(regions, SemanticRegion{Name: "bash_tool", Visible: true, Items: semanticBashItems(state.Command)})
 	}
+	if state.Compact != nil {
+		regions = append(regions, SemanticRegion{Name: "compact", Visible: true, Items: semanticCompactItems(state.Compact)})
+	}
 	if state.Context != nil {
 		regions = append(regions, SemanticRegion{Name: "context", Visible: true, Items: semanticContextItems(state.Context)})
 	}
@@ -2044,6 +2099,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Read:           semanticRead(state.Read),
 		Search:         semanticSearch(state.Search),
 		Bash:           semanticBash(state.Command),
+		Compact:        semanticCompact(state.Compact),
 		Context:        semanticContext(state.Context),
 		Fetch:          semanticFetch(state.Fetch),
 		Mutation:       semanticMutation(state.Mutation),
@@ -2892,6 +2948,73 @@ func semanticBash(command *CommandView) *SemanticBash {
 		semantic.ErrorMessage = ""
 	}
 	return semantic
+}
+
+func semanticCompactItems(compact *CompactView) []string {
+	semantic := semanticCompact(compact)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"status: " + semantic.Status,
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.OriginalMeter != "" {
+		items = append(items, "original_meter: "+semantic.OriginalMeter)
+	}
+	if semantic.Meter != "" {
+		items = append(items, "meter: "+semantic.Meter)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	items = append(items, "app-owned", "display-only")
+	return items
+}
+
+func semanticCompact(compact *CompactView) *SemanticCompact {
+	if compact == nil {
+		return nil
+	}
+	refs := make([]SemanticContextSourceRef, 0, len(compact.SourceRefs))
+	for _, ref := range compact.SourceRefs {
+		refs = append(refs, SemanticContextSourceRef{
+			ID:        safeText(ref.ID),
+			Kind:      safeText(ref.Kind),
+			Label:     safeText(ref.Label),
+			Path:      safeText(ref.Path),
+			LineStart: ref.LineStart,
+			LineEnd:   ref.LineEnd,
+			Command:   safeText(ref.Command),
+			Stream:    safeText(ref.Stream),
+			Excerpt:   safeText(ref.Excerpt),
+		})
+	}
+	return &SemanticCompact{
+		Source:        safeText(defaultString(compact.Source, "app.compact")),
+		Status:        safeText(defaultString(compact.Status, "completed")),
+		Summary:       safeText(compact.Summary),
+		Meter:         safeText(compact.Meter),
+		OriginalMeter: safeText(compact.OriginalMeter),
+		Caveats:       safeTextSlice(compact.Caveats),
+		SourceRefs:    refs,
+	}
 }
 
 func semanticContextItems(contextView *ContextView) []string {

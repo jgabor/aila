@@ -18,7 +18,7 @@
 | /status - Inspect current runtime and state.                                                                         |
 | /review - Inspect current changes, risks, and sources.                                                               |
 | /history - Browse runs, edits, checks, and undo data.                                                                |
-| /help - Show this deterministic placeholder help.                                                                    |
+| /compact - Immediately compact the current conversation.                                                             |
 | /diff - Review current changes.                                                                                      |
 | /undo - Undo the latest supported mutation.                                                                          |
 | /redo - Redo the latest supported recovery.                                                                          |

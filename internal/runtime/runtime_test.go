@@ -104,6 +104,59 @@ func TestUpdateHandlesCommandDeterministically(t *testing.T) {
 	})
 }
 
+func TestUpdateHandlesCompactContextProposalDeterministically(t *testing.T) {
+	t.Parallel()
+
+	request := CompactContextRequest{
+		Blocks:     []CompactContextBlock{{ID: "block-1", Kind: "prompt", Title: "Prompt", Text: "review compact", SourceRefIDs: []string{"prompt-1"}}},
+		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "review compact"}},
+		Claims:     []CompactContextClaim{{Text: "manual compact requested", SourceRefIDs: []string{"prompt-1"}}},
+		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, ClaimCount: 1, UsedBytes: 14},
+		Source:     CompactSourceMetadata{Caller: "test.compact", RequestID: "compact-1"},
+	}
+	model := Model{Status: StatusIdle, NextOperation: 2}
+	firstModel, firstEffects := Update(model, CompactContextProposed{Request: request})
+	secondModel, secondEffects := Update(model, CompactContextProposed{Request: request})
+
+	if !reflect.DeepEqual(firstModel, secondModel) || !reflect.DeepEqual(firstEffects, secondEffects) {
+		t.Fatalf("compact update not deterministic:\nfirst:  %#v %#v\nsecond: %#v %#v", firstModel, firstEffects, secondModel, secondEffects)
+	}
+	if firstModel.Status != StatusActive || firstModel.LastCommand != "compact" || !reflect.DeepEqual(firstModel.ActiveCompact, request) {
+		t.Fatalf("compact model = status:%q last:%q active:%+v", firstModel.Status, firstModel.LastCommand, firstModel.ActiveCompact)
+	}
+	assertOperationMetadata(t, firstModel.ActiveOperation, OperationMetadata{ID: "op-3", Kind: OperationCompact, Subject: "manual context compaction", Source: "user"})
+	if got := firstModel.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "command", Text: "compact"}}) {
+		t.Fatalf("compact transcript = %#v", got)
+	}
+	if len(firstEffects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(firstEffects))
+	}
+	effect, ok := firstEffects[0].(CompactContextEffect)
+	if !ok || !reflect.DeepEqual(effect.Request, request) {
+		t.Fatalf("effect = %#v, want compact effect with request", firstEffects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-3", Kind: OperationCompact, Subject: "manual context compaction", Source: "user"})
+}
+
+func TestUpdateAppliesCompactContextResult(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-4", Kind: OperationCompact, Subject: "manual context compaction", Source: "user"}
+	result := CompactContextResult{
+		Status:     "completed",
+		Summary:    "manual compaction preserved 1 source refs",
+		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "review compact"}},
+		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, UsedBytes: 64},
+	}
+	model, effects := Update(Model{Status: StatusActive, ActiveOperation: operation}, CompactContextCompleted{Operation: operation, Result: result})
+	if len(effects) != 0 || model.Status != StatusIdle || model.Result != result.Summary || !reflect.DeepEqual(model.LastCompact, result) {
+		t.Fatalf("compact completed model/effects = %+v %#v", model, effects)
+	}
+	if got := model.Transcript; !reflect.DeepEqual(got, []TranscriptEntry{{Kind: "result", Text: result.Summary}}) {
+		t.Fatalf("transcript = %#v", got)
+	}
+}
+
 func TestUpdateHandlesReadToolProposalDeterministically(t *testing.T) {
 	t.Parallel()
 
@@ -610,6 +663,25 @@ func TestDispatchHandlesCommandEffect(t *testing.T) {
 
 	if got, want := messages, []Message{FakeEffectCompleted{Operation: operation, Result: "fake command result: status"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("Dispatch() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDispatchHandlesCompactContextEffect(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-compact", Kind: OperationCompact, Subject: "manual context compaction", Source: "user"}
+	request := CompactContextRequest{
+		Blocks:     []CompactContextBlock{{ID: "block-1", Kind: "prompt", Text: "review compact", SourceRefIDs: []string{"prompt-1"}}},
+		SourceRefs: []CompactSourceRef{{ID: "prompt-1", Kind: "prompt", Excerpt: "review compact"}},
+		Budget:     CompactContextBudget{BlockCount: 1, SourceRefCount: 1, UsedBytes: 14},
+	}
+	messages := Dispatch([]Effect{CompactContextEffect{Operation: operation, Request: request}})
+	if len(messages) != 1 {
+		t.Fatalf("messages = %#v, want one compact completion", messages)
+	}
+	completed, ok := messages[0].(CompactContextCompleted)
+	if !ok || completed.Operation != operation || completed.Result.Status != "completed" || len(completed.Result.SourceRefs) != 1 {
+		t.Fatalf("compact dispatch = %#v", messages[0])
 	}
 }
 

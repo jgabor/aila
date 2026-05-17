@@ -31,6 +31,7 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "review", input: "/review", want: CommandRouteReview},
 		{name: "help", input: "/help", want: CommandRouteHelp},
 		{name: "history", input: "/history", want: CommandRouteHistory},
+		{name: "compact", input: "/compact", want: CommandRouteCompact},
 		{name: "diff", input: "/diff", want: CommandRouteDiff},
 		{name: "undo", input: "/undo", want: CommandRouteUndo},
 		{name: "redo", input: "/redo", want: CommandRouteRedo},
@@ -49,6 +50,22 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 				t.Fatalf("RecommendSlashCommand(%q) = %+v, want route %q slash", tc.input, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCompactCommandRoutesSlashAndShortcutToSameClosedRoute(t *testing.T) {
+	t.Parallel()
+
+	slash, ok := RecommendSlashCommand("/compact")
+	if !ok || slash.Route != CommandRouteCompact || slash.Kind != CommandInputSlash {
+		t.Fatalf("/compact recommendation = %+v, want compact slash", slash)
+	}
+	shortcut, ok := RecommendShortcut("ctrl+x", "k")
+	if !ok || shortcut.Route != CommandRouteCompact || shortcut.Kind != CommandInputShortcut {
+		t.Fatalf("ctrl+x k recommendation = %+v, want compact shortcut", shortcut)
+	}
+	if slash.Route != shortcut.Route {
+		t.Fatalf("compact route mismatch: slash=%q shortcut=%q", slash.Route, shortcut.Route)
 	}
 }
 

@@ -156,6 +156,19 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 	case policy.CommandRouteHistory:
 		controller.openHistoryView()
 		return controller.view
+	case policy.CommandRouteCompact:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		turn := controller.runner.proposeCompactContext(compactRequestFromView(controller.view))
+		controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRouteDiff:
 		controller.openDiffView()
 		return controller.view

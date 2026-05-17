@@ -107,6 +107,8 @@ func readDispatchContextWithFetchClient(ctx context.Context, workspacePath strin
 				messages = append(messages, dispatchSearchEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
 			case runtime.BashToolEffect:
 				messages = append(messages, dispatchBashEffect(ctx, workspacePath, permission.AutonomyLevel(autonomyLevel), typed))
+			case runtime.CompactContextEffect:
+				messages = append(messages, dispatchCompactEffect(typed))
 			case runtime.FetchToolEffect:
 				messages = append(messages, dispatchFetchEffect(ctx, permission.AutonomyLevel(autonomyLevel), typed, fetchClient))
 			case runtime.EditToolEffect:

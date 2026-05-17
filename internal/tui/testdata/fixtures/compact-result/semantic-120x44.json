@@ -1,0 +1,175 @@
+{
+  "scenario": "compact-result",
+  "screen": {
+    "width": 120,
+    "height": 44,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "runtime_status": "idle",
+    "status_source": "runtime.dispatch",
+    "status_detail": "manual context compaction",
+    "runtime_result": "manual compaction preserved 2 source refs (1 caveat)",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "compact": {
+    "source": "app.compact",
+    "status": "flagged",
+    "summary": "manual compaction preserved 2 source refs",
+    "meter": "1 blocks / 2 refs / 256 bytes of 4096",
+    "original_meter": "1 blocks / 2 refs / 128 bytes of 4096",
+    "caveats": ["input context warning: shell stdout truncated"],
+    "source_refs": [
+      {
+        "id": "command-1",
+        "kind": "command",
+        "command": "git status --short",
+        "excerpt": "git status --short"
+      },
+      {
+        "id": "command-1-stdout-1",
+        "kind": "command_stdout",
+        "command": "git status --short",
+        "stream": "stdout",
+        "excerpt": "M internal[path-redacted]"
+      }
+    ]
+  },
+  "context": {
+    "source": "app.compact",
+    "status": "compacted",
+    "meter": "1 blocks / 2 refs / 256 bytes of 4096",
+    "blocks": [
+      {
+        "id": "compacted-context",
+        "kind": "compacted_context",
+        "title": "Manual compacted context",
+        "text": "compacted 1 blocks, 1 claims, and 2 source refs source command-1-stdout-1 command_stdout git status --short stdout: M internal[path-redacted]",
+        "source_ref_ids": ["command-1", "command-1-stdout-1"]
+      }
+    ],
+    "claims": [
+      {
+        "text": "manual compaction preserved 2 source refs",
+        "source_ref_ids": ["command-1", "command-1-stdout-1"]
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "command-1",
+        "kind": "command",
+        "command": "git status --short",
+        "excerpt": "git status --short"
+      },
+      {
+        "id": "command-1-stdout-1",
+        "kind": "command_stdout",
+        "command": "git status --short",
+        "stream": "stdout",
+        "excerpt": "M internal[path-redacted]"
+      }
+    ],
+    "warnings": ["input context warning: shell stdout truncated"]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "status source: runtime.dispatch",
+        "detail: manual context compaction",
+        "active: false",
+        "result: manual compaction preserved 2 source refs (1 caveat)",
+        "display-only"
+      ]
+    },
+    {
+      "name": "compact",
+      "visible": true,
+      "items": [
+        "source: app.compact",
+        "status: flagged",
+        "summary: manual compaction preserved 2 source refs",
+        "original_meter: 1 blocks / 2 refs / 128 bytes of 4096",
+        "meter: 1 blocks / 2 refs / 256 bytes of 4096",
+        "caveat: input context warning: shell stdout truncated",
+        "source_ref: command-1 kind=command command=git status --short excerpt=git status --short",
+        "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short excerpt=M internal[path-redacted]",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "context",
+      "visible": true,
+      "items": [
+        "source: app.compact",
+        "status: compacted",
+        "meter: 1 blocks / 2 refs / 256 bytes of 4096",
+        "block: compacted-context compacted_context Manual compacted context",
+        "block_text: compacted 1 blocks, 1 claims, and 2 source refs source command-1-stdout-1 command_stdout git status --short stdout: M internal[path-redacted]",
+        "block_ref: compacted-context command-1",
+        "block_ref: compacted-context command-1-stdout-1",
+        "claim: manual compaction preserved 2 source refs",
+        "claim_ref: manual compaction preserved 2 source refs -> command-1",
+        "claim_ref: manual compaction preserved 2 source refs -> command-1-stdout-1",
+        "source_ref: command-1 kind=command command=git status --short excerpt=git status --short",
+        "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short stream=stdout excerpt=M internal[path-redacted]",
+        "warning: input context warning: shell stdout truncated",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

@@ -41,6 +41,13 @@ type CommandSelected struct {
 
 func (CommandSelected) runtimeMessage() {}
 
+// CompactContextProposed records caller intent to compact current context.
+type CompactContextProposed struct {
+	Request CompactContextRequest
+}
+
+func (CompactContextProposed) runtimeMessage() {}
+
 // ReadToolProposed records caller intent to read a workspace file.
 // Update turns it into an effect; app-owned dispatch performs validation and IO.
 type ReadToolProposed struct {
@@ -191,6 +198,14 @@ type BashToolCompleted struct {
 
 func (BashToolCompleted) runtimeMessage() {}
 
+// CompactContextCompleted reports a manual context compaction result.
+type CompactContextCompleted struct {
+	Operation OperationMetadata
+	Result    CompactContextResult
+}
+
+func (CompactContextCompleted) runtimeMessage() {}
+
 // FetchToolCompleted reports a network read effect result.
 type FetchToolCompleted struct {
 	Operation OperationMetadata
@@ -230,6 +245,8 @@ type Model struct {
 	Queued               []QueuedEntry
 	Result               string
 	LastCommand          string
+	ActiveCompact        CompactContextRequest
+	LastCompact          CompactContextResult
 	ActiveRead           ReadToolRequest
 	LastRead             ReadToolResult
 	ActiveSearch         SearchToolRequest
@@ -309,6 +326,18 @@ type FakeCommandEffect struct {
 func (FakeCommandEffect) runtimeEffect() {}
 
 func (effect FakeCommandEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// CompactContextEffect requests manual context compaction outside Update.
+type CompactContextEffect struct {
+	Operation OperationMetadata
+	Request   CompactContextRequest
+}
+
+func (CompactContextEffect) runtimeEffect() {}
+
+func (effect CompactContextEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -438,6 +467,11 @@ func dispatchOne(effect Effect) (messages []Message) {
 			Operation: typed.Operation,
 			Result:    "fake command result: " + typed.Command,
 		}}
+	case CompactContextEffect:
+		return []Message{CompactContextCompleted{
+			Operation: typed.Operation,
+			Result:    fakeCompactContextResult(typed.Request),
+		}}
 	case FakeInterruptEffect:
 		return []Message{FakeInterruptResolved(typed)}
 	case interface{ dispatchPanic() }:
@@ -487,6 +521,7 @@ type OperationKind string
 const (
 	OperationPrompt   OperationKind = "prompt"
 	OperationCommand  OperationKind = "command"
+	OperationCompact  OperationKind = "compact"
 	OperationRead     OperationKind = "read"
 	OperationFind     OperationKind = "find"
 	OperationGrep     OperationKind = "grep"
@@ -519,6 +554,90 @@ type FailureMetadata struct {
 type CancelMetadata struct {
 	Requested bool
 	Reason    string
+}
+
+// CompactContextRequest is primitive context data for manual compaction.
+type CompactContextRequest struct {
+	Blocks     []CompactContextBlock
+	SourceRefs []CompactSourceRef
+	Claims     []CompactContextClaim
+	Budget     CompactContextBudget
+	Warnings   []string
+	MaxBytes   int
+	Source     CompactSourceMetadata
+}
+
+// CompactContextBlock records one compactable context block.
+type CompactContextBlock struct {
+	ID           string
+	Kind         string
+	Title        string
+	Text         string
+	SourceRefIDs []string
+}
+
+// CompactContextClaim records one source-backed context claim.
+type CompactContextClaim struct {
+	Text         string
+	SourceRefIDs []string
+}
+
+// CompactSourceRef records exact supporting evidence for compacted context.
+type CompactSourceRef struct {
+	ID        string
+	Kind      string
+	Label     string
+	Path      string
+	LineStart int
+	LineEnd   int
+	Command   string
+	Stream    string
+	Excerpt   string
+}
+
+// CompactContextBudget records context size before or after compaction.
+type CompactContextBudget struct {
+	MaxBytes       int
+	UsedBytes      int
+	BlockCount     int
+	SourceRefCount int
+	ClaimCount     int
+	Truncated      bool
+}
+
+// CompactSourceMetadata records caller-visible manual compaction provenance.
+type CompactSourceMetadata struct {
+	Caller      string
+	RequestID   string
+	Description string
+}
+
+// CompactContextErrorKind is a bounded manual compaction failure category.
+type CompactContextErrorKind string
+
+const (
+	CompactContextErrorNone      CompactContextErrorKind = "none"
+	CompactContextErrorNoContext CompactContextErrorKind = "no_context"
+)
+
+// CompactContextError is safe to surface in the TUI.
+type CompactContextError struct {
+	Kind    CompactContextErrorKind
+	Message string
+}
+
+// CompactContextResult is the typed runtime payload returned by compaction effects.
+type CompactContextResult struct {
+	Status         string
+	Summary        string
+	Blocks         []CompactContextBlock
+	SourceRefs     []CompactSourceRef
+	Claims         []CompactContextClaim
+	OriginalBudget CompactContextBudget
+	Budget         CompactContextBudget
+	Caveats        []string
+	Error          CompactContextError
+	Source         CompactSourceMetadata
 }
 
 // ReadToolRequest is the runtime-owned read proposal data. It intentionally
@@ -966,6 +1085,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationPrompt, text)
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
@@ -986,6 +1107,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Status = StatusActive
 		next.Result = ""
 		next.LastCommand = msg.Name
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveFetch = FetchToolRequest{}
@@ -995,6 +1118,32 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: msg.Name})
 		return next, []Effect{FakeCommandEffect{Operation: operation, Command: msg.Name}}
+	case CompactContextProposed:
+		request := msg.Request
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "compact", Text: "compact context"})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationCompact, "manual context compaction")
+		next.Status = StatusActive
+		next.Result = ""
+		next.LastCommand = "compact"
+		next.ActiveCompact = request
+		next.LastCompact = CompactContextResult{}
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = operation
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "command", Text: "compact"})
+		return next, []Effect{CompactContextEffect{Operation: operation, Request: request}}
 	case ReadToolProposed:
 		request := msg.Request
 		request.Path = strings.TrimSpace(request.Path)
@@ -1021,6 +1170,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, operationKindForSearch(request.ToolName), searchSubjectLabel(request))
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = request
@@ -1044,6 +1195,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationBash, bashSubjectLabel(request))
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1067,6 +1220,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationFetch, fetchSubjectLabel(request))
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1090,6 +1245,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationEdit, mutationSubjectLabel(request))
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1113,6 +1270,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		operation := nextOperation(&next, OperationWrite, mutationSubjectLabel(request))
 		next.Status = StatusActive
 		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1134,6 +1293,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		}
 		next.Status = StatusApprovalPending
 		next.Result = "approval pending: " + approvalSubjectLabel(proposal)
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1231,6 +1392,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 	case FakeEffectCompleted:
 		next.Status = StatusIdle
 		next.Result = msg.Result
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1247,6 +1410,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 	case FakeEffectFailed:
 		next.Status = StatusIdle
 		next.Result = msg.Failure.Message
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1285,6 +1450,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		summary := searchResultSummary(msg.Result)
 		next.Status = StatusIdle
 		next.Result = summary
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1306,6 +1473,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		summary := bashResultSummary(msg.Result)
 		next.Status = StatusIdle
 		next.Result = summary
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1323,10 +1492,35 @@ func Update(model Model, message Message) (Model, []Effect) {
 		}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
 		return next, nil
+	case CompactContextCompleted:
+		summary := compactResultSummary(msg.Result)
+		next.Status = StatusIdle
+		next.Result = summary
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = msg.Result
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveSearch = SearchToolRequest{}
+		next.LastSearch = SearchToolResult{}
+		next.ActiveBash = BashToolRequest{}
+		next.LastBash = BashToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = OperationMetadata{}
+		kind := "result"
+		if msg.Result.Error.Kind != "" && msg.Result.Error.Kind != CompactContextErrorNone {
+			kind = "failure"
+		}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: kind, Text: summary})
+		return next, nil
 	case FetchToolCompleted:
 		summary := fetchResultSummary(msg.Result)
 		next.Status = StatusIdle
 		next.Result = summary
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1346,6 +1540,8 @@ func Update(model Model, message Message) (Model, []Effect) {
 		summary := mutationResultSummary(msg.Result)
 		next.Status = StatusIdle
 		next.Result = summary
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
 		next.LastRead = ReadToolResult{}
 		next.ActiveSearch = SearchToolRequest{}
@@ -1389,7 +1585,7 @@ func hasActiveFakeWork(model Model) bool {
 }
 
 func isToolOperation(kind OperationKind) bool {
-	return kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch || kind == OperationEdit || kind == OperationWrite
+	return kind == OperationCompact || kind == OperationRead || kind == OperationFind || kind == OperationGrep || kind == OperationBash || kind == OperationFetch || kind == OperationEdit || kind == OperationWrite
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
@@ -1485,6 +1681,46 @@ func agentToolRequestSummary(request AgentToolRequest) string {
 		return "tool request " + request.Name
 	}
 	return "tool request " + request.Name + " " + request.ID
+}
+
+func fakeCompactContextResult(request CompactContextRequest) CompactContextResult {
+	status := "completed"
+	if len(request.Blocks) == 0 && len(request.Claims) == 0 {
+		status = "flagged"
+	}
+	result := CompactContextResult{
+		Status:         status,
+		Summary:        "manual compaction completed",
+		Blocks:         append([]CompactContextBlock(nil), request.Blocks...),
+		SourceRefs:     append([]CompactSourceRef(nil), request.SourceRefs...),
+		Claims:         append([]CompactContextClaim(nil), request.Claims...),
+		OriginalBudget: request.Budget,
+		Budget:         request.Budget,
+		Source:         request.Source,
+	}
+	if status == "flagged" {
+		result.Summary = "manual compaction completed with caveats"
+		result.Caveats = []string{"no context blocks were available to compact"}
+	}
+	return result
+}
+
+func compactResultSummary(result CompactContextResult) string {
+	summary := strings.TrimSpace(result.Summary)
+	if summary == "" {
+		summary = fmt.Sprintf("manual compaction preserved %d source refs", len(result.SourceRefs))
+	}
+	if result.Error.Kind != "" && result.Error.Kind != CompactContextErrorNone {
+		message := strings.TrimSpace(result.Error.Message)
+		if message == "" {
+			return fmt.Sprintf("compact failed: %s", result.Error.Kind)
+		}
+		return fmt.Sprintf("compact failed: %s: %s", result.Error.Kind, message)
+	}
+	if len(result.Caveats) > 0 && !strings.Contains(summary, "caveat") {
+		return summary + " with caveats"
+	}
+	return summary
 }
 
 func readResultSummary(result ReadToolResult) string {

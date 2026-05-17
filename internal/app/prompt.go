@@ -68,6 +68,14 @@ func (runner *inputRunner) proposeBashTool(request runtime.BashToolRequest) tui.
 	return turn
 }
 
+func (runner *inputRunner) proposeCompactContext(request runtime.CompactContextRequest) tui.TranscriptTurn {
+	before := len(runner.model.Transcript)
+	runner.apply(runtime.CompactContextProposed{Request: request})
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn
+}
+
 func (runner *inputRunner) proposeFetchTool(request runtime.FetchToolRequest) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.FetchToolProposed{Request: request})
@@ -175,6 +183,10 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	turn.Read = readView(runner.model)
 	turn.Search = searchView(runner.model)
 	turn.Command = commandView(runner.model)
+	turn.Compact = compactView(runner.model)
+	if turn.Compact != nil {
+		turn.Context = compactContextView(runner.model.LastCompact)
+	}
 	turn.Fetch = fetchView(runner.model)
 	turn.Mutation = mutationView(runner.model)
 	turn.Approval = approvalView(runner.model.PendingApproval)
@@ -187,6 +199,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	}
 	if turn.Command != nil {
 		turn.StatusDetail = "bash tool dispatch"
+	}
+	if turn.Compact != nil {
+		turn.StatusDetail = "manual context compaction"
 	}
 	if turn.Fetch != nil {
 		turn.StatusDetail = "fetch tool dispatch"

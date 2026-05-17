@@ -52,6 +52,7 @@ type TranscriptTurn struct {
 	Read               *ReadView
 	Search             *SearchView
 	Command            *CommandView
+	Compact            *CompactView
 	Context            *ContextView
 	Fetch              *FetchView
 	Mutation           *MutationView
@@ -177,6 +178,18 @@ type CommandView struct {
 	ErrorKind       string
 	ErrorMessage    string
 	Decision        *DecisionView
+}
+
+// CompactView is app-injected manual context compaction state. It is display-only;
+// TUI code must never compact context, persist state, or call providers itself.
+type CompactView struct {
+	Source        string
+	Status        string
+	Summary       string
+	Meter         string
+	OriginalMeter string
+	Caveats       []string
+	SourceRefs    []ContextSourceRefView
 }
 
 // ContextView is app-injected context assembly evidence. It is display-only;
@@ -564,6 +577,7 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	state.Read = cloneReadView(turn.Read)
 	state.Search = cloneSearchView(turn.Search)
 	state.Command = cloneCommandView(turn.Command)
+	state.Compact = cloneCompactView(turn.Compact)
 	state.Context = cloneContextView(turn.Context)
 	if state.Context != nil && state.Context.Meter != "" {
 		state.FooterContext = state.Context.Meter
@@ -624,6 +638,16 @@ func cloneCommandView(command *CommandView) *CommandView {
 	clone.StdoutLines = append([]string(nil), command.StdoutLines...)
 	clone.StderrLines = append([]string(nil), command.StderrLines...)
 	clone.Decision = cloneDecisionView(command.Decision)
+	return &clone
+}
+
+func cloneCompactView(compact *CompactView) *CompactView {
+	if compact == nil {
+		return nil
+	}
+	clone := *compact
+	clone.Caveats = append([]string(nil), compact.Caveats...)
+	clone.SourceRefs = append([]ContextSourceRefView(nil), compact.SourceRefs...)
 	return &clone
 }
 
@@ -853,7 +877,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/status - Inspect current runtime and state.",
 			"/review - Inspect current changes, risks, and sources.",
 			"/history - Browse runs, edits, checks, and undo data.",
-			"/help - Show this deterministic placeholder help.",
+			"/compact - Immediately compact the current conversation.",
 			"/diff - Review current changes.",
 			"/undo - Undo the latest supported mutation.",
 			"/redo - Redo the latest supported recovery.",
@@ -867,13 +891,19 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"ctrl+x s - Inspect current runtime and state.",
 			"ctrl+x i - Inspect current changes, risks, and sources.",
 			"ctrl+x h - Browse runs, edits, checks, and undo data.",
+			"ctrl+x k - Immediately compact the current conversation.",
 			"ctrl+x d - Review current changes.",
 			"ctrl+x u - Undo the latest supported mutation.",
 			"ctrl+x r - Redo the latest supported recovery.",
-			"ctrl+x q - Quit Aila.",
 		}
 	case policy.CommandRouteHistory:
 		state = ApplyHistoryView(state, nil, 0, true)
+	case policy.CommandRouteCompact:
+		state.SurfaceTitle = "compact"
+		state.SurfaceLines = []string{
+			"app-owned manual compaction unavailable in presentation-only fallback",
+			"background compaction: out of scope",
+		}
 	case policy.CommandRouteDiff:
 		state = ApplyDiffView(state, &DiffView{Source: "policy.command", Status: "empty", Empty: true}, 0, true)
 	}

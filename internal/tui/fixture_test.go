@@ -177,6 +177,61 @@ func loadCommandFixture(t *testing.T, name string, input string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadCompactFixture(t *testing.T, name string) renderFixture {
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	state.Scenario = name
+	switch name {
+	case "compact-running":
+		state.RuntimeStatus = "active"
+		state.StatusSource = "runtime.dispatch"
+		state.StatusDetail = "manual context compaction"
+		state.RuntimeActive = true
+		state.Compact = &CompactView{
+			Source:  "app.compact",
+			Status:  "running",
+			Summary: "manual context compaction running",
+		}
+	case "compact-result":
+		refs := []ContextSourceRefView{
+			{ID: "command-1", Kind: "command", Command: "git status --short", Excerpt: "git status --short"},
+			{ID: "command-1-stdout-1", Kind: "command_stdout", Command: "git status --short", Stream: "stdout", Excerpt: "M internal/context/context.go"},
+		}
+		state.RuntimeStatus = "idle"
+		state.StatusSource = "runtime.dispatch"
+		state.StatusDetail = "manual context compaction"
+		state.RuntimeResult = "manual compaction preserved 2 source refs (1 caveat)"
+		state.Compact = &CompactView{
+			Source:        "app.compact",
+			Status:        "flagged",
+			Summary:       "manual compaction preserved 2 source refs",
+			OriginalMeter: "1 blocks / 2 refs / 128 bytes of 4096",
+			Meter:         "1 blocks / 2 refs / 256 bytes of 4096",
+			Caveats:       []string{"input context warning: shell stdout truncated"},
+			SourceRefs:    refs,
+		}
+		state.Context = &ContextView{
+			Source: "app.compact",
+			Status: "compacted",
+			Meter:  "1 blocks / 2 refs / 256 bytes of 4096",
+			Blocks: []ContextBlockView{{
+				ID:           "compacted-context",
+				Kind:         "compacted_context",
+				Title:        "Manual compacted context",
+				Text:         "compacted 1 blocks, 1 claims, and 2 source refs\nsource command-1-stdout-1 command_stdout git status --short stdout: M internal/context/context.go",
+				SourceRefIDs: []string{"command-1", "command-1-stdout-1"},
+			}},
+			Claims:     []ContextClaimView{{Text: "manual compaction preserved 2 source refs", SourceRefIDs: []string{"command-1", "command-1-stdout-1"}}},
+			SourceRefs: refs,
+			Warnings:   []string{"input context warning: shell stdout truncated"},
+		}
+	default:
+		t.Fatalf("unknown compact fixture %q", name)
+	}
+	return loadRenderFixture(t, name, state)
+}
+
 func loadDisplayFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
@@ -3452,8 +3507,101 @@ func commandFixtureMarker(route string) string {
 		return "app-owned status inspection unavailable in presentation-only fallback"
 	case "review":
 		return "app-owned review inspection unavailable in presentation-only fallback"
+	case "compact":
+		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
 		return "Deterministic placeholder"
+	}
+}
+
+func TestCompactFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name           string
+		status         string
+		wantRender     []string
+		wantSemantic   []string
+		sourceRefCount int
+	}{
+		{
+			name:   "compact-running",
+			status: "running",
+			wantRender: []string{
+				"Compact:",
+				"source: app.compact",
+				"status: running",
+				"summary: manual context compaction running",
+			},
+			wantSemantic: []string{"status: running", "summary: manual context compaction running", "app-owned", "display-only"},
+		},
+		{
+			name:   "compact-result",
+			status: "flagged",
+			wantRender: []string{
+				"Compact:",
+				"status: flagged",
+				"summary: manual compaction preserved 2 source refs",
+				"caveat: input context warning: shell stdout truncated",
+				"compact source ref: command-1-stdout-1 command_stdout command=git status --short excerpt=M internal[path-redacted]",
+				"Context:",
+				"status: compacted",
+				"claim: manual compaction preserved 2 source refs",
+			},
+			wantSemantic:   []string{"status: flagged", "summary: manual compaction preserved 2 source refs", "caveat: input context warning: shell stdout truncated", "source_ref: command-1-stdout-1 kind=command_stdout command=git status --short excerpt=M internal[path-redacted]"},
+			sourceRefCount: 2,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadCompactFixture(t, tc.name)
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					if !containsAll(plain, tc.wantRender) {
+						t.Fatalf("%s compact render missing evidence %v:\n%s", tc.name, tc.wantRender, plain)
+					}
+				})
+			}
+
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					if snapshot.Compact == nil || snapshot.Compact.Status != tc.status {
+						t.Fatalf("compact semantic = %+v, want status %q", snapshot.Compact, tc.status)
+					}
+					if len(snapshot.Compact.SourceRefs) != tc.sourceRefCount {
+						t.Fatalf("compact source refs = %+v, want %d", snapshot.Compact.SourceRefs, tc.sourceRefCount)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					compactRegion := strings.Join(regions["compact"].Items, "\n")
+					if !containsAll(compactRegion, tc.wantSemantic) {
+						t.Fatalf("%s compact semantic region missing %v in %v", tc.name, tc.wantSemantic, regions["compact"].Items)
+					}
+					if tc.name == "compact-result" {
+						contextRegion := strings.Join(regions["context"].Items, "\n")
+						if snapshot.Context == nil || !containsAll(contextRegion, []string{"status: compacted", "claim: manual compaction preserved 2 source refs", "warning: input context warning: shell stdout truncated"}) {
+							t.Fatalf("compact result context semantic = %+v region=%v", snapshot.Context, regions["context"].Items)
+						}
+					}
+				})
+			}
+		})
 	}
 }
 

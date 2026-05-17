@@ -1,0 +1,43 @@
+Aila                                                                                                              120x44
+Stage IDLE | Runtime idle | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| status source: runtime.dispatch                                                                                      |
+| detail: manual context compaction                                                                                    |
+| active: false                                                                                                        |
+| result: manual compaction preserved 2 source refs (1 caveat)                                                         |
+|                                                                                                                      |
+| Compact:                                                                                                             |
+| source: app.compact                                                                                                  |
+| status: flagged                                                                                                      |
+| summary: manual compaction preserved 2 source refs                                                                   |
+| original meter: 1 blocks / 2 refs / 128 bytes of 4096                                                                |
+| meter: 1 blocks / 2 refs / 256 bytes of 4096                                                                         |
+| caveat: input context warning: shell stdout truncated                                                                |
+| compact source ref: command-1 command command=git status --short excerpt=git status --short                          |
+| compact source ref: command-1-stdout-1 command_stdout command=git status --short excerpt=M internal[path-redacted]   |
+|                                                                                                                      |
+| Context:                                                                                                             |
+| source: app.compact                                                                                                  |
+| status: compacted                                                                                                    |
+| meter: 1 blocks / 2 refs / 256 bytes of 4096                                                                         |
+| block: compacted_context Manual compacted context                                                                    |
+| | compacted 1 blocks, 1 claims, and 2 source refs source command-1-stdout-1 command_stdout git status --short stdou~ |
+| block refs: command-1, command-1-stdout-1                                                                            |
+| claim: manual compaction preserved 2 source refs                                                                     |
+| claim refs: command-1, command-1-stdout-1                                                                            |
+| source ref: command-1 command command=git status --short excerpt=git status --short                                  |
+| source ref: command-1-stdout-1 command_stdout command=git status --short stream=stdout excerpt=M internal[path-reda~ |
+| warning: input context warning: shell stdout truncated                                                               |
+|                                                                                                                      |
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

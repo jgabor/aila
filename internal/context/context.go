@@ -66,6 +66,19 @@ type BuiltContext struct {
 	Warnings   []string
 }
 
+// CompactInput requests deterministic compaction of already-built context.
+type CompactInput struct {
+	Context  BuiltContext
+	MaxBytes int
+}
+
+// CompactResult is the source-preserving output of a manual compaction run.
+type CompactResult struct {
+	Context        BuiltContext
+	OriginalBudget ContextBudget
+	Caveats        []string
+}
+
 // BuildInput collects the source families that can feed model context.
 type BuildInput struct {
 	Prompts         []PromptInput
@@ -138,6 +151,65 @@ func (built BuiltContext) MeterLabel() string {
 		label += " truncated"
 	}
 	return label
+}
+
+// Compact condenses blocks and claims while carrying exact source references forward.
+func Compact(input CompactInput) CompactResult {
+	result := CompactResult{OriginalBudget: input.Context.Budget}
+	result.Context.SourceRefs = cloneSourceRefs(input.Context.SourceRefs)
+	if len(input.Context.Blocks) == 0 && len(input.Context.Claims) == 0 {
+		result.Caveats = append(result.Caveats, "no context blocks were available to compact")
+		result.Context.Warnings = append(result.Context.Warnings, result.Caveats...)
+		result.Context.Budget.MaxBytes = input.MaxBytes
+		result.Context.Budget.SourceRefCount = len(result.Context.SourceRefs)
+		return result
+	}
+
+	refIDs := sourceRefIDs(result.Context.SourceRefs)
+	lines := []string{fmt.Sprintf("compacted %d blocks, %d claims, and %d source refs", len(input.Context.Blocks), len(input.Context.Claims), len(input.Context.SourceRefs))}
+	for _, claim := range input.Context.Claims {
+		if text := cleanText(claim.Text); text != "" {
+			lines = append(lines, "claim: "+text)
+		}
+	}
+	for _, block := range input.Context.Blocks {
+		if text := cleanText(block.Text); text != "" {
+			lines = append(lines, "block "+block.ID+" "+block.Kind+": "+text)
+		}
+	}
+	for _, ref := range input.Context.SourceRefs {
+		if detail := compactSourceDetail(ref); detail != "" {
+			lines = append(lines, detail)
+		}
+	}
+
+	compactText := strings.Join(uniqueNonEmpty(lines), "\n")
+	result.Context.Blocks = []ContextBlock{{
+		ID:           "compact-block-1",
+		Kind:         "compacted_context",
+		Title:        "Compacted context",
+		Text:         compactText,
+		SourceRefIDs: refIDs,
+	}}
+	summary := fmt.Sprintf("manual compaction preserved %d source refs", len(result.Context.SourceRefs))
+	result.Context.Claims = []SourceBackedClaim{{Text: summary, SourceRefIDs: refIDs}}
+	result.Context.Warnings = append(result.Context.Warnings, input.Context.Warnings...)
+	if input.Context.Budget.Truncated {
+		result.Caveats = append(result.Caveats, "input context was already over budget")
+	}
+	if input.MaxBytes > 0 && len(compactText) > input.MaxBytes {
+		result.Caveats = append(result.Caveats, "compacted context exceeds requested byte budget")
+	}
+	result.Context.Warnings = append(result.Context.Warnings, result.Caveats...)
+	result.Context.Budget = ContextBudget{
+		MaxBytes:       input.MaxBytes,
+		UsedBytes:      len(compactText),
+		BlockCount:     len(result.Context.Blocks),
+		SourceRefCount: len(result.Context.SourceRefs),
+		ClaimCount:     len(result.Context.Claims),
+		Truncated:      input.MaxBytes > 0 && len(compactText) > input.MaxBytes,
+	}
+	return result
 }
 
 type contextBuilder struct {
@@ -428,4 +500,52 @@ func titleWithFallback(value string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func cloneSourceRefs(refs []SourceRef) []SourceRef {
+	if len(refs) == 0 {
+		return nil
+	}
+	clone := make([]SourceRef, len(refs))
+	copy(clone, refs)
+	return clone
+}
+
+func sourceRefIDs(refs []SourceRef) []string {
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		ids = append(ids, ref.ID)
+	}
+	return uniqueNonEmpty(ids)
+}
+
+func compactSourceDetail(ref SourceRef) string {
+	var details []string
+	if ref.Path != "" {
+		details = append(details, ref.Path)
+	}
+	if ref.Command != "" {
+		details = append(details, "command: "+ref.Command)
+	}
+	if ref.Stream != "" {
+		details = append(details, "stream: "+ref.Stream)
+	}
+	if ref.LineStart > 0 {
+		line := fmt.Sprintf("line: %d", ref.LineStart)
+		if ref.LineEnd > ref.LineStart {
+			line = fmt.Sprintf("lines: %d-%d", ref.LineStart, ref.LineEnd)
+		}
+		details = append(details, line)
+	}
+	if ref.Excerpt == "" && len(details) == 0 {
+		return ""
+	}
+	prefix := "source " + ref.ID + " " + string(ref.Kind)
+	if len(details) > 0 {
+		prefix += " " + strings.Join(details, " ")
+	}
+	if ref.Excerpt != "" {
+		prefix += ": " + ref.Excerpt
+	}
+	return prefix
 }

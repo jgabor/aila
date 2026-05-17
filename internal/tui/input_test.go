@@ -535,6 +535,29 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 		t.Fatalf("history surface mismatch: slash=%q shortcut=%q", historySlashModel.state.SurfaceTitle, historyShortcutModel.state.SurfaceTitle)
 	}
 
+	compactSlash, ok := policy.RecommendSlashCommand("/compact")
+	if !ok {
+		t.Fatal("/compact did not match")
+	}
+	compactShortcut, ok := policy.RecommendShortcut("ctrl+x", "k")
+	if !ok {
+		t.Fatal("ctrl+x k did not match")
+	}
+	if compactSlash.Route != compactShortcut.Route || compactSlash.Route != policy.CommandRouteCompact {
+		t.Fatalf("compact policy route mismatch: slash=%+v shortcut=%+v", compactSlash, compactShortcut)
+	}
+	compactSlashModel, compactSlashCmd := routeSlashCommandForParity(t, "/compact")
+	compactShortcutModel, compactShortcutCmd := routeShortcutForParity(t, "k")
+	if compactSlashCmd != nil || compactShortcutCmd != nil {
+		t.Fatal("compact parity routes should not emit Bubble Tea commands")
+	}
+	if compactSlashModel.state.CommandRoute != compactShortcutModel.state.CommandRoute || compactSlashModel.state.RouteSource != compactShortcutModel.state.RouteSource {
+		t.Fatalf("compact TUI route mismatch: slash=%+v shortcut=%+v", compactSlashModel.state, compactShortcutModel.state)
+	}
+	if compactSlashModel.state.SurfaceTitle != "compact" || compactShortcutModel.state.SurfaceTitle != "compact" {
+		t.Fatalf("compact surface mismatch: slash=%q shortcut=%q", compactSlashModel.state.SurfaceTitle, compactShortcutModel.state.SurfaceTitle)
+	}
+
 	diffSlash, ok := policy.RecommendSlashCommand("/diff")
 	if !ok {
 		t.Fatal("/diff did not match")
@@ -699,7 +722,7 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"/status - Inspect current runtime and state.",
 		"/review - Inspect current changes, risks, and sources.",
 		"/history - Browse runs, edits, checks, and undo data.",
-		"/help - Show this deterministic placeholder help.",
+		"/compact - Immediately compact the current conversation.",
 		"/diff - Review current changes.",
 		"/undo - Undo the latest supported mutation.",
 		"/redo - Redo the latest supported recovery.",
@@ -713,10 +736,10 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"ctrl+x s - Inspect current runtime and state.",
 		"ctrl+x i - Inspect current changes, risks, and sources.",
 		"ctrl+x h - Browse runs, edits, checks, and undo data.",
+		"ctrl+x k - Immediately compact the current conversation.",
 		"ctrl+x d - Review current changes.",
 		"ctrl+x u - Undo the latest supported mutation.",
 		"ctrl+x r - Redo the latest supported recovery.",
-		"ctrl+x q - Quit Aila.",
 	} {
 		if !strings.Contains(first, item) {
 			t.Fatalf("help render missing %q:\n%s", item, first)
@@ -731,8 +754,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "/auto - Choose the active autonomy level for this session.", "/status - Inspect current runtime and state.")
 	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/review - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "/review - Inspect current changes, risks, and sources.", "/history - Browse runs, edits, checks, and undo data.")
-	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/help - Show this deterministic placeholder help.")
-	assertOrdered(t, first, "/help - Show this deterministic placeholder help.", "/diff - Review current changes.")
+	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/compact - Immediately compact the current conversation.")
+	assertOrdered(t, first, "/compact - Immediately compact the current conversation.", "/diff - Review current changes.")
 	assertOrdered(t, first, "/diff - Review current changes.", "/undo - Undo the latest supported mutation.")
 	assertOrdered(t, first, "/undo - Undo the latest supported mutation.", "/redo - Redo the latest supported recovery.")
 	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
@@ -744,13 +767,13 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "ctrl+x a - Choose the active autonomy level for this session.", "ctrl+x s - Inspect current runtime and state.")
 	assertOrdered(t, first, "ctrl+x s - Inspect current runtime and state.", "ctrl+x i - Inspect current changes, risks, and sources.")
 	assertOrdered(t, first, "ctrl+x i - Inspect current changes, risks, and sources.", "ctrl+x h - Browse runs, edits, checks, and undo data.")
-	assertOrdered(t, first, "ctrl+x h - Browse runs, edits, checks, and undo data.", "ctrl+x d - Review current changes.")
+	assertOrdered(t, first, "ctrl+x h - Browse runs, edits, checks, and undo data.", "ctrl+x k - Immediately compact the current conversation.")
+	assertOrdered(t, first, "ctrl+x k - Immediately compact the current conversation.", "ctrl+x d - Review current changes.")
 	assertOrdered(t, first, "ctrl+x d - Review current changes.", "ctrl+x u - Undo the latest supported mutation.")
 	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
-	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/compact", "/exit -", "/q -",
-		"ctrl+x k", "ctrl+x ?",
+		"/exit -", "/q -",
+		"ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {

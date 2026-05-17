@@ -3,56 +3,52 @@ header:
   created: '2026-05-17'
   status: complete
   reviewed: '2026-05-17'
-  critic_issues: M39 must implement only the context-builder/source-reference slice. The context package owns structured context
-    blocks, source refs, source-backed claims, and budget metadata. `!!command` must now reuse the existing bash permission/history/result
-    path before adding summarized command context with exact preserved failure/output references. Keep `/compact`, ctrl+x
-    k, background utility jobs, stale-context checks, provider summarization, prompt-provider rewrites, plugins, MCP, workflow
-    DSLs, generic graph engines, and M40+ behavior out of scope.
-  title: 'Milestone 39: Context Builder With Source Refs'
-what: Deliver ROADMAP.md Milestone 39 by adding Aila-owned structured context assembly with exact source references, visible
-  context evidence, and completed `!!command` handling that routes through bash permission/history before feeding summarized
-  command output into context.
-why: M38 made `!!command` a visible deferred shell-prefix path. M39 turns context into a typed product boundary so prompts,
-  tool results, diffs, command output, and user constraints can be assembled without losing the references needed for trust,
-  while still avoiding manual compaction and background utility work.
-constraints: 'Execute only Milestone 39. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may render app-injected context meter, source refs, source-backed claims, and summarized shell context, but it must not
-  assemble context, execute shell commands, summarize output, call providers, read files, classify permissions, write history,
-  persist sessions, or mutate workflow phase. Use `internal/context` for pure source-ref/context assembly. Route `!!command`
-  through the existing runtime BashToolProposed/dispatchBashEffect path and existing permission/history recording before context
-  is built. Preserve exact command, output, stderr, failure lines, paths, diffs, and user constraints when correctness may
-  depend on them. Do not add `/compact`, ctrl+x k, compaction effects, background utility jobs, stale-context checks, provider
-  summarization, model prompt rewrites beyond bounded context data assembly, source indexing, plugins, MCP, workflow DSLs,
-  generic graph engines, hosted control planes, or M40+ behavior. Use behavior-based test names; do not introduce new TestM<number>
+  critic_issues: M40 must implement only the manual /compact command slice. Add closed /compact and ctrl+x k routing, explicit
+    runtime/app compaction effects, deterministic source-ref-preserving compaction, visible running/result/caveat state, fixtures,
+    semantics, and PTY smoke if terminal behavior changes. Keep background continuous compaction, utility worker scheduling,
+    stale-context checks, provider/model summarization, source indexing/ranking, plugins, MCP, workflow DSLs, generic graph
+    engines, hosted control planes, and M41+ behavior out of scope.
+  title: 'Milestone 40: Manual Compact Command'
+what: Deliver ROADMAP.md Milestone 40 by adding /compact and ctrl+x k as user-triggered manual context compaction with explicit
+  effects, preserved source refs, exact critical details, visible TUI state, and validated command parity.
+why: M39 introduced source-backed context assembly. M40 lets users intentionally compact the current conversation before any
+  background utility worker exists, while keeping compaction visible, inspectable, and bounded by existing runtime/app/TUI
+  architecture.
+constraints: 'Execute only Milestone 40. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may route the closed command, render injected compact running/result/caveat state, and expose semantic compact evidence,
+  but it must not assemble or compact context, call providers, persist state, inspect files, mutate workflow phase, or start
+  utility work. Manual compaction must run through a typed explicit effect path owned by runtime/app code and deterministic
+  internal/context compaction. Preserve source refs and exact paths, diffs, commands, errors, and user constraints when correctness
+  may depend on them. Do not add background continuous compaction, utility worker scheduling, stale-context checks, summary
+  refresh jobs, provider/model summarization, source indexing/ranking, plugins, MCP, workflow DSLs, generic graph engines,
+  hosted control planes, config writes, or M41+ behavior. Use behavior-based test names; do not introduce new TestM<number>
   symbols. Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m38.yaml
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m39.yaml
 source_anchors:
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:16-110
-- ROADMAP.md:1597-1622
-- README.md:125-333
-- ARCHITECTURE.md:600-641
-- docs/workflow-architecture.md:475-547
+- ROADMAP.md:1624-1645
+- README.md:230-304
+- ARCHITECTURE.md:180-224
+- ARCHITECTURE.md:520-641
 - docs/workflow-architecture.md:633-644
-- docs/tui-testing.md:130-210
-- internal/context/doc.go
-- internal/app/shell_prefix.go
+- docs/tui-testing.md:60-80
+- docs/tui-testing.md:185-195
+- internal/context/context.go
+- internal/app/session_snapshot.go
 - internal/app/prompt.go
-- internal/app/shutdown.go
 - internal/runtime/runtime.go
-- internal/state/session_snapshot.go
 - internal/tui/model.go
 - internal/tui/render.go
+- internal/policy/command.go
 - cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
 - go test ./internal/context -count=1
-- go test ./internal/app -run 'Test.*Context.*|Test.*Summarized.*Shell.*|Test.*Shell.*Prefix.*|Test.*Bash.*|Test.*History.*|Test.*Prompt.*'
-  -count=1
-- go test ./internal/tui -run 'Test.*Context.*|Test.*Summarized.*Shell.*|Test.*Command.*|Test.*Fixture.*|Test.*Semantic.*'
-  -count=1
-- go test ./cmd/aila -run 'Test.*Summarized.*Shell.*PTYSmoke|Test.*Shell.*Prefix.*PTYSmoke' -count=1
+- go test ./internal/policy ./internal/runtime ./internal/app -run 'Test.*Compact.*|Test.*Command.*|Test.*Status.*' -count=1
+- go test ./internal/tui -run 'Test.*Compact.*|Test.*Command.*|Test.*Help.*|Test.*Semantic.*|Test.*Fixture.*' -count=1
+- go test ./cmd/aila -run 'Test.*Compact.*PTYSmoke|Test.*Command.*PTYSmoke' -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
@@ -60,146 +56,148 @@ verification_commands:
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m38.yaml cmd/aila
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m39.yaml cmd/aila
   internal/app internal/context internal/policy internal/runtime internal/state internal/tui ':(exclude)internal/tui/testdata/fixtures/*/*.txt'
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 scope:
   included:
-  - Add an `internal/context` source reference model plus pure context builder for prompts, tool results, diffs, command output,
-    and user constraints.
-  - Add context budget/meter data, source-backed claims, exact critical detail preservation, and deterministic summaries without
-    provider calls.
-  - '`!!command` runs through the existing bash validation, permission, effect dispatch, visible result, command/history recording,
-    and current snapshot path before building summarized shell context.'
-  - Expose app-injected context state in the TUI with source refs supporting rendered claims and summarized shell output when
-    visible.
-  - Add context builder tests proving source refs survive assembly and exact command/failure details remain available.
-  - Add/update render, ANSI, and semantic fixtures for context meter, source-backed claims, and summarized shell output; run
-    PTY smoke only for visible terminal behavior changed by `!!`.
+  - Add closed policy routing for /compact and ctrl+x k with help and shortcut parity.
+  - Add explicit runtime/app manual compaction request/effect/result state that is not a workflow phase and does not run in
+    the TUI.
+  - Add deterministic internal/context compaction over current visible context/transcript evidence while preserving source
+    refs and exact critical details.
+  - Expose app-injected compact running/result/caveat view state, context meter updates, and semantic source-ref evidence.
+  - Add compact command/keybinding tests plus render, ANSI, and semantic fixtures for compact-running and compact result/caveat
+    state.
+  - Run PTY smoke for /compact and ctrl+x k if interactive terminal behavior changes.
   excluded:
-  - /compact, ctrl+x k, compaction effects, background continuous compaction, utility context-prep jobs, stale-context checks,
-    summary refresh jobs, provider summarization/model reasoning over shell output, source indexing, generic registries, plugins,
-    MCP, workflow DSLs, hosted control planes, config writes, and M40+ behavior.
+  - Background continuous compaction, utility worker scheduling, stale-context checks, summary refresh jobs, provider/model
+    summarization, source indexing/ranking, generic registries, plugins, MCP, workflow DSLs, hosted control planes, config
+    writes, and M41+ behavior.
   deferred:
-  - Manual `/compact`, compaction persistence, background context prep, stale-context detection, source indexing/ranking,
-    provider-assisted summarization, and model prompt optimization beyond deterministic context assembly.
-design: Introduce a small pure `internal/context` package that accepts typed input records and returns `BuiltContext` with
-  blocks, source refs, source-backed claims, budget/meter fields, and warnings. Add a TUI `ContextView` as app-injected display
-  data. For `!!`, reuse the same bash request path as `!`; after the result is visible and history-safe, build deterministic
-  summarized shell context from stdout/stderr/error details, attach refs to the command and exact output/failure lines, and
-  render the context meter plus claims. The TUI only renders and snapshots this data.
+  - Idle utility worker integration, background compaction, stale context detection, source ranking/indexing, provider-assisted
+    summarization, and durable compaction policy tuning.
+design: Extend the fixed command policy with /compact and ctrl+x k. Add a compact request/result/effect path in runtime/app
+  so manual compaction is explicit state around the workflow rather than a phase. Implement internal/context deterministic
+  compaction that condenses blocks/claims, carries every supporting SourceRef forward, and keeps exact critical excerpts.
+  The app builds a CompactView/ContextView from the result and persists the current snapshot; the TUI only renders and snapshots
+  that injected state.
 overall_acceptance:
-- Pure context builder tests prove prompts, read/tool output, diffs, command output, and user constraints become context blocks
-  with stable source refs and budget metadata.
-- '`!!git status --short` submitted through the prompt routes through runtime BashToolProposed, dispatchBashEffect, autonomy
-  permission, bash result mapping, command/history recording, and current snapshot persistence before context is assembled.'
-- Summarized shell context preserves the exact command, stdout/stderr summary, exact failure lines when present, and source
-  refs that support each visible claim.
-- TUI render and semantic snapshots show context meter, source-backed claims, summarized shell output, and machine-readable
-  source refs without TUI-owned context assembly.
-- No `/compact`, background utility job, stale-context check, provider summarization, plugin, MCP, workflow DSL, generic graph
-  engine, hosted control plane, or M40+ behavior is added.
+- Policy tests prove /compact and ctrl+x k route to the same closed compact command, and help/keybinding text includes both
+  without exposing background utility behavior.
+- Runtime/app tests prove manual compaction runs through an explicit effect/result path, updates visible compact state, records
+  command/history/snapshot state where existing command surfaces do, and never mutates workflow phase.
+- Context tests prove compacted context preserves source refs and exact critical details for prompts, tool results, diffs,
+  commands, errors, and user constraints.
+- TUI render and semantic snapshots show compact-running plus compact result/caveat state with machine-readable source refs
+  and context meter information while keeping TUI presentation-only.
+- PTY smoke covers manual /compact and shortcut parity if terminal behavior changes.
+- No background continuous compaction, utility worker scheduling, stale-context check, provider/model summarization, source
+  indexing/ranking, plugin, MCP, workflow DSL, generic graph engine, hosted control plane, or M41+ behavior is added.
 - Targeted, package, full Mage, Agentera, diff, home-path, and TestM<number> hygiene validation pass before ROADMAP.md is
   updated.
 surprises: []
 tasks:
 - number: 1
-  name: Plan and confirm the context-builder source-ref slice
+  name: Plan and confirm the manual compact slice
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M39 only and excludes
-    /compact, background utility jobs, stale-context checks, provider summarization, plugins, MCP, workflow DSLs, hosted control-plane,
-    and M40+ behavior.
-  - GIVEN current context, shell-prefix, runtime, app, state, and TUI seams are inspected WHEN implementation starts THEN
-    the plan routes context assembly through a pure internal/context package and app-owned display data.
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M40 only and excludes
+    background continuous compaction, utility workers, stale-context checks, provider summarization, plugins, MCP, workflow
+    DSLs, hosted control-plane, and M41+ behavior.
+  - GIVEN command, context, runtime, app, state, and TUI seams are inspected WHEN implementation starts THEN the plan routes
+    manual compaction through explicit runtime/app effects and pure internal/context compaction.
   - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage must use behavior-based names rather than
     milestone-number names.
   evidence:
-  - Agentera hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M39 section, docs/notes/PROMPT.md,
-    AGENTS.md, README context/shell/command sections, ARCHITECTURE context boundaries, docs/workflow-architecture context/compaction
-    invariants, docs/tui-testing semantic source-ref guidance, and current internal/context/app/runtime/state/TUI seams were
-    reviewed.
-  - The plan keeps `!!` on the existing BashToolProposed/dispatchBashEffect permission and history path, then feeds a pure
-    context builder with the command result.
-  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to context/source refs only.
+  - Agentera hej with planera capability context, Agentera plan/progress state, ROADMAP.md top status and M40 section, docs/notes/PROMPT.md,
+    AGENTS.md, README command/context sections, ARCHITECTURE context/state/runtime boundaries, docs/workflow-architecture
+    compact command notes, docs/tui-testing compact-running fixture guidance, and current policy/app/runtime/context/TUI seams
+    were reviewed.
+  - The plan keeps manual /compact on a typed explicit effect path and keeps TUI rendering-only.
+  - The plan explicitly forbids new TestM<number> symbols and scopes implementation to manual compaction only.
 - number: 2
-  name: Add pure context source-ref model and builder
+  name: Add deterministic source-ref compaction contract
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN typed prompt, tool result, diff, command output, and user-constraint inputs WHEN the builder runs THEN it returns
-    context blocks with stable source refs, source-backed claims, budget data, and warnings only from provided data.
-  - GIVEN exact paths, commands, diffs, errors, and user constraints are present WHEN context is assembled THEN those details
-    remain available through SourceRef or block text.
-  - GIVEN duplicate or empty refs are supplied WHEN assembly runs THEN refs are normalized without dropping supporting evidence
-    for claims.
+  - GIVEN a BuiltContext with blocks, claims, source refs, warnings, and budget data WHEN compaction runs THEN it returns
+    compacted blocks/claims plus all supporting source refs.
+  - GIVEN exact paths, commands, diffs, errors, and user constraints are present WHEN compacted THEN those details remain
+    available through SourceRef or compacted text.
+  - GIVEN empty or over-budget context is compacted WHEN the result is built THEN caveats make the condition visible without
+    fabricating provider summaries.
   evidence:
-  - Added internal/context with typed SourceKind, SourceRef, ContextBlock, SourceBackedClaim, ContextBudget, BuiltContext,
-    BuildInput, and pure Build assembly for prompts, tool results, diffs, command output, and user constraints.
-  - Context builder preserves exact paths, commands, stdout, stderr, failure text, diffs, and user constraints through refs
-    or block text, including duplicate and empty source-ref normalization.
-  - go test ./internal/context -count=1 passed with behavior-named coverage for source-ref preservation, duplicate/empty ref
-    normalization, and exact command failure lines.
+  - Added deterministic internal/context Compact input/result handling that condenses blocks and claims into a compacted_context
+    block, carries every SourceRef forward, records original and compacted budgets, and reports caveats for empty or truncated
+    context without fabricating provider summaries.
+  - TestCompactPreservesSourceRefsAndExactCriticalDetails and TestCompactReportsEmptyContextCaveat cover source-ref preservation,
+    exact command/path/error/user-constraint detail retention, budget truncation, and empty-context caveats.
+  - Verified with go test ./internal/context -count=1.
 - number: 3
-  name: Attach app-owned context display state
+  name: Wire manual compact through policy runtime and app effects
   depends_on:
   - 2
   status: complete
   acceptance:
-  - GIVEN a BuiltContext is produced WHEN the app applies a turn THEN the TUI receives only app-injected ContextView data
-    and an updated context meter/footer label.
-  - GIVEN context is rendered WHEN semantic snapshots are produced THEN source refs supporting rendered claims are machine-readable.
-  - GIVEN ordinary prompts and `!command` are submitted WHEN context display support exists THEN existing prompt and shell-prefix
-    behavior remains unchanged unless context data is explicitly attached.
+  - GIVEN /compact or ctrl+x k is submitted WHEN routed THEN policy selects the same closed compact route and runtime/app
+    code emits and handles an explicit compact effect/result.
+  - GIVEN current visible context/transcript evidence exists WHEN compact runs THEN the app compacts that evidence and injects
+    visible compact state plus a context meter/result into the TUI.
+  - GIVEN compaction cannot produce useful context WHEN the command completes THEN the visible result carries a caveat and
+    preserves exact supporting refs where available.
   evidence:
-  - Added app-injected ContextView, ContextBlockView, ContextClaimView, and ContextSourceRefView data on TranscriptTurn with
-    cloned TUI state and footer context meter updates.
-  - Added context render lines and semantic context output with machine-readable blocks, claims, and source refs while keeping
-    the TUI presentation-only.
-  - Focused app/TUI tests passed proving context attachment is explicit and ordinary prompt and ! shell-prefix behavior stays
-    on existing paths unless context is attached.
+  - Added closed policy route CommandRouteCompact for /compact and ctrl+x k, plus runtime CompactContextProposed, CompactContextEffect,
+    and CompactContextCompleted messages/results through the explicit runtime dispatcher path.
+  - Added app-owned compact request/result mapping from visible context or transcript evidence, dispatchCompactEffect using
+    internal/context.Compact, CompactView/ContextView injection, command history recording, runtime model history, and current-session
+    snapshot persistence.
+  - Verified with focused policy, runtime, and app compact tests including TestCompactCommandRoutesSlashAndShortcutToSameClosedRoute,
+    TestUpdateHandlesCompactContextProposalDeterministically, TestDispatchHandlesCompactContextEffect, TestCompactCommandRoutesThroughExplicitEffectHistorySnapshotAndContext,
+    and TestCompactCommandReportsVisibleCaveatWithoutContext.
 - number: 4
-  name: Complete summarized shell prefix through bash plus context
+  name: Add compact TUI view semantics and fixtures
   depends_on:
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN `!!git status --short` is submitted WHEN handled by the app THEN it routes through the same bash validation, permission,
-    visible result, history, and snapshot path as `!` before context is assembled.
-  - GIVEN command output or failure lines are available WHEN summarized shell context is built THEN exact stdout/stderr/failure
-    lines remain referenced and visible.
-  - GIVEN unsafe or denied `!!` commands are handled WHEN the result is visible THEN failure details are preserved and no
-    provider/context bypass occurs.
+  - GIVEN compact-running renders WHEN fixture tests run THEN plain, ANSI, and semantic snapshots show compacting status without
+    inventing a workflow phase.
+  - GIVEN compact result/caveat renders WHEN semantic snapshots are inspected THEN machine-readable source refs and context
+    meter information are present.
+  - GIVEN help and keybinding surfaces render WHEN tests run THEN /compact and ctrl+x k appear in stable order and route parity
+    is covered.
   evidence:
-  - Changed ShellPrefixSummarized handling to submitSummarizedShellPrefix, reusing the existing bash proposal, permission/effect
-    dispatch, result mapping, command history, and current snapshot persistence path before context is built.
-  - Added deterministic summarized-shell context assembly from BashToolRuntimeResult with exact command, stdout, stderr, exit
-    code, and failure details preserved through source refs and claims.
-  - Focused app tests passed for successful summarized shell context and failure-context preservation without provider summarization
-    or compaction.
+  - Added TUI CompactView rendering plus SemanticCompact with source refs, meters, caveats, and display-only/app-owned semantic
+    region evidence; the TUI only renders injected compact state.
+  - Added compact-running and compact-result fixtures with plain, ANSI, and semantic snapshots showing running status, flagged
+    result/caveat state, context meter, source refs, and preserved compacted context claims.
+  - Updated help and keybinding tests so /compact and ctrl+x k appear in stable order, while shortcut parity is covered at
+    both policy and TUI boundaries.
 - number: 5
-  name: Add context fixtures semantics and terminal smoke coverage
+  name: Add terminal smoke and regression coverage
   depends_on:
   - 3
   - 4
   status: complete
   acceptance:
-  - GIVEN deterministic fixtures render WHEN tests run THEN context meter, source-backed claims, and summarized shell output
-    have plain, ANSI, and semantic snapshots.
-  - GIVEN semantic snapshots are inspected THEN source refs supporting rendered claims are machine-readable and exact command/failure
-    evidence is preserved.
-  - GIVEN PTY smoke runs WHEN `!!git status --short` is submitted THEN visible summarized shell context appears and quitting
-    exits cleanly without provider summarization or compaction.
+  - GIVEN the interactive TUI runs WHEN /compact is submitted THEN the terminal shows manual compaction status/result/caveat
+    and quits cleanly.
+  - GIVEN the interactive TUI runs WHEN ctrl+x k is submitted THEN the same compact command path is visible or covered by
+    a bounded shortcut PTY assertion.
+  - GIVEN existing context and shell-prefix behavior is tested WHEN compact support lands THEN M39 summarized-shell context
+    behavior remains stable.
   evidence:
-  - Added summarized-shell-context render fixture with plain, ANSI, and semantic snapshots showing context meter, source-backed
-    claim, exact command output, and source refs.
-  - Added TUI context render/semantic tests and included the summarized-shell-context fixture in command-tool fixture snapshot
-    coverage.
-  - Added TestSummarizedShellContextPTYSmoke covering !!git status --short in a temp git workspace with visible context meter,
-    claim, stdout source ref, command output, bash command detail, and clean quit.
+  - Added TestManualCompactCommandPTYSmoke, which creates source-backed summarized-shell context in an isolated temp git workspace,
+    submits /compact, verifies compact status/result, compact source refs, compacted context, and source detail, drains the
+    large PTY frame, and exits through /quit.
+  - Re-ran TestSummarizedShellContextPTYSmoke to prove M39 summarized-shell context behavior remains stable beside manual
+    compact.
+  - Verified with go test ./cmd/aila -run 'TestManualCompactCommandPTYSmoke|TestSummarizedShellContextPTYSmoke' -count=1 and
+    full go test ./cmd/aila -count=1.
 - number: 6
   name: Run full validation roadmap closeout and commit
   depends_on:
@@ -210,19 +208,18 @@ tasks:
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M39 is
-    recorded complete, M40 is next, and Active milestone is none.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M40 is
+    recorded complete, M41 is next, and Active milestone is none.
   - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
-    and M38 plan archive are included in one meaningful local commit.
+    and M39 plan archive are included in one meaningful local commit.
   - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
     validation evidence.
   evidence:
-  - 'Validation passed: mage fmt; go test ./internal/context -count=1; focused app/TUI/cmd context and shell-prefix tests;
-    go test ./internal/... -count=1; go test ./cmd/aila -count=1; mage check with 0 lint issues and no vulnerabilities.'
-  - ROADMAP.md was updated only after green validation to mark M39 complete, M40 next, active none, and record the M39 completion
-    log row.
-  - Agentera plan/progress/lint/hej validation plus diff, home-path, and TestM<number> hygiene checks are part of final closeout
-    before staging and commit.
+  - Validated with mage fmt, go test ./internal/context -count=1, focused compact policy/runtime/app/TUI/cmd tests, go test
+    ./internal/... -count=1, go test ./cmd/aila -count=1, and final mage check.
+  - Final mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities after staticcheck cleanup.
+  - ROADMAP.md now records M40 complete, M41 next, active milestone none; Agentera plan/progress and hygiene validators are
+    run after artifact update before commit.
 complete: 6
 total: 6
 active: false
