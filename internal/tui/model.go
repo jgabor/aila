@@ -57,6 +57,7 @@ type TranscriptTurn struct {
 	Context            *ContextView
 	Brief              *BriefView
 	Vision             *VisionView
+	Discuss            *DiscussView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -669,6 +670,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Vision != nil {
 		state.Vision = cloneVisionView(turn.Vision)
 	}
+	if turn.Discuss != nil {
+		state.Discuss = cloneDiscussView(turn.Discuss)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -953,6 +957,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteVision {
 		state.Vision = nil
 	}
+	if recommendation.Route != policy.CommandRouteDiscuss {
+		state.Discuss = nil
+	}
 	if recommendation.Route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1017,6 +1024,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	case policy.CommandRouteVision:
 		state.SurfaceTitle = "vision"
 		state.SurfaceLines = []string{"Deterministic placeholder vision."}
+	case policy.CommandRouteDiscuss:
+		state.SurfaceTitle = "discuss"
+		state.SurfaceLines = []string{"Deterministic placeholder discussion."}
 	case policy.CommandRouteStatus:
 		state.SurfaceTitle = "status"
 		state.SurfaceLines = []string{
@@ -1107,6 +1117,9 @@ func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title strin
 	if route != policy.CommandRouteVision {
 		state.Vision = nil
 	}
+	if route != policy.CommandRouteDiscuss {
+		state.Discuss = nil
+	}
 	if route != policy.CommandRouteReview {
 		state.Audit = nil
 	}
@@ -1163,6 +1176,19 @@ func cloneVisionView(vision *VisionView) *VisionView {
 	clone.ArtifactRefs = append([]VisionArtifactRefView(nil), vision.ArtifactRefs...)
 	clone.SourceRefs = append([]VisionSourceRefView(nil), vision.SourceRefs...)
 	clone.BoundaryRequests = append([]VisionBoundaryRequestView(nil), vision.BoundaryRequests...)
+	return &clone
+}
+
+func cloneDiscussView(discuss *DiscussView) *DiscussView {
+	if discuss == nil {
+		return nil
+	}
+	clone := *discuss
+	clone.Options = append([]DiscussOptionView(nil), discuss.Options...)
+	clone.Blockers = append([]string(nil), discuss.Blockers...)
+	clone.ArtifactRefs = append([]DiscussArtifactRefView(nil), discuss.ArtifactRefs...)
+	clone.SourceRefs = append([]DiscussSourceRefView(nil), discuss.SourceRefs...)
+	clone.BoundaryRequests = append([]DiscussBoundaryRequestView(nil), discuss.BoundaryRequests...)
 	return &clone
 }
 

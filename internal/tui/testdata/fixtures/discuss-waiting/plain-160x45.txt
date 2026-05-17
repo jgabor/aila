@@ -1,0 +1,44 @@
+Aila                                                                                                                                                      160x45
+Stage DELIBERATE | Runtime waiting | Model fake/fake-discuss | Utility placeholder | Auto read
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| Display labels:                                                                                                  |  | phase source: deliberate               |
+| primary model: fake/fake-discuss                                                                                 |  | primary model: fake/fake-discuss       |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: waiting                        |
+| Runtime status:                                                                                                  |  | detail: discuss capability status      |
+| status: waiting                                                                                                  |  | active: false                          |
+| detail: discuss capability status                                                                                |  | result: Discuss needs a consequential~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: Discuss needs a consequential decision before it can deliberate.                                         |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Discuss:                                                                                                         |  |                                        |
+| source: app.discuss.fixture                                                                                      |  |                                        |
+| capability: discuss                                                                                              |  |                                        |
+| signal: waiting                                                                                                  |  |                                        |
+| phase: deliberate                                                                                                |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: not_written                                                                                     |  |                                        |
+| recommended successor:                                                                                           |  |                                        |
+| successor valid: false                                                                                           |  |                                        |
+| successor rejected: false                                                                                        |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| summary: Discuss needs a consequential decision before it can deliberate.                                        |  |                                        |
+| needed input: Describe the consequential decision to deliberate.                                                 |  |                                        |
+| blocker: decision question missing                                                                               |  |                                        |
+| next action: Provide a decision question, then run discuss again.                                                |  |                                        |
+| requested boundary: state_access operation=state.access target=project.current reason=discuss requires app-supp~ |  |                                        |
+| source ref: discuss-command kind=command command=/discuss excerpt=waiting for decision question                  |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit

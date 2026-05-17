@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage DELIBERATE | Runtime waiting | Model fake/fake-discuss | Utility placeholder | Auto read
++ Conversation --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-discuss                                                                                     |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: waiting                                                                                                      |
+| detail: discuss capability status                                                                                    |
+| active: false                                                                                                        |
+| result: Discuss needs a consequential decision before it can deliberate.                                             |
+|                                                                                                                      |
+| Discuss:                                                                                                             |
+| source: app.discuss.fixture                                                                                          |
+| capability: discuss                                                                                                  |
+| signal: waiting                                                                                                      |
+| phase: deliberate                                                                                                    |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: not_written                                                                                         |
+| recommended successor:                                                                                               |
+| successor valid: false                                                                                               |
+| successor rejected: false                                                                                            |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

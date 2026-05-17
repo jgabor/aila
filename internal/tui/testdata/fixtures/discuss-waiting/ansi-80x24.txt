@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage DELIBERATE | Runtime waiting | Model fake/fake-discuss | Utility placehol~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-discuss                                             |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: discuss capability status                                            |
+| active: false                                                                |
+| result: Discuss needs a consequential decision before it can deliberate.     |
+|                                                                              |
+| Discuss:                                                                     |
+| source: app.discuss.fixture                                                  |
+| capability: discuss                                                          |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m

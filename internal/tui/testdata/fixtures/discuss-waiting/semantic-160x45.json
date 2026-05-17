@@ -1,0 +1,160 @@
+{
+  "scenario": "discuss-waiting",
+  "screen": {
+    "width": 160,
+    "height": 45,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "desktop",
+    "right_rail_visible": true
+  },
+  "session": {
+    "phase": "DELIBERATE",
+    "phase_source": "deliberate",
+    "runtime_status": "waiting",
+    "status_detail": "discuss capability status",
+    "runtime_result": "Discuss needs a consequential decision before it can deliberate.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-discuss",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "discuss": {
+    "visible": true,
+    "source": "app.discuss.fixture",
+    "capability": "discuss",
+    "signal": "waiting",
+    "phase": "deliberate",
+    "summary": "Discuss needs a consequential decision before it can deliberate.",
+    "blockers": ["decision question missing"],
+    "needed_input": "Describe the consequential decision to deliberate.",
+    "next_action": "Provide a decision question, then run discuss again.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "not_written",
+    "successor_valid": false,
+    "successor_rejected": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "source_refs": [
+      {
+        "id": "discuss-command",
+        "kind": "command",
+        "command": "/discuss",
+        "excerpt": "waiting for decision question"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "project.current",
+        "reason": "discuss requires app-supplied project state evidence"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["DELIBERATE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-discuss",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-discuss",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: discuss capability status",
+        "active: false",
+        "result: Discuss needs a consequential decision before it can deliberate.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "discuss",
+      "visible": true,
+      "items": [
+        "source: app.discuss.fixture",
+        "capability: discuss",
+        "signal: waiting",
+        "phase: deliberate",
+        "artifact: [path-redacted]",
+        "artifact_status: not_written",
+        "recommended_successor: ",
+        "successor_valid: false",
+        "successor_rejected: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Discuss needs a consequential decision before it can deliberate.",
+        "needed_input: Describe the consequential decision to deliberate.",
+        "blocker: decision question missing",
+        "next_action: Provide a decision question, then run discuss again.",
+        "boundary_request: state_access operation=state.access target=project.current",
+        "source_ref: discuss-command kind=command excerpt=waiting for decision question"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: deliberate",
+        "primary model: fake/fake-discuss",
+        "utility model: placeholder",
+        "autonomy: read",
+        "status: waiting",
+        "detail: discuss capability status",
+        "active: false",
+        "result: Discuss needs a consequential decision before it can deliberate.",
+        "display-only",
+        "git: placeholder",
+        "context: placeholder"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

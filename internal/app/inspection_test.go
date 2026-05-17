@@ -279,6 +279,79 @@ func TestVisionCommandRunsCapabilityPersistsArtifactAndDisplaysVision(t *testing
 	}
 }
 
+func TestDiscussCommandRunsCapabilityPersistsArtifactAndDisplaysDecision(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	view := snapshotTestView()
+	view.Phase = "DELIBERATE"
+	view.PhaseSource = "deliberate"
+	view.RuntimeStatus = "idle"
+	view.StatusSource = "runtime.dispatch"
+	view.FooterContext = "Milestone 50A discuss capability"
+	var snapshots []SnapshotPersistenceCommand
+	var historyEvents []HistoryPersistenceCommand
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(context.Background(), view, runner, func(_ context.Context, command SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		snapshots = append(snapshots, command)
+		return SnapshotPersistenceResult{}
+	}, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		historyEvents = append(historyEvents, command)
+		return HistoryPersistenceResult{}
+	}, nil, func(context.Context, DiffReadCommand) DiffReadResult {
+		t.Fatal("discuss command must not read diff state")
+		return DiffReadResult{}
+	})
+	controller.workspacePath = workspace
+
+	got := controller.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteDiscuss, Kind: policy.CommandInputSlash}, controller.view)
+
+	if got.Discuss == nil {
+		t.Fatal("discuss view is nil")
+	}
+	if got.SurfaceTitle != "" || got.CommandRoute != "discuss" || got.RouteSource != "policy.command" {
+		t.Fatalf("discuss command surface = title=%q route=%q source=%q", got.SurfaceTitle, got.CommandRoute, got.RouteSource)
+	}
+	if got.Discuss.ArtifactStatus != "written" || got.Discuss.ArtifactPath == "" {
+		t.Fatalf("discuss artifact state = %+v", got.Discuss)
+	}
+	content, err := os.ReadFile(got.Discuss.ArtifactPath)
+	if err != nil {
+		t.Fatalf("read decision artifact: %v", err)
+	}
+	decisionText := string(content)
+	for _, want := range []string{"# Decision", "Question: Decide the next safe workflow direction for Milestone 50A discuss capability.", "## Options", "Choice: Plan the scoped next step", "Next action: Use this decision as source material for planning."} {
+		if !strings.Contains(decisionText, want) {
+			t.Fatalf("decision artifact missing %q in:\n%s", want, decisionText)
+		}
+	}
+	if got.Discuss.Phase != "deliberate" || got.Discuss.RecommendedSuccessor != "plan" || !got.Discuss.SuccessorValid || got.Discuss.TransitionClaimed || !got.Discuss.DisplayOnly {
+		t.Fatalf("discuss successor/display = %+v", got.Discuss)
+	}
+	if len(got.Discuss.Options) != 3 || !got.Discuss.Options[0].Selected || got.Discuss.Selected != "Plan the scoped next step" || got.Discuss.NeededInput != "" {
+		t.Fatalf("discuss evidence = %+v", got.Discuss)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("discuss dispatches = %#v, want one capability effect", dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.CapabilityEffect); !ok {
+		t.Fatalf("discuss dispatch = %T, want runtime.CapabilityEffect", dispatched[0][0])
+	}
+	if runner.model.LastCapability.Discuss == nil || runner.model.LastCapability.RecommendedSuccessor != workflow.PhasePlan {
+		t.Fatalf("runtime last capability = %+v", runner.model.LastCapability)
+	}
+	if len(snapshots) != 1 || snapshots[0].Snapshot.Runtime.Result == "" || snapshots[0].Snapshot.Runtime.Result != runner.model.Result {
+		t.Fatalf("discuss snapshots = %#v", snapshots)
+	}
+	if len(historyEvents) < 2 || historyEvents[0].Event.Kind != history.EventKindCommand || historyEvents[1].Event.Kind != history.EventKindRuntime {
+		t.Fatalf("discuss history events = %#v, want command then runtime", historyEvents)
+	}
+}
+
 func TestReviewCommandRunsReadOnlyAuditOverDiffAndHistoryInspectionSurface(t *testing.T) {
 	t.Parallel()
 

@@ -1975,6 +1975,97 @@ func TestVisionCommandPersistsGoalArtifactPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestDiscussCommandPersistsDecisionArtifactPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nDiscuss command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed discuss PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/discuss\r")); err != nil {
+		t.Fatalf("send /discuss command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Discuss recorded a consequential decision.",
+		"Discuss:",
+		"source: app.discuss",
+		"capability: discuss",
+		"signal: complete",
+		"phase: deliberate",
+		"artifact status: written",
+		"recommended successor: plan",
+		"successor valid: true",
+		"transition claimed: false",
+		"display-only: true",
+		"question: Decide the next safe workflow direction for Aila.",
+		"option: option-1 selected=true text=Plan the scoped next step",
+		"selected decision: Plan the scoped next step",
+		"reasoning: Planning keeps the next step bounded and preserves workflow authority before build work.",
+		"confidence: medium",
+		"requested boundary: state_write operation=state.write target=decisions",
+		"source ref: discuss-command kind=command command=/discuss",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "provider-backed strategy", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("discuss PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	artifact, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "decisions.md"))
+	if err != nil {
+		t.Fatalf("read decision artifact: %v", err)
+	}
+	for _, want := range []string{"# Decision", "Question: Decide the next safe workflow direction for Aila.", "## Options", "Choice: Plan the scoped next step", "Next action: Use this decision as source material for planning."} {
+		if !strings.Contains(string(artifact), want) {
+			t.Fatalf("decision artifact missing %q in:\n%s", want, artifact)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("discuss PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("discuss PTY changed build output git status: %q", docsStatus)
+	}
+	assertDiscussCommandStoreState(t, workspace)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after discuss command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("discuss command PTY returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("discuss command PTY did not clean up before timeout: %v", ctx.Err())
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -2970,6 +3061,45 @@ func assertVisionCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawVisionCommand || !sawVisionRuntime {
 		t.Fatalf("vision command history markers command=%v runtime=%v events=%+v", sawVisionCommand, sawVisionRuntime, history.Events)
+	}
+}
+
+func assertDiscussCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open discuss command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read discuss command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("discuss command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Discuss recorded a consequential decision") {
+		t.Fatalf("discuss command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read discuss command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("discuss command history state = %q, want loaded", history.State)
+	}
+	var sawDiscussCommand, sawDiscussRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "discuss via slash" {
+			sawDiscussCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Discuss recorded a consequential decision") {
+			sawDiscussRuntime = true
+		}
+	}
+	if !sawDiscussCommand || !sawDiscussRuntime {
+		t.Fatalf("discuss command history markers command=%v runtime=%v events=%+v", sawDiscussCommand, sawDiscussRuntime, history.Events)
 	}
 }
 

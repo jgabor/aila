@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage DELIBERATE | Runtime idle | Model fake/fake-discuss | Utility placeholder | Auto read                                                                     [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: deliberate               |
+| primary model: fake/fake-discuss                                                                                 |  | primary model: fake/fake-discuss       |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+| project store: initialized - project store ready                                                                 |  | status: initialized                    |
+|                                                                                                                  |  | detail: project store ready            |
+| Runtime status:                                                                                                  |  | app-owned                              |
+| status: idle                                                                                                     |  | status: idle                           |
+| detail: discuss capability status                                                                                |  | detail: discuss capability status      |
+| active: false                                                                                                    |  | active: false                          |
+| result: Discuss recorded a consequential decision.                                                               |  | result: Discuss recorded a consequent~ |
+|                                                                                                                  |  | display-only                           |
+| Discuss:                                                                                                         |  | git: placeholder                       |
+| source: app.discuss.fixture                                                                                      |  | context: M50A discuss capability       |
+| capability: discuss                                                                                              |  |                                        |
+| signal: complete                                                                                                 |  |                                        |
+| phase: deliberate                                                                                                |  |                                        |
+| artifact: [path-redacted]                                                                                        |  |                                        |
+| artifact status: recorded                                                                                        |  |                                        |
+| recommended successor: plan                                                                                      |  |                                        |
+| successor valid: true                                                                                            |  |                                        |
+| successor rejected: false                                                                                        |  |                                        |
+| transition claimed: false                                                                                        |  |                                        |
+| display-only: true                                                                                               |  |                                        |
+| successor reason: workflow FSM accepted recommended successor                                                    |  |                                        |
+| summary: Discuss recorded a consequential decision.                                                              |  |                                        |
+| question: Decide the next safe workflow direction for M50A discuss capability.                                   |  |                                        |
+| context: runtime=idle phase=deliberate context=M50A discuss capability                                           |  |                                        |
+| option: option-1 selected=false text=Plan the scoped next step rationale=preserves workflow authority            |  |                                        |
+| option: option-2 selected=false text=Revisit project vision rationale=available if decision changes goal         |  |                                        |
+| option: option-3 selected=false text=Proceed directly to build rationale=rejected until plan is ready            |  |                                        |
+| option: option-4 selected=true text=Hold for user confirmation rationale=decision affects roadmap scope          |  |                                        |
+| selected decision: Hold for user confirmation                                                                    |  |                                        |
+| reasoning: The decision affects roadmap scope, so holding keeps authority with the user.                         |  |                                        |
+| confidence: high                                                                                                 |  |                                        |
+| blocker: user confirmation required                                                                              |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                    git: placeholder | context: M50A discuss capability | q quit[0m

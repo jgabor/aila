@@ -185,6 +185,18 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
+	case policy.CommandRouteDiscuss:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		diagnostics = append(diagnostics, diagnosticViews(controller.openDiscussView())...)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.view.SurfaceTitle = ""
+		controller.view.SurfaceLines = nil
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	case policy.CommandRoutePlan:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		before := controller.runner.model
@@ -266,7 +278,15 @@ func capabilityRuntimeStateChanged(before runtime.Model, after runtime.Model) bo
 		len(before.LastCapability.SourceRefs) != len(after.LastCapability.SourceRefs) ||
 		len(before.LastCapability.BoundaryRequests) != len(after.LastCapability.BoundaryRequests) ||
 		auditPayloadChanged(before.LastCapability.Audit, after.LastCapability.Audit) ||
-		visionPayloadChanged(before.LastCapability.Vision, after.LastCapability.Vision)
+		visionPayloadChanged(before.LastCapability.Vision, after.LastCapability.Vision) ||
+		discussPayloadChanged(before.LastCapability.Discuss, after.LastCapability.Discuss)
+}
+
+func discussPayloadChanged(before, after *capability.DiscussOutput) bool {
+	if before == nil || after == nil {
+		return before != after
+	}
+	return before.Question != after.Question || before.Selected != after.Selected || before.ArtifactPath != after.ArtifactPath || len(before.Options) != len(after.Options) || len(before.Blockers) != len(after.Blockers) || len(before.SourceRefs) != len(after.SourceRefs)
 }
 
 func visionPayloadChanged(before, after *capability.VisionOutput) bool {

@@ -1,0 +1,220 @@
+{
+  "scenario": "discuss-recorded-decision",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "DELIBERATE",
+    "phase_source": "deliberate",
+    "runtime_status": "idle",
+    "status_detail": "discuss capability status",
+    "runtime_result": "Discuss recorded a consequential decision.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-discuss",
+    "utility_model": "placeholder",
+    "autonomy": "read",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "discuss": {
+    "visible": true,
+    "source": "app.discuss.fixture",
+    "capability": "discuss",
+    "signal": "complete",
+    "phase": "deliberate",
+    "summary": "Discuss recorded a consequential decision.",
+    "question": "Decide the next safe workflow direction for M50A discuss capability.",
+    "context": "runtime=idle phase=deliberate context=M50A discuss capability",
+    "options": [
+      {
+        "id": "option-1",
+        "text": "Plan the scoped next step",
+        "selected": false,
+        "rationale": "preserves workflow authority"
+      },
+      {
+        "id": "option-2",
+        "text": "Revisit project vision",
+        "selected": false,
+        "rationale": "available if decision changes goal"
+      },
+      {
+        "id": "option-3",
+        "text": "Proceed directly to build",
+        "selected": false,
+        "rationale": "rejected until plan is ready"
+      },
+      {
+        "id": "option-4",
+        "text": "Hold for user confirmation",
+        "selected": true,
+        "rationale": "decision affects roadmap scope"
+      }
+    ],
+    "selected": "Hold for user confirmation",
+    "reasoning": "The decision affects roadmap scope, so holding keeps authority with the user.",
+    "confidence": "high",
+    "blockers": ["user confirmation required"],
+    "next_action": "Ask for confirmation before planning.",
+    "artifact_path": "[path-redacted]",
+    "artifact_status": "recorded",
+    "recommended_successor": "plan",
+    "successor_valid": true,
+    "successor_rejected": false,
+    "successor_reason": "workflow FSM accepted recommended successor",
+    "transition_claimed": false,
+    "display_only": true,
+    "artifact_refs": [
+      {
+        "id": "decision-artifact",
+        "kind": "state_artifact",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "discuss-command",
+        "kind": "command",
+        "command": "/discuss",
+        "excerpt": "app-owned discuss command"
+      },
+      {
+        "id": "discuss-session-state",
+        "kind": "session_state",
+        "excerpt": "runtime=idle phase=deliberate context=M50A discuss capability"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "artifact_access",
+        "operation": "artifact.access",
+        "target": "decisions",
+        "reason": "decision artifact path must be resolved through the state store"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "decisions",
+        "reason": "decision artifact persistence must be app-owned and store-mediated"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["DELIBERATE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-discuss",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-discuss",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: discuss capability status",
+        "active: false",
+        "result: Discuss recorded a consequential decision.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "discuss",
+      "visible": true,
+      "items": [
+        "source: app.discuss.fixture",
+        "capability: discuss",
+        "signal: complete",
+        "phase: deliberate",
+        "artifact: [path-redacted]",
+        "artifact_status: recorded",
+        "recommended_successor: plan",
+        "successor_valid: true",
+        "successor_rejected: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "successor_reason: workflow FSM accepted recommended successor",
+        "summary: Discuss recorded a consequential decision.",
+        "question: Decide the next safe workflow direction for M50A discuss capability.",
+        "context: runtime=idle phase=deliberate context=M50A discuss capability",
+        "option: option-1 selected=false text=Plan the scoped next step rationale=preserves workflow authority",
+        "option: option-2 selected=false text=Revisit project vision rationale=available if decision changes goal",
+        "option: option-3 selected=false text=Proceed directly to build rationale=rejected until plan is ready",
+        "option: option-4 selected=true text=Hold for user confirmation rationale=decision affects roadmap scope",
+        "selected: Hold for user confirmation",
+        "reasoning: The decision affects roadmap scope, so holding keeps authority with the user.",
+        "confidence: high",
+        "blocker: user confirmation required",
+        "next_action: Ask for confirmation before planning.",
+        "artifact_ref: decision-artifact kind=state_artifact path=[path-redacted]",
+        "boundary_request: artifact_access operation=artifact.access target=decisions",
+        "boundary_request: state_write operation=state.write target=decisions",
+        "source_ref: discuss-command kind=command excerpt=app-owned discuss command",
+        "source_ref: discuss-session-state kind=session_state excerpt=runtime=idle phase=deliberate context=M50A discuss capability"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: M50A discuss capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

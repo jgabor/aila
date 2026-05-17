@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage DELIBERATE | Runtime idle | Model fake/fake-discuss | Utility placeholder | Auto read                             [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-discuss                                                                                     |
+| utility model: placeholder                                                                                           |
+| autonomy: read (display-only)                                                                                        |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: discuss capability status                                                                                    |
+| active: false                                                                                                        |
+| result: Discuss recorded a consequential decision.                                                                   |
+|                                                                                                                      |
+| Discuss:                                                                                                             |
+| source: app.discuss.fixture                                                                                          |
+| capability: discuss                                                                                                  |
+| signal: complete                                                                                                     |
+| phase: deliberate                                                                                                    |
+| artifact: [path-redacted]                                                                                            |
+| artifact status: written                                                                                             |
+| recommended successor: plan                                                                                          |
+| successor valid: true                                                                                                |
+| successor rejected: false                                                                                            |
+| transition claimed: false                                                                                            |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                            git: placeholder | context: M50A discuss capability | q quit[0m

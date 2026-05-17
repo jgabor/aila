@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage DELIBERATE | Runtime idle | Model fake/fake-discuss | Utility placeholder~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-discuss                                             |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: discuss capability status                                            |
+| active: false                                                                |
+| result: Discuss recorded a consequential decision.                           |
+|                                                                              |
+| Discuss:                                                                     |
+| source: app.discuss.fixture                                                  |
+| capability: discuss                                                          |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                    git: placeholder | context: M50A discuss capability | q quit

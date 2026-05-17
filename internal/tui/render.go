@@ -68,6 +68,7 @@ type ViewState struct {
 	PolicyRoute        *PolicyRouteView
 	Brief              *BriefView
 	Vision             *VisionView
+	Discuss            *DiscussView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -522,6 +523,67 @@ type VisionBoundaryRequestView struct {
 	Reason    string
 }
 
+// DiscussView is app-injected decision-deliberation output.
+type DiscussView struct {
+	Source               string
+	Capability           string
+	Signal               string
+	Phase                string
+	Summary              string
+	Question             string
+	Context              string
+	Options              []DiscussOptionView
+	Selected             string
+	Reasoning            string
+	Confidence           string
+	Blockers             []string
+	NeededInput          string
+	NextAction           string
+	ArtifactPath         string
+	ArtifactStatus       string
+	RecommendedSuccessor string
+	SuccessorValid       bool
+	SuccessorRejected    bool
+	SuccessorReason      string
+	TransitionClaimed    bool
+	DisplayOnly          bool
+	ArtifactRefs         []DiscussArtifactRefView
+	SourceRefs           []DiscussSourceRefView
+	BoundaryRequests     []DiscussBoundaryRequestView
+}
+
+// DiscussOptionView records one decision option considered by discuss.
+type DiscussOptionView struct {
+	ID        string
+	Text      string
+	Selected  bool
+	Rationale string
+}
+
+// DiscussArtifactRefView records one discuss artifact reference.
+type DiscussArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// DiscussSourceRefView records one source reference supporting discuss output.
+type DiscussSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// DiscussBoundaryRequestView records one inert discuss boundary descriptor.
+type DiscussBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
 // AuditView is app-injected read-only audit output.
 type AuditView struct {
 	Source               string
@@ -714,6 +776,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, policyRouteLines(state.PolicyRoute)...)
 	items = append(items, briefLines(state.Brief)...)
 	items = append(items, visionLines(state.Vision)...)
+	items = append(items, discussLines(state.Discuss)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1591,6 +1654,98 @@ func visionLines(vision *VisionView) []string {
 	return append(lines, "  app-owned", "  display-only", "")
 }
 
+func discussLines(discuss *DiscussView) []string {
+	if discuss == nil {
+		return nil
+	}
+	semantic := semanticDiscuss(discuss)
+	lines := []string{
+		"  Discuss:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  phase: " + semantic.Phase,
+		"  artifact: " + semantic.ArtifactPath,
+		"  artifact status: " + semantic.ArtifactStatus,
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+		"  successor rejected: " + boolLabel(semantic.SuccessorRejected),
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.SuccessorReason != "" {
+		lines = append(lines, "  successor reason: "+semantic.SuccessorReason)
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.Question != "" {
+		lines = append(lines, "  question: "+semantic.Question)
+	}
+	if semantic.Context != "" {
+		lines = append(lines, "  context: "+semantic.Context)
+	}
+	for _, option := range semantic.Options {
+		line := "  option: " + option.ID + " selected=" + boolLabel(option.Selected) + " text=" + option.Text
+		if option.Rationale != "" {
+			line += " rationale=" + option.Rationale
+		}
+		lines = append(lines, line)
+	}
+	if semantic.Selected != "" {
+		lines = append(lines, "  selected decision: "+semantic.Selected)
+	}
+	if semantic.Reasoning != "" {
+		lines = append(lines, "  reasoning: "+semantic.Reasoning)
+	}
+	if semantic.Confidence != "" {
+		lines = append(lines, "  confidence: "+semantic.Confidence)
+	}
+	for _, blocker := range semantic.Blockers {
+		lines = append(lines, "  blocker: "+blocker)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "  app-owned", "  display-only", "")
+}
+
 func auditLines(audit *AuditView) []string {
 	if audit == nil {
 		return nil
@@ -2232,6 +2387,7 @@ type SemanticSnapshot struct {
 	PolicyRoute    *SemanticPolicyRoute    `json:"policy_route,omitempty"`
 	Brief          *SemanticBrief          `json:"brief,omitempty"`
 	Vision         *SemanticVision         `json:"vision,omitempty"`
+	Discuss        *SemanticDiscuss        `json:"discuss,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -2874,6 +3030,68 @@ type SemanticVisionBoundaryRequest struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+// SemanticDiscuss describes app-injected decision-deliberation output.
+type SemanticDiscuss struct {
+	Visible              bool                             `json:"visible"`
+	Source               string                           `json:"source"`
+	Capability           string                           `json:"capability"`
+	Signal               string                           `json:"signal"`
+	Phase                string                           `json:"phase"`
+	Summary              string                           `json:"summary,omitempty"`
+	Question             string                           `json:"question,omitempty"`
+	Context              string                           `json:"context,omitempty"`
+	Options              []SemanticDiscussOption          `json:"options,omitempty"`
+	Selected             string                           `json:"selected,omitempty"`
+	Reasoning            string                           `json:"reasoning,omitempty"`
+	Confidence           string                           `json:"confidence,omitempty"`
+	Blockers             []string                         `json:"blockers,omitempty"`
+	NeededInput          string                           `json:"needed_input,omitempty"`
+	NextAction           string                           `json:"next_action,omitempty"`
+	ArtifactPath         string                           `json:"artifact_path,omitempty"`
+	ArtifactStatus       string                           `json:"artifact_status,omitempty"`
+	RecommendedSuccessor string                           `json:"recommended_successor,omitempty"`
+	SuccessorValid       bool                             `json:"successor_valid"`
+	SuccessorRejected    bool                             `json:"successor_rejected"`
+	SuccessorReason      string                           `json:"successor_reason,omitempty"`
+	TransitionClaimed    bool                             `json:"transition_claimed"`
+	DisplayOnly          bool                             `json:"display_only"`
+	ArtifactRefs         []SemanticDiscussArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs           []SemanticDiscussSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests     []SemanticDiscussBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticDiscussOption records one machine-readable decision option.
+type SemanticDiscussOption struct {
+	ID        string `json:"id"`
+	Text      string `json:"text"`
+	Selected  bool   `json:"selected"`
+	Rationale string `json:"rationale,omitempty"`
+}
+
+// SemanticDiscussArtifactRef records one discuss artifact reference.
+type SemanticDiscussArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticDiscussSourceRef records one discuss source reference.
+type SemanticDiscussSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticDiscussBoundaryRequest records one inert discuss boundary descriptor.
+type SemanticDiscussBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 // SemanticAudit describes app-injected read-only audit output.
 type SemanticAudit struct {
 	Visible              bool                           `json:"visible"`
@@ -3273,6 +3491,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Vision != nil {
 		regions = append(regions, SemanticRegion{Name: "vision", Visible: true, Items: semanticVisionItems(state.Vision)})
 	}
+	if state.Discuss != nil {
+		regions = append(regions, SemanticRegion{Name: "discuss", Visible: true, Items: semanticDiscussItems(state.Discuss)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -3366,6 +3587,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		PolicyRoute:    semanticPolicyRoute(state.PolicyRoute),
 		Brief:          semanticBrief(state.Brief),
 		Vision:         semanticVision(state.Vision),
+		Discuss:        semanticDiscuss(state.Discuss),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -4443,6 +4665,138 @@ func semanticVision(vision *VisionView) *SemanticVision {
 		SuccessorReason:      safeText(vision.SuccessorReason),
 		TransitionClaimed:    vision.TransitionClaimed,
 		DisplayOnly:          vision.DisplayOnly,
+		ArtifactRefs:         artifactRefs,
+		SourceRefs:           refs,
+		BoundaryRequests:     requests,
+	}
+}
+
+func semanticDiscussItems(discuss *DiscussView) []string {
+	semantic := semanticDiscuss(discuss)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"phase: " + semantic.Phase,
+		"artifact: " + semantic.ArtifactPath,
+		"artifact_status: " + semantic.ArtifactStatus,
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"successor_rejected: " + boolLabel(semantic.SuccessorRejected),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.SuccessorReason != "" {
+		items = append(items, "successor_reason: "+semantic.SuccessorReason)
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.Question != "" {
+		items = append(items, "question: "+semantic.Question)
+	}
+	if semantic.Context != "" {
+		items = append(items, "context: "+semantic.Context)
+	}
+	for _, option := range semantic.Options {
+		item := "option: " + option.ID + " selected=" + boolLabel(option.Selected) + " text=" + option.Text
+		if option.Rationale != "" {
+			item += " rationale=" + option.Rationale
+		}
+		items = append(items, item)
+	}
+	if semantic.Selected != "" {
+		items = append(items, "selected: "+semantic.Selected)
+	}
+	if semantic.Reasoning != "" {
+		items = append(items, "reasoning: "+semantic.Reasoning)
+	}
+	if semantic.Confidence != "" {
+		items = append(items, "confidence: "+semantic.Confidence)
+	}
+	for _, blocker := range semantic.Blockers {
+		items = append(items, "blocker: "+blocker)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticDiscuss(discuss *DiscussView) *SemanticDiscuss {
+	if discuss == nil {
+		return nil
+	}
+	options := make([]SemanticDiscussOption, 0, len(discuss.Options))
+	for _, option := range discuss.Options {
+		options = append(options, SemanticDiscussOption{ID: safeText(option.ID), Text: safeText(option.Text), Selected: option.Selected, Rationale: safeText(option.Rationale)})
+	}
+	artifactRefs := make([]SemanticDiscussArtifactRef, 0, len(discuss.ArtifactRefs))
+	for _, ref := range discuss.ArtifactRefs {
+		artifactRefs = append(artifactRefs, SemanticDiscussArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticDiscussSourceRef, 0, len(discuss.SourceRefs))
+	for _, ref := range discuss.SourceRefs {
+		refs = append(refs, SemanticDiscussSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticDiscussBoundaryRequest, 0, len(discuss.BoundaryRequests))
+	for _, request := range discuss.BoundaryRequests {
+		requests = append(requests, SemanticDiscussBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticDiscuss{
+		Visible:              true,
+		Source:               safeText(defaultString(discuss.Source, "app.discuss")),
+		Capability:           safeText(defaultString(discuss.Capability, "discuss")),
+		Signal:               safeText(defaultString(discuss.Signal, "complete")),
+		Phase:                safeText(defaultString(discuss.Phase, "deliberate")),
+		Summary:              safeText(discuss.Summary),
+		Question:             safeText(discuss.Question),
+		Context:              safeText(discuss.Context),
+		Options:              options,
+		Selected:             safeText(discuss.Selected),
+		Reasoning:            safeText(discuss.Reasoning),
+		Confidence:           safeText(discuss.Confidence),
+		Blockers:             safeTextSlice(discuss.Blockers),
+		NeededInput:          safeText(discuss.NeededInput),
+		NextAction:           safeText(discuss.NextAction),
+		ArtifactPath:         safeText(discuss.ArtifactPath),
+		ArtifactStatus:       safeText(discuss.ArtifactStatus),
+		RecommendedSuccessor: safeText(discuss.RecommendedSuccessor),
+		SuccessorValid:       discuss.SuccessorValid,
+		SuccessorRejected:    discuss.SuccessorRejected,
+		SuccessorReason:      safeText(discuss.SuccessorReason),
+		TransitionClaimed:    discuss.TransitionClaimed,
+		DisplayOnly:          discuss.DisplayOnly,
 		ArtifactRefs:         artifactRefs,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,

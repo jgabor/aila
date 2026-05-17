@@ -4056,6 +4056,191 @@ func visionWaitingFixtureState() ViewState {
 	return state
 }
 
+func TestDiscussOutputFixtureShowsDecisionOptionsAndSuccessor(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "discuss-output", discussOutputFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage DELIBERATE", "Discuss:", "capability: discuss"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "signal: complete", "phase: deliberate", "successor valid: true", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "question: Decide the next safe workflow direction for M50A discuss capability.", "option: option-1 selected=true text=Plan the scoped next step", "selected decision: Plan the scoped next step")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("discuss-output render missing discuss evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Discuss == nil || snapshot.Discuss.Phase != "deliberate" || snapshot.Discuss.RecommendedSuccessor != "plan" || !snapshot.Discuss.SuccessorValid || snapshot.Discuss.TransitionClaimed || !snapshot.Discuss.DisplayOnly || snapshot.Discuss.ArtifactStatus != "written" || len(snapshot.Discuss.Options) != 3 || snapshot.Discuss.Selected == "" {
+			t.Fatalf("discuss semantic = %+v", snapshot.Discuss)
+		}
+	}
+}
+
+func TestDiscussWaitingFixtureShowsNeededInputAndBlockers(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "discuss-waiting", discussWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage DELIBERATE", "Discuss:", "capability: discuss", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "artifact status: not_written", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Describe the consequential decision to deliberate.", "blocker: decision question missing")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("discuss-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Discuss == nil || snapshot.Discuss.Signal != "waiting" || snapshot.Discuss.NeededInput == "" || len(snapshot.Discuss.Blockers) != 1 || snapshot.Discuss.RecommendedSuccessor != "" || snapshot.Discuss.SuccessorValid || snapshot.Discuss.TransitionClaimed || !snapshot.Discuss.DisplayOnly {
+			t.Fatalf("discuss waiting semantic = %+v", snapshot.Discuss)
+		}
+	}
+}
+
+func TestDiscussRecordedDecisionFixtureShowsArtifactAndDecision(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "discuss-recorded-decision", discussRecordedDecisionFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage DELIBERATE", "Discuss:", "capability: discuss"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "artifact status: recorded")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "selected decision: Hold for user confirmation", "confidence: high")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("discuss-recorded-decision render missing recorded evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Discuss == nil || snapshot.Discuss.ArtifactStatus != "recorded" || snapshot.Discuss.Selected != "Hold for user confirmation" || len(snapshot.Discuss.SourceRefs) == 0 || len(snapshot.Discuss.ArtifactRefs) == 0 {
+			t.Fatalf("discuss recorded semantic = %+v", snapshot.Discuss)
+		}
+	}
+}
+
+func discussOutputFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "discuss-output"
+	state.Phase = "DELIBERATE"
+	state.PhaseSource = "deliberate"
+	state.PrimaryModel = "fake/fake-discuss"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "discuss capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Discuss recorded a consequential decision."
+	state.FooterContext = "M50A discuss capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Discuss = &DiscussView{
+		Source:               "app.discuss.fixture",
+		Capability:           "discuss",
+		Signal:               "complete",
+		Phase:                "deliberate",
+		Summary:              "Discuss recorded a consequential decision.",
+		Question:             "Decide the next safe workflow direction for M50A discuss capability.",
+		Context:              "runtime=idle phase=deliberate context=M50A discuss capability",
+		Options:              []DiscussOptionView{{ID: "option-1", Text: "Plan the scoped next step", Selected: true, Rationale: "preserves workflow authority"}, {ID: "option-2", Text: "Revisit project vision", Rationale: "available if decision changes goal"}, {ID: "option-3", Text: "Proceed directly to build", Rationale: "rejected until plan is ready"}},
+		Selected:             "Plan the scoped next step",
+		Reasoning:            "Planning keeps the next step bounded and preserves workflow authority before build work.",
+		Confidence:           "medium",
+		NextAction:           "Use this decision as source material for planning.",
+		ArtifactPath:         ".aila/artifacts/decisions.md",
+		ArtifactStatus:       "written",
+		RecommendedSuccessor: "plan",
+		SuccessorValid:       true,
+		SuccessorRejected:    false,
+		SuccessorReason:      "workflow FSM accepted recommended successor",
+		TransitionClaimed:    false,
+		DisplayOnly:          true,
+		ArtifactRefs:         []DiscussArtifactRefView{{ID: "decision-artifact", Kind: "state_artifact", Path: ".aila/artifacts/decisions.md"}},
+		SourceRefs:           []DiscussSourceRefView{{ID: "discuss-command", Kind: "command", Command: "/discuss", Excerpt: "app-owned discuss command"}, {ID: "discuss-session-state", Kind: "session_state", Excerpt: "runtime=idle phase=deliberate context=M50A discuss capability"}},
+		BoundaryRequests:     []DiscussBoundaryRequestView{{Kind: "artifact_access", Operation: "artifact.access", Target: "decisions", Reason: "decision artifact path must be resolved through the state store"}, {Kind: "state_write", Operation: "state.write", Target: "decisions", Reason: "decision artifact persistence must be app-owned and store-mediated"}},
+	}
+	return state
+}
+
+func discussWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "discuss-waiting"
+	state.Phase = "DELIBERATE"
+	state.PhaseSource = "deliberate"
+	state.PrimaryModel = "fake/fake-discuss"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "discuss capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Discuss needs a consequential decision before it can deliberate."
+	state.Discuss = &DiscussView{
+		Source:            "app.discuss.fixture",
+		Capability:        "discuss",
+		Signal:            "waiting",
+		Phase:             "deliberate",
+		Summary:           "Discuss needs a consequential decision before it can deliberate.",
+		NeededInput:       "Describe the consequential decision to deliberate.",
+		Blockers:          []string{"decision question missing"},
+		NextAction:        "Provide a decision question, then run discuss again.",
+		ArtifactPath:      ".aila/artifacts/decisions.md",
+		ArtifactStatus:    "not_written",
+		TransitionClaimed: false,
+		DisplayOnly:       true,
+		SourceRefs:        []DiscussSourceRefView{{ID: "discuss-command", Kind: "command", Command: "/discuss", Excerpt: "waiting for decision question"}},
+		BoundaryRequests:  []DiscussBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "project.current", Reason: "discuss requires app-supplied project state evidence"}},
+	}
+	return state
+}
+
+func discussRecordedDecisionFixtureState() ViewState {
+	state := discussOutputFixtureState()
+	state.Scenario = "discuss-recorded-decision"
+	state.Discuss.ArtifactStatus = "recorded"
+	state.Discuss.Selected = "Hold for user confirmation"
+	state.Discuss.Options[0].Selected = false
+	state.Discuss.Options = append(state.Discuss.Options, DiscussOptionView{ID: "option-4", Text: "Hold for user confirmation", Selected: true, Rationale: "decision affects roadmap scope"})
+	state.Discuss.Reasoning = "The decision affects roadmap scope, so holding keeps authority with the user."
+	state.Discuss.Confidence = "high"
+	state.Discuss.Blockers = []string{"user confirmation required"}
+	state.Discuss.NextAction = "Ask for confirmation before planning."
+	return state
+}
+
 func TestPolicyRoutingFixtureSnapshots(t *testing.T) {
 	t.Parallel()
 

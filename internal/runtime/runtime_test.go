@@ -200,6 +200,51 @@ func TestUpdateRoutesVisionCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesDiscussCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "discuss-status",
+		Capability: capability.NameDiscuss,
+		Input:      "Decide whether Aila should plan next.",
+		Phase:      workflow.PhaseDeliberate,
+		Metadata: map[string]string{
+			capability.DiscussMetadataQuestion:        "Should Aila plan before building?",
+			capability.DiscussMetadataSelected:        "Plan the scoped next step",
+			capability.DiscussMetadataRecommendedNext: workflow.PhasePlan.String(),
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameDiscuss {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "discuss", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameDiscuss || completed.Payload.RecommendedSuccessor != workflow.PhasePlan || completed.Payload.Discuss == nil {
+		t.Fatalf("discuss payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameDiscuss || model.LastCapability.Discuss == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestUpdateRoutesPlanCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

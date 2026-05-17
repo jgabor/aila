@@ -1,4 +1,62 @@
 cycles:
+  - number: 236
+    timestamp: 2026-05-17 16:22
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 50A by adding deterministic discuss payloads, state-store decision artifact persistence, closed
+      /discuss routing, TUI output/waiting/recorded-decision evidence, behavior-named PTY smoke coverage, ROADMAP closeout,
+      and Agentera task completion.
+    commit: 'pending local commit: add discuss capability'
+    inspiration: .agentera/plan.yaml tasks 1-7; ROADMAP.md Milestone 50A; full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Discuss can stay deterministic over app-supplied decision/session evidence while persisting an app-owned decisions
+      artifact and validating follow-up as display-only workflow evidence. The TUI can expose complete, waiting, and
+      recorded-decision states without reading files or claiming phase transitions.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/state/app/policy/TUI/cmd checks passed. `go test ./internal/... -count=1`
+      passed. `go test ./cmd/aila -count=1` passed with cmd/aila in 318.879s. Final `mage check` passed with cmd/aila in
+      323.530s, 0 lint issues, and no vulnerabilities. Agentera plan/progress/lint/hej validation passed. `git diff --check`
+      passed; changed-line home-path and added func TestM<number> hygiene returned no matches. `/discuss` PTY smoke proves
+      tracked README unchanged and no build output mutation.
+    next: >-
+      Commit the completed M50A slice locally, leaving Milestone 51: Research Capability as the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: Execute only M50A; no research, profile, optimization, build execution, orchestration, provider-backed deliberation, automatic plan/build execution, direct workflow phase mutation, plugin/MCP/workflow DSL behavior, M51+ behavior, or push.
+      unknowns: Research, profile, optimization, provider-backed deliberation, multi-cycle decision-to-plan orchestration, and Agentera decisions artifact synchronization remain deferred.
+      scope: internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY coverage, discuss fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M50 plan.
+  - number: 235
+    timestamp: 2026-05-17 15:35
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 50A: Discuss Capability as the next roadmap milestone, archived the completed M50 plan, and
+      created a new active plan with seven bounded tasks for deterministic discuss payloads, state-store decision
+      persistence, closed /discuss routing, TUI output/waiting/recorded-decision evidence, PTY smoke validation, roadmap
+      closeout, and commit.
+    commit: 'N/A: planning artifact before M50A implementation commit'
+    inspiration: docs/notes/PROMPT.md; ROADMAP.md Milestone 50A; AGENTS.md; README workflow and capability sections; ARCHITECTURE phase/capability/state-store rules; docs/workflow-architecture DELIBERATE successor, capability, artifact, and tool rules; docs/tui-testing render, semantic, and PTY gates; installed Agentera CLI hej with planera context; Agentera decisions and describe artifact locations
+    discovered: >-
+      M50A can stay narrow by making discuss deterministic over app-supplied decision/session evidence, persisting .aila
+      decision output through the state store, rendering output, waiting, and recorded-decision states, and validating
+      follow-up through the existing FSM without research, profile, optimization, build execution, or orchestration behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera context passed from $HOME/.local/share/agentera; Agentera decisions reported no
+      existing decision artifact; Agentera describe exposed the decisions artifact contract; ROADMAP.md top status and M50A
+      section, docs/notes/PROMPT.md, AGENTS.md, README workflow/capability sections, ARCHITECTURE phase/capability/state-store
+      sections, docs/workflow-architecture DELIBERATE successor/tool/artifact rules, docs/tui-testing render/semantic/PTY
+      gates, and current vision/capability/runtime/state/app/policy/TUI seams were reviewed before writing the plan. The plan
+      explicitly uses behavior-based test names and forbids new TestM<number> symbols.
+    next: >-
+      Execute M50A Tasks 2-6: add deterministic discuss capability payloads, persist decisions through state-store app paths,
+      wire /discuss, render discussion output/waiting/recorded-decision evidence, and add PTY smoke coverage before validation,
+      roadmap closeout, and commit.
+    context:
+      intent: Continue the roadmap planera -> orkestrera -> commit loop after completing M50, selecting M50A and preparing an executable plan before implementation.
+      constraints: Execute only M50A; preserve statechart-MVU, runtime/effect/state/FSM authority boundaries, state-store artifact ownership, TUI presentation-only behavior, fixed product posture, behavior-based test names, and no push.
+      unknowns: Exact DiscussView field shape, whether /discuss uses current session context only or accepts richer future arguments, and the smallest persisted decision document shape are implementation-owned; research, profile, optimization, provider-backed deliberation, and multi-cycle orchestration remain deferred.
+      scope: .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m50.yaml archival, and progress evidence for the M50A planning handoff.
   - number: 234
     timestamp: 2026-05-17 15:11
     type: build
