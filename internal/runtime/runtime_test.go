@@ -445,6 +445,54 @@ func TestUpdateRoutesBuildCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesOptimizeCapabilityThroughEffectBoundary(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "optimize-metric",
+		Capability: capability.NameOptimize,
+		Phase:      workflow.PhaseBuild,
+		Metadata: map[string]string{
+			capability.OptimizeMetadataObjective:       "Reduce render evidence latency.",
+			capability.OptimizeMetadataHarnessName:     "locked fixture comparison",
+			capability.OptimizeMetadataHarnessLocked:   "true",
+			capability.OptimizeMetadataMetricName:      "render_seconds",
+			capability.OptimizeMetadataMetricBaseline:  "1.50",
+			capability.OptimizeMetadataMetricResult:    "1.20",
+			capability.OptimizeMetadataMetricDirection: "lower",
+		},
+	}
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.Status != StatusActive || model.ActiveCapability.Capability != capability.NameOptimize {
+		t.Fatalf("capability model = status:%q active:%+v", model.Status, model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	assertOperationMetadata(t, effect.Metadata(), OperationMetadata{ID: "op-1", Kind: OperationCapability, Subject: "optimize", Source: "runtime.capability"})
+
+	messages := Dispatch(effects)
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	completed, ok := messages[0].(CapabilityCompleted)
+	if !ok {
+		t.Fatalf("message type = %T, want CapabilityCompleted", messages[0])
+	}
+	if completed.Payload.Capability != capability.NameOptimize || completed.Payload.RecommendedSuccessor != workflow.PhaseAudit || completed.Payload.Optimize == nil {
+		t.Fatalf("optimize payload = %+v", completed.Payload)
+	}
+
+	model, effects = Update(model, completed)
+	if len(effects) != 0 || model.Status != StatusIdle || model.ActiveCapability.Capability != "" || model.LastCapability.Capability != capability.NameOptimize || model.LastCapability.Optimize == nil {
+		t.Fatalf("completed capability model = status:%q active:%+v last:%+v effects:%d", model.Status, model.ActiveCapability, model.LastCapability, len(effects))
+	}
+}
+
 func TestUpdateRoutesAuditCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 

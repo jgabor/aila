@@ -2620,6 +2620,9 @@ func TestM12RuntimeStatusFixturesDistinguishPhaseFromRuntime(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
+					if tc.name == "optimize-command" {
+						got = trimSnapshotLinePadding(got)
+					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
 					if !containsAll(got, tc.wantRender) {
 						t.Fatalf("%s render missing runtime evidence %v:\n%s", tc.name, tc.wantRender, got)
@@ -3611,6 +3614,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		{name: "status-command", input: "/status", route: policy.CommandRouteStatus},
 		{name: "plan-command", input: "/plan", route: policy.CommandRoutePlan},
 		{name: "build-command", input: "/build", route: policy.CommandRouteBuild},
+		{name: "optimize-command", input: "/optimize", route: policy.CommandRouteOptimize},
 		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
@@ -3633,6 +3637,9 @@ func TestCommandFixtureSet(t *testing.T) {
 					t.Parallel()
 
 					got := renderCase.render(fixture.State, renderCase.size)
+					if tc.name == "optimize-command" {
+						got = trimSnapshotLinePadding(got)
+					}
 					assertTextSnapshot(t, fixture, renderCase.file, got)
 					assertOrdered(t, got, string(tc.route)+":", "command route: "+string(tc.route))
 					assertOrdered(t, got, "command route: "+string(tc.route), "route source: policy.command")
@@ -3695,6 +3702,8 @@ func commandFixtureMarker(route string) string {
 		return "app-owned plan creation unavailable in presentation-only fallback"
 	case "build":
 		return "app-owned build execution unavailable in presentation-only fallback"
+	case "optimize":
+		return "app-owned optimize execution unavailable in presentation-only fallback"
 	case "compact":
 		return "app-owned manual compaction unavailable in presentation-only fallback"
 	default:
@@ -4554,6 +4563,141 @@ func profileWaitingFixtureState() ViewState {
 		DisplayOnly:        true,
 		SourceRefs:         []ProfileSourceRefView{{ID: "profile-command", Kind: "command", Command: "/profile", Excerpt: "waiting for profile evidence"}},
 		BoundaryRequests:   []ProfileBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "session.current", Reason: "profile uses app-supplied session evidence"}, {Kind: "context_access", Operation: "context.access", Target: "current_context", Reason: "profile folds results into current context"}},
+	}
+	return state
+}
+
+func TestOptimizeMetricFixtureShowsObjectiveExperimentMetricAndCaveats(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "optimize-metric", optimizeMetricFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Optimize:", "capability: optimize"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "objective: current-metric-objective", "experiment: experiment-current-render-evidence status=improved", "harness: fixture-metric-harness locked=true", "metric: render_evidence_seconds baseline=1.50s result=1.20s", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "metric improvement: 20.0% lower", "evidence: evidence-1 summary=objective selected from current BUILD context", "caveat: deterministic app-supplied metric evidence only", "next action: Audit the measured optimization result before continuing.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("optimize-metric render missing optimization evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Optimize == nil || snapshot.Optimize.Objective.ID != "current-metric-objective" || snapshot.Optimize.Experiment.Status != "improved" || !snapshot.Optimize.Harness.Locked || snapshot.Optimize.Metric.Name != "render_evidence_seconds" || snapshot.Optimize.Metric.Baseline != "1.50" || snapshot.Optimize.Metric.Result != "1.20" || len(snapshot.Optimize.Evidence) != 2 || len(snapshot.Optimize.Caveats) != 2 || snapshot.Optimize.RecommendedSuccessor != "audit" || snapshot.Optimize.TransitionClaimed || !snapshot.Optimize.DisplayOnly {
+			t.Fatalf("optimize semantic = %+v", snapshot.Optimize)
+		}
+	}
+}
+
+func TestOptimizeWaitingFixtureShowsNeededInputWithoutMetricResult(t *testing.T) {
+	t.Parallel()
+
+	fixture := loadRenderFixture(t, "optimize-waiting", optimizeWaitingFixtureState())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
+	for _, renderCase := range fixture.TextCases() {
+		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
+		assertTextSnapshot(t, fixture, renderCase.file, got)
+		plain := stripANSI(got)
+		want := []string{"Stage BUILD", "Optimize:", "capability: optimize", "signal: waiting"}
+		if renderCase.size.Height > 24 {
+			want = append(want, "harness:  locked=false", "metric:  baseline= result=", "transition claimed: false")
+		}
+		if renderCase.size.Height > 32 {
+			want = append(want, "needed input: Provide objective, locked harness, metric baseline, and measured result before optimizing.")
+		}
+		if !containsAll(plain, want) {
+			t.Fatalf("optimize-waiting render missing waiting evidence:\n%s", plain)
+		}
+	}
+	for _, semanticCase := range fixture.SemanticCases() {
+		got := RenderSemanticJSON(fixture.State, semanticCase.size)
+		assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+		var snapshot SemanticSnapshot
+		if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+			t.Fatalf("unmarshal semantic snapshot: %v", err)
+		}
+		if snapshot.Optimize == nil || snapshot.Optimize.Signal != "waiting" || snapshot.Optimize.NeededInput == "" || len(snapshot.Optimize.Caveats) == 0 || snapshot.Optimize.Metric.Name != "" || snapshot.Optimize.RecommendedSuccessor != "" || snapshot.Optimize.TransitionClaimed || !snapshot.Optimize.DisplayOnly {
+			t.Fatalf("optimize waiting semantic = %+v", snapshot.Optimize)
+		}
+	}
+}
+
+func optimizeMetricFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "optimize-metric"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-optimize"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "write"
+	state.StatusDetail = "optimize capability status"
+	state.RuntimeStatus = "idle"
+	state.RuntimeResult = "Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s."
+	state.FooterContext = "current optimize capability"
+	state.ProjectStoreStatus = "initialized"
+	state.ProjectStoreDetail = "project store ready"
+	state.Optimize = &OptimizeView{
+		Source:                 "app.optimize.fixture",
+		Capability:             "optimize",
+		Signal:                 "complete",
+		CurrentPhase:           "build",
+		Summary:                "Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.",
+		RecommendedSuccessor:   "audit",
+		SuccessorValid:         true,
+		TransitionClaimed:      false,
+		DisplayOnly:            true,
+		Objective:              OptimizeObjectiveView{ID: "current-metric-objective", Text: "Reduce evidence rendering latency without changing workflow authority."},
+		Experiment:             OptimizeExperimentView{ID: "experiment-current-render-evidence", Status: "improved", Summary: "Locked fixture comparison shows render evidence moved in the desired direction."},
+		Harness:                OptimizeHarnessView{ID: "fixture-metric-harness", Name: "locked TUI fixture metric comparison", Command: "go test ./internal/tui -run TestOptimizeFixtureMetricResult", Locked: true},
+		Metric:                 OptimizeMetricView{Name: "render_evidence_seconds", Baseline: "1.50", Result: "1.20", Unit: "s", Direction: "lower", Improvement: "20.0% lower"},
+		Evidence:               []OptimizeEvidenceView{{ID: "evidence-1", Summary: "objective selected from current BUILD context", SourceRefID: "optimize-session-state"}, {ID: "evidence-2", Summary: "locked harness command recorded before result comparison", SourceRefID: "optimize-command"}},
+		Caveats:                []string{"deterministic app-supplied metric evidence only", "provider-backed benchmark execution deferred"},
+		NextAction:             "Audit the measured optimization result before continuing.",
+		ObjectiveArtifactPath:  ".aila/artifacts/objective.md",
+		ExperimentArtifactPath: ".aila/artifacts/experiments.md",
+		ArtifactStatus:         "written",
+		ArtifactRefs:           []OptimizeArtifactRefView{{ID: "objective-artifact", Kind: "objective", Path: ".aila/artifacts/objective.md"}, {ID: "experiments-artifact", Kind: "experiments", Path: ".aila/artifacts/experiments.md"}},
+		SourceRefs:             []OptimizeSourceRefView{{ID: "optimize-command", Kind: "command", Command: "/optimize", Excerpt: "app-owned optimize command"}, {ID: "optimize-workflow-doc", Kind: "doc", Path: "docs/workflow-architecture.md", Excerpt: "optimize is BUILD-owned"}, {ID: "optimize-session-state", Kind: "session_state", Excerpt: "runtime=idle phase=build context=current optimize capability"}},
+		BoundaryRequests:       []OptimizeBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "objective.current", Reason: "optimize uses app-supplied objective state"}, {Kind: "tool_execution", Operation: "bash", Target: "go test ./internal/tui -run TestOptimizeFixtureMetricResult", Reason: "optimize execution stays on the normal tool effect path"}, {Kind: "permission_check", Operation: "bash", Target: "go test ./internal/tui -run TestOptimizeFixtureMetricResult", Reason: "optimize metric harness execution is permission-gated"}, {Kind: "state_write", Operation: "state.write", Target: "experiments", Reason: "state store records durable optimization experiment output"}},
+	}
+	return state
+}
+
+func optimizeWaitingFixtureState() ViewState {
+	state := IdleEmptyState()
+	state.Scenario = "optimize-waiting"
+	state.Phase = "BUILD"
+	state.PhaseSource = "build"
+	state.PrimaryModel = "fake/fake-optimize"
+	state.UtilityModel = "placeholder"
+	state.Autonomy = "read"
+	state.StatusDetail = "optimize capability status"
+	state.RuntimeStatus = "waiting"
+	state.RuntimeResult = "Optimize needs an objective, locked harness, metric baseline, and measured result."
+	state.Optimize = &OptimizeView{
+		Source:            "app.optimize.fixture",
+		Capability:        "optimize",
+		Signal:            "waiting",
+		CurrentPhase:      "build",
+		Summary:           "Optimize needs an objective, locked harness, metric baseline, and measured result.",
+		NeededInput:       "Provide objective, locked harness, metric baseline, and measured result before optimizing.",
+		Caveats:           []string{"optimization evidence unavailable until objective, harness, and metric result are provided"},
+		NextAction:        "Provide locked metric evidence, then run optimize again.",
+		TransitionClaimed: false,
+		DisplayOnly:       true,
+		SourceRefs:        []OptimizeSourceRefView{{ID: "optimize-command", Kind: "command", Command: "/optimize", Excerpt: "waiting for metric evidence"}},
+		BoundaryRequests:  []OptimizeBoundaryRequestView{{Kind: "state_access", Operation: "state.access", Target: "objective.current", Reason: "optimize uses app-supplied objective state"}, {Kind: "tool_execution", Operation: "bash", Target: "locked metric harness", Reason: "optimize execution stays on the normal tool effect path"}},
 	}
 	return state
 }

@@ -1,4 +1,39 @@
 cycles:
+  - number: 241
+    timestamp: 2026-05-17 18:07
+    type: build
+    phase: closeout
+    what: >-
+      Completed Milestone 52 by adding deterministic BUILD-owned optimize payloads, closed /optimize routing, app-owned
+      objective and experiment artifact persistence, TUI objective/experiment/metric/caveat evidence, behavior-named PTY
+      smoke coverage, ROADMAP closeout, and Agentera task completion.
+    commit: 'same local commit: add optimize capability'
+    inspiration: .agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 52; focused capability/runtime/state/app/policy/TUI/cmd tests; full internal/cmd tests; mage check; Agentera validation; diff and hygiene checks
+    discovered: >-
+      Optimize can stay BUILD-owned by adapting app-supplied objective, locked harness, metric baseline/result, evidence, and
+      caveats into one typed exit payload while describing normal tool, permission, state, artifact, and state-write boundaries
+      instead of creating a benchmark framework, orchestration loop, provider-backed experiment runner, plugin/MCP path,
+      workflow DSL, hosted control plane, or document/design behavior.
+    verified: >-
+      `mage fmt` passed. Focused capability/runtime/state/app/policy/TUI checks passed. `/optimize` PTY smoke and the
+      inspection-family smoke passed. `go test ./internal/... -count=1` passed. `go test ./cmd/aila -count=1` passed with
+      cmd/aila in 349.529s. Final `mage check` passed with cmd/aila in 352.745s, 0 lint issues, and no vulnerabilities.
+      Pre-closeout `git diff --check` passed; changed-line home-path hygiene and added func TestM<number> hygiene returned
+      no matches. Agentera plan/progress/lint/hej validation passed after this metadata write.
+    next: >-
+      Milestone 53: Document Capability is the next roadmap milestone.
+    context:
+      intent: Finish the current roadmap milestone first while preserving the planera -> orkestrera -> commit loop and Agentera capability usage.
+      constraints: >-
+        Execute only M52; no provider-backed benchmark execution, separate optimization framework, orchestration, automatic
+        source changes, document/design capabilities, direct workflow phase mutation, bypass writes, plugins, MCP, workflow
+        DSLs, hosted control planes, M53+ behavior, or push.
+      unknowns: >-
+        Repeated optimization trials, provider-backed experiment analysis, metric dashboards, experiment history browsing,
+        global objective stores, and orchestration-owned retry budgets remain deferred.
+      scope: >-
+        internal/capability, internal/runtime, internal/state, internal/app, internal/policy, internal/tui, cmd/aila PTY
+        coverage, optimize fixtures, ROADMAP.md, .agentera/plan.yaml, .agentera/progress.yaml, and archived M51A plan.
   - number: 240
     timestamp: 2026-05-17 17:15
     type: build

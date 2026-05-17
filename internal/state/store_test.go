@@ -72,6 +72,8 @@ func TestResolveKnownArtifactIncludesPathAndProvenance(t *testing.T) {
 		{name: ArtifactVision, file: "vision.md"},
 		{name: ArtifactDecisions, file: "decisions.md"},
 		{name: ArtifactProfile, file: "profile.md"},
+		{name: ArtifactObjective, file: "objective.md"},
+		{name: ArtifactExperiments, file: "experiments.md"},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			t.Parallel()
@@ -160,6 +162,8 @@ func TestResolveArtifactWriteAllowsOwningWriter(t *testing.T) {
 		{name: ArtifactVision, owner: OwnerApp},
 		{name: ArtifactDecisions, owner: OwnerApp},
 		{name: ArtifactProfile, owner: OwnerApp},
+		{name: ArtifactObjective, owner: OwnerApp},
+		{name: ArtifactExperiments, owner: OwnerApp},
 	} {
 		t.Run(string(tc.name), func(t *testing.T) {
 			t.Parallel()

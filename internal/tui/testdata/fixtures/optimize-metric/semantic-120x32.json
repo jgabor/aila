@@ -1,0 +1,252 @@
+{
+  "scenario": "optimize-metric",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "idle",
+    "status_detail": "optimize capability status",
+    "runtime_result": "Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-optimize",
+    "utility_model": "placeholder",
+    "autonomy": "write",
+    "project_store_status": "initialized",
+    "project_store_detail": "project store ready"
+  },
+  "optimize": {
+    "visible": true,
+    "source": "app.optimize.fixture",
+    "capability": "optimize",
+    "signal": "complete",
+    "current_phase": "build",
+    "summary": "Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.",
+    "recommended_successor": "audit",
+    "successor_valid": true,
+    "transition_claimed": false,
+    "display_only": true,
+    "objective": {
+      "id": "current-metric-objective",
+      "text": "Reduce evidence rendering latency without changing workflow authority."
+    },
+    "experiment": {
+      "id": "experiment-current-render-evidence",
+      "status": "improved",
+      "summary": "Locked fixture comparison shows render evidence moved in the desired direction."
+    },
+    "harness": {
+      "id": "fixture-metric-harness",
+      "name": "locked TUI fixture metric comparison",
+      "command": "go test .[path-redacted] -run TestOptimizeFixtureMetricResult",
+      "locked": true
+    },
+    "metric": {
+      "name": "render_evidence_seconds",
+      "baseline": "1.50",
+      "result": "1.20",
+      "unit": "s",
+      "direction": "lower",
+      "improvement": "20.0% lower"
+    },
+    "evidence": [
+      {
+        "id": "evidence-1",
+        "summary": "objective selected from current BUILD context",
+        "source_ref_id": "optimize-session-state"
+      },
+      {
+        "id": "evidence-2",
+        "summary": "locked harness command recorded before result comparison",
+        "source_ref_id": "optimize-command"
+      }
+    ],
+    "caveats": [
+      "deterministic app-supplied metric evidence only",
+      "provider-backed benchmark execution deferred"
+    ],
+    "next_action": "Audit the measured optimization result before continuing.",
+    "objective_artifact_path": "[path-redacted]",
+    "experiment_artifact_path": "[path-redacted]",
+    "artifact_status": "written",
+    "artifact_refs": [
+      {
+        "id": "objective-artifact",
+        "kind": "objective",
+        "path": "[path-redacted]"
+      },
+      {
+        "id": "experiments-artifact",
+        "kind": "experiments",
+        "path": "[path-redacted]"
+      }
+    ],
+    "source_refs": [
+      {
+        "id": "optimize-command",
+        "kind": "command",
+        "command": "/optimize",
+        "excerpt": "app-owned optimize command"
+      },
+      {
+        "id": "optimize-workflow-doc",
+        "kind": "doc",
+        "path": "docs/workflow-architecture.md",
+        "excerpt": "optimize is BUILD-owned"
+      },
+      {
+        "id": "optimize-session-state",
+        "kind": "session_state",
+        "excerpt": "runtime=idle phase=build context=current optimize capability"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "objective.current",
+        "reason": "optimize uses app-supplied objective state"
+      },
+      {
+        "kind": "tool_execution",
+        "operation": "bash",
+        "target": "go test .[path-redacted] -run TestOptimizeFixtureMetricResult",
+        "reason": "optimize execution stays on the normal tool effect path"
+      },
+      {
+        "kind": "permission_check",
+        "operation": "bash",
+        "target": "go test .[path-redacted] -run TestOptimizeFixtureMetricResult",
+        "reason": "optimize metric harness execution is permission-gated"
+      },
+      {
+        "kind": "state_write",
+        "operation": "state.write",
+        "target": "experiments",
+        "reason": "state store records durable optimization experiment output"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-optimize",
+        "utility: placeholder",
+        "autonomy: write"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-optimize",
+        "utility model: placeholder",
+        "autonomy: write",
+        "display-only"
+      ]
+    },
+    {
+      "name": "project_store",
+      "visible": true,
+      "items": [
+        "status: initialized",
+        "detail: project store ready",
+        "app-owned"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: idle",
+        "detail: optimize capability status",
+        "active: false",
+        "result: Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "optimize",
+      "visible": true,
+      "items": [
+        "source: app.optimize.fixture",
+        "capability: optimize",
+        "signal: complete",
+        "phase: build",
+        "objective: current-metric-objective text=Reduce evidence rendering latency without changing workflow authority.",
+        "experiment: experiment-current-render-evidence status=improved",
+        "harness: fixture-metric-harness locked=true name=locked TUI fixture metric comparison",
+        "metric: render_evidence_seconds baseline=1.50s result=1.20s",
+        "recommended_successor: audit",
+        "successor_valid: true",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.",
+        "experiment_summary: Locked fixture comparison shows render evidence moved in the desired direction.",
+        "harness_command: go test .[path-redacted] -run TestOptimizeFixtureMetricResult",
+        "metric_direction: lower",
+        "metric_improvement: 20.0% lower",
+        "next_action: Audit the measured optimization result before continuing.",
+        "artifact_status: written",
+        "evidence: evidence-1 summary=objective selected from current BUILD context source=optimize-session-state",
+        "evidence: evidence-2 summary=locked harness command recorded before result comparison source=optimize-command",
+        "caveat: deterministic app-supplied metric evidence only",
+        "caveat: provider-backed benchmark execution deferred",
+        "artifact_ref: objective-artifact kind=objective path=[path-redacted]",
+        "artifact_ref: experiments-artifact kind=experiments path=[path-redacted]",
+        "boundary_request: state_access operation=state.access target=objective.current reason=optimize uses app-supplied objective state",
+        "boundary_request: tool_execution operation=bash target=go test .[path-redacted] -run TestOptimizeFixtureMetricResult reason=optimize execution stays on the normal tool effect path",
+        "boundary_request: permission_check operation=bash target=go test .[path-redacted] -run TestOptimizeFixtureMetricResult reason=optimize metric harness execution is permission-gated",
+        "boundary_request: state_write operation=state.write target=experiments reason=state store records durable optimization experiment output",
+        "source_ref: optimize-command kind=command command=/optimize excerpt=app-owned optimize command",
+        "source_ref: optimize-workflow-doc kind=doc path=docs/workflow-architecture.md excerpt=optimize is BUILD-owned",
+        "source_ref: optimize-session-state kind=session_state excerpt=runtime=idle phase=build context=current optimize capability"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": [
+        "git: placeholder",
+        "context: current optimize capability",
+        "quit: q"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

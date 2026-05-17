@@ -1,0 +1,31 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime idle | Model fake/fake-optimize | Utility placeholder | Auto write                                [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| Display labels:                                                                                                      |
+| primary model: fake/fake-optimize                                                                                    |
+| utility model: placeholder                                                                                           |
+| autonomy: write (display-only)                                                                                       |
+| project store: initialized - project store ready                                                                     |
+|                                                                                                                      |
+| Runtime status:                                                                                                      |
+| status: idle                                                                                                         |
+| detail: optimize capability status                                                                                   |
+| active: false                                                                                                        |
+| result: Optimize measured render_evidence_seconds for current-metric-objective: 1.50 -> 1.20s.                       |
+|                                                                                                                      |
+| Optimize:                                                                                                            |
+| source: app.optimize.fixture                                                                                         |
+| capability: optimize                                                                                                 |
+| signal: complete                                                                                                     |
+| phase: build                                                                                                         |
+| objective: current-metric-objective text=Reduce evidence rendering latency without changing workflow authority.      |
+| experiment: experiment-current-render-evidence status=improved                                                       |
+| harness: fixture-metric-harness locked=true name=locked TUI fixture metric comparison                                |
+| metric: render_evidence_seconds baseline=1.50s result=1.20s                                                          |
+| transition claimed: false                                                                                            |
+| display-only: true                                                                                                   |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                        git: placeholder | context: current optimize capability | q quit[0m

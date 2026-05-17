@@ -2254,6 +2254,122 @@ func TestProfileCommandPersistsArtifactAndFoldsContextPTYSmoke(t *testing.T) {
 	assertNoDurableStatePollution(t, env, baseline)
 }
 
+func TestOptimizeCommandPersistsMetricArtifactsPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	_, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 200, 100, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nOptimize command PTY fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed optimize PTY README: %v", err)
+		}
+		runPTYGit(t, workspace, "init")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+		runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
+	trackedStatusBefore := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+
+	if _, err := terminal.Write([]byte("/optimize\r")); err != nil {
+		t.Fatalf("send /optimize command input: %v", err)
+	}
+	output := readUntilAll(t, terminal, []string{
+		"Runtime status:",
+		"result: Optimize measured render_evidence_seconds",
+		"Optimize:",
+		"source: app.optimize",
+		"capability: optimize",
+		"signal: complete",
+		"phase: build",
+		"objective: current-metric-objective",
+		"experiment: experiment-current-render-evidence status=improved",
+		"harness: fixture-metric-harness locked=true",
+		"metric: render_evidence_seconds baseline=1.50s result=1.20s",
+		"transition claimed: false",
+		"display-only: true",
+		"recommended successor: audit",
+		"metric improvement: 20.0% lower",
+		"next action: Audit the measured optimization result before continuing.",
+		"evidence: evidence-1 summary=objective selected from current BUILD context",
+		"caveat: deterministic app-supplied metric evidence only",
+		"artifact status: written",
+		"requested boundary: tool_execution operation=bash",
+		"requested boundary: permission_check operation=bash",
+		"source ref: optimize-command kind=command command=/optimize",
+	}, 10*time.Second)
+	for _, forbidden := range []string{"Approval pending:", "Build:", "Audit:", "Vision:", "Discuss:", "Research:", "Profile:", "Document:", "Design:", "transition claimed: true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("optimize PTY output exposed forbidden marker %q: %q", forbidden, output)
+		}
+	}
+
+	objective, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "objective.md"))
+	if err != nil {
+		t.Fatalf("read optimize objective artifact: %v", err)
+	}
+	for _, want := range []string{"# Optimization Objective", "ID: current-metric-objective", "Reduce evidence rendering latency without changing workflow authority."} {
+		if !strings.Contains(string(objective), want) {
+			t.Fatalf("objective artifact missing %q in:\n%s", want, objective)
+		}
+	}
+	experiment, err := os.ReadFile(filepath.Join(workspace, ".aila", "artifacts", "experiments.md"))
+	if err != nil {
+		t.Fatalf("read optimize experiments artifact: %v", err)
+	}
+	for _, want := range []string{"# Optimization Experiment", "Experiment: experiment-current-render-evidence", "Status: improved", "Harness: locked TUI fixture metric comparison locked=true", "Metric: render_evidence_seconds 1.50s -> 1.20s (20.0% lower)"} {
+		if !strings.Contains(string(experiment), want) {
+			t.Fatalf("experiments artifact missing %q in:\n%s", want, experiment)
+		}
+	}
+	trackedStatusAfter := runPTYGitOutput(t, workspace, "status", "--short", "--", "README.md")
+	if trackedStatusAfter != trackedStatusBefore {
+		t.Fatalf("optimize PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
+	}
+	if docsStatus := runPTYGitOutput(t, workspace, "status", "--short", "--", "docs/aila-build-output.md"); docsStatus != "" {
+		t.Fatalf("optimize PTY changed build output git status: %q", docsStatus)
+	}
+	assertOptimizeCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
+		t.Fatalf("send /quit input after optimize command smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("optimize command PTY returned error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cancel()
+		_ = terminal.Close()
+		t.Fatal("optimize command PTY did not quit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(5 * time.Second):
+		t.Fatal("optimize command PTY drain did not finish after quit")
+	}
+
+	assertNoDurableStatePollution(t, env, baseline)
+}
+
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -3366,6 +3482,45 @@ func assertProfileCommandStoreState(t *testing.T, workspace string) {
 	}
 	if !sawProfileCommand || !sawProfileRuntime {
 		t.Fatalf("profile command history markers command=%v runtime=%v events=%+v", sawProfileCommand, sawProfileRuntime, history.Events)
+	}
+}
+
+func assertOptimizeCommandStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	store, err := state.OpenProjectStore(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("open optimize command project store: %v", err)
+	}
+	snapshot, err := store.ReadCurrentSessionSnapshot(context.Background())
+	if err != nil {
+		t.Fatalf("read optimize command current session snapshot: %v", err)
+	}
+	if snapshot.State != state.SessionSnapshotLoaded {
+		t.Fatalf("optimize command snapshot state = %q, want loaded", snapshot.State)
+	}
+	if snapshot.Snapshot.Runtime.Status != "idle" || !strings.Contains(snapshot.Snapshot.Runtime.Result, "Optimize measured render_evidence_seconds") {
+		t.Fatalf("optimize command runtime snapshot = %+v", snapshot.Snapshot.Runtime)
+	}
+
+	history, err := store.ReadFakeHistory(context.Background())
+	if err != nil {
+		t.Fatalf("read optimize command fake history: %v", err)
+	}
+	if history.State != state.FakeHistoryLoaded {
+		t.Fatalf("optimize command history state = %q, want loaded", history.State)
+	}
+	var sawOptimizeCommand, sawOptimizeRuntime bool
+	for _, event := range history.Events {
+		if event.Kind == historypkg.EventKindCommand && event.DisplayText == "optimize via slash" {
+			sawOptimizeCommand = true
+		}
+		if event.Kind == historypkg.EventKindRuntime && strings.Contains(event.DisplayText, "Optimize measured render_evidence_seconds") {
+			sawOptimizeRuntime = true
+		}
+	}
+	if !sawOptimizeCommand || !sawOptimizeRuntime {
+		t.Fatalf("optimize command history markers command=%v runtime=%v events=%+v", sawOptimizeCommand, sawOptimizeRuntime, history.Events)
 	}
 }
 

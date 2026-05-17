@@ -60,6 +60,7 @@ type TranscriptTurn struct {
 	Discuss            *DiscussView
 	Research           *ResearchView
 	Profile            *ProfileView
+	Optimize           *OptimizeView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -681,6 +682,9 @@ func applyRuntimeStatus(state ViewState, turn TranscriptTurn) ViewState {
 	if turn.Profile != nil {
 		state.Profile = cloneProfileView(turn.Profile)
 	}
+	if turn.Optimize != nil {
+		state.Optimize = cloneOptimizeView(turn.Optimize)
+	}
 	if turn.Plan != nil {
 		state.Plan = clonePlanView(turn.Plan)
 	}
@@ -813,6 +817,19 @@ func cloneMutationView(mutation *MutationView) *MutationView {
 	}
 	clone := *mutation
 	clone.Decision = cloneDecisionView(mutation.Decision)
+	return &clone
+}
+
+func cloneOptimizeView(optimize *OptimizeView) *OptimizeView {
+	if optimize == nil {
+		return nil
+	}
+	clone := *optimize
+	clone.Evidence = append([]OptimizeEvidenceView(nil), optimize.Evidence...)
+	clone.Caveats = append([]string(nil), optimize.Caveats...)
+	clone.ArtifactRefs = append([]OptimizeArtifactRefView(nil), optimize.ArtifactRefs...)
+	clone.SourceRefs = append([]OptimizeSourceRefView(nil), optimize.SourceRefs...)
+	clone.BoundaryRequests = append([]OptimizeBoundaryRequestView(nil), optimize.BoundaryRequests...)
 	return &clone
 }
 
@@ -996,6 +1013,9 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteBuild {
 		state.Build = nil
 	}
+	if recommendation.Route != policy.CommandRouteOptimize {
+		state.Optimize = nil
+	}
 	state.FileReference = nil
 	switch recommendation.Route {
 	case policy.CommandRouteNew:
@@ -1071,6 +1091,13 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"app-owned build execution unavailable in presentation-only fallback",
 			"read-only: false",
 			"capability: build",
+		}
+	case policy.CommandRouteOptimize:
+		state.SurfaceTitle = "optimize"
+		state.SurfaceLines = []string{
+			"app-owned optimize execution unavailable in presentation-only fallback",
+			"read-only: false",
+			"capability: optimize",
 		}
 	case policy.CommandRouteReview:
 		state.SurfaceTitle = "review"

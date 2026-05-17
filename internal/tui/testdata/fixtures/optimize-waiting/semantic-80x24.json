@@ -1,0 +1,168 @@
+{
+  "scenario": "optimize-waiting",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "BUILD",
+    "phase_source": "build",
+    "runtime_status": "waiting",
+    "status_detail": "optimize capability status",
+    "runtime_result": "Optimize needs an objective, locked harness, metric baseline, and measured result.",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "fake/fake-optimize",
+    "utility_model": "placeholder",
+    "autonomy": "read"
+  },
+  "optimize": {
+    "visible": true,
+    "source": "app.optimize.fixture",
+    "capability": "optimize",
+    "signal": "waiting",
+    "current_phase": "build",
+    "summary": "Optimize needs an objective, locked harness, metric baseline, and measured result.",
+    "successor_valid": false,
+    "transition_claimed": false,
+    "display_only": true,
+    "objective": {
+      "id": "",
+      "text": ""
+    },
+    "experiment": {
+      "id": "",
+      "status": ""
+    },
+    "harness": {
+      "id": "",
+      "name": "",
+      "locked": false
+    },
+    "metric": {
+      "name": "",
+      "baseline": "",
+      "result": ""
+    },
+    "caveats": [
+      "optimization evidence unavailable until objective, harness, and metric result are provided"
+    ],
+    "needed_input": "Provide objective, locked harness, metric baseline, and measured result before optimizing.",
+    "next_action": "Provide locked metric evidence, then run optimize again.",
+    "source_refs": [
+      {
+        "id": "optimize-command",
+        "kind": "command",
+        "command": "/optimize",
+        "excerpt": "waiting for metric evidence"
+      }
+    ],
+    "boundary_requests": [
+      {
+        "kind": "state_access",
+        "operation": "state.access",
+        "target": "objective.current",
+        "reason": "optimize uses app-supplied objective state"
+      },
+      {
+        "kind": "tool_execution",
+        "operation": "bash",
+        "target": "locked metric harness",
+        "reason": "optimize execution stays on the normal tool effect path"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["BUILD", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: fake/fake-optimize",
+        "utility: placeholder",
+        "autonomy: read"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "display_labels",
+      "visible": true,
+      "items": [
+        "primary model: fake/fake-optimize",
+        "utility model: placeholder",
+        "autonomy: read",
+        "display-only"
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "visible": true,
+      "items": [
+        "status: waiting",
+        "detail: optimize capability status",
+        "active: false",
+        "result: Optimize needs an objective, locked harness, metric baseline, and measured result.",
+        "display-only"
+      ]
+    },
+    {
+      "name": "optimize",
+      "visible": true,
+      "items": [
+        "source: app.optimize.fixture",
+        "capability: optimize",
+        "signal: waiting",
+        "phase: build",
+        "objective:  text=",
+        "experiment:  status=",
+        "harness:  locked=false name=",
+        "metric:  baseline= result=",
+        "recommended_successor: ",
+        "successor_valid: false",
+        "transition_claimed: false",
+        "display_only: true",
+        "summary: Optimize needs an objective, locked harness, metric baseline, and measured result.",
+        "needed_input: Provide objective, locked harness, metric baseline, and measured result before optimizing.",
+        "next_action: Provide locked metric evidence, then run optimize again.",
+        "caveat: optimization evidence unavailable until objective, harness, and metric result are provided",
+        "boundary_request: state_access operation=state.access target=objective.current reason=optimize uses app-supplied objective state",
+        "boundary_request: tool_execution operation=bash target=locked metric harness reason=optimize execution stays on the normal tool effect path",
+        "source_ref: optimize-command kind=command command=/optimize excerpt=waiting for metric evidence"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

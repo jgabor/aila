@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime idle | Model fake/fake-optimize | Utility placeholder | A~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-optimize                                            |
+| utility model: placeholder                                                   |
+| autonomy: write (display-only)                                               |
+| project store: initialized - project store ready                             |
+|                                                                              |
+| Runtime status:                                                              |
+| status: idle                                                                 |
+| detail: optimize capability status                                           |
+| active: false                                                                |
+| result: Optimize measured render_evidence_seconds for current-metric-object~ |
+|                                                                              |
+| Optimize:                                                                    |
+| source: app.optimize.fixture                                                 |
+| capability: optimize                                                         |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                git: placeholder | context: current optimize capability | q quit

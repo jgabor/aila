@@ -1,0 +1,23 @@
+Aila                                                                       80x24
+Stage BUILD | Runtime waiting | Model fake/fake-optimize | Utility placeholder ~
++ Conversation ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-optimize                                            |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: optimize capability status                                           |
+| active: false                                                                |
+| result: Optimize needs an objective, locked harness, metric baseline, and m~ |
+|                                                                              |
+| Optimize:                                                                    |
+| source: app.optimize.fixture                                                 |
+| capability: optimize                                                         |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ Prompt ----------------------------------------------------------------------+
+| >                                                                            |
++------------------------------------------------------------------------------+
+                                git: placeholder | context: placeholder | q quit

@@ -63,6 +63,8 @@ const (
 	ArtifactVision            AffectedArtifact = "vision"
 	ArtifactDecisions         AffectedArtifact = "decisions"
 	ArtifactProfile           AffectedArtifact = "profile"
+	ArtifactObjective         AffectedArtifact = "objective"
+	ArtifactExperiments       AffectedArtifact = "experiments"
 )
 
 // RecoveryAction is a visible recommendation. It does not execute recovery.

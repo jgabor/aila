@@ -71,6 +71,7 @@ type ViewState struct {
 	Discuss            *DiscussView
 	Research           *ResearchView
 	Profile            *ProfileView
+	Optimize           *OptimizeView
 	Plan               *PlanView
 	Build              *BuildView
 	Audit              *AuditView
@@ -394,6 +395,95 @@ type BriefSourceRefView struct {
 
 // BriefBoundaryRequestView records one inert brief boundary descriptor.
 type BriefBoundaryRequestView struct {
+	Kind      string
+	Operation string
+	Target    string
+	Reason    string
+}
+
+// OptimizeView is app-injected metric-driven optimization output.
+type OptimizeView struct {
+	Source                 string
+	Capability             string
+	Signal                 string
+	CurrentPhase           string
+	Summary                string
+	RecommendedSuccessor   string
+	SuccessorValid         bool
+	TransitionClaimed      bool
+	DisplayOnly            bool
+	Objective              OptimizeObjectiveView
+	Experiment             OptimizeExperimentView
+	Harness                OptimizeHarnessView
+	Metric                 OptimizeMetricView
+	Evidence               []OptimizeEvidenceView
+	Caveats                []string
+	NeededInput            string
+	NextAction             string
+	ObjectiveArtifactPath  string
+	ExperimentArtifactPath string
+	ArtifactStatus         string
+	ArtifactRefs           []OptimizeArtifactRefView
+	SourceRefs             []OptimizeSourceRefView
+	BoundaryRequests       []OptimizeBoundaryRequestView
+}
+
+// OptimizeObjectiveView records the selected optimization objective.
+type OptimizeObjectiveView struct {
+	ID   string
+	Text string
+}
+
+// OptimizeExperimentView records the current experiment state.
+type OptimizeExperimentView struct {
+	ID      string
+	Status  string
+	Summary string
+}
+
+// OptimizeHarnessView records the locked metric harness.
+type OptimizeHarnessView struct {
+	ID      string
+	Name    string
+	Command string
+	Locked  bool
+}
+
+// OptimizeMetricView records baseline and result measurements.
+type OptimizeMetricView struct {
+	Name        string
+	Baseline    string
+	Result      string
+	Unit        string
+	Direction   string
+	Improvement string
+}
+
+// OptimizeEvidenceView records one optimization evidence item.
+type OptimizeEvidenceView struct {
+	ID          string
+	Summary     string
+	SourceRefID string
+}
+
+// OptimizeArtifactRefView records one optimize artifact reference.
+type OptimizeArtifactRefView struct {
+	ID   string
+	Kind string
+	Path string
+}
+
+// OptimizeSourceRefView records one source reference supporting optimize output.
+type OptimizeSourceRefView struct {
+	ID      string
+	Kind    string
+	Path    string
+	Command string
+	Excerpt string
+}
+
+// OptimizeBoundaryRequestView records one inert optimize boundary descriptor.
+type OptimizeBoundaryRequestView struct {
 	Kind      string
 	Operation string
 	Target    string
@@ -914,6 +1004,7 @@ func contentItems(state ViewState) []string {
 	items = append(items, discussLines(state.Discuss)...)
 	items = append(items, researchLines(state.Research)...)
 	items = append(items, profileLines(state.Profile)...)
+	items = append(items, optimizeLines(state.Optimize)...)
 	items = append(items, auditLines(state.Audit)...)
 	items = append(items, buildLines(state.Build)...)
 	items = append(items, planLines(state.Plan)...)
@@ -1632,6 +1723,102 @@ func planLines(plan *PlanView) []string {
 	}
 	lines = append(lines, "  app-owned", "  display-only", "")
 	return lines
+}
+
+func optimizeLines(optimize *OptimizeView) []string {
+	if optimize == nil {
+		return nil
+	}
+	semantic := semanticOptimize(optimize)
+	lines := []string{
+		"  Optimize:",
+		"  source: " + semantic.Source,
+		"  capability: " + semantic.Capability,
+		"  signal: " + semantic.Signal,
+		"  phase: " + semantic.CurrentPhase,
+		"  objective: " + semantic.Objective.ID + " text=" + semantic.Objective.Text,
+		"  experiment: " + semantic.Experiment.ID + " status=" + semantic.Experiment.Status,
+		"  harness: " + semantic.Harness.ID + " locked=" + boolLabel(semantic.Harness.Locked) + " name=" + semantic.Harness.Name,
+		"  metric: " + semantic.Metric.Name + " baseline=" + semantic.Metric.Baseline + semantic.Metric.Unit + " result=" + semantic.Metric.Result + semantic.Metric.Unit,
+		"  transition claimed: " + boolLabel(semantic.TransitionClaimed),
+		"  display-only: " + boolLabel(semantic.DisplayOnly),
+		"  recommended successor: " + semantic.RecommendedSuccessor,
+		"  successor valid: " + boolLabel(semantic.SuccessorValid),
+	}
+	if semantic.Summary != "" {
+		lines = append(lines, "  summary: "+semantic.Summary)
+	}
+	if semantic.Experiment.Summary != "" {
+		lines = append(lines, "  experiment summary: "+semantic.Experiment.Summary)
+	}
+	if semantic.Harness.Command != "" {
+		lines = append(lines, "  harness command: "+semantic.Harness.Command)
+	}
+	if semantic.Metric.Direction != "" {
+		lines = append(lines, "  metric direction: "+semantic.Metric.Direction)
+	}
+	if semantic.Metric.Improvement != "" {
+		lines = append(lines, "  metric improvement: "+semantic.Metric.Improvement)
+	}
+	if semantic.NeededInput != "" {
+		lines = append(lines, "  needed input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		lines = append(lines, "  next action: "+semantic.NextAction)
+	}
+	for _, item := range semantic.Evidence {
+		line := "  evidence: " + item.ID + " summary=" + item.Summary
+		if item.SourceRefID != "" {
+			line += " source=" + item.SourceRefID
+		}
+		lines = append(lines, line)
+	}
+	for _, caveat := range semantic.Caveats {
+		lines = append(lines, "  caveat: "+caveat)
+	}
+	if semantic.ArtifactStatus != "" {
+		lines = append(lines, "  artifact status: "+semantic.ArtifactStatus)
+	}
+	if semantic.ObjectiveArtifactPath != "" {
+		lines = append(lines, "  objective artifact: "+semantic.ObjectiveArtifactPath)
+	}
+	if semantic.ExperimentArtifactPath != "" {
+		lines = append(lines, "  experiment artifact: "+semantic.ExperimentArtifactPath)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		line := "  artifact ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		lines = append(lines, line)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		line := "  requested boundary: " + request.Kind
+		if request.Operation != "" {
+			line += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			line += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			line += " reason=" + request.Reason
+		}
+		lines = append(lines, line)
+	}
+	for _, ref := range semantic.SourceRefs {
+		line := "  source ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			line += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			line += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			line += " excerpt=" + ref.Excerpt
+		}
+		lines = append(lines, line)
+	}
+	return append(lines, "")
 }
 
 func buildLines(build *BuildView) []string {
@@ -2722,6 +2909,7 @@ type SemanticSnapshot struct {
 	Discuss        *SemanticDiscuss        `json:"discuss,omitempty"`
 	Research       *SemanticResearch       `json:"research,omitempty"`
 	Profile        *SemanticProfile        `json:"profile,omitempty"`
+	Optimize       *SemanticOptimize       `json:"optimize,omitempty"`
 	Plan           *SemanticPlan           `json:"plan,omitempty"`
 	Build          *SemanticBuild          `json:"build,omitempty"`
 	Audit          *SemanticAudit          `json:"audit,omitempty"`
@@ -3231,6 +3419,96 @@ type SemanticBriefSourceRef struct {
 
 // SemanticBriefBoundaryRequest records one inert brief boundary descriptor.
 type SemanticBriefBoundaryRequest struct {
+	Kind      string `json:"kind"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// SemanticOptimize describes app-injected metric optimization output.
+type SemanticOptimize struct {
+	Visible                bool                              `json:"visible"`
+	Source                 string                            `json:"source"`
+	Capability             string                            `json:"capability"`
+	Signal                 string                            `json:"signal"`
+	CurrentPhase           string                            `json:"current_phase,omitempty"`
+	Summary                string                            `json:"summary,omitempty"`
+	RecommendedSuccessor   string                            `json:"recommended_successor,omitempty"`
+	SuccessorValid         bool                              `json:"successor_valid"`
+	TransitionClaimed      bool                              `json:"transition_claimed"`
+	DisplayOnly            bool                              `json:"display_only"`
+	Objective              SemanticOptimizeObjective         `json:"objective"`
+	Experiment             SemanticOptimizeExperiment        `json:"experiment"`
+	Harness                SemanticOptimizeHarness           `json:"harness"`
+	Metric                 SemanticOptimizeMetric            `json:"metric"`
+	Evidence               []SemanticOptimizeEvidence        `json:"evidence,omitempty"`
+	Caveats                []string                          `json:"caveats,omitempty"`
+	NeededInput            string                            `json:"needed_input,omitempty"`
+	NextAction             string                            `json:"next_action,omitempty"`
+	ObjectiveArtifactPath  string                            `json:"objective_artifact_path,omitempty"`
+	ExperimentArtifactPath string                            `json:"experiment_artifact_path,omitempty"`
+	ArtifactStatus         string                            `json:"artifact_status,omitempty"`
+	ArtifactRefs           []SemanticOptimizeArtifactRef     `json:"artifact_refs,omitempty"`
+	SourceRefs             []SemanticOptimizeSourceRef       `json:"source_refs,omitempty"`
+	BoundaryRequests       []SemanticOptimizeBoundaryRequest `json:"boundary_requests,omitempty"`
+}
+
+// SemanticOptimizeObjective records the selected optimization objective.
+type SemanticOptimizeObjective struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// SemanticOptimizeExperiment records experiment status.
+type SemanticOptimizeExperiment struct {
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Summary string `json:"summary,omitempty"`
+}
+
+// SemanticOptimizeHarness records locked harness evidence.
+type SemanticOptimizeHarness struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Command string `json:"command,omitempty"`
+	Locked  bool   `json:"locked"`
+}
+
+// SemanticOptimizeMetric records baseline/result evidence.
+type SemanticOptimizeMetric struct {
+	Name        string `json:"name"`
+	Baseline    string `json:"baseline"`
+	Result      string `json:"result"`
+	Unit        string `json:"unit,omitempty"`
+	Direction   string `json:"direction,omitempty"`
+	Improvement string `json:"improvement,omitempty"`
+}
+
+// SemanticOptimizeEvidence records one machine-readable optimization evidence item.
+type SemanticOptimizeEvidence struct {
+	ID          string `json:"id"`
+	Summary     string `json:"summary"`
+	SourceRefID string `json:"source_ref_id,omitempty"`
+}
+
+// SemanticOptimizeArtifactRef records one optimize artifact ref.
+type SemanticOptimizeArtifactRef struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path,omitempty"`
+}
+
+// SemanticOptimizeSourceRef records one optimize source reference.
+type SemanticOptimizeSourceRef struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path,omitempty"`
+	Command string `json:"command,omitempty"`
+	Excerpt string `json:"excerpt,omitempty"`
+}
+
+// SemanticOptimizeBoundaryRequest records one inert optimize boundary descriptor.
+type SemanticOptimizeBoundaryRequest struct {
 	Kind      string `json:"kind"`
 	Operation string `json:"operation,omitempty"`
 	Target    string `json:"target,omitempty"`
@@ -3969,6 +4247,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.Profile != nil {
 		regions = append(regions, SemanticRegion{Name: "profile", Visible: true, Items: semanticProfileItems(state.Profile)})
 	}
+	if state.Optimize != nil {
+		regions = append(regions, SemanticRegion{Name: "optimize", Visible: true, Items: semanticOptimizeItems(state.Optimize)})
+	}
 	if state.Plan != nil {
 		regions = append(regions, SemanticRegion{Name: "plan", Visible: true, Items: semanticPlanItems(state.Plan)})
 	}
@@ -4065,6 +4346,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		Discuss:        semanticDiscuss(state.Discuss),
 		Research:       semanticResearch(state.Research),
 		Profile:        semanticProfile(state.Profile),
+		Optimize:       semanticOptimize(state.Optimize),
 		Plan:           semanticPlan(state.Plan),
 		Build:          semanticBuild(state.Build),
 		Audit:          semanticAudit(state.Audit),
@@ -5658,6 +5940,143 @@ func semanticAudit(audit *AuditView) *SemanticAudit {
 		ArtifactRefs:         artifactRefs,
 		SourceRefs:           refs,
 		BoundaryRequests:     requests,
+	}
+}
+
+func semanticOptimizeItems(optimize *OptimizeView) []string {
+	semantic := semanticOptimize(optimize)
+	if semantic == nil {
+		return nil
+	}
+	items := []string{
+		"source: " + semantic.Source,
+		"capability: " + semantic.Capability,
+		"signal: " + semantic.Signal,
+		"phase: " + semantic.CurrentPhase,
+		"objective: " + semantic.Objective.ID + " text=" + semantic.Objective.Text,
+		"experiment: " + semantic.Experiment.ID + " status=" + semantic.Experiment.Status,
+		"harness: " + semantic.Harness.ID + " locked=" + boolLabel(semantic.Harness.Locked) + " name=" + semantic.Harness.Name,
+		"metric: " + semantic.Metric.Name + " baseline=" + semantic.Metric.Baseline + semantic.Metric.Unit + " result=" + semantic.Metric.Result + semantic.Metric.Unit,
+		"recommended_successor: " + semantic.RecommendedSuccessor,
+		"successor_valid: " + boolLabel(semantic.SuccessorValid),
+		"transition_claimed: " + boolLabel(semantic.TransitionClaimed),
+		"display_only: " + boolLabel(semantic.DisplayOnly),
+	}
+	if semantic.Summary != "" {
+		items = append(items, "summary: "+semantic.Summary)
+	}
+	if semantic.Experiment.Summary != "" {
+		items = append(items, "experiment_summary: "+semantic.Experiment.Summary)
+	}
+	if semantic.Harness.Command != "" {
+		items = append(items, "harness_command: "+semantic.Harness.Command)
+	}
+	if semantic.Metric.Direction != "" {
+		items = append(items, "metric_direction: "+semantic.Metric.Direction)
+	}
+	if semantic.Metric.Improvement != "" {
+		items = append(items, "metric_improvement: "+semantic.Metric.Improvement)
+	}
+	if semantic.NeededInput != "" {
+		items = append(items, "needed_input: "+semantic.NeededInput)
+	}
+	if semantic.NextAction != "" {
+		items = append(items, "next_action: "+semantic.NextAction)
+	}
+	if semantic.ArtifactStatus != "" {
+		items = append(items, "artifact_status: "+semantic.ArtifactStatus)
+	}
+	for _, item := range semantic.Evidence {
+		entry := "evidence: " + item.ID + " summary=" + item.Summary
+		if item.SourceRefID != "" {
+			entry += " source=" + item.SourceRefID
+		}
+		items = append(items, entry)
+	}
+	for _, caveat := range semantic.Caveats {
+		items = append(items, "caveat: "+caveat)
+	}
+	for _, ref := range semantic.ArtifactRefs {
+		item := "artifact_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		items = append(items, item)
+	}
+	for _, request := range semantic.BoundaryRequests {
+		item := "boundary_request: " + request.Kind
+		if request.Operation != "" {
+			item += " operation=" + request.Operation
+		}
+		if request.Target != "" {
+			item += " target=" + request.Target
+		}
+		if request.Reason != "" {
+			item += " reason=" + request.Reason
+		}
+		items = append(items, item)
+	}
+	for _, ref := range semantic.SourceRefs {
+		item := "source_ref: " + ref.ID + " kind=" + ref.Kind
+		if ref.Path != "" {
+			item += " path=" + ref.Path
+		}
+		if ref.Command != "" {
+			item += " command=" + ref.Command
+		}
+		if ref.Excerpt != "" {
+			item += " excerpt=" + ref.Excerpt
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func semanticOptimize(optimize *OptimizeView) *SemanticOptimize {
+	if optimize == nil {
+		return nil
+	}
+	evidence := make([]SemanticOptimizeEvidence, 0, len(optimize.Evidence))
+	for _, item := range optimize.Evidence {
+		evidence = append(evidence, SemanticOptimizeEvidence{ID: safeText(item.ID), Summary: safeText(item.Summary), SourceRefID: safeText(item.SourceRefID)})
+	}
+	artifacts := make([]SemanticOptimizeArtifactRef, 0, len(optimize.ArtifactRefs))
+	for _, ref := range optimize.ArtifactRefs {
+		artifacts = append(artifacts, SemanticOptimizeArtifactRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path)})
+	}
+	refs := make([]SemanticOptimizeSourceRef, 0, len(optimize.SourceRefs))
+	for _, ref := range optimize.SourceRefs {
+		refs = append(refs, SemanticOptimizeSourceRef{ID: safeText(ref.ID), Kind: safeText(ref.Kind), Path: safeText(ref.Path), Command: safeText(ref.Command), Excerpt: safeText(ref.Excerpt)})
+	}
+	requests := make([]SemanticOptimizeBoundaryRequest, 0, len(optimize.BoundaryRequests))
+	for _, request := range optimize.BoundaryRequests {
+		requests = append(requests, SemanticOptimizeBoundaryRequest{Kind: safeText(request.Kind), Operation: safeText(request.Operation), Target: safeText(request.Target), Reason: safeText(request.Reason)})
+	}
+	return &SemanticOptimize{
+		Visible:                true,
+		Source:                 safeText(defaultString(optimize.Source, "app.optimize")),
+		Capability:             safeText(defaultString(optimize.Capability, "optimize")),
+		Signal:                 safeText(defaultString(optimize.Signal, "complete")),
+		CurrentPhase:           safeText(optimize.CurrentPhase),
+		Summary:                safeText(optimize.Summary),
+		RecommendedSuccessor:   safeText(optimize.RecommendedSuccessor),
+		SuccessorValid:         optimize.SuccessorValid,
+		TransitionClaimed:      optimize.TransitionClaimed,
+		DisplayOnly:            optimize.DisplayOnly,
+		Objective:              SemanticOptimizeObjective{ID: safeText(optimize.Objective.ID), Text: safeText(optimize.Objective.Text)},
+		Experiment:             SemanticOptimizeExperiment{ID: safeText(optimize.Experiment.ID), Status: safeText(optimize.Experiment.Status), Summary: safeText(optimize.Experiment.Summary)},
+		Harness:                SemanticOptimizeHarness{ID: safeText(optimize.Harness.ID), Name: safeText(optimize.Harness.Name), Command: safeText(optimize.Harness.Command), Locked: optimize.Harness.Locked},
+		Metric:                 SemanticOptimizeMetric{Name: safeText(optimize.Metric.Name), Baseline: safeText(optimize.Metric.Baseline), Result: safeText(optimize.Metric.Result), Unit: safeText(optimize.Metric.Unit), Direction: safeText(optimize.Metric.Direction), Improvement: safeText(optimize.Metric.Improvement)},
+		Evidence:               evidence,
+		Caveats:                safeTextSlice(optimize.Caveats),
+		NeededInput:            safeText(optimize.NeededInput),
+		NextAction:             safeText(optimize.NextAction),
+		ObjectiveArtifactPath:  safeText(optimize.ObjectiveArtifactPath),
+		ExperimentArtifactPath: safeText(optimize.ExperimentArtifactPath),
+		ArtifactStatus:         safeText(optimize.ArtifactStatus),
+		ArtifactRefs:           artifacts,
+		SourceRefs:             refs,
+		BoundaryRequests:       requests,
 	}
 }
 

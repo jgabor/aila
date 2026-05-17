@@ -37,6 +37,7 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "profile", input: "/profile", want: CommandRouteProfile},
 		{name: "plan", input: "/plan", want: CommandRoutePlan},
 		{name: "build", input: "/build", want: CommandRouteBuild},
+		{name: "optimize", input: "/optimize", want: CommandRouteOptimize},
 		{name: "review", input: "/review", want: CommandRouteReview},
 		{name: "help", input: "/help", want: CommandRouteHelp},
 		{name: "history", input: "/history", want: CommandRouteHistory},

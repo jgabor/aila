@@ -72,6 +72,8 @@ func RunBuiltIn(ctx context.Context, request Request) (ExitPayload, error) {
 		return PlanCapability{}.Run(ctx, request)
 	case NameBuild:
 		return BuildCapability{}.Run(ctx, request)
+	case NameOptimize:
+		return OptimizeCapability{}.Run(ctx, request)
 	case NameAudit:
 		return AuditCapability{}.Run(ctx, request)
 	default:

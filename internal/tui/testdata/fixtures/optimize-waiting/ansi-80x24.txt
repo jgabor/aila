@@ -1,0 +1,23 @@
+[1mAila                                                                       80x24[0m
+[2mStage BUILD | Runtime waiting | Model fake/fake-optimize | Utility placeholder ~[0m
++ [33mConversation[0m ----------------------------------------------------------------+
+| Display labels:                                                              |
+| primary model: fake/fake-optimize                                            |
+| utility model: placeholder                                                   |
+| autonomy: read (display-only)                                                |
+|                                                                              |
+| Runtime status:                                                              |
+| status: waiting                                                              |
+| detail: optimize capability status                                           |
+| active: false                                                                |
+| result: Optimize needs an objective, locked harness, metric baseline, and m~ |
+|                                                                              |
+| Optimize:                                                                    |
+| source: app.optimize.fixture                                                 |
+| capability: optimize                                                         |
+| signal: waiting                                                              |
++------------------------------------------------------------------------------+
++ [33mPrompt[0m ----------------------------------------------------------------------+
+| [36m>[0m                                                                            |
++------------------------------------------------------------------------------+
+[2m                                git: placeholder | context: placeholder | q quit[0m

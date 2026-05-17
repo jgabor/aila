@@ -1,0 +1,29 @@
+Aila                                                                                          100x30
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| optimize:                                                                                        |
+| command route: optimize                                                                          |
+| route source: policy.command                                                                     |
+| app-owned optimize execution unavailable in presentation-only fallback                           |
+| read-only: false                                                                                 |
+| capability: optimize                                                                             |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| >                                                                                                |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit

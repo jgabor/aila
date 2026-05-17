@@ -1,0 +1,212 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  reviewed: '2026-05-17'
+  critic_issues: M51A must add profile as cross-cutting decision-profile context, not a workflow authority or research alias.
+    It should persist only intentional durable profile output through the state store, fold profile results into visible context,
+    keep research/optimization/build execution/orchestration out of scope, keep the TUI presentation-only, and use behavior-based
+    test names rather than TestM<number> names.
+  title: 'Milestone 51A: Profile Capability'
+what: Deliver ROADMAP.md Milestone 51A by implementing the profile capability so Aila can derive decision-profile context
+  from app-supplied session evidence, optionally persist a durable profile artifact, and fold profile output into context
+  without triggering workflow transitions.
+why: M51 added cross-cutting research context. M51A adds the separate profile path so decision-pattern context can inform
+  later work while remaining independent from research and outside workflow phase authority.
+constraints: Execute only Milestone 51A. Preserve statechart-MVU and explicit effect boundaries. Profile is cross-cutting,
+  display-only, and context-folding; it must not recommend or mutate workflow phases. Persist profile output only through
+  the state store when intentionally durable. Keep research behavior changes, optimization, build execution, orchestration,
+  provider-backed corpus analysis, plugins, MCP, workflow DSLs, generic graph engines, hosted control planes, M52+ behavior,
+  and pushes out of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m51.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:22-28
+- ROADMAP.md:112-130
+- ROADMAP.md:1991-2010
+- README.md:196-272
+- ARCHITECTURE.md:168-206
+- ARCHITECTURE.md:337-403
+- docs/workflow-architecture.md:245-279
+- docs/workflow-architecture.md:445-475
+- docs/tui-testing.md:124-230
+- internal/capability/contract.go
+- internal/capability/research.go
+- internal/app/research.go
+- internal/app/discuss.go
+- internal/state/store.go
+- internal/tui/render.go
+- internal/tui/model.go
+- cmd/aila/pty_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/capability -run 'Test.*Profile.*|Test.*Capability.*|TestRunBuiltIn' -count=1
+- go test ./internal/runtime -run 'Test.*Profile.*|Test.*Capability.*' -count=1
+- go test ./internal/state -run 'Test.*Profile.*|Test.*Artifact.*' -count=1
+- go test ./internal/app -run 'Test.*Profile.*|Test.*Command.*|Test.*Session.*|Test.*Context.*' -count=1
+- go test ./internal/policy -run 'Test.*Profile.*|TestCommandRoutes|TestSlashAndShortcut|TestCapability' -count=1
+- go test ./internal/tui -run 'TestCommandFixtureSet|Test.*Profile.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract'
+  -count=1
+- go test ./cmd/aila -run 'TestProfileCommand.*PTYSmoke|TestInspectionCommandFamilyPTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check
+- changed-line home-path and added func TestM<number> hygiene returns no matches
+scope:
+  included:
+  - Add deterministic profile capability request metadata and typed output for subject, current context, decision signals,
+    update suggestions, evidence, confidence, caveats, source refs, artifact refs, boundary descriptors, next action, context
+    summary, and one exit payload.
+  - Mark profile as cross-cutting in the fixed built-in capability registry and ensure profile completion never recommends,
+    claims, or mutates a workflow phase.
+  - Extend the state artifact catalog and app wiring so intentionally durable profile output is persisted through state.Store
+    as an app-owned logical profile artifact.
+  - Wire an exact /profile command through policy, runtime capability effects, app-owned profile persistence, and context
+    folding so profile results become visible context evidence.
+  - Expose profile display state in the TUI with cross-cutting status, update suggestions, evidence, confidence, caveats,
+    artifact refs, context-folding state, source refs, display-only state, and transition_claimed=false.
+  - Add or update profile context/update/evidence/caveat fixtures plus behavior-named state/capability/runtime/app/policy/TUI/PTY
+    coverage because /profile changes the interactive surface.
+  excluded:
+  - Research behavior changes, optimization, build execution, orchestration, provider-backed corpus analysis, automatic context
+    authority, direct workflow phase mutation, writes outside state.Store, plugins, MCP, workflow DSLs, generic graph engines,
+    hosted control planes, M52+ behavior, and push operations.
+  deferred:
+  - Provider-backed session-corpus analysis, global XDG profile storage, richer profile merge/conflict behavior, profile-driven
+    policy personalization, optimera objectives, and multi-cycle orchestration.
+design: Keep profile deterministic and host-owned. internal/capability defines ProfileCapability and ProfileOutput over app-supplied
+  session and decision evidence; it emits waiting when no profile subject/evidence is available and complete or flagged when
+  it can contribute caveated profile context. internal/runtime reuses CapabilityProposed, CapabilityEffect, and CapabilityCompleted.
+  internal/state adds a logical profile artifact owned by the app. internal/app invokes profile from the exact /profile surface,
+  persists the produced document through state.Store only when present, folds the produced claims/source refs into tui.ContextView,
+  maps the payload into tui.ProfileView, and records runtime/session evidence. internal/tui renders injected ProfileView and
+  ContextView state only; it never reads files, fetches corpus data, writes artifacts, judges transitions, or changes workflow
+  phase.
+overall_acceptance:
+- Capability tests prove profile emits exactly one payload with deterministic subject, decision signals, update suggestions,
+  evidence, confidence, caveats or needed input, artifact/source refs, boundary descriptors, context summary, and no recommended
+  successor.
+- Registry/policy/workflow checks prove profile is cross-cutting and cannot claim or trigger direct phase transitions.
+- State/app tests prove durable profile artifacts are resolved and written through state.Store as OwnerApp only when intentionally
+  present, and that /profile routes through typed capability effects without provider calls, tool execution, bypass writes,
+  or workflow phase mutation.
+- TUI render and semantic snapshots show cross-cutting status, update suggestions, evidence, confidence, caveats, profile
+  artifact refs, source refs, context-folded state, display_only=true, and transition_claimed=false in profile fixtures where
+  visible.
+- PTY smoke proves the interactive /profile surface shows profile evidence, writes the profile artifact through the state
+  store, and folds context in an isolated temp workspace without mutating unrelated files or git state.
+- Targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before ROADMAP.md
+  is updated.
+surprises:
+- apply_patch was unavailable in this environment because the artifact validator hook path was missing, so narrow scripted edits were used and verified with Mage formatting and tests.
+tasks:
+- number: 1
+  name: Plan and confirm the M51A profile scope
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M51A only and excludes
+    research behavior changes, optimization, build execution, orchestration, provider-backed corpus analysis, plugins, MCP,
+    workflow DSLs, hosted control planes, and M52+ behavior.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan preserves runtime/effect/state/FSM
+    ownership, state-store profile artifact persistence, context folding, and TUI presentation-only behavior.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
+  evidence:
+  - Installed Agentera CLI hej with planera context showed M51 complete, progress available, no active plan, and M51A as the
+    roadmap next milestone after commit 1d75f19.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M51A section, README workflow/capability sections, ARCHITECTURE
+    phase/capability/state-store rules, docs/workflow-architecture cross-cutting profile/tool exposure rules, docs/tui-testing
+    render/semantic/PTY gates, and current research/discuss/state/capability/runtime/app/policy/TUI seams were reviewed.
+  - The plan keeps M51A bounded to deterministic profile, state-store profile persistence, cross-cutting registry/policy status,
+    app-owned context folding, TUI evidence, validation, roadmap closeout, and local commit, and it forbids new TestM<number>
+    symbols.
+- number: 2
+  name: Add deterministic profile capability payloads
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN app-supplied profile evidence is provided WHEN profile runs THEN it emits one payload with subject, context, decision
+    signals, update suggestions, evidence, confidence, caveats, artifact refs, source refs, boundary descriptors, next action,
+    document, and context summary.
+  - GIVEN profile evidence or subject is missing WHEN profile runs THEN it returns waiting with needed input and no successor
+    instead of inventing a profile or calling a provider.
+  - GIVEN profile completes WHEN the payload is inspected THEN recommended_successor is empty, transition_claimed remains
+    false in presentation, and no phase mutation is attempted.
+  evidence:
+  - internal/capability/profile.go adds deterministic ProfileCapability metadata, typed ProfileOutput, decision signals, update suggestions, evidence, confidence, caveats, durable document generation, source refs, artifact refs, and inert boundary descriptors.
+  - internal/capability/profile_test.go proves complete durable output, waiting output without invented evidence, RunBuiltIn dispatch, no recommended successor, and no model/tool/permission execution boundary requests.
+- number: 3
+  name: Persist durable profile artifacts through the state store
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN a complete profile payload includes a document WHEN the app handles /profile THEN profile.md is written through
+    state.Store using the logical profile artifact and OwnerApp.
+  - GIVEN profile persistence fails WHEN /profile completes THEN a visible diagnostic is returned and no direct fallback write
+    bypasses the store.
+  - GIVEN waiting profile output has no document WHEN app handling finishes THEN no profile artifact write is attempted.
+  evidence:
+  - internal/state/store.go adds the logical profile artifact at .aila/artifacts/profile.md with OwnerApp write authority, and state tests cover resolving, ownership, atomic writes, and rejected unowned writes.
+  - internal/app/profile.go persists complete profile documents through state.OpenProjectStore and Store.WriteArtifact using state.ArtifactProfile and emits diagnostics instead of bypass writes on failure.
+- number: 4
+  name: Wire cross-cutting profile routing and context folding
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN /profile is typed WHEN command policy routes input THEN it uses a closed CommandRouteProfile path and does not invoke
+    research, optimize, build, or orchestration paths.
+  - GIVEN the app opens /profile WHEN runtime effects are inspected THEN one capability effect dispatches through RunBuiltIn
+    and the resulting evidence is folded into ContextView.
+  - GIVEN profile folds context WHEN workspace state is inspected THEN workflow phase remains unchanged and artifact writes
+    stay on the state-store profile path only.
+  evidence:
+  - internal/policy/command.go routes exact /profile to CommandRouteProfile; internal/app/session_snapshot.go opens /profile through one runtime CapabilityEffect and folds profile claims/source refs into ContextView.
+  - runtime and app tests prove profile dispatches through CapabilityProposed -> CapabilityEffect -> CapabilityCompleted, keeps RecommendedSuccessor empty, and leaves workflow phase authority outside the capability.
+- number: 5
+  name: Render profile context evidence and caveats
+  depends_on:
+  - 2
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN ProfileView state is injected WHEN fixtures render THEN cross-cutting status, subject, decision signals, update
+    suggestions, evidence, confidence, caveats, artifact refs, source refs, and context-folded state are visible where space
+    allows.
+  - GIVEN waiting profile state is injected WHEN fixtures render THEN needed input and caveats are visible without source,
+    artifact, or context authority claims.
+  - GIVEN semantic snapshots are inspected WHEN profile exists THEN profile artifact refs, evidence, confidence, caveats,
+    source refs, context folding, transition_claimed=false, and display_only=true are machine-readable.
+  evidence:
+  - internal/tui/render.go and model.go add ProfileView transport, visible profile lines, semantic profile output, and cloned display-only state for signals, suggestions, evidence, caveats, artifact refs, source refs, and context folding.
+  - profile-context and profile-waiting fixtures plus semantic snapshots expose cross-cutting status, artifact refs, confidence, caveats, source refs, context_folded, transition_claimed=false, and display_only=true.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M51A is
+    recorded complete, M52 is selected next, and Active milestone is none.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, validation evidence, ROADMAP, plan, progress,
+    and M51 plan archive are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence.
+  evidence:
+  - Verified with mage fmt; focused capability/runtime/state/app/policy/TUI/cmd checks; go test ./internal/... -count=1; go test ./cmd/aila -count=1 with cmd/aila in 336.589s; and mage check with cmd/aila in 342.751s, 0 lint issues, and no vulnerabilities.
+  - ROADMAP.md records M51A complete and M52 next; Agentera plan/progress closeout records the same implementation and validation evidence; final diff and hygiene checks remain the last pre-commit gate.
