@@ -665,39 +665,40 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	state.RouteSource = "policy.command"
 	switch recommendation.Route {
 	case policy.CommandRouteStatus:
-		lines := []string{
-			"Deterministic placeholder status.",
-			"stage " + state.Phase + " (display-only)",
-			"primary model " + state.PrimaryModel,
-			"utility model " + state.UtilityModel,
-			"autonomy: " + state.Autonomy,
-		}
-		if state.ProjectStoreStatus != "" {
-			lines = append(lines, "project store: "+state.ProjectStoreStatus+" ("+state.ProjectStoreSource+"; "+state.ProjectStoreDetail+")")
-		}
-		for _, line := range diagnosticLines(state.Diagnostics) {
-			lines = append(lines, strings.TrimSpace(line))
-		}
-		lines = append(lines,
-			"git: "+state.FooterGit,
-			"context: "+state.FooterContext,
-			"real status sources: deferred",
-		)
 		state.SurfaceTitle = "status"
-		state.SurfaceLines = lines
+		state.SurfaceLines = []string{
+			"app-owned status inspection unavailable in presentation-only fallback",
+			"stage: " + state.Phase,
+			"primary model: " + state.PrimaryModel,
+			"utility model: " + state.UtilityModel,
+			"autonomy: " + state.Autonomy,
+			"git: " + state.FooterGit,
+			"context: " + state.FooterContext,
+		}
+	case policy.CommandRouteReview:
+		state.SurfaceTitle = "review"
+		state.SurfaceLines = []string{
+			"app-owned review inspection unavailable in presentation-only fallback",
+			"read-only: true",
+			"model-assisted review: not invoked",
+		}
 	case policy.CommandRouteHelp:
 		state.SurfaceTitle = "help"
 		state.SurfaceLines = []string{
 			"Deterministic placeholder help.",
 			"commands:",
-			"/status - Show deterministic placeholder status.",
+			"/status - Inspect current runtime and state.",
+			"/review - Inspect current changes, risks, and sources.",
+			"/history - Browse runs, edits, checks, and undo data.",
 			"/help - Show this deterministic placeholder help.",
 			"/diff - Review current changes.",
 			"/undo - Undo the latest supported mutation.",
 			"/redo - Redo the latest supported recovery.",
 			"/quit - Quit Aila.",
 			"shortcuts:",
-			"ctrl+x s - Show deterministic placeholder status.",
+			"ctrl+x s - Inspect current runtime and state.",
+			"ctrl+x i - Inspect current changes, risks, and sources.",
+			"ctrl+x h - Browse runs, edits, checks, and undo data.",
 			"ctrl+x d - Review current changes.",
 			"ctrl+x u - Undo the latest supported mutation.",
 			"ctrl+x r - Redo the latest supported recovery.",
@@ -708,6 +709,15 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	case policy.CommandRouteDiff:
 		state = ApplyDiffView(state, &DiffView{Source: "policy.command", Status: "empty", Empty: true}, 0, true)
 	}
+	return state
+}
+
+// ApplyCommandSurface injects app-owned read-only command display data into the TUI state.
+func ApplyCommandSurface(state ViewState, route policy.CommandRoute, title string, lines []string) ViewState {
+	state.CommandRoute = string(route)
+	state.RouteSource = "policy.command"
+	state.SurfaceTitle = title
+	state.SurfaceLines = append([]string(nil), lines...)
 	return state
 }
 

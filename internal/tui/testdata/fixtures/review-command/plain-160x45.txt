@@ -3,27 +3,27 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 + Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
 | No messages yet.                                                                                                 |  | phase source: idle                     |
 |                                                                                                                  |  | primary model: placeholder             |
-| help:                                                                                                            |  | utility model: placeholder             |
-| command route: help                                                                                              |  | autonomy: placeholder                  |
+| review:                                                                                                          |  | utility model: placeholder             |
+| command route: review                                                                                            |  | autonomy: placeholder                  |
 | route source: policy.command                                                                                     |  | git: placeholder                       |
-| Deterministic placeholder help.                                                                                  |  | context: placeholder                   |
-| commands:                                                                                                        |  |                                        |
-| /status - Inspect current runtime and state.                                                                     |  |                                        |
-| /review - Inspect current changes, risks, and sources.                                                           |  |                                        |
-| /history - Browse runs, edits, checks, and undo data.                                                            |  |                                        |
-| /help - Show this deterministic placeholder help.                                                                |  |                                        |
-| /diff - Review current changes.                                                                                  |  |                                        |
-| /undo - Undo the latest supported mutation.                                                                      |  |                                        |
-| /redo - Redo the latest supported recovery.                                                                      |  |                                        |
-| /quit - Quit Aila.                                                                                               |  |                                        |
-| shortcuts:                                                                                                       |  |                                        |
-| ctrl+x s - Inspect current runtime and state.                                                                    |  |                                        |
-| ctrl+x i - Inspect current changes, risks, and sources.                                                          |  |                                        |
-| ctrl+x h - Browse runs, edits, checks, and undo data.                                                            |  |                                        |
-| ctrl+x d - Review current changes.                                                                               |  |                                        |
-| ctrl+x u - Undo the latest supported mutation.                                                                   |  |                                        |
-| ctrl+x r - Redo the latest supported recovery.                                                                   |  |                                        |
-| ctrl+x q - Quit Aila.                                                                                            |  |                                        |
+| app-owned review inspection unavailable in presentation-only fallback                                            |  | context: placeholder                   |
+| read-only: true                                                                                                  |  |                                        |
+| model-assisted review: not invoked                                                                               |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |

@@ -1,4 +1,106 @@
 cycles:
+  - number: 195
+    timestamp: "2026-05-17 04:12"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M35 by filling the inspection command family at current runtime/state depth: /status now shows app-owned
+      runtime, store, memory, diagnostics, queue, footer, and command evidence; /review and ctrl+x i are closed routes with
+      a read-only app-owned diff/history/runtime summary; /history and /diff remain on their existing read-only app readers;
+      and status, review, history, and diff have focused command/keybinding, snapshot, semantic, and PTY validation.
+    commit: "pending local commit for M35 inspection command family"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 35; ARCHITECTURE.md explicit effects and TUI boundaries; docs/tui-testing.md fixture/semantic/PTY gates; README inspection command promises"
+    discovered: >-
+      The durable naming rule matters: touched/current coverage uses behavior names, and changed-line hygiene found no new
+      TestM<number> additions. Review also needs latest mutation/undo evidence independent of the latest command event because
+      the review command itself is recorded in history.
+    verified: >-
+      mage fmt passed. Focused app, policy, TUI, and cmd PTY tests passed. go test ./internal/... -count=1 passed. go test
+      ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities.
+      ROADMAP.md was updated only after green validation. Agentera plan --format json, lint --artifact plan, and progress --format
+      json load. git diff --check and changed-line home/TestM<number> hygiene passed.
+    next: "Commit the completed M35 slice, leaving Milestone 36: Session Command Family as the next roadmap milestone."
+    context:
+      intent: >-
+        Close the current roadmap milestone first, with inspection command implementation, validation evidence, ROADMAP, and
+        Agentera artifacts complete before committing.
+      constraints: >-
+        No model switching, autonomy switching, editor integration, compaction, provider-backed review, arbitrary shell command
+        surface, source indexing, session browsing, generic command registry, plugins, MCP, workflow DSLs, hosted control planes,
+        or M36+ session commands were added. The TUI remains presentation-only.
+      unknowns: >-
+        Provider-assisted review, richer source indexing, session list/restore UX, compacted-context inspection, model/autonomy/editor
+        commands, and expanded command discovery remain deferred.
+      scope: >-
+        internal/policy closed review route, internal/app status/review inspection surfaces, TUI command fallback/help/snapshot
+        updates, cmd/aila inspection-family PTY smoke, ROADMAP, and Agentera closeout.
+  - number: 194
+    timestamp: "2026-05-17 03:50"
+    type: build
+    phase: build
+    what: >-
+      Completed M35 Tasks 2-4 by adding the closed /review route and ctrl+x i shortcut, replacing /status with app-owned current
+      runtime/state evidence, building /review from app-owned diff/history/runtime state without provider review, refreshing status/help
+      snapshots, adding the review-command fixture matrix, and adding behavior-named app and PTY coverage for inspection navigation.
+    commit: "N/A: implementation in progress before M35 commit"
+    inspiration: ".agentera/plan.yaml tasks 2-4; ROADMAP.md Milestone 35; AGENTS.md TUI boundary; ARCHITECTURE.md explicit effects; docs/tui-testing.md fixture and PTY gates"
+    discovered: >-
+      The TUI fallback still needs an inert display for isolated presentation tests, but live /status and /review are now app-owned
+      callback surfaces. Review needs to report the latest mutation/undo event separately from the latest command event because opening
+      review itself records command history.
+    verified: >-
+      mage fmt passed. go test ./internal/app focused status/review/history/diff/command run passed. go test ./internal/policy
+      -count=1 passed. go test ./internal/tui focused status/help/shortcut/fixture/semantic runs passed after snapshot regeneration.
+      go test ./cmd/aila -run 'TestInspectionCommandFamilyPTYSmoke|TestHistoryViewPTYSmoke|TestHistoryEmptyPTYSmoke|TestDiffViewPTYSmoke'
+      -count=1 passed. git diff --check over implementation paths passed. changed-line TestM<number> hygiene returned no matches.
+    next: >-
+      Execute M35 Task 5: run full package and Mage validation, update ROADMAP.md only after green validation, validate Agentera
+      artifacts, then stage and commit the completed milestone.
+    context:
+      intent: "Finish the implementation and fixture portion of the inspection command family before full closeout."
+      constraints: >-
+        No model switching, autonomy switching, editor integration, compaction, provider-backed review, plugins, MCP, workflow DSLs,
+        hosted control planes, or M36+ session-command behavior was added. The TUI remains presentation-only and receives app-injected
+        view state.
+      unknowns: >-
+        Provider-assisted review, source indexing, session browsing, compaction status, and richer command discovery remain deferred
+        to later roadmap work.
+      scope: "internal/policy review route, internal/app status/review inspection builders, TUI command fallback/help/snapshots, app tests, and inspection-family PTY smoke."
+  - number: 193
+    timestamp: "2026-05-17 03:38"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 35: Inspection Command Family as the next roadmap milestone, archived the completed M34 plan, and created
+      a new active full plan with five bounded tasks for closed review routing, current-depth status, read-only review evidence,
+      inspection fixture/update coverage, PTY navigation smoke, validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M35 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 35; AGENTS.md; README slash-command table; ARCHITECTURE.md runtime-command boundary; docs/workflow-architecture.md command/status routing; docs/tui-testing.md inspection fixture and PTY gates; agentera hej --format json --capability-context planera"
+    discovered: >-
+      The narrow M35 gap is not a generic command framework: /history and /diff already have app-owned readers, /status still exposes
+      a placeholder/deferred marker, and /review has no closed route. The implementation should add the review route, replace status
+      with app-owned current runtime/state evidence, summarize review from existing diff/history/runtime data, and keep the TUI presentation-only.
+      Behavior-based test names are required; new TestM<number> symbols are out of scope.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, agentera plan/progress/describe state, ROADMAP.md top status and
+      M35 section, docs/notes/PROMPT.md, AGENTS.md, README inspection command table, ARCHITECTURE.md command boundary, docs/workflow-architecture.md
+      command/status routing, docs/tui-testing.md fixture and PTY requirements, and current policy/app/TUI/cmd history/diff/status seams were reviewed before writing the plan.
+    next: >-
+      Execute M35 Task 1 and Task 2: keep scope to the inspection command family, add the closed /review route and shortcut, and replace
+      placeholder status with current app/runtime/state evidence. Do not add model switching, autonomy switching, editor integration,
+      compaction, provider-backed review, generic command registries, plugins, MCP, workflow DSLs, hosted control planes, or M36+ session-command behavior.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md, using the Agentera planera startup contract
+        and keeping the active thread goal in its planera -> orkestrera -> commit loop.
+      constraints: >-
+        Plan only M35; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, closed policy routing, app-owned
+        inspection readers/builders, existing history/diff state paths, behavior-based test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Provider-assisted review, richer source indexing, session browsing, compaction status, model switching, autonomy switching,
+        and editor integration remain deferred until later roadmap milestones.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m34.yaml archival, and progress evidence for the M35 planning handoff.
   - number: 192
     timestamp: "2026-05-17 03:12"
     type: build

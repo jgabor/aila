@@ -8,6 +8,7 @@ type CommandRoute string
 const (
 	CommandRouteNone    CommandRoute = ""
 	CommandRouteStatus  CommandRoute = "status"
+	CommandRouteReview  CommandRoute = "review"
 	CommandRouteHelp    CommandRoute = "help"
 	CommandRouteHistory CommandRoute = "history"
 	CommandRouteDiff    CommandRoute = "diff"
@@ -35,6 +36,8 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 	switch strings.TrimSpace(input) {
 	case "/status":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputSlash}, true
+	case "/review":
+		return CommandRecommendation{Route: CommandRouteReview, Kind: CommandInputSlash}, true
 	case "/help":
 		return CommandRecommendation{Route: CommandRouteHelp, Kind: CommandInputSlash}, true
 	case "/history":
@@ -61,6 +64,8 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 	switch key {
 	case "s":
 		return CommandRecommendation{Route: CommandRouteStatus, Kind: CommandInputShortcut}, true
+	case "i":
+		return CommandRecommendation{Route: CommandRouteReview, Kind: CommandInputShortcut}, true
 	case "h":
 		return CommandRecommendation{Route: CommandRouteHistory, Kind: CommandInputShortcut}, true
 	case "d":

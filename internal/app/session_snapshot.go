@@ -111,18 +111,34 @@ func (controller *sessionController) decideApproval(decision tui.ApprovalDecisio
 }
 
 func (controller *sessionController) routeCommand(recommendation policy.CommandRecommendation, view tui.ViewState) tui.ViewState {
-	visibleView := view
 	controller.view = view
 	controller.view = tui.ApplyCommandRecommendation(controller.view, recommendation)
-	if recommendation.Route == policy.CommandRouteHistory {
+	switch recommendation.Route {
+	case policy.CommandRouteHistory:
 		controller.openHistoryView()
 		return controller.view
-	}
-	if recommendation.Route == policy.CommandRouteDiff {
+	case policy.CommandRouteDiff:
 		controller.openDiffView()
 		return controller.view
-	}
-	if recommendation.Route == policy.CommandRouteUndo || recommendation.Route == policy.CommandRouteRedo {
+	case policy.CommandRouteReview:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		diagnostics = append(diagnostics, diagnosticViews(controller.openReviewView())...)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
+	case policy.CommandRouteStatus:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		before := controller.runner.model
+		controller.runner.routeCommand(recommendation)
+		controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
+		if runtimeModelChanged(before, controller.runner.model) {
+			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
+		}
+		controller.openStatusView()
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
+	case policy.CommandRouteUndo, policy.CommandRouteRedo:
 		diagnostics := controller.persistCommandHistory(recommendation)
 		record, decision, recoveryDiagnostics := controller.runRecoveryCommand(recommendation.Route)
 		diagnostics = append(diagnostics, recoveryDiagnostics...)
@@ -130,17 +146,12 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
 		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
+	default:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
+		return controller.view
 	}
-	diagnostics := controller.persistCommandHistory(recommendation)
-	before := controller.runner.model
-	controller.runner.routeCommand(recommendation)
-	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
-	if runtimeModelChanged(before, controller.runner.model) {
-		diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
-	}
-	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
-	_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
-	return visibleView
 }
 
 func runtimeModelChanged(before runtime.Model, after runtime.Model) bool {

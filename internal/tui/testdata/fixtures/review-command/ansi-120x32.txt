@@ -3,16 +3,16 @@
 + [33mConversation[0m --------------------------------------------------------------------------------------------------------+
 | No messages yet.                                                                                                     |
 |                                                                                                                      |
-| status:                                                                                                              |
-| command route: status                                                                                                |
+| review:                                                                                                              |
+| command route: review                                                                                                |
 | route source: policy.command                                                                                         |
-| app-owned status inspection unavailable in presentation-only fallback                                                |
-| stage: IDLE                                                                                                          |
-| primary model: placeholder                                                                                           |
-| utility model: placeholder                                                                                           |
-| autonomy: placeholder                                                                                                |
-| git: placeholder                                                                                                     |
-| context: placeholder                                                                                                 |
+| app-owned review inspection unavailable in presentation-only fallback                                                |
+| read-only: true                                                                                                      |
+| model-assisted review: not invoked                                                                                   |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |
 |                                                                                                                      |

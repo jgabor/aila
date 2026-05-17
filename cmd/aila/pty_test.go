@@ -1395,70 +1395,114 @@ func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 	}
 }
 
-func TestM5CommandPTYSmoke(t *testing.T) {
+func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
 
-	ctx, cancel, terminal, wait := startAilaPTY(t)
+	env := newAilaPTYEnv(t)
+	baseline := captureDurableStateBaseline(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+		seedDiffSmokeWorkspace(t, workspace)
+		seedFakeHistoryEvents(t, workspace)
+	})
 	defer cancel()
 	defer func() { _ = terminal.Close() }()
 
-	startup := readUntil(t, terminal, "Aila", 20*time.Second)
-	if !strings.Contains(startup, "Aila") {
-		t.Fatalf("startup output missing Aila marker: %q", startup)
-	}
+	readUntilAll(t, terminal, []string{
+		"Aila",
+		"project store: initialized - project store ready",
+		"Prompt",
+	}, 20*time.Second)
 
 	if _, err := terminal.Write([]byte{0x18, 's'}); err != nil {
 		t.Fatalf("send ctrl+x s command input: %v", err)
 	}
-	shortcutStatus := readUntil(t, terminal, "real status sources: deferred", 10*time.Second)
-	if !strings.Contains(startup+shortcutStatus, "80x24") {
-		t.Fatalf("PTY smoke did not observe fixed-size marker: startup=%q status=%q", startup, shortcutStatus)
-	}
-	for _, marker := range []string{
+	status := readUntilAll(t, terminal, []string{
 		"status:",
 		"command route: status",
 		"route source: policy.command",
-		"Deterministic placeholder status.",
-		"real status sources: deferred",
-	} {
-		if !strings.Contains(shortcutStatus, marker) {
-			t.Fatalf("ctrl+x s output missing explicit marker %q: %q", marker, shortcutStatus)
+		"source: app.status",
+		"runtime result: fake command result: status",
+		"last command: status",
+		"inspection: app-owned display data",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, status, env, workspace)
+	for _, forbidden := range []string{"Deterministic placeholder status", "real status sources: deferred", "provider review"} {
+		if strings.Contains(status, forbidden) {
+			t.Fatalf("status inspection PTY output exposed forbidden marker %q: %q", forbidden, status)
 		}
 	}
 
-	if _, err := terminal.Write([]byte("/help\r\n")); err != nil {
-		t.Fatalf("send /help command input: %v", err)
+	if _, err := terminal.Write([]byte("/review\r")); err != nil {
+		t.Fatalf("send /review command input: %v", err)
 	}
-	readUntil(t, terminal, "Deterministic placeholder help.", 10*time.Second)
-
-	if _, err := terminal.Write([]byte("/status\r\n")); err != nil {
-		t.Fatalf("send /status command input: %v", err)
-	}
-	status := readUntil(t, terminal, "real status sources: deferred", 10*time.Second)
-	for _, marker := range []string{
-		"status:",
-		"command route: status",
-		"Deterministic placeholder status.",
-		"real status sources: deferred",
-	} {
-		if !strings.Contains(status, marker) {
-			t.Fatalf("/status output missing explicit marker %q: %q", marker, status)
+	review := readUntilAll(t, terminal, []string{
+		"review:",
+		"command route: review",
+		"source: app.review",
+		"model-assisted review: not invoked",
+		"diff source: git diff",
+		"diff status: ready",
+		"changed file: internal/demo.txt status=modified",
+		"history state: loaded",
+		"latest mutation: write completed notes.txt",
+		"latest undo action: delete_created_file",
+		"attention: inspect changed files before committing",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, review, env, workspace)
+	for _, forbidden := range []string{"provider-backed", "provider review", "model switch", "autonomy switch", "compaction"} {
+		if strings.Contains(review, forbidden) {
+			t.Fatalf("review inspection PTY output exposed forbidden marker %q: %q", forbidden, review)
 		}
 	}
 
-	if _, err := terminal.Write([]byte("/quit\r\n")); err != nil {
-		t.Fatalf("send /quit command input: %v", err)
+	if _, err := terminal.Write([]byte("/history\r")); err != nil {
+		t.Fatalf("send /history command input: %v", err)
+	}
+	historyOutput := readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"history-run history-session history-event-1 prompt user asked for fake history",
+		"history-run history-session history-event-5 mutation write completed notes.txt",
+		"selected event id: history-event-1",
+		"selected kind: prompt",
+	}, 10*time.Second)
+	assertNoHistorySmokeLeaks(t, historyOutput, env, workspace)
+	if _, err := terminal.Write([]byte{0x18, 'd'}); err != nil {
+		t.Fatalf("send ctrl+x d command input: %v", err)
+	}
+	diffOutput := readUntilAll(t, terminal, []string{
+		"diff:",
+		"source: git diff",
+		"status: ready",
+		"file: internal/demo.txt status: modified",
+		"- old value",
+		"+ new value",
+	}, 10*time.Second)
+	assertNoDiffSmokeLeaks(t, diffOutput, env, workspace)
+	if _, err := terminal.Write([]byte{0x1b}); err != nil {
+		t.Fatalf("send Escape after diff inspection: %v", err)
+	}
+	readUntilAll(t, terminal, []string{"Display labels:", "No messages yet."}, 10*time.Second)
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q quit input after inspection smoke: %v", err)
 	}
 	select {
 	case err := <-wait:
 		if err != nil {
-			t.Fatalf("/quit command route returned error: %v", err)
+			t.Fatalf("inspection PTY returned error: %v", err)
 		}
 	case <-ctx.Done():
-		t.Fatalf("/quit command route did not clean up before timeout: %v", ctx.Err())
+		t.Fatalf("inspection PTY did not clean up before timeout: %v", ctx.Err())
 	}
+
+	assertInspectionCommandFamilyStoreState(t, workspace)
+	assertNoDurableStatePollution(t, env, baseline)
 }
 
 func TestResizePTYSmoke(t *testing.T) {
@@ -2019,6 +2063,40 @@ func assertCurrentSessionSnapshotState(t *testing.T, workspace string) {
 	}
 	if len(sessions) != 1 || sessions[0].Name() != "current.json" || sessions[0].IsDir() {
 		t.Fatalf("resume smoke sessions entries = %v, want current.json only", sessions)
+	}
+}
+
+func assertInspectionCommandFamilyStoreState(t *testing.T, workspace string) {
+	t.Helper()
+
+	storeRoot := filepath.Join(workspace, ".aila")
+	for _, dir := range []string{storeRoot, filepath.Join(storeRoot, "artifacts"), filepath.Join(storeRoot, "history"), filepath.Join(storeRoot, "indexes"), filepath.Join(storeRoot, "sessions")} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat inspection smoke project store directory %q: %v", dir, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("inspection smoke project store path %q is not a directory", dir)
+		}
+	}
+	assertFileContent(t, filepath.Join(storeRoot, "project.toml"), "schema_version = 1\n")
+	if _, err := os.Stat(filepath.Join(storeRoot, "sessions", "current.json")); err != nil {
+		t.Fatalf("stat inspection smoke current session snapshot: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(storeRoot, "history", "fake-events.jsonl"))
+	if err != nil {
+		t.Fatalf("read inspection smoke history JSONL: %v", err)
+	}
+	encoded := string(content)
+	for _, marker := range []string{"history-event-1", "history-event-5", "status via shortcut", "review via slash", "fake command result: status", "[secret]"} {
+		if !strings.Contains(encoded, marker) {
+			t.Fatalf("inspection smoke history missing marker %q: %s", marker, encoded)
+		}
+	}
+	for _, leaked := range []string{"history-smoke-secret", "token=", "Authorization:"} {
+		if strings.Contains(encoded, leaked) {
+			t.Fatalf("inspection smoke history leaked %q: %s", leaked, encoded)
+		}
 	}
 }
 

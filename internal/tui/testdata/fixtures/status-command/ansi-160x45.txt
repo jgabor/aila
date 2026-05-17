@@ -6,14 +6,14 @@
 | status:                                                                                                          |  | utility model: placeholder             |
 | command route: status                                                                                            |  | autonomy: placeholder                  |
 | route source: policy.command                                                                                     |  | git: placeholder                       |
-| Deterministic placeholder status.                                                                                |  | context: placeholder                   |
-| stage IDLE (display-only)                                                                                        |  |                                        |
-| primary model placeholder                                                                                        |  |                                        |
-| utility model placeholder                                                                                        |  |                                        |
+| app-owned status inspection unavailable in presentation-only fallback                                            |  | context: placeholder                   |
+| stage: IDLE                                                                                                      |  |                                        |
+| primary model: placeholder                                                                                       |  |                                        |
+| utility model: placeholder                                                                                       |  |                                        |
 | autonomy: placeholder                                                                                            |  |                                        |
 | git: placeholder                                                                                                 |  |                                        |
 | context: placeholder                                                                                             |  |                                        |
-| real status sources: deferred                                                                                    |  |                                        |
+|                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |

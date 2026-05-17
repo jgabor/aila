@@ -21,6 +21,7 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		want  CommandRoute
 	}{
 		{name: "status", input: "/status", want: CommandRouteStatus},
+		{name: "review", input: "/review", want: CommandRouteReview},
 		{name: "help", input: "/help", want: CommandRouteHelp},
 		{name: "history", input: "/history", want: CommandRouteHistory},
 		{name: "diff", input: "/diff", want: CommandRouteDiff},
@@ -57,6 +58,17 @@ func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 	if statusSlash.Route != statusShortcut.Route || statusSlash.Route != CommandRouteStatus {
 		t.Fatalf("status route mismatch: slash=%+v shortcut=%+v", statusSlash, statusShortcut)
+	}
+	reviewSlash, ok := RecommendSlashCommand("/review")
+	if !ok {
+		t.Fatal("/review did not match")
+	}
+	reviewShortcut, ok := RecommendShortcut("ctrl+x", "i")
+	if !ok {
+		t.Fatal("ctrl+x i did not match")
+	}
+	if reviewSlash.Route != reviewShortcut.Route || reviewSlash.Route != CommandRouteReview {
+		t.Fatalf("review route mismatch: slash=%+v shortcut=%+v", reviewSlash, reviewShortcut)
 	}
 	historySlash, ok := RecommendSlashCommand("/history")
 	if !ok {
@@ -125,6 +137,7 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 	for _, input := range []string{
 		"/status now",
 		"/help commands",
+		"/review now",
 		"/quit --force",
 		"/undo now",
 		"/redo --last",
@@ -144,6 +157,7 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		key    string
 	}{
 		{prefix: "ctrl+x", key: "status"},
+		{prefix: "ctrl+x", key: "review"},
 		{prefix: "ctrl+x", key: "undo"},
 		{prefix: "ctrl+c", key: "q"},
 		{prefix: "", key: "q"},

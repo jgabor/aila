@@ -73,7 +73,7 @@ func TestM6SemanticLayoutContract(t *testing.T) {
 	}
 }
 
-func TestM6CommandSemanticsSurviveLayoutSizes(t *testing.T) {
+func TestCommandSemanticsSurviveLayoutSizes(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -82,6 +82,7 @@ func TestM6CommandSemanticsSurviveLayoutSizes(t *testing.T) {
 		route string
 	}{
 		{name: "status-command", input: "/status", route: "status"},
+		{name: "review-command", input: "/review", route: "review"},
 		{name: "help-command", input: "/help", route: "help"},
 	} {
 		tc := tc
@@ -363,7 +364,8 @@ func assertActiveContentVisible(t *testing.T, name string, render string) {
 		"model-display":    {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: yolo (display-only)"},
 		"autonomy-display": {"Conversation", "No messages yet.", "primary model: opencode-go/deepseek-v4-pro:high", "utility model: opencode-go/deepseek-v4-flash:max", "autonomy: read (display-only)"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
-		"status-command":   {"status:", "command route: status", "route source: policy.command", "Deterministic placeholder status."},
+		"status-command":   {"status:", "command route: status", "route source: policy.command", "app-owned status inspection unavailable in presentation-only fallback"},
+		"review-command":   {"review:", "command route: review", "route source: policy.command", "app-owned review inspection unavailable in presentation-only fallback"},
 		"help-command":     {"help:", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
 	}[name]
 	if len(want) == 0 {
@@ -389,7 +391,8 @@ func assertActiveSemanticContent(t *testing.T, name string, snapshot SemanticSna
 		"model-display":    {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: yolo"},
 		"autonomy-display": {"No messages yet.", "primary: opencode-go/deepseek-v4-pro:high", "utility: opencode-go/deepseek-v4-flash:max", "autonomy: read"},
 		"submitted-prompt": {"user: explain this repo", "assistant: Fake Aila response: explain this repo"},
-		"status-command":   {"status", "command route: status", "route source: policy.command", "Deterministic placeholder status."},
+		"status-command":   {"status", "command route: status", "route source: policy.command", "app-owned status inspection unavailable in presentation-only fallback"},
+		"review-command":   {"review", "command route: review", "route source: policy.command", "app-owned review inspection unavailable in presentation-only fallback"},
 		"help-command":     {"help", "command route: help", "route source: policy.command", "Deterministic placeholder help."},
 	}[name]
 	if len(want) == 0 {

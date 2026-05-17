@@ -2846,6 +2846,7 @@ func TestCommandFixtureSet(t *testing.T) {
 		route policy.CommandRoute
 	}{
 		{name: "status-command", input: "/status", route: policy.CommandRouteStatus},
+		{name: "review-command", input: "/review", route: policy.CommandRouteReview},
 		{name: "help-command", input: "/help", route: policy.CommandRouteHelp},
 	} {
 		tc := tc
@@ -2870,7 +2871,7 @@ func TestCommandFixtureSet(t *testing.T) {
 					assertTextSnapshot(t, fixture, renderCase.file, got)
 					assertOrdered(t, got, string(tc.route)+":", "command route: "+string(tc.route))
 					assertOrdered(t, got, "command route: "+string(tc.route), "route source: policy.command")
-					assertOrdered(t, got, "route source: policy.command", "Deterministic placeholder")
+					assertOrdered(t, got, "route source: policy.command", commandFixtureMarker(string(tc.route)))
 				})
 			}
 
@@ -2914,8 +2915,19 @@ func assertCommandSemanticContract(t *testing.T, scenario string, size Size, rou
 	if !ok {
 		t.Fatal("command region missing")
 	}
-	if !containsAll(strings.Join(command.Items, "\n"), []string{route, "command route: " + route, "route source: policy.command", "Deterministic placeholder"}) {
-		t.Fatalf("command region items = %v, want route, source, and placeholder content", command.Items)
+	if !containsAll(strings.Join(command.Items, "\n"), []string{route, "command route: " + route, "route source: policy.command", commandFixtureMarker(route)}) {
+		t.Fatalf("command region items = %v, want route, source, and marker content", command.Items)
+	}
+}
+
+func commandFixtureMarker(route string) string {
+	switch route {
+	case "status":
+		return "app-owned status inspection unavailable in presentation-only fallback"
+	case "review":
+		return "app-owned review inspection unavailable in presentation-only fallback"
+	default:
+		return "Deterministic placeholder"
 	}
 }
 

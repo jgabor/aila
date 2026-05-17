@@ -1,12 +1,12 @@
 {
-  "scenario": "help-command",
+  "scenario": "review-command",
   "screen": {
-    "width": 80,
-    "height": 24,
+    "width": 100,
+    "height": 30,
     "focus": "prompt"
   },
   "layout": {
-    "class": "compact",
+    "class": "standard",
     "right_rail_visible": false
   },
   "session": {
@@ -19,9 +19,9 @@
     "autonomy": "placeholder"
   },
   "command": {
-    "route": "help",
+    "route": "review",
     "route_source": "policy.command",
-    "surface": "help",
+    "surface": "review",
     "visible": true,
     "executed": false
   },
@@ -54,27 +54,12 @@
       "name": "command",
       "visible": true,
       "items": [
-        "help",
-        "command route: help",
+        "review",
+        "command route: review",
         "route source: policy.command",
-        "Deterministic placeholder help.",
-        "commands:",
-        "/status - Inspect current runtime and state.",
-        "/review - Inspect current changes, risks, and sources.",
-        "/history - Browse runs, edits, checks, and undo data.",
-        "/help - Show this deterministic placeholder help.",
-        "/diff - Review current changes.",
-        "/undo - Undo the latest supported mutation.",
-        "/redo - Redo the latest supported recovery.",
-        "/quit - Quit Aila.",
-        "shortcuts:",
-        "ctrl+x s - Inspect current runtime and state.",
-        "ctrl+x i - Inspect current changes, risks, and sources.",
-        "ctrl+x h - Browse runs, edits, checks, and undo data.",
-        "ctrl+x d - Review current changes.",
-        "ctrl+x u - Undo the latest supported mutation.",
-        "ctrl+x r - Redo the latest supported recovery.",
-        "ctrl+x q - Quit Aila."
+        "app-owned review inspection unavailable in presentation-only fallback",
+        "read-only: true",
+        "model-assisted review: not invoked"
       ]
     },
     {

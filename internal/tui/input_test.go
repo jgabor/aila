@@ -409,6 +409,28 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 	if statusSlashModel.state.SurfaceTitle != statusShortcutModel.state.SurfaceTitle || strings.Join(statusSlashModel.state.SurfaceLines, "\n") != strings.Join(statusShortcutModel.state.SurfaceLines, "\n") {
 		t.Fatalf("status TUI surface mismatch:\nslash=%s %v\nshortcut=%s %v", statusSlashModel.state.SurfaceTitle, statusSlashModel.state.SurfaceLines, statusShortcutModel.state.SurfaceTitle, statusShortcutModel.state.SurfaceLines)
 	}
+	reviewSlash, ok := policy.RecommendSlashCommand("/review")
+	if !ok {
+		t.Fatal("/review did not match")
+	}
+	reviewShortcut, ok := policy.RecommendShortcut("ctrl+x", "i")
+	if !ok {
+		t.Fatal("ctrl+x i did not match")
+	}
+	if reviewSlash.Route != reviewShortcut.Route || reviewSlash.Route != policy.CommandRouteReview {
+		t.Fatalf("review policy route mismatch: slash=%+v shortcut=%+v", reviewSlash, reviewShortcut)
+	}
+	reviewSlashModel, reviewSlashCmd := routeSlashCommandForParity(t, "/review")
+	reviewShortcutModel, reviewShortcutCmd := routeShortcutForParity(t, "i")
+	if reviewSlashCmd != nil || reviewShortcutCmd != nil {
+		t.Fatal("review parity routes should not emit Bubble Tea commands")
+	}
+	if reviewSlashModel.state.CommandRoute != reviewShortcutModel.state.CommandRoute || reviewSlashModel.state.RouteSource != reviewShortcutModel.state.RouteSource {
+		t.Fatalf("review TUI route mismatch: slash=%+v shortcut=%+v", reviewSlashModel.state, reviewShortcutModel.state)
+	}
+	if reviewSlashModel.state.SurfaceTitle != "review" || reviewShortcutModel.state.SurfaceTitle != "review" {
+		t.Fatalf("review surface mismatch: slash=%q shortcut=%q", reviewSlashModel.state.SurfaceTitle, reviewShortcutModel.state.SurfaceTitle)
+	}
 	historySlash, ok := policy.RecommendSlashCommand("/history")
 	if !ok {
 		t.Fatal("/history did not match")
@@ -516,7 +538,7 @@ func routeShortcutForParity(t *testing.T, key string) (Model, tea.Cmd) {
 	return updated.(Model), cmd
 }
 
-func TestStatusCommandShowsStableDeterministicPlaceholderSurface(t *testing.T) {
+func TestStatusCommandFallbackShowsPresentationOnlyState(t *testing.T) {
 	t.Parallel()
 
 	renderStatus := func(messages ...tea.KeyMsg) string {
@@ -551,8 +573,8 @@ func TestStatusCommandShowsStableDeterministicPlaceholderSurface(t *testing.T) {
 		t.Fatalf("status render is not stable:\nfirst:\n%s\n\nsecond:\n%s", slash, repeated)
 	}
 	for _, render := range []string{slash, shortcut} {
-		assertOrdered(t, render, "status:", "Deterministic placeholder status.")
-		assertOrdered(t, render, "Deterministic placeholder status.", "real status sources: deferred")
+		assertOrdered(t, render, "status:", "app-owned status inspection unavailable in presentation-only fallback")
+		assertOrdered(t, render, "app-owned status inspection unavailable in presentation-only fallback", "stage:")
 		for _, forbidden := range []string{"2026-", "T16:", "timestamp", "time:", "Fake Aila response"} {
 			if strings.Contains(render, forbidden) {
 				t.Fatalf("status render contains unstable or prompt marker %q:\n%s", forbidden, render)
@@ -586,14 +608,18 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"help:",
 		"Deterministic placeholder help.",
 		"commands:",
-		"/status - Show deterministic placeholder status.",
+		"/status - Inspect current runtime and state.",
+		"/review - Inspect current changes, risks, and sources.",
+		"/history - Browse runs, edits, checks, and undo data.",
 		"/help - Show this deterministic placeholder help.",
 		"/diff - Review current changes.",
 		"/undo - Undo the latest supported mutation.",
 		"/redo - Redo the latest supported recovery.",
 		"/quit - Quit Aila.",
 		"shortcuts:",
-		"ctrl+x s - Show deterministic placeholder status.",
+		"ctrl+x s - Inspect current runtime and state.",
+		"ctrl+x i - Inspect current changes, risks, and sources.",
+		"ctrl+x h - Browse runs, edits, checks, and undo data.",
 		"ctrl+x d - Review current changes.",
 		"ctrl+x u - Undo the latest supported mutation.",
 		"ctrl+x r - Redo the latest supported recovery.",
@@ -603,19 +629,23 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 			t.Fatalf("help render missing %q:\n%s", item, first)
 		}
 	}
-	assertOrdered(t, first, "/status - Show deterministic placeholder status.", "/help - Show this deterministic placeholder help.")
+	assertOrdered(t, first, "/status - Inspect current runtime and state.", "/review - Inspect current changes, risks, and sources.")
+	assertOrdered(t, first, "/review - Inspect current changes, risks, and sources.", "/history - Browse runs, edits, checks, and undo data.")
+	assertOrdered(t, first, "/history - Browse runs, edits, checks, and undo data.", "/help - Show this deterministic placeholder help.")
 	assertOrdered(t, first, "/help - Show this deterministic placeholder help.", "/diff - Review current changes.")
 	assertOrdered(t, first, "/diff - Review current changes.", "/undo - Undo the latest supported mutation.")
 	assertOrdered(t, first, "/undo - Undo the latest supported mutation.", "/redo - Redo the latest supported recovery.")
 	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
-	assertOrdered(t, first, "ctrl+x s - Show deterministic placeholder status.", "ctrl+x d - Review current changes.")
+	assertOrdered(t, first, "ctrl+x s - Inspect current runtime and state.", "ctrl+x i - Inspect current changes, risks, and sources.")
+	assertOrdered(t, first, "ctrl+x i - Inspect current changes, risks, and sources.", "ctrl+x h - Browse runs, edits, checks, and undo data.")
+	assertOrdered(t, first, "ctrl+x h - Browse runs, edits, checks, and undo data.", "ctrl+x d - Review current changes.")
 	assertOrdered(t, first, "ctrl+x d - Review current changes.", "ctrl+x u - Undo the latest supported mutation.")
 	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
 	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/new", "/clear", "/continue", "/review", "/history", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
-		"ctrl+x n", "ctrl+x c", "ctrl+x i", "ctrl+x h", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
+		"/new", "/clear", "/continue", "/editor", "/compact", "/model", "/auto", "/exit -", "/q -",
+		"ctrl+x n", "ctrl+x c", "ctrl+x e", "ctrl+x k", "ctrl+x m", "ctrl+x a", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {
