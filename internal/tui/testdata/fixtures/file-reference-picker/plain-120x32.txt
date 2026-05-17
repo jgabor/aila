@@ -1,0 +1,32 @@
+Aila                                                                                                              120x32
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                 
++ Conversation --------------------------------------------------------------------------------------------------------+
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+| file-reference:                                                                                                      |
+| route source: app.file-reference                                                                                     |
+| source: app.file-reference                                                                                           |
+| status: ready                                                                                                        |
+| query:                                                                                                               |
+| selected: 1                                                                                                          |
+| detail: 3 files                                                                                                      |
+| files:                                                                                                               |
+| > README.md detail=read-only discovery                                                                               |
+|   docs/guide.md detail=read-only discovery                                                                           |
+|   internal/app.go detail=read-only discovery                                                                         |
+| focus: file-reference                                                                                                |
+| read-only                                                                                                            |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| > summarize @                                                                                                        |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit
+                                                                                                                        

@@ -23,6 +23,7 @@ func TestCommandRoutesAreClosedPolicyRecommendations(t *testing.T) {
 		{name: "new", input: "/new", want: CommandRouteNew},
 		{name: "clear", input: "/clear", want: CommandRouteClear},
 		{name: "continue", input: "/continue", want: CommandRouteContinue},
+		{name: "editor", input: "/editor", want: CommandRouteEditor},
 		{name: "model", input: "/model", want: CommandRouteModel},
 		{name: "model utility", input: "/model --utility", want: CommandRouteModel},
 		{name: "auto", input: "/auto", want: CommandRouteAuto},
@@ -107,6 +108,18 @@ func TestSlashAndShortcutRoutesShareRoute(t *testing.T) {
 	}
 	if clearSlash.Route != CommandRouteClear || clearSlash.Kind != CommandInputSlash {
 		t.Fatalf("clear route = %+v, want slash-only clear route", clearSlash)
+	}
+
+	editorSlash, ok := RecommendSlashCommand("/editor")
+	if !ok {
+		t.Fatal("/editor did not match")
+	}
+	editorShortcut, ok := RecommendShortcut("ctrl+x", "e")
+	if !ok {
+		t.Fatal("ctrl+x e did not match")
+	}
+	if editorSlash.Route != editorShortcut.Route || editorSlash.Route != CommandRouteEditor {
+		t.Fatalf("editor route mismatch: slash=%+v shortcut=%+v", editorSlash, editorShortcut)
 	}
 
 	modelSlash, ok := RecommendSlashCommand("/model")
@@ -224,6 +237,7 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		"/clear now",
 		"/continue latest",
 		"/status now",
+		"/editor now",
 		"/model deepseek",
 		"/model --primary",
 		"/model --utility now",
@@ -251,6 +265,7 @@ func TestCommandBoundaryRejectsDeferredFamilies(t *testing.T) {
 		{prefix: "ctrl+x", key: "new"},
 		{prefix: "ctrl+x", key: "clear"},
 		{prefix: "ctrl+x", key: "continue"},
+		{prefix: "ctrl+x", key: "editor"},
 		{prefix: "ctrl+x", key: "status"},
 		{prefix: "ctrl+x", key: "model"},
 		{prefix: "ctrl+x", key: "auto"},

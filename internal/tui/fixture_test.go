@@ -248,6 +248,51 @@ func loadSwitchFixture(t *testing.T, name string) renderFixture {
 	return loadRenderFixture(t, name, state)
 }
 
+func loadPromptInputFixture(t *testing.T, name string) renderFixture {
+	t.Helper()
+
+	state := IdleEmptyState()
+	state.Phase = testWorkflowPhaseLabel
+	state.PhaseSource = testWorkflowPhaseSource
+	switch name {
+	case "editor-open":
+		state = ApplyPromptInputText(state, "draft prompt")
+		state = ApplyPromptEditorView(state, &PromptEditorView{Source: "app.editor", Status: "open", Detail: "editing current prompt through app-owned editor runner"})
+	case "file-reference-picker":
+		state = ApplyPromptInputText(state, "summarize @")
+		state = ApplyFileReferenceView(state, &FileReferenceView{
+			Source: "app.file-reference",
+			Status: "ready",
+			Query:  "",
+			Detail: "3 files",
+			Focus:  true,
+			Items: []FileReferenceItemView{
+				{Path: "README.md", Detail: "read-only discovery"},
+				{Path: "docs/guide.md", Detail: "read-only discovery"},
+				{Path: "internal/app.go", Detail: "read-only discovery"},
+			},
+		})
+	case "file-reference-inserted":
+		state = ApplyPromptInputText(state, "summarize @docs/guide.md")
+		state = ApplyFileReferenceView(state, &FileReferenceView{
+			Source:   "app.file-reference",
+			Status:   "inserted",
+			Detail:   "inserted docs/guide.md",
+			Selected: 1,
+			Items: []FileReferenceItemView{
+				{Path: "README.md", Detail: "read-only discovery"},
+				{Path: "docs/guide.md", Detail: "read-only discovery"},
+			},
+		})
+	case "pasted-lines":
+		state = ApplyPromptInputText(state, "alpha\nbeta\ngamma\ndelta")
+	default:
+		t.Fatalf("unknown prompt input fixture %q", name)
+	}
+	state.Scenario = name
+	return loadRenderFixture(t, name, state)
+}
+
 func loadProjectStoreFixture(t *testing.T, name string) renderFixture {
 	t.Helper()
 
@@ -2942,6 +2987,81 @@ func sameStringSet(first []string, second []string) bool {
 		}
 	}
 	return true
+}
+
+func TestPromptInputUXFixtureSnapshots(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"editor-open", "file-reference-picker", "file-reference-inserted", "pasted-lines"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := loadPromptInputFixture(t, name)
+			if fixture.Kind != "static_shell" || fixture.TerminalBehavior != "bubbletea_static" || fixture.QuitInput != "q" {
+				t.Fatalf("prompt input fixture metadata = %+v", fixture)
+			}
+			assertFixtureSizes(t, fixture, m6FixtureSizes())
+			for _, renderCase := range fixture.TextCases() {
+				renderCase := renderCase
+				t.Run(renderCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := renderCase.render(fixture.State, renderCase.size)
+					assertTextSnapshot(t, fixture, renderCase.file, got)
+					plain := stripANSI(got)
+					switch name {
+					case "editor-open":
+						if !containsAll(plain, []string{"editor:", "source: app.editor", "status: open", "> draft prompt"}) {
+							t.Fatalf("editor fixture missing visible evidence:\n%s", plain)
+						}
+					case "file-reference-picker":
+						if !containsAll(plain, []string{"file-reference:", "source: app.file-reference", "files:", "> README.md", "> summarize @"}) {
+							t.Fatalf("file-reference picker fixture missing visible evidence:\n%s", plain)
+						}
+					case "file-reference-inserted":
+						if !containsAll(plain, []string{"status: inserted", "docs/guide.md", "> summarize @docs/guide.md"}) {
+							t.Fatalf("file-reference inserted fixture missing visible evidence:\n%s", plain)
+						}
+					case "pasted-lines":
+						if !containsAll(plain, []string{"[Pasted lines +4]"}) {
+							t.Fatalf("pasted-lines fixture missing summary:\n%s", plain)
+						}
+					}
+				})
+			}
+			for _, semanticCase := range fixture.SemanticCases() {
+				semanticCase := semanticCase
+				t.Run(semanticCase.name, func(t *testing.T) {
+					t.Parallel()
+
+					got := RenderSemanticJSON(fixture.State, semanticCase.size)
+					assertSemanticSnapshot(t, fixture, semanticCase.file, got)
+					var snapshot SemanticSnapshot
+					if err := json.Unmarshal([]byte(got), &snapshot); err != nil {
+						t.Fatalf("unmarshal semantic snapshot: %v", err)
+					}
+					regions := semanticRegionsByName(t, snapshot)
+					prompt := strings.Join(regions["prompt"].Items, "\n")
+					switch name {
+					case "file-reference-picker":
+						refs := strings.Join(regions["file_reference"].Items, "\n")
+						if snapshot.Screen.Focus != "file_reference" || !containsAll(refs, []string{"read_only: true", "app_owned: true", "item: README.md selected=true"}) {
+							t.Fatalf("file-reference picker semantics = focus %q region %s", snapshot.Screen.Focus, refs)
+						}
+					case "file-reference-inserted":
+						if !containsAll(prompt, []string{"file_ref: docs/guide.md"}) {
+							t.Fatalf("file-reference inserted prompt semantics = %s", prompt)
+						}
+					case "pasted-lines":
+						if !containsAll(prompt, []string{"paste_summary: [Pasted lines +4]", "exact_text_ref: prompt_input", "exact_text_preserved: true"}) {
+							t.Fatalf("pasted-lines prompt semantics = %s", prompt)
+						}
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestModelAndAutonomySwitchFixtureSnapshots(t *testing.T) {

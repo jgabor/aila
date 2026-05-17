@@ -16,6 +16,9 @@ type PromptSubmitFunc func(text string) TranscriptTurn
 // CommandRouteFunc receives policy-owned command recommendations and returns app-owned view state.
 type CommandRouteFunc func(policy.CommandRecommendation, ViewState) ViewState
 
+// FileReferenceFunc receives prompt file-reference queries and returns app-owned rows.
+type FileReferenceFunc func(query string, state ViewState) ViewState
+
 // InterruptRequestFunc routes user interrupt intent to the application layer.
 type InterruptRequestFunc func(reason string) TranscriptTurn
 
@@ -259,15 +262,16 @@ type LayoutState struct {
 
 // Model is the Bubble Tea model for the static shell.
 type Model struct {
-	state        ViewState
-	size         Size
-	layout       LayoutState
-	submitPrompt PromptSubmitFunc
-	routeCommand CommandRouteFunc
-	interrupt    InterruptRequestFunc
-	approval     ApprovalDecisionFunc
-	commandChord bool
-	quitting     bool
+	state         ViewState
+	size          Size
+	layout        LayoutState
+	submitPrompt  PromptSubmitFunc
+	routeCommand  CommandRouteFunc
+	fileReference FileReferenceFunc
+	interrupt     InterruptRequestFunc
+	approval      ApprovalDecisionFunc
+	commandChord  bool
+	quitting      bool
 }
 
 // NewModel creates the default static shell model.
@@ -302,15 +306,21 @@ func NewModelWithStateSizePromptSubmitCommandRouteAndInterrupt(state ViewState, 
 
 // NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval creates a shell model with app-owned approval routing.
 func NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc) Model {
+	return NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference(state, size, submitPrompt, routeCommand, interrupt, approval, nil)
+}
+
+// NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference creates a shell model with prompt file-reference routing.
+func NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference(state ViewState, size Size, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc, fileReference FileReferenceFunc) Model {
 	size = normalizeSize(size)
 	return Model{
-		state:        state,
-		size:         size,
-		layout:       layoutForSize(size),
-		submitPrompt: submitPrompt,
-		routeCommand: routeCommand,
-		interrupt:    interrupt,
-		approval:     approval,
+		state:         state,
+		size:          size,
+		layout:        layoutForSize(size),
+		submitPrompt:  submitPrompt,
+		routeCommand:  routeCommand,
+		fileReference: fileReference,
+		interrupt:     interrupt,
+		approval:      approval,
 	}
 }
 
@@ -346,6 +356,11 @@ func NewProgramWithContextStatePromptSubmitCommandRouteAndInterrupt(ctx context.
 
 // NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval constructs a Bubble Tea program with approval routing.
 func NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval(ctx context.Context, input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc) *tea.Program {
+	return NewProgramWithContextStatePromptSubmitCommandRouteInterruptApprovalAndFileReference(ctx, input, output, state, submitPrompt, routeCommand, interrupt, approval, nil)
+}
+
+// NewProgramWithContextStatePromptSubmitCommandRouteInterruptApprovalAndFileReference constructs a Bubble Tea program with prompt file-reference routing.
+func NewProgramWithContextStatePromptSubmitCommandRouteInterruptApprovalAndFileReference(ctx context.Context, input io.Reader, output io.Writer, state ViewState, submitPrompt PromptSubmitFunc, routeCommand CommandRouteFunc, interrupt InterruptRequestFunc, approval ApprovalDecisionFunc, fileReference FileReferenceFunc) *tea.Program {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -357,7 +372,7 @@ func NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval(ctx 
 	if output != nil {
 		options = append(options, tea.WithOutput(output))
 	}
-	return tea.NewProgram(NewModelWithStateSizePromptSubmitCommandRouteInterruptAndApproval(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand, interrupt, approval), options...)
+	return tea.NewProgram(NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference(state, Size{Width: 80, Height: 24}, submitPrompt, routeCommand, interrupt, approval, fileReference), options...)
 }
 
 // Init has no startup effect for the static shell.
@@ -396,6 +411,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.autonomySwitchFocused() {
 			return m.handleAutonomySwitchKey(msg)
 		}
+		if m.fileReferenceFocused() {
+			return m.handleFileReferenceKey(msg), nil
+		}
 		if m.sessionFocused() {
 			return m.handleSessionKey(msg), nil
 		}
@@ -433,17 +451,21 @@ func (m Model) Layout() LayoutState {
 func (m *Model) handlePromptKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyRunes:
-		m.state.PromptInput += string(msg.Runes)
+		text := string(msg.Runes)
+		m.state = appendPromptInputText(m.state, text)
+		if !tea.Key(msg).Paste && text == "@" {
+			m.refreshFileReference("")
+		}
 	case tea.KeySpace:
-		m.state.PromptInput += " "
+		m.state = appendPromptInputText(m.state, " ")
 	case tea.KeyBackspace, tea.KeyCtrlH:
-		m.state.PromptInput = dropLastRune(m.state.PromptInput)
+		m.state = dropPromptInputRune(m.state)
 	case tea.KeyEnter:
 		if m.state.PromptInput == "" || strings.TrimSpace(m.state.PromptInput) == "" {
 			return nil
 		}
 		text := m.state.PromptInput
-		m.state.PromptInput = ""
+		m.state = clearPromptInput(m.state)
 		if recommendation, ok := policy.RecommendSlashCommand(text); ok {
 			return m.routeRecommendation(recommendation)
 		}
@@ -453,6 +475,20 @@ func (m *Model) handlePromptKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (m *Model) refreshFileReference(query string) {
+	if m.fileReference != nil {
+		m.state = m.fileReference(query, m.state)
+		return
+	}
+	m.state = ApplyFileReferenceView(m.state, &FileReferenceView{
+		Source: "policy.command",
+		Status: "unavailable",
+		Query:  query,
+		Detail: "app-owned file reference discovery unavailable in presentation-only fallback",
+		Focus:  true,
+	})
 }
 
 // ApplyTranscriptTurn applies app-owned runtime presentation data to a view state.
@@ -675,6 +711,10 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 	if recommendation.Route != policy.CommandRouteAuto {
 		state.AutonomySwitch = nil
 	}
+	if recommendation.Route != policy.CommandRouteEditor {
+		state.PromptEditor = nil
+	}
+	state.FileReference = nil
 	switch recommendation.Route {
 	case policy.CommandRouteNew:
 		state = ApplySessionView(state, &SessionView{
@@ -702,6 +742,12 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			SessionID:    "current",
 			MemoryStatus: "no_memory",
 			Detail:       "app-owned continue session unavailable in presentation-only fallback",
+		})
+	case policy.CommandRouteEditor:
+		state = ApplyPromptEditorView(state, &PromptEditorView{
+			Source: "policy.command",
+			Status: "unavailable",
+			Detail: "app-owned editor unavailable in presentation-only fallback",
 		})
 	case policy.CommandRouteModel:
 		state = applyModelCommandFallback(state, recommendation)
@@ -733,6 +779,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"/new - Start a fresh session and preserve project memory.",
 			"/clear - Clear visible session state and current memory.",
 			"/continue - Restore the current saved session.",
+			"/editor - Edit the current prompt in $EDITOR.",
 			"/model - Choose the active primary model for this session.",
 			"/model --utility - Choose the active utility model for this session.",
 			"/auto - Choose the active autonomy level for this session.",
@@ -747,6 +794,7 @@ func ApplyCommandRecommendation(state ViewState, recommendation policy.CommandRe
 			"shortcuts:",
 			"ctrl+x n - Start a fresh session and preserve project memory.",
 			"ctrl+x c - Restore the current saved session.",
+			"ctrl+x e - Edit the current prompt in $EDITOR.",
 			"ctrl+x m - Choose the active primary model for this session.",
 			"ctrl+x a - Choose the active autonomy level for this session.",
 			"ctrl+x s - Inspect current runtime and state.",
@@ -1071,6 +1119,45 @@ func cloneHistoryItems(items []HistoryItem) []HistoryItem {
 		clone = append(clone, itemClone)
 	}
 	return clone
+}
+
+func (m Model) fileReferenceFocused() bool {
+	return m.state.FileReference != nil && m.state.FileReference.Focus && m.state.SurfaceTitle == "file-reference"
+}
+
+func (m Model) handleFileReferenceKey(msg tea.KeyMsg) Model {
+	if m.state.FileReference == nil {
+		return m
+	}
+	switch msg.Type {
+	case tea.KeyUp:
+		m.state.FileReference.Selected--
+	case tea.KeyDown:
+		m.state.FileReference.Selected++
+	case tea.KeyHome:
+		m.state.FileReference.Selected = 0
+	case tea.KeyEnd:
+		m.state.FileReference.Selected = len(m.state.FileReference.Items) - 1
+	case tea.KeyBackspace, tea.KeyCtrlH:
+		m.state.FileReference.Query = dropLastRune(m.state.FileReference.Query)
+		m.refreshFileReference(m.state.FileReference.Query)
+		return m
+	case tea.KeyRunes:
+		if !tea.Key(msg).Paste {
+			m.state.FileReference.Query += string(msg.Runes)
+			m.refreshFileReference(m.state.FileReference.Query)
+			return m
+		}
+	case tea.KeyEsc:
+		m.state = closeFileReference(m.state, "canceled", "file reference picker closed")
+		return m
+	case tea.KeyEnter:
+		m.state = insertSelectedFileReference(m.state)
+		return m
+	}
+	m.state.FileReference.Selected = clampFileReferenceSelection(*m.state.FileReference)
+	m.state.SurfaceLines = fileReferenceSurfaceLines(*m.state.FileReference)
+	return m
 }
 
 func (m Model) modelSwitchFocused() bool {

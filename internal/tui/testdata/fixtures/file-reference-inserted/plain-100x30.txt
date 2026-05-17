@@ -1,0 +1,30 @@
+Aila                                                                                          100x30
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                             
++ Conversation ------------------------------------------------------------------------------------+
+| No messages yet.                                                                                 |
+|                                                                                                  |
+| file-reference:                                                                                  |
+| route source: app.file-reference                                                                 |
+| source: app.file-reference                                                                       |
+| status: inserted                                                                                 |
+| query:                                                                                           |
+| selected: 2                                                                                      |
+| detail: inserted docs/guide.md                                                                   |
+| files:                                                                                           |
+|   README.md detail=read-only discovery                                                           |
+| > docs/guide.md detail=read-only discovery                                                       |
+| read-only                                                                                        |
+| app-owned                                                                                        |
+| display-only                                                                                     |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------+
+| > summarize @docs/guide.md                                                                       |
++--------------------------------------------------------------------------------------------------+
+                                                    git: placeholder | context: placeholder | q quit
+                                                                                                    

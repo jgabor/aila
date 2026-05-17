@@ -1,0 +1,106 @@
+{
+  "scenario": "file-reference-inserted",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "command": {
+    "route": "",
+    "route_source": "app.file-reference",
+    "surface": "file-reference",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "file_reference",
+      "visible": true,
+      "items": [
+        "source: app.file-reference",
+        "status: inserted",
+        "query: ",
+        "focus: false",
+        "selected_index: 1",
+        "read_only: true",
+        "app_owned: true",
+        "detail: inserted docs/guide.md",
+        "item: README.md selected=false",
+        "item: docs/guide.md selected=true",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "file-reference",
+        "route source: app.file-reference",
+        "source: app.file-reference",
+        "status: inserted",
+        "query: ",
+        "selected: 2",
+        "detail: inserted docs/guide.md",
+        "files:",
+        "  README.md detail=read-only discovery",
+        "> docs/guide.md detail=read-only discovery",
+        "read-only",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": ["> summarize @docs/guide.md", "file_ref: docs/guide.md"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

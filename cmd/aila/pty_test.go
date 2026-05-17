@@ -1209,6 +1209,116 @@ func TestPromptPastePTYSmoke(t *testing.T) {
 	}
 }
 
+func TestPromptInputUXFamilyPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	t.Run("editor", func(t *testing.T) {
+		env := newAilaPTYEnv(t)
+		editorDir := t.TempDir()
+		editorPath := filepath.Join(editorDir, "fake-editor")
+		editorScript := "#!/bin/sh\nprintf 'edited from fake editor\\nline two\\nline three' > \"$1\"\n"
+		if err := os.WriteFile(editorPath, []byte(editorScript), 0o755); err != nil {
+			t.Fatalf("write fake editor: %v", err)
+		}
+		env.vars = append(env.vars, "EDITOR="+editorPath)
+		ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+			if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# README.md\n"), 0o644); err != nil {
+				t.Fatalf("write editor smoke README: %v", err)
+			}
+		})
+		defer cancel()
+		defer func() { _ = terminal.Close() }()
+
+		readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+		if _, err := terminal.Write([]byte("/editor\r")); err != nil {
+			t.Fatalf("send editor command: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"editor:", "status: applied", "[Pasted lines +3]"}, 10*time.Second)
+		if _, err := terminal.Write([]byte("\r")); err != nil {
+			t.Fatalf("submit edited prompt: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"Runtime idle", "user: edited from fake editor line two line three", "path: README.md"}, 10*time.Second)
+		quitPromptInputUXPTY(t, terminal, wait, ctx, "editor")
+	})
+
+	t.Run("file reference", func(t *testing.T) {
+		env := newAilaPTYEnv(t)
+		ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+			for _, file := range []string{"README.md", "docs/guide.md"} {
+				full := filepath.Join(workspace, filepath.FromSlash(file))
+				if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+					t.Fatalf("create prompt UX fixture dir: %v", err)
+				}
+				if err := os.WriteFile(full, []byte("# "+file+"\n"), 0o644); err != nil {
+					t.Fatalf("write prompt UX fixture %s: %v", file, err)
+				}
+			}
+		})
+		defer cancel()
+		defer func() { _ = terminal.Close() }()
+
+		readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+		if _, err := terminal.Write([]byte("@")); err != nil {
+			t.Fatalf("open file-reference picker: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"file-reference:", "source: app.file-reference", "README.md"}, 10*time.Second)
+		if _, err := terminal.Write([]byte("\x1b[B\r")); err != nil {
+			t.Fatalf("select file reference: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"status: inserted", "> @docs/guide.md"}, 10*time.Second)
+		if _, err := terminal.Write([]byte("\r")); err != nil {
+			t.Fatalf("submit file-reference prompt: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"Runtime idle", "user: @docs/guide.md", "path: README.md"}, 10*time.Second)
+		quitPromptInputUXPTY(t, terminal, wait, ctx, "file reference")
+	})
+
+	t.Run("paste and resize", func(t *testing.T) {
+		env := newAilaPTYEnv(t)
+		ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) {
+			if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# README.md\n"), 0o644); err != nil {
+				t.Fatalf("write paste smoke README: %v", err)
+			}
+		})
+		defer cancel()
+		defer func() { _ = terminal.Close() }()
+
+		readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+		paste := "\x1b[200~alpha\nbeta\ngamma\n\x1b[201~"
+		if _, err := terminal.Write([]byte(paste)); err != nil {
+			t.Fatalf("send bracketed multiline paste: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"[Pasted lines +4]"}, 10*time.Second)
+		if _, err := terminal.Write([]byte("\r")); err != nil {
+			t.Fatalf("submit pasted prompt: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"Runtime idle", "user: alpha beta gamma", "path: README.md"}, 10*time.Second)
+		if err := pty.Setsize(terminal, &pty.Winsize{Rows: 24, Cols: 80}); err != nil {
+			t.Fatalf("resize prompt UX PTY: %v", err)
+		}
+		readUntilAll(t, terminal, []string{"80x24", "Prompt", "git: placeholder | context: placeholder | q quit"}, 10*time.Second)
+		quitPromptInputUXPTY(t, terminal, wait, ctx, "paste and resize")
+	})
+}
+
+func quitPromptInputUXPTY(t *testing.T, terminal *os.File, wait <-chan error, ctx context.Context, label string) {
+	t.Helper()
+
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after %s prompt UX smoke: %v", label, err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("%s prompt input UX PTY quit returned error: %v", label, err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("%s prompt input UX PTY did not quit cleanly: %v", label, ctx.Err())
+	}
+}
+
 func TestReadOnlyProviderFailurePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")

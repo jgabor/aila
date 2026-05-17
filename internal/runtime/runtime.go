@@ -954,7 +954,10 @@ func Update(model Model, message Message) (Model, []Effect) {
 
 	switch msg := message.(type) {
 	case PromptSubmitted:
-		text := strings.TrimSpace(msg.Text)
+		text := msg.Text
+		if strings.TrimSpace(text) == "" {
+			return next, nil
+		}
 		if hasActiveWork(next.Status) {
 			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
 			return next, nil

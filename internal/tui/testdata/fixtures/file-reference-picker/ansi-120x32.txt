@@ -1,0 +1,32 @@
+[1mAila                                                                                                              120x32[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                 [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+| file-reference:                                                                                                      |
+| route source: app.file-reference                                                                                     |
+| source: app.file-reference                                                                                           |
+| status: ready                                                                                                        |
+| query:                                                                                                               |
+| selected: 1                                                                                                          |
+| detail: 3 files                                                                                                      |
+| files:                                                                                                               |
+| > README.md detail=read-only discovery                                                                               |
+|   docs/guide.md detail=read-only discovery                                                                           |
+|   internal/app.go detail=read-only discovery                                                                         |
+| focus: file-reference                                                                                                |
+| read-only                                                                                                            |
+| app-owned                                                                                                            |
+| display-only                                                                                                         |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m> summarize @[0m                                                                                                        |
++----------------------------------------------------------------------------------------------------------------------+
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m
+                                                                                                                        

@@ -1,4 +1,83 @@
 cycles:
+  - number: 201
+    timestamp: "2026-05-17 05:21"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M37A by adding the prompt input UX family: closed /editor and ctrl+x e routes, an app-owned prompt
+      editor runner with apply/cancel/failure restoration, app-owned read-only @ file-reference discovery and insertion,
+      exact/display prompt state for multiline paste summaries, prompt-input fixtures and semantic snapshots, and PTY smoke
+      covering fake $EDITOR, @ selection, bracketed paste, resize, and quit.
+    commit: "pending local commit for M37A prompt input UX family"
+    inspiration: ".agentera/plan.yaml tasks 1-6; ROADMAP.md Milestone 37A; README prompt input affordances; ARCHITECTURE.md app/TUI/runtime boundaries; docs/workflow-architecture.md TUI ownership; docs/tui-testing.md fixture/semantic/PTY gates; agentera hej --format json --capability-context orkestrera"
+    discovered: >-
+      The durable naming fix is to keep new coverage behavior-named rather than introducing new TestM<number> symbols. The
+      prompt UX slice can stay bounded by making the TUI own only keystrokes, focus, selection, and display metadata while
+      editor IO and file discovery stay app-owned. Runtime prompt submission now preserves exact text instead of trimming it,
+      while still rejecting whitespace-only submissions. No /compact, shell prefix, provider context assembly, file-content
+      prompt expansion, config editing, plugin, MCP, workflow DSL, generic registry, hosted control-plane, or M38+ behavior
+      was added.
+    verified: >-
+      mage fmt passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with
+      full cmd/internal tests, 0 lint issues, and no vulnerabilities. TestPromptInputUXFamilyPTYSmoke passed with fake
+      $EDITOR, @ picker selection, bracketed multiline paste, resize, and quit coverage. ROADMAP.md was updated only after
+      green validation. Agentera plan/progress validation, git diff --check, changed-line home-path hygiene, and changed-line
+      TestM<number> hygiene are included in final closeout.
+    next: >-
+      Commit the completed M37A slice, leaving Milestone 38: Shell Prefixes as the next roadmap milestone.
+    context:
+      intent: >-
+        Complete the current M37A roadmap milestone first, preserving the planera -> orkestrera -> commit loop and Agentera
+        closeout artifacts.
+      constraints: >-
+        Execute only M37A; preserve statechart-MVU, explicit effect boundaries, TUI presentation-only behavior, closed policy
+        routing, app-owned editor/file-reference handlers, exact prompt text preservation, behavior-based test names, and no push.
+      unknowns: >-
+        /compact, shell prefixes, provider context assembly, richer fuzzy file search, multi-file context expansion, and
+        persistent prompt draft storage remain deferred to later roadmap milestones.
+      scope: >-
+        internal/policy editor route, internal/app prompt editor and file-reference handlers, internal/runtime exact prompt
+        preservation, internal/tui prompt display/reference state, cmd/aila PTY smoke, snapshots, ROADMAP, and Agentera closeout.
+  - number: 200
+    timestamp: "2026-05-17 04:33"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 37A: Prompt Input UX Family as the next roadmap milestone, archived the completed M37 plan, and
+      created a new active full plan with six bounded tasks for closed /editor and ctrl+x e routing, app-owned editor
+      handling, app-owned read-only @ file-reference discovery and insertion, exact/display prompt state for multiline
+      paste summaries, prompt-input fixtures and semantic snapshots, PTY smoke, full validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M37A implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 37A; AGENTS.md; README prompt input and slash-command tables; ARCHITECTURE.md presentation/application boundaries; docs/workflow-architecture.md TUI ownership; docs/tui-testing.md update and PTY gates; agentera hej --format json --capability-context planera"
+    discovered: >-
+      M37A should stay a prompt-input slice: /editor and ctrl+x e are closed command routes, @ file-reference discovery
+      should reuse app-owned read-only find/search effects, and multiline paste needs separate exact prompt text from display
+      summary. The TUI may own keystroke/focus/render state but must not launch editors, walk files, persist sessions, call
+      providers, assemble model context, execute shell commands, mutate workflow phase, or add /compact, shell prefixes,
+      plugins, MCP, workflow DSL, hosted control-plane, or M38+ behavior.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, ROADMAP.md top status and M37A section, docs/notes/PROMPT.md,
+      AGENTS.md, README prompt input and command tables, ARCHITECTURE presentation/app boundaries, docs/workflow-architecture
+      TUI ownership, docs/tui-testing update and PTY gates, and current policy/app/runtime/tools/TUI seams were reviewed before writing the plan.
+    next: >-
+      Execute M37A Tasks 2-5: add closed editor routing and app-owned editor handling, implement app-owned file-reference
+      discovery and insertion, preserve exact prompt text while formatting multiline paste display, and refresh prompt-input
+      fixtures, semantics, keybinding, and PTY coverage without adding /compact, shell prefixes, provider context assembly,
+      plugins, MCP, workflow DSL, generic registries, hosted control-plane, or M38+ behavior.
+    context:
+      intent: >-
+        Continue the roadmap planera -> orkestrera -> commit loop after completing M37, selecting the next roadmap milestone
+        from ROADMAP.md and preparing an executable plan before implementation.
+      constraints: >-
+        Plan only M37A; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, closed policy routing,
+        app-owned editor/file-reference handlers, exact prompt text preservation, behavior-based test names, and commit only
+        after implementation and validation complete.
+      unknowns: >-
+        The exact minimal editor-runner shape and prompt exact/display state names are implementation-owned; provider context
+        assembly, /compact, shell prefixes, richer fuzzy search, and persistent prompt drafts remain deferred.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m37.yaml archival, and progress evidence for
+        the M37A planning handoff.
   - number: 199
     timestamp: "2026-05-17 04:18"
     type: build

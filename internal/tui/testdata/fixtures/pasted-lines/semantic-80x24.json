@@ -1,0 +1,73 @@
+{
+  "scenario": "pasted-lines",
+  "screen": {
+    "width": 80,
+    "height": 24,
+    "focus": "prompt"
+  },
+  "layout": {
+    "class": "compact",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [
+        "> [Pasted lines +4]",
+        "display_text: [Pasted lines +4]",
+        "exact_text_ref: prompt_input",
+        "exact_text_lines: 4",
+        "exact_text_sha256: sha256:ec2c6ddc0a67adb5f1b9143539983fd9b383923de009da1dd393668c4898f774",
+        "exact_text_preserved: true",
+        "paste_summary: [Pasted lines +4]",
+        "paste_line_count: 4",
+        "paste_byte_count: 22"
+      ]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

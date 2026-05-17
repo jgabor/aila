@@ -10,6 +10,7 @@ const (
 	CommandRouteNew      CommandRoute = "new"
 	CommandRouteClear    CommandRoute = "clear"
 	CommandRouteContinue CommandRoute = "continue"
+	CommandRouteEditor   CommandRoute = "editor"
 	CommandRouteModel    CommandRoute = "model"
 	CommandRouteAuto     CommandRoute = "auto"
 	CommandRouteStatus   CommandRoute = "status"
@@ -58,6 +59,8 @@ func RecommendSlashCommand(input string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteClear, Kind: CommandInputSlash}, true
 	case "/continue":
 		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputSlash}, true
+	case "/editor":
+		return CommandRecommendation{Route: CommandRouteEditor, Kind: CommandInputSlash}, true
 	case "/model":
 		return CommandRecommendation{Route: CommandRouteModel, Kind: CommandInputSlash, Target: CommandTargetPrimaryModel}, true
 	case "/model --utility":
@@ -96,6 +99,8 @@ func RecommendShortcut(prefix, key string) (CommandRecommendation, bool) {
 		return CommandRecommendation{Route: CommandRouteNew, Kind: CommandInputShortcut}, true
 	case "c":
 		return CommandRecommendation{Route: CommandRouteContinue, Kind: CommandInputShortcut}, true
+	case "e":
+		return CommandRecommendation{Route: CommandRouteEditor, Kind: CommandInputShortcut}, true
 	case "m":
 		return CommandRecommendation{Route: CommandRouteModel, Kind: CommandInputShortcut, Target: CommandTargetPrimaryModel}, true
 	case "a":

@@ -1,0 +1,45 @@
+Aila                                                                                                                                                      160x45
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         
++ Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
+| No messages yet.                                                                                                 |  | phase source: idle                     |
+|                                                                                                                  |  | primary model: placeholder             |
+| file-reference:                                                                                                  |  | utility model: placeholder             |
+| route source: app.file-reference                                                                                 |  | autonomy: placeholder                  |
+| source: app.file-reference                                                                                       |  | git: placeholder                       |
+| status: inserted                                                                                                 |  | context: placeholder                   |
+| query:                                                                                                           |  |                                        |
+| selected: 2                                                                                                      |  |                                        |
+| detail: inserted docs/guide.md                                                                                   |  |                                        |
+| files:                                                                                                           |  |                                        |
+|   README.md detail=read-only discovery                                                                           |  |                                        |
+| > docs/guide.md detail=read-only discovery                                                                       |  |                                        |
+| read-only                                                                                                        |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ Prompt ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| > summarize @docs/guide.md                                                                                                                                   |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+                                                                                                                git: placeholder | context: placeholder | q quit
+                                                                                                                                                                

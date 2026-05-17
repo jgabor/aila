@@ -1,0 +1,125 @@
+{
+  "scenario": "file-reference-picker",
+  "screen": {
+    "width": 100,
+    "height": 30,
+    "focus": "file_reference"
+  },
+  "layout": {
+    "class": "standard",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "command": {
+    "route": "",
+    "route_source": "app.file-reference",
+    "surface": "file-reference",
+    "visible": true,
+    "executed": false
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "file_reference",
+      "visible": true,
+      "items": [
+        "source: app.file-reference",
+        "status: ready",
+        "query: ",
+        "focus: true",
+        "selected_index: 0",
+        "read_only: true",
+        "app_owned: true",
+        "detail: 3 files",
+        "item: README.md selected=true",
+        "item: docs/guide.md selected=false",
+        "item: internal/app.go selected=false",
+        "display-only"
+      ]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "file-reference",
+        "route source: app.file-reference",
+        "source: app.file-reference",
+        "status: ready",
+        "query: ",
+        "selected: 1",
+        "detail: 3 files",
+        "files:",
+        "> README.md detail=read-only discovery",
+        "  docs/guide.md detail=read-only discovery",
+        "  internal/app.go detail=read-only discovery",
+        "focus: file-reference",
+        "read-only",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": ["> summarize @"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    },
+    {
+      "name": "insert file reference",
+      "input": "enter",
+      "default": true,
+      "presentation_only": true
+    },
+    {
+      "name": "close file reference picker",
+      "input": "esc",
+      "presentation_only": true
+    },
+    {
+      "name": "move file reference selection",
+      "input": "up/down",
+      "presentation_only": true
+    }
+  ]
+}

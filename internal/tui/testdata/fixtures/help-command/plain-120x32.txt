@@ -11,6 +11,7 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | /new - Start a fresh session and preserve project memory.                                                            |
 | /clear - Clear visible session state and current memory.                                                             |
 | /continue - Restore the current saved session.                                                                       |
+| /editor - Edit the current prompt in $EDITOR.                                                                        |
 | /model - Choose the active primary model for this session.                                                           |
 | /model --utility - Choose the active utility model for this session.                                                 |
 | /auto - Choose the active autonomy level for this session.                                                           |
@@ -23,7 +24,6 @@ Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
 | /redo - Redo the latest supported recovery.                                                                          |
 | /quit - Quit Aila.                                                                                                   |
 | shortcuts:                                                                                                           |
-| ctrl+x n - Start a fresh session and preserve project memory.                                                        |
 +----------------------------------------------------------------------------------------------------------------------+
 + Prompt --------------------------------------------------------------------------------------------------------------+
 | >                                                                                                                    |

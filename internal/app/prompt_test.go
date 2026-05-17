@@ -33,16 +33,17 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 		return runtime.Dispatch(effects)
 	})
 
-	result := runner.submitPrompt("  explain this repo  ")
+	exactPrompt := "  explain this repo  "
+	result := runner.submitPrompt(exactPrompt)
 
 	want := tui.TranscriptTurn{
-		UserText:      "explain this repo",
-		AssistantText: "Fake Aila response: explain this repo",
+		UserText:      exactPrompt,
+		AssistantText: "Fake Aila response: " + exactPrompt,
 		RuntimeStatus: "idle",
 		StatusSource:  "runtime.dispatch",
 		StatusDetail:  "fake in-memory runtime loop",
 		RuntimeActive: false,
-		RuntimeResult: "Fake Aila response: explain this repo",
+		RuntimeResult: "Fake Aila response: " + exactPrompt,
 	}
 	if !reflect.DeepEqual(result, want) {
 		t.Fatalf("submit result = %+v, want %+v", result, want)
@@ -54,12 +55,12 @@ func TestPromptSubmitterRoutesThroughRuntimeUpdateAndDispatch(t *testing.T) {
 	if !ok {
 		t.Fatalf("dispatched effect = %T, want runtime.FakePromptEffect", dispatched[0][0])
 	}
-	if effect.Prompt != "explain this repo" || effect.Metadata().Kind != runtime.OperationPrompt {
+	if effect.Prompt != exactPrompt || effect.Metadata().Kind != runtime.OperationPrompt {
 		t.Fatalf("prompt effect = %#v", effect)
 	}
 	wantTranscript := []runtime.TranscriptEntry{
-		{Kind: "prompt", Text: "explain this repo"},
-		{Kind: "result", Text: "Fake Aila response: explain this repo"},
+		{Kind: "prompt", Text: exactPrompt},
+		{Kind: "result", Text: "Fake Aila response: " + exactPrompt},
 	}
 	if !reflect.DeepEqual(runner.model.Transcript, wantTranscript) {
 		t.Fatalf("runtime transcript = %#v, want %#v", runner.model.Transcript, wantTranscript)

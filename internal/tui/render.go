@@ -60,6 +60,9 @@ type ViewState struct {
 	Session            *SessionView
 	ModelSwitch        *ModelSwitchView
 	AutonomySwitch     *AutonomySwitchView
+	PromptEditor       *PromptEditorView
+	FileReference      *FileReferenceView
+	PromptPaste        *PromptPasteView
 	Diagnostics        []DiagnosticView
 	FooterGit          string
 	FooterContext      string
@@ -76,6 +79,7 @@ type ViewState struct {
 	DiffSelected       int
 	DiffFocus          bool
 	PromptInput        string
+	PromptDisplayInput string
 }
 
 // HistoryItem is app-injected read-only history display data.
@@ -1202,7 +1206,7 @@ func pairedPanelLines(leftTitle string, leftItems []string, leftWidth int, right
 }
 
 func promptPanelLines(state ViewState, width int, ansi bool) []string {
-	input := promptLine(state.PromptInput)
+	input := promptLine(promptDisplayText(state))
 	if ansi {
 		input = ansiCyan + input + ansiReset
 	}
@@ -1858,6 +1862,9 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.AutonomySwitch != nil {
 		regions = append(regions, SemanticRegion{Name: "autonomy_switch", Visible: true, Items: semanticAutonomySwitchItems(state.AutonomySwitch)})
 	}
+	if state.FileReference != nil {
+		regions = append(regions, SemanticRegion{Name: "file_reference", Visible: true, Items: semanticFileReferenceItems(state.FileReference)})
+	}
 	if state.SurfaceTitle != "" {
 		regions = append(regions, SemanticRegion{Name: "command", Visible: true, Items: semanticSurfaceItems(state.CommandRoute, state.RouteSource, state.SurfaceTitle, state.SurfaceLines)})
 	}
@@ -1878,7 +1885,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 		}
 	}
 	regions = append(regions,
-		SemanticRegion{Name: "prompt", Visible: true, Items: []string{promptLine(state.PromptInput)}},
+		SemanticRegion{Name: "prompt", Visible: true, Items: semanticPromptItems(state)},
 		SemanticRegion{Name: "footer", Visible: true, Items: []string{"git: " + state.FooterGit, "context: " + state.FooterContext, "quit: q"}},
 	)
 	if layout.RightRailVisible {
@@ -1903,6 +1910,7 @@ func Semantic(state ViewState, size Size) SemanticSnapshot {
 	if state.AutonomySwitch != nil && state.AutonomySwitch.Focus {
 		actions = append(actions, switchActions("apply autonomy selection")...)
 	}
+	actions = append(actions, fileReferenceActions(state.FileReference)...)
 	snapshot := SemanticSnapshot{
 		Scenario: state.Scenario,
 		Screen: SemanticScreen{
@@ -3302,6 +3310,9 @@ func semanticFocus(state ViewState) string {
 	}
 	if state.AutonomySwitch != nil && state.AutonomySwitch.Focus {
 		return "autonomy_switch"
+	}
+	if state.FileReference != nil && state.FileReference.Focus {
+		return "file_reference"
 	}
 	if state.Session != nil && state.Session.Focus {
 		return "session"

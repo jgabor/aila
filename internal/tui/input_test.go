@@ -366,6 +366,29 @@ func TestSlashAndShortcutParityAtPolicyAndTUIBoundaries(t *testing.T) {
 		t.Fatalf("clear session surface missing: %+v", clearSlashModel.state.Session)
 	}
 
+	editorSlash, ok := policy.RecommendSlashCommand("/editor")
+	if !ok {
+		t.Fatal("/editor did not match")
+	}
+	editorShortcut, ok := policy.RecommendShortcut("ctrl+x", "e")
+	if !ok {
+		t.Fatal("ctrl+x e did not match")
+	}
+	if editorSlash.Route != editorShortcut.Route || editorSlash.Route != policy.CommandRouteEditor {
+		t.Fatalf("editor policy route mismatch: slash=%+v shortcut=%+v", editorSlash, editorShortcut)
+	}
+	editorSlashModel, editorSlashCmd := routeSlashCommandForParity(t, "/editor")
+	editorShortcutModel, editorShortcutCmd := routeShortcutForParity(t, "e")
+	if editorSlashCmd != nil || editorShortcutCmd != nil {
+		t.Fatal("editor parity routes should not emit Bubble Tea commands")
+	}
+	if editorSlashModel.state.CommandRoute != editorShortcutModel.state.CommandRoute || editorSlashModel.state.RouteSource != editorShortcutModel.state.RouteSource {
+		t.Fatalf("editor TUI route mismatch: slash=%+v shortcut=%+v", editorSlashModel.state, editorShortcutModel.state)
+	}
+	if editorSlashModel.state.PromptEditor == nil || editorShortcutModel.state.PromptEditor == nil || editorSlashModel.state.SurfaceTitle != "editor" || editorShortcutModel.state.SurfaceTitle != "editor" {
+		t.Fatalf("editor surfaces missing: slash=%+v shortcut=%+v", editorSlashModel.state.PromptEditor, editorShortcutModel.state.PromptEditor)
+	}
+
 	modelSlash, ok := policy.RecommendSlashCommand("/model")
 	if !ok {
 		t.Fatal("/model did not match")
@@ -629,6 +652,7 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"/new - Start a fresh session and preserve project memory.",
 		"/clear - Clear visible session state and current memory.",
 		"/continue - Restore the current saved session.",
+		"/editor - Edit the current prompt in $EDITOR.",
 		"/model - Choose the active primary model for this session.",
 		"/model --utility - Choose the active utility model for this session.",
 		"/auto - Choose the active autonomy level for this session.",
@@ -643,6 +667,7 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 		"shortcuts:",
 		"ctrl+x n - Start a fresh session and preserve project memory.",
 		"ctrl+x c - Restore the current saved session.",
+		"ctrl+x e - Edit the current prompt in $EDITOR.",
 		"ctrl+x m - Choose the active primary model for this session.",
 		"ctrl+x a - Choose the active autonomy level for this session.",
 		"ctrl+x s - Inspect current runtime and state.",
@@ -659,7 +684,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	}
 	assertOrdered(t, first, "/new - Start a fresh session and preserve project memory.", "/clear - Clear visible session state and current memory.")
 	assertOrdered(t, first, "/clear - Clear visible session state and current memory.", "/continue - Restore the current saved session.")
-	assertOrdered(t, first, "/continue - Restore the current saved session.", "/model - Choose the active primary model for this session.")
+	assertOrdered(t, first, "/continue - Restore the current saved session.", "/editor - Edit the current prompt in $EDITOR.")
+	assertOrdered(t, first, "/editor - Edit the current prompt in $EDITOR.", "/model - Choose the active primary model for this session.")
 	assertOrdered(t, first, "/model - Choose the active primary model for this session.", "/model --utility - Choose the active utility model for this session.")
 	assertOrdered(t, first, "/model --utility - Choose the active utility model for this session.", "/auto - Choose the active autonomy level for this session.")
 	assertOrdered(t, first, "/auto - Choose the active autonomy level for this session.", "/status - Inspect current runtime and state.")
@@ -672,7 +698,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "/redo - Redo the latest supported recovery.", "/quit - Quit Aila.")
 	assertOrdered(t, first, "/quit - Quit Aila.", "shortcuts:")
 	assertOrdered(t, first, "ctrl+x n - Start a fresh session and preserve project memory.", "ctrl+x c - Restore the current saved session.")
-	assertOrdered(t, first, "ctrl+x c - Restore the current saved session.", "ctrl+x m - Choose the active primary model for this session.")
+	assertOrdered(t, first, "ctrl+x c - Restore the current saved session.", "ctrl+x e - Edit the current prompt in $EDITOR.")
+	assertOrdered(t, first, "ctrl+x e - Edit the current prompt in $EDITOR.", "ctrl+x m - Choose the active primary model for this session.")
 	assertOrdered(t, first, "ctrl+x m - Choose the active primary model for this session.", "ctrl+x a - Choose the active autonomy level for this session.")
 	assertOrdered(t, first, "ctrl+x a - Choose the active autonomy level for this session.", "ctrl+x s - Inspect current runtime and state.")
 	assertOrdered(t, first, "ctrl+x s - Inspect current runtime and state.", "ctrl+x i - Inspect current changes, risks, and sources.")
@@ -682,8 +709,8 @@ func TestHelpCommandShowsUndoRedoCommandsAndShortcutsInStableOrder(t *testing.T)
 	assertOrdered(t, first, "ctrl+x u - Undo the latest supported mutation.", "ctrl+x r - Redo the latest supported recovery.")
 	assertOrdered(t, first, "ctrl+x r - Redo the latest supported recovery.", "ctrl+x q - Quit Aila.")
 	for _, forbidden := range []string{
-		"/editor", "/compact", "/exit -", "/q -",
-		"ctrl+x e", "ctrl+x k", "ctrl+x ?",
+		"/compact", "/exit -", "/q -",
+		"ctrl+x k", "ctrl+x ?",
 		"2026-", "timestamp", "time:",
 	} {
 		if strings.Contains(first, forbidden) {
@@ -1182,10 +1209,127 @@ func TestPromptEnterOnEmptyInputDoesNothing(t *testing.T) {
 	}
 }
 
+func TestFileReferencePickerUsesAppRowsAndInsertsRelativeLink(t *testing.T) {
+	t.Parallel()
+
+	var queries []string
+	state := IdleEmptyState()
+	model := NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference(state, Size{Width: 80, Height: 24}, nil, nil, nil, nil, func(query string, state ViewState) ViewState {
+		queries = append(queries, query)
+		items := []FileReferenceItemView{
+			{Path: "README.md", Detail: "read-only discovery"},
+			{Path: "docs/guide.md", Detail: "read-only discovery"},
+		}
+		return ApplyFileReferenceView(state, &FileReferenceView{Source: "app.file-reference", Status: "ready", Query: query, Items: items, Focus: true})
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("@")})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("typing @ must not emit a Bubble Tea command")
+	}
+	if got.PromptInput() != "@" || got.state.FileReference == nil || !got.state.FileReference.Focus {
+		t.Fatalf("file-reference focus state = prompt %q refs %+v", got.PromptInput(), got.state.FileReference)
+	}
+	if len(queries) != 1 || queries[0] != "" {
+		t.Fatalf("file-reference queries = %#v, want empty initial query", queries)
+	}
+
+	selected := got.handleFileReferenceKey(tea.KeyMsg{Type: tea.KeyDown})
+	selected = selected.handleFileReferenceKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if selected.PromptInput() != "@docs/guide.md" {
+		t.Fatalf("prompt input after file reference insert = %q, want @docs/guide.md", selected.PromptInput())
+	}
+	if selected.state.FileReference == nil || selected.state.FileReference.Focus || selected.state.FileReference.Status != "inserted" {
+		t.Fatalf("file-reference result = %+v, want inserted and unfocused", selected.state.FileReference)
+	}
+	semantic := Semantic(selected.state, Size{Width: 80, Height: 24})
+	if !semanticRegionContainsItems(semantic, "prompt", []string{"file_ref: docs/guide.md"}) {
+		t.Fatalf("prompt semantic region missing inserted ref: %+v", semantic.Regions)
+	}
+}
+
+func TestFileReferenceEscapeLeavesPromptStable(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithStateSizePromptSubmitCommandRouteInterruptApprovalAndFileReference(IdleEmptyState(), Size{Width: 80, Height: 24}, nil, nil, nil, nil, func(query string, state ViewState) ViewState {
+		return ApplyFileReferenceView(state, &FileReferenceView{Source: "app.file-reference", Status: "ready", Query: query, Items: []FileReferenceItemView{{Path: "README.md"}}, Focus: true})
+	})
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("@")})
+	got := updated.(Model).handleFileReferenceKey(tea.KeyMsg{Type: tea.KeyEsc})
+	if got.PromptInput() != "@" {
+		t.Fatalf("prompt input after file-reference cancel = %q, want @", got.PromptInput())
+	}
+	if got.state.FileReference == nil || got.state.FileReference.Focus || got.state.FileReference.Status != "canceled" {
+		t.Fatalf("file-reference cancel state = %+v", got.state.FileReference)
+	}
+}
+
+func TestMultilinePasteSummarizesDisplayAndSubmitsExactText(t *testing.T) {
+	t.Parallel()
+
+	pasted := "alpha\nbeta\ngamma\n"
+	var submitted []string
+	model := NewModelWithSizeAndPromptSubmit(Size{Width: 80, Height: 24}, func(text string) TranscriptTurn {
+		submitted = append(submitted, text)
+		return TranscriptTurn{UserText: text, AssistantText: "Fake Aila response"}
+	})
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(pasted), Paste: true})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Fatal("paste input must not emit a Bubble Tea command")
+	}
+	if got.PromptInput() != pasted {
+		t.Fatalf("exact prompt input = %q, want pasted text", got.PromptInput())
+	}
+	if !strings.Contains(got.View(), "[Pasted lines +4]") {
+		t.Fatalf("view missing paste summary:\n%s", got.View())
+	}
+	semantic := Semantic(got.state, Size{Width: 80, Height: 24})
+	if !semanticRegionContainsItems(semantic, "prompt", []string{"paste_summary: [Pasted lines +4]", "exact_text_ref: prompt_input", "exact_text_preserved: true"}) {
+		t.Fatalf("prompt semantic region missing paste metadata: %+v", semantic.Regions)
+	}
+
+	updated, cmd = got.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got = updated.(Model)
+	if cmd != nil {
+		t.Fatal("submitting pasted prompt must not emit a Bubble Tea command")
+	}
+	if len(submitted) != 1 || submitted[0] != pasted {
+		t.Fatalf("submitted prompts = %#v, want exact pasted text", submitted)
+	}
+	if got.PromptInput() != "" || got.state.PromptPaste != nil || got.state.PromptDisplayInput != "" {
+		t.Fatalf("prompt state after submit = exact %q display %q paste %+v", got.PromptInput(), got.state.PromptDisplayInput, got.state.PromptPaste)
+	}
+}
+
+func semanticRegionContainsItems(snapshot SemanticSnapshot, name string, items []string) bool {
+	for _, region := range snapshot.Regions {
+		if region.Name != name {
+			continue
+		}
+		for _, item := range items {
+			found := false
+			for _, got := range region.Items {
+				if got == item {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func TestPromptInputUpdateStaysPresentationOnly(t *testing.T) {
 	t.Parallel()
 
-	for _, file := range []string{"model.go", "render.go"} {
+	for _, file := range []string{"model.go", "render.go", "prompt_input.go"} {
 		file := file
 		t.Run(file, func(t *testing.T) {
 			t.Parallel()
@@ -1235,7 +1379,7 @@ func TestPromptInputUpdateStaysPresentationOnly(t *testing.T) {
 func TestCommandSurfacesStayDeterministicAndIOFree(t *testing.T) {
 	t.Parallel()
 
-	for _, file := range []string{"model.go", "render.go"} {
+	for _, file := range []string{"model.go", "render.go", "prompt_input.go"} {
 		file := file
 		t.Run(file, func(t *testing.T) {
 			t.Parallel()
@@ -1259,7 +1403,7 @@ func TestCommandSurfacesStayDeterministicAndIOFree(t *testing.T) {
 func TestTUIProductionSourceDoesNotOwnWorkflowPhases(t *testing.T) {
 	t.Parallel()
 
-	for _, file := range []string{"model.go", "render.go"} {
+	for _, file := range []string{"model.go", "render.go", "prompt_input.go"} {
 		file := file
 		t.Run(file, func(t *testing.T) {
 			t.Parallel()
@@ -1296,7 +1440,7 @@ func TestTUIProductionSourceDoesNotOwnWorkflowPhases(t *testing.T) {
 func TestTUIProductionSourceRendersInjectedRuntimeStatusOnly(t *testing.T) {
 	t.Parallel()
 
-	for _, file := range []string{"model.go", "render.go"} {
+	for _, file := range []string{"model.go", "render.go", "prompt_input.go"} {
 		file := file
 		t.Run(file, func(t *testing.T) {
 			t.Parallel()

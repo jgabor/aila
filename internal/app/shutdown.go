@@ -45,7 +45,7 @@ func NewShutdownError(diagnostics []diagnostic.Diagnostic) ShutdownError {
 }
 
 func runProgramWithShutdown(ctx context.Context, input io.Reader, output io.Writer, state tui.ViewState, controller *sessionController) error {
-	program := tui.NewProgramWithContextStatePromptSubmitCommandRouteInterruptAndApproval(ctx, input, output, state, controller.submitPrompt, controller.routeCommand, controller.requestInterrupt, controller.decideApproval)
+	program := tui.NewProgramWithContextStatePromptSubmitCommandRouteInterruptApprovalAndFileReference(ctx, input, output, state, controller.submitPrompt, controller.routeCommand, controller.requestInterrupt, controller.decideApproval, controller.discoverPromptFileReferences)
 	shutdown := make(chan tui.TranscriptTurn, 1)
 	go func() {
 		<-ctx.Done()

@@ -1,0 +1,45 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage IDLE | Model placeholder | Utility placeholder | Auto placeholder                                                                                         [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| No messages yet.                                                                                                 |  | phase source: idle                     |
+|                                                                                                                  |  | primary model: placeholder             |
+| file-reference:                                                                                                  |  | utility model: placeholder             |
+| route source: app.file-reference                                                                                 |  | autonomy: placeholder                  |
+| source: app.file-reference                                                                                       |  | git: placeholder                       |
+| status: ready                                                                                                    |  | context: placeholder                   |
+| query:                                                                                                           |  |                                        |
+| selected: 1                                                                                                      |  |                                        |
+| detail: 3 files                                                                                                  |  |                                        |
+| files:                                                                                                           |  |                                        |
+| > README.md detail=read-only discovery                                                                           |  |                                        |
+|   docs/guide.md detail=read-only discovery                                                                       |  |                                        |
+|   internal/app.go detail=read-only discovery                                                                     |  |                                        |
+| focus: file-reference                                                                                            |  |                                        |
+| read-only                                                                                                        |  |                                        |
+| app-owned                                                                                                        |  |                                        |
+| display-only                                                                                                     |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m> summarize @[0m                                                                                                                                                |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m
+                                                                                                                                                                

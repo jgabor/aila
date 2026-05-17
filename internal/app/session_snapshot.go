@@ -40,6 +40,7 @@ type snapshotPersistenceFunc func(context.Context, SnapshotPersistenceCommand) S
 type sessionController struct {
 	ctx             context.Context
 	runner          *inputRunner
+	promptEditor    promptEditorRunner
 	view            tui.ViewState
 	persist         snapshotPersistenceFunc
 	persistHistory  historyPersistenceFunc
@@ -53,6 +54,7 @@ type sessionController struct {
 func newController(ctx context.Context, workspacePath string, view tui.ViewState, runner *inputRunner) *sessionController {
 	controller := newSessionControllerWithPersistenceHistoryReadAndDiff(ctx, view, runner, storeSnapshotPersistence(workspacePath), storeHistoryPersistence(workspacePath), storeHistoryRead(workspacePath), storeCurrentDiffRead(workspacePath))
 	controller.workspacePath = workspacePath
+	controller.promptEditor = runExternalPromptEditor
 	controller.autonomyLevel = view.Autonomy
 	return controller
 }
@@ -128,6 +130,12 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		diagnostics := controller.persistCommandHistory(recommendation)
 		diagnostics = append(diagnostics, controller.openContinueSessionView()...)
 		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		return controller.view
+	case policy.CommandRouteEditor:
+		diagnostics := controller.persistCommandHistory(recommendation)
+		controller.openPromptEditorView()
+		controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, diagnostics)
+		_ = controller.persistCurrentSnapshot(tui.TranscriptTurn{})
 		return controller.view
 	case policy.CommandRouteModel:
 		diagnostics := controller.persistCommandHistory(recommendation)
