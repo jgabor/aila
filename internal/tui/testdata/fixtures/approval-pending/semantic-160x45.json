@@ -1,13 +1,13 @@
 {
   "scenario": "approval-pending",
   "screen": {
-    "width": 80,
-    "height": 44,
+    "width": 160,
+    "height": 45,
     "focus": "prompt"
   },
   "layout": {
-    "class": "compact",
-    "right_rail_visible": false
+    "class": "desktop",
+    "right_rail_visible": true
   },
   "session": {
     "phase": "BUILD",
@@ -132,6 +132,24 @@
       "name": "footer",
       "visible": true,
       "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    },
+    {
+      "name": "right_rail",
+      "visible": true,
+      "items": [
+        "phase source: workflow.fixture",
+        "primary model: fake/fake-readonly",
+        "utility model: placeholder",
+        "autonomy: read",
+        "status: approval-pending",
+        "status source: runtime.fixture",
+        "detail: approval pending",
+        "active: true",
+        "result: approval pending: internal/demo.txt",
+        "display-only",
+        "git: placeholder",
+        "context: placeholder"
+      ]
     }
   ],
   "actions": [

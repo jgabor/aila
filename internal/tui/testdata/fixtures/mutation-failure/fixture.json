@@ -14,6 +14,11 @@
       "name": "120x32",
       "width": 120,
       "height": 32
+    },
+    {
+      "name": "160x45",
+      "width": 160,
+      "height": 45
     }
   ],
   "render_outputs": {
@@ -22,10 +27,13 @@
     "semantic_80x24": "semantic-80x24.json",
     "plain_120x32": "plain-120x32.txt",
     "ansi_120x32": "ansi-120x32.txt",
-    "semantic_120x32": "semantic-120x32.json"
+    "semantic_120x32": "semantic-120x32.json",
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_160x45": "semantic-160x45.json"
   },
   "notes": [
-    "Milestone 27 mutation result fixture.",
+    "Mutation result fixture for approved write and failed edit display evidence.",
     "Mutation state is app-injected display evidence; TUI does not execute file mutations."
   ]
 }

@@ -12,9 +12,10 @@ import (
 type runtimeDispatchFunc func([]runtime.Effect) []runtime.Message
 
 type inputRunner struct {
-	model    runtime.Model
-	dispatch runtimeDispatchFunc
-	agent    *agentPromptRunner
+	model                    runtime.Model
+	dispatch                 runtimeDispatchFunc
+	agent                    *agentPromptRunner
+	pendingMutationApprovals map[string]runtime.MutationToolRequest
 }
 
 func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
@@ -104,12 +105,46 @@ func (runner *inputRunner) decideApproval(decision tui.ApprovalDecisionInput) tu
 	runner.apply(runtime.ApprovalDecisionSelected{ProposalID: decision.ProposalID, Action: runtime.ApprovalAction(decision.Action)})
 	turn := transcriptTurn(runner.model.Transcript[before:])
 	runner.applyRuntimeState(&turn)
+	if turn.ApprovalDecision == nil || turn.ApprovalDecision.Stale {
+		return turn
+	}
+	if request, ok := runner.takeMutationApproval(turn.ApprovalDecision.ProposalID); ok {
+		if runtime.ApprovalAction(turn.ApprovalDecision.Action) != runtime.ApprovalActionApprove {
+			return buildAgentEvidenceTurn(turn)
+		}
+		mutationTurn := runner.proposeWriteTool(request)
+		mutationTurn.ApprovalDecision = turn.ApprovalDecision
+		return buildAgentEvidenceTurn(mutationTurn)
+	}
 	if decision.ProposalID == fakeApprovalWriteProposalID && runtime.ApprovalAction(decision.Action) == runtime.ApprovalActionApprove {
 		mutationTurn := runner.proposeWriteTool(fakeApprovalWriteRequest())
 		mutationTurn.ApprovalDecision = turn.ApprovalDecision
 		return mutationTurn
 	}
 	return turn
+}
+
+func (runner *inputRunner) rememberMutationApproval(proposalID string, request runtime.MutationToolRequest) {
+	proposalID = strings.TrimSpace(proposalID)
+	if proposalID == "" {
+		return
+	}
+	if runner.pendingMutationApprovals == nil {
+		runner.pendingMutationApprovals = make(map[string]runtime.MutationToolRequest)
+	}
+	runner.pendingMutationApprovals[proposalID] = request
+}
+
+func (runner *inputRunner) takeMutationApproval(proposalID string) (runtime.MutationToolRequest, bool) {
+	if len(runner.pendingMutationApprovals) == 0 {
+		return runtime.MutationToolRequest{}, false
+	}
+	proposalID = strings.TrimSpace(proposalID)
+	request, ok := runner.pendingMutationApprovals[proposalID]
+	if ok {
+		delete(runner.pendingMutationApprovals, proposalID)
+	}
+	return request, ok
 }
 
 func (runner *inputRunner) requestShutdown(err error) tui.TranscriptTurn {
@@ -555,7 +590,7 @@ func fakeApprovalProposal() runtime.ApprovalProposal {
 		Path:           "internal/demo.txt",
 		Command:        []string{"write", "internal/demo.txt"},
 		WorkingDir:     ".",
-		ExpectedEffect: "preview only; no mutation execution in M25",
+		ExpectedEffect: "preview only; no mutation execution in display-only approval proposal",
 		DiffPreview:    []string{"--- internal/demo.txt", "+++ internal/demo.txt", "@@", "-old", "+new"},
 		Reversible:     true,
 		RunID:          "run-fake-approval",

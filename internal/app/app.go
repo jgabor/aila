@@ -64,7 +64,7 @@ func newInputRunnerForEnvironment(ctx context.Context, workspacePath string, aut
 	if os.Getenv("AILA_FAKE_PROMPT_ECHO") == "1" {
 		return newInputRunnerWithReadContext(ctx, workspacePath, autonomyLevel)
 	}
-	return newInputRunnerWithAgentReadOnlyContext(ctx, workspacePath, autonomyLevel)
+	return newInputRunnerWithAgentBuildContext(ctx, workspacePath, autonomyLevel)
 }
 
 func initialDisplayStateWithResume(ctx context.Context, workspacePath string, resumeCurrent bool) (tui.ViewState, error) {

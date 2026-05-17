@@ -81,8 +81,8 @@ func newInputRunnerWithReadContextAndFetchClient(ctx context.Context, workspaceP
 	return newInputRunnerWithDispatch(readDispatchContextWithFetchClient(ctx, workspacePath, autonomyLevel, fetchClient))
 }
 
-func newInputRunnerWithAgentReadOnlyContext(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
-	return newInputRunnerWithDispatchAndAgent(ctx, readDispatchContext(ctx, workspacePath, autonomyLevel), agent.FakeReadOnlyRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))})
+func newInputRunnerWithAgentBuildContext(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
+	return newInputRunnerWithDispatchAndAgentConfig(ctx, readDispatchContext(ctx, workspacePath, autonomyLevel), agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", []string{"read", "write"})
 }
 
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {

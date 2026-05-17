@@ -6,26 +6,50 @@
   "states": ["approval-pending"],
   "render_sizes": [
     {
+      "name": "80x24",
+      "width": 80,
+      "height": 24
+    },
+    {
       "name": "80x44",
       "width": 80,
       "height": 44
     },
     {
+      "name": "120x32",
+      "width": 120,
+      "height": 32
+    },
+    {
       "name": "120x44",
       "width": 120,
       "height": 44
+    },
+    {
+      "name": "160x45",
+      "width": 160,
+      "height": 45
     }
   ],
   "render_outputs": {
+    "plain_80x24": "plain-80x24.txt",
+    "ansi_80x24": "ansi-80x24.txt",
+    "semantic_80x24": "semantic-80x24.json",
     "plain_80x44": "plain-80x44.txt",
     "ansi_80x44": "ansi-80x44.txt",
     "semantic_80x44": "semantic-80x44.json",
+    "plain_120x32": "plain-120x32.txt",
+    "ansi_120x32": "ansi-120x32.txt",
+    "semantic_120x32": "semantic-120x32.json",
     "plain_120x44": "plain-120x44.txt",
     "ansi_120x44": "ansi-120x44.txt",
-    "semantic_120x44": "semantic-120x44.json"
+    "semantic_120x44": "semantic-120x44.json",
+    "plain_160x45": "plain-160x45.txt",
+    "ansi_160x45": "ansi-160x45.txt",
+    "semantic_160x45": "semantic-160x45.json"
   },
   "notes": [
-    "M25 approval-pending fixture; state is injected by tests and checked in as plain, ANSI, and semantic evidence.",
+    "Approval-pending fixture; state is injected by tests and checked in as plain, ANSI, and semantic evidence.",
     "Approval choices emit messages only; mutation execution remains false and out of scope."
   ]
 }

@@ -48,6 +48,17 @@ func DefaultFakeReadOnlyRunner() FakeReadOnlyRunner {
 	return FakeReadOnlyRunner{}
 }
 
+// FakeBuildRunner is the deterministic interactive build runner used by the live TUI loop.
+type FakeBuildRunner struct {
+	Failure FailureMode
+	Events  []Event
+}
+
+// DefaultFakeBuildRunner returns a bounded read/write model/tool script.
+func DefaultFakeBuildRunner() FakeBuildRunner {
+	return FakeBuildRunner{}
+}
+
 // Stream implements Runner without live provider IO.
 func (runner FakeReadOnlyRunner) Stream(ctx context.Context, request RunRequest) (<-chan Event, error) {
 	if err := ctx.Err(); err != nil {
@@ -84,6 +95,88 @@ func defaultFakeReadOnlyEvents(request RunRequest, failure FailureMode) []Event 
 		{Kind: EventAssistantDelta, Provider: provider, Model: model, Sequence: 3, Text: "Read-only inspection completed. Aila is a terminal coding agent."},
 		{Kind: EventCompleted, Provider: provider, Model: model, Sequence: 4, FinishReason: "complete"},
 	}
+}
+
+// Stream implements Runner without live provider IO.
+func (runner FakeBuildRunner) Stream(ctx context.Context, request RunRequest) (<-chan Event, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	events := runner.Events
+	if len(events) == 0 {
+		events = defaultFakeBuildEvents(request, runner.Failure)
+	}
+	out := make(chan Event, len(events))
+	go func() {
+		defer close(out)
+		for _, event := range events {
+			select {
+			case <-ctx.Done():
+				out <- Event{Kind: EventError, Provider: requestProvider(request), Model: requestModel(request), Error: ProviderError{Code: string(FailureStreamError), Message: ctx.Err().Error(), Retryable: false}}
+				return
+			case out <- withRequestIdentity(event, request):
+			}
+		}
+	}()
+	return out, nil
+}
+
+func defaultFakeBuildEvents(request RunRequest, failure FailureMode) []Event {
+	provider := requestProvider(request)
+	model := requestModel(request)
+	if failure != FailureNone {
+		return []Event{{Kind: EventError, Provider: provider, Model: model, Sequence: 1, Error: providerFailure(failure)}}
+	}
+	if !requestHasTool(request, "write") || !promptRequestsWorkspaceWrite(request.Prompt) {
+		return defaultFakeReadOnlyEvents(request, FailureNone)
+	}
+	path := "docs/interactive-build-output.md"
+	content := "Interactive build output for prompt: " + boundedPromptLine(request.Prompt)
+	return []Event{
+		{Kind: EventAssistantDelta, Provider: provider, Model: model, Sequence: 1, Text: "I will inspect README.md before proposing a guarded workspace write. "},
+		{Kind: EventToolRequest, Provider: provider, Model: model, Sequence: 2, ToolCallID: "call-read-1", ToolName: "read", Arguments: []ToolArgument{{Name: "path", Value: "README.md"}, {Name: "line_limit", Value: "6"}}},
+		{Kind: EventAssistantDelta, Provider: provider, Model: model, Sequence: 3, Text: "Read context is ready. I need approval before creating docs/interactive-build-output.md. "},
+		{Kind: EventToolRequest, Provider: provider, Model: model, Sequence: 4, ToolCallID: "call-write-1", ToolName: "write", Arguments: []ToolArgument{{Name: "path", Value: path}, {Name: "target_version", Value: "missing"}, {Name: "content", Value: content}, {Name: "expected_effect", Value: "create interactive build output file"}}},
+	}
+}
+
+func requestHasTool(request RunRequest, name string) bool {
+	for _, tool := range request.ToolNames {
+		if strings.EqualFold(strings.TrimSpace(tool), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func promptRequestsWorkspaceWrite(prompt string) bool {
+	lower := strings.ToLower(prompt)
+	writeVerbs := []string{"create", "write", "add", "edit", "change", "update", "modify"}
+	writeNouns := []string{"file", "note", "doc", "document", "output"}
+	for _, verb := range writeVerbs {
+		if !strings.Contains(lower, verb) {
+			continue
+		}
+		for _, noun := range writeNouns {
+			if strings.Contains(lower, noun) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func boundedPromptLine(prompt string) string {
+	fields := strings.Fields(prompt)
+	if len(fields) == 0 {
+		return "interactive build request"
+	}
+	line := strings.Join(fields, " ")
+	if len([]rune(line)) <= 120 {
+		return line
+	}
+	runes := []rune(line)
+	return string(runes[:120])
 }
 
 func providerFailure(failure FailureMode) ProviderError {

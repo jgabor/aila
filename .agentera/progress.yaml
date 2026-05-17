@@ -1,4 +1,79 @@
 cycles:
+  - number: 192
+    timestamp: "2026-05-17 03:12"
+    type: build
+    phase: closeout
+    what: >-
+      Completed M34 by making the ordinary interactive BUILD loop write-capable behind an app-owned approval boundary,
+      executing approved writes through the existing write effect, preserving read-only prompts, recording mutation history
+      evidence, expanding required TUI snapshots, and adding PTY smokes for approval, denial, paste, history visibility, and clean quit.
+    commit: "pending local commit for M34 interactive write build loop"
+    inspiration: ".agentera/plan.yaml tasks 1-5; ROADMAP.md Milestone 34; ARCHITECTURE.md explicit effects and TUI boundaries; docs/tui-testing.md fixture/semantic/PTY gates; README autonomy/tool promises"
+    discovered: >-
+      The narrow implementation was to keep the provider-facing fake build runner bounded and let app-owned approval state hold
+      the pending mutation request. Approval approval dispatches the existing WriteToolEffect; denial clears the request without
+      mutation. Manual approval overriding read/off autonomy, real provider continuation, arbitrary code synthesis, multi-file
+      writes, mutating shell commands, source indexing, plugins, MCP, workflow DSLs, hosted control planes, and M35+ inspection
+      expansion remain deferred or out of scope.
+    verified: >-
+      mage fmt passed. go test ./internal/agent ./internal/app -run 'TestFakeBuildRunner|TestInteractiveAgent|TestSessionControllerPersistsInteractiveAgent|TestFakeApprovalWrite|TestReadOnlyAgent' -count=1 passed. go test ./internal/tui -run 'Test(ReadOnlyBuildActive|ApprovalPending|DiffView|MutationResult)FixtureSnapshots|TestDiffViewRenderAndSemantic|TestMutationResultRenderAndSemantic|TestApprovalKeysEmitDecisionMessagesOnly' -count=1 passed. go test ./cmd/aila -run 'TestInteractiveWriteBuildLoop(Approval|Denial)PTYSmoke|TestPromptPastePTYSmoke|TestInteractiveReadOnlyBuildLoopPTYSmoke|TestDiffViewPTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke|TestResizePTYSmoke|TestApprovalToWriteMutationPTYSmoke' -count=1 passed. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed. mage check passed with full cmd/internal tests, 0 lint issues, and no vulnerabilities. git diff --check passed.
+    next: >-
+      Commit the completed M34 slice, leaving Milestone 35: Inspection Command Family as the next roadmap milestone.
+    context:
+      intent: >-
+        Close the current roadmap milestone first, with guarded interactive writes, approval/denial evidence, history and final
+        summary visibility, PTY smoke, full validation, ROADMAP, and Agentera evidence complete before committing.
+      constraints: >-
+        No real provider credential setup, arbitrary code generation, multi-file generation, mutating shell commands, source
+        indexing, session replay, plugin/MCP/dynamic workflow behavior, hosted control planes, or M35+ inspection-command
+        expansion was added. TUI remains presentation-only. Public artifact updates avoid machine-specific home paths.
+      unknowns: >-
+        Manual approval overriding read/off autonomy and real provider tool continuation after approval remain deferred.
+      scope: >-
+        internal/agent fake build runner, internal/app agent write approval mapping and approval-dispatched write effect,
+        mutation history persistence tests, cmd/aila interactive write PTY smokes, TUI snapshot matrix updates, ROADMAP closeout,
+        and Agentera plan/progress closeout.
+  - number: 191
+    timestamp: "2026-05-17 02:42"
+    type: plan
+    phase: plan
+    what: >-
+      Planned Milestone 34: Interactive Write Build Loop as the next roadmap milestone, archived the completed M33 plan,
+      and created a new active full plan with five bounded tasks for write-capable interactive agent routing, approval proposal
+      display, approved write execution, mutation history persistence, required TUI fixture/update evidence, PTY smoke,
+      validation, roadmap closeout, and commit.
+    commit: "N/A: planning artifact before M34 implementation commit"
+    inspiration: "docs/notes/PROMPT.md; ROADMAP.md Milestone 34; AGENTS.md; README autonomy/tools/TUI promises; ARCHITECTURE.md explicit effects, permission, state, history, agent, and TUI boundaries; docs/workflow-architecture.md BUILD runtime event plane; docs/tui-testing.md fixture/semantic/PTY gates; agentera hej --format json --capability-context planera"
+    discovered: >-
+      M34 should reuse the existing M33 agent prompt seam plus M27-M32 mutation, approval, history, diff, and PTY machinery.
+      The narrow missing behavior is mapping an interactive agent-requested write to an approval proposal, storing the mutation
+      request outside the TUI, and dispatching the existing write effect only after approval. Real provider credential setup,
+      arbitrary prompt-to-code synthesis, multi-file generation, mutating shell commands, source indexing, session replay,
+      plugins, MCP servers, workflow DSLs, hosted control planes, and M35+ scope remain out of scope.
+    verified: >-
+      Installed Agentera CLI hej with planera capability context, agentera plan/progress/describe state, ROADMAP.md top status
+      and M34 section, docs/notes/PROMPT.md, AGENTS.md, README configuration/autonomy/workflow/tool/TUI sections,
+      ARCHITECTURE.md explicit-effect and TUI boundary sections, docs/workflow-architecture.md BUILD/runtime event sections,
+      docs/tui-testing.md fixture and PTY requirements, and current app/runtime/agent/tool/permission/history/diff/TUI/cmd
+      write seams were reviewed before writing the plan.
+    next: >-
+      Execute M34 Task 1: wire the ordinary interactive prompt path to a bounded write-capable BUILD agent while preserving
+      M33 read-only prompt behavior. Do not add real provider setup, arbitrary code generation, multi-file writes, mutating
+      shell commands, source indexing, plugins, MCP, workflow DSLs, hosted control planes, or M35+ inspection-command expansion.
+    context:
+      intent: >-
+        Prepare the next executable roadmap milestone according to docs/notes/PROMPT.md, using the Agentera planera startup
+        contract and keeping the active thread goal in its planera -> orkestrera -> commit loop.
+      constraints: >-
+        Plan only M34; preserve statechart-MVU, fixed-product posture, TUI presentation-only boundary, app-owned approval and
+        mutation effects, existing permission/tool/history paths, bounded deterministic fake agent behavior, behavior-based
+        test names, and commit only after implementation and validation complete.
+      unknowns: >-
+        Manual approval overriding read/off autonomy may remain deferred unless required by the M34 validation evidence; the
+        initial interactive write loop can use the existing autonomy-allowed write path after explicit approval.
+      scope: >-
+        .agentera/plan.yaml replacement, .agentera/archive/plan-2026-05-17-m33.yaml archival, and progress evidence for the
+        M34 planning handoff.
   - number: 190
     timestamp: "2026-05-17 02:05"
     type: build

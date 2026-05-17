@@ -1,12 +1,12 @@
 {
   "scenario": "approval-pending",
   "screen": {
-    "width": 80,
-    "height": 44,
+    "width": 120,
+    "height": 32,
     "focus": "prompt"
   },
   "layout": {
-    "class": "compact",
+    "class": "spacious",
     "right_rail_visible": false
   },
   "session": {

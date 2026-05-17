@@ -1,0 +1,149 @@
+{
+  "scenario": "diff-view",
+  "screen": {
+    "width": 120,
+    "height": 32,
+    "focus": "diff"
+  },
+  "layout": {
+    "class": "spacious",
+    "right_rail_visible": false
+  },
+  "session": {
+    "phase": "IDLE",
+    "phase_source": "idle",
+    "active": false,
+    "queued_messages": 0,
+    "primary_model": "placeholder",
+    "utility_model": "placeholder",
+    "autonomy": "placeholder"
+  },
+  "command": {
+    "route": "diff",
+    "route_source": "policy.command",
+    "surface": "diff",
+    "visible": true,
+    "executed": false
+  },
+  "diff": {
+    "visible": true,
+    "read_only": true,
+    "source": "app.diff.fixture",
+    "status": "ready",
+    "focus": true,
+    "empty": false,
+    "file_count": 1,
+    "selected_index": 3,
+    "selected_line": "+ new value",
+    "files": [
+      {
+        "path": "internal/demo.txt",
+        "old_path": "internal/demo.txt",
+        "status": "modified",
+        "hunks": [
+          {
+            "header": "@@ -1 +1 @@",
+            "old_start": 1,
+            "old_lines": 1,
+            "new_start": 1,
+            "new_lines": 1,
+            "lines": [
+              {
+                "kind": "removal",
+                "text": "old value",
+                "old_line": 1
+              },
+              {
+                "kind": "addition",
+                "text": "new value",
+                "new_line": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "header",
+      "visible": true,
+      "items": ["Aila"]
+    },
+    {
+      "name": "phase",
+      "visible": true,
+      "items": ["IDLE", "display-only"]
+    },
+    {
+      "name": "model",
+      "visible": true,
+      "items": [
+        "primary: placeholder",
+        "utility: placeholder",
+        "autonomy: placeholder"
+      ]
+    },
+    {
+      "name": "chat",
+      "visible": true,
+      "items": ["No messages yet."]
+    },
+    {
+      "name": "command",
+      "visible": true,
+      "items": [
+        "diff",
+        "command route: diff",
+        "route source: policy.command",
+        "read-only: true",
+        "source: app.diff.fixture",
+        "status: ready",
+        "files: 1",
+        "selected: 4",
+        "  file: internal/demo.txt status: modified",
+        "  hunk: @@ -1 +1 @@",
+        "  - old value",
+        "> + new value",
+        "selected kind: addition",
+        "selected path: internal/demo.txt",
+        "selected text: + new value"
+      ]
+    },
+    {
+      "name": "diff",
+      "visible": true,
+      "items": [
+        "read_only: true",
+        "source: app.diff.fixture",
+        "status: ready",
+        "focus: true",
+        "file_count: 1",
+        "selected_index: 3",
+        "file: internal/demo.txt",
+        "file_status: modified",
+        "hunk: @@ -1 +1 @@",
+        "line_removal: old value",
+        "line_addition: new value",
+        "app-owned",
+        "display-only"
+      ]
+    },
+    {
+      "name": "prompt",
+      "visible": true,
+      "items": [">"]
+    },
+    {
+      "name": "footer",
+      "visible": true,
+      "items": ["git: placeholder", "context: placeholder", "quit: q"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "quit",
+      "input": "q"
+    }
+  ]
+}

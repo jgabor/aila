@@ -22,7 +22,7 @@
 | path: internal/demo.txt                                                                                              |
 | command: write internal/demo.txt                                                                                     |
 | working dir: .                                                                                                       |
-| expected effect: preview only; no mutation execution in M25                                                          |
+| expected effect: preview only; no mutation execution in approval fixture                                             |
 | preview:                                                                                                             |
 |   write requested by fake proposal                                                                                   |
 |   default is deny until write classes exist                                                                          |

@@ -35,7 +35,7 @@
     "path": "internal/demo.txt",
     "command": ["write", "internal/demo.txt"],
     "working_dir": ".",
-    "expected_effect": "preview only; no mutation execution in M25",
+    "expected_effect": "preview only; no mutation execution in approval fixture",
     "diff_preview": [
       "--- internal/demo.txt",
       "+++ internal/demo.txt",
@@ -45,7 +45,7 @@
     ],
     "reversible": true,
     "run_id": "run-fake-approval",
-    "capability": "m25-fixture",
+    "capability": "approval-fixture",
     "mutation_executed": false
   },
   "regions": [
@@ -108,7 +108,7 @@
         "path: internal/demo.txt",
         "command: write internal/demo.txt",
         "working_dir: .",
-        "expected_effect: preview only; no mutation execution in M25",
+        "expected_effect: preview only; no mutation execution in approval fixture",
         "preview_line: write requested by fake proposal",
         "preview_line: default is deny until write classes exist",
         "diff_preview_line: --- internal/demo.txt",

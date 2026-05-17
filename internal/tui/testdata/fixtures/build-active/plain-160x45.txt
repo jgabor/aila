@@ -1,25 +1,25 @@
 Aila                                                                                                                                                      160x45
-Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
+Stage BUILD | Runtime active | Model fake/fake-readonly | Utility placeholder | Auto read
 + Conversation ----------------------------------------------------------------------------------------------------+  + Session -------------------------------+
-| No messages yet.                                                                                                 |  | phase source: idle                     |
-|                                                                                                                  |  | primary model: placeholder             |
-| diff:                                                                                                            |  | utility model: placeholder             |
-| command route: diff                                                                                              |  | autonomy: placeholder                  |
-| route source: policy.command                                                                                     |  | read_only: true                        |
-| read-only: true                                                                                                  |  | source: app.diff.fixture               |
-| source: app.diff.fixture                                                                                         |  | status: ready                          |
-| status: ready                                                                                                    |  | focus: true                            |
-| files: 1                                                                                                         |  | file_count: 1                          |
-| selected: 4                                                                                                      |  | selected_index: 3                      |
-|   file: internal/demo.txt status: modified                                                                       |  | file: internal/demo.txt                |
-|   hunk: @@ -1 +1 @@                                                                                              |  | file_status: modified                  |
-|   - old value                                                                                                    |  | hunk: @@ -1 +1 @@                      |
-| > + new value                                                                                                    |  | line_removal: old value                |
-| selected kind: addition                                                                                          |  | line_addition: new value               |
-| selected path: internal/demo.txt                                                                                 |  | app-owned                              |
-| selected text: + new value                                                                                       |  | display-only                           |
-|                                                                                                                  |  | git: placeholder                       |
-|                                                                                                                  |  | context: placeholder                   |
+| Runtime status:                                                                                                  |  | phase source: workflow.fixture         |
+| status: active                                                                                                   |  | primary model: fake/fake-readonly      |
+| active: true                                                                                                     |  | utility model: placeholder             |
+|                                                                                                                  |  | autonomy: read                         |
+| user: summarize the build                                                                                        |  | status: active                         |
+| assistant streaming: I will inspect README.md before answering.                                                  |  | active: true                           |
+| assistant status: incomplete                                                                                     |  | display-only                           |
+| Read tool:                                                                                                       |  | git: placeholder                       |
+| tool: read                                                                                                       |  | context: placeholder                   |
+| status: running                                                                                                  |  |                                        |
+| read-only: true                                                                                                  |  |                                        |
+| path: README.md                                                                                                  |  |                                        |
+| requested range: limit 6                                                                                         |  |                                        |
+| completed: false                                                                                                 |  |                                        |
+| preview truncated: false                                                                                         |  |                                        |
+| line limit hit: false                                                                                            |  |                                        |
+|                                                                                                                  |  |                                        |
+|                                                                                                                  |  |                                        |
+| agent evidence:                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |
 |                                                                                                                  |  |                                        |

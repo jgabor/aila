@@ -1,4 +1,4 @@
-Aila                                                                       80x44
+Aila                                                                       80x24
 Stage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility pla~
 + Conversation ----------------------------------------------------------------+
 | Display labels:                                                              |
@@ -16,26 +16,6 @@ Stage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility pla~
 | Approval pending:                                                            |
 | proposal id: fake-approval-001                                               |
 | operation kind: file_mutation                                                |
-| target: internal/demo.txt                                                    |
-| risk: Would update a workspace file if mutation execution existed.           |
-| default action: deny                                                         |
-| path: internal/demo.txt                                                      |
-| command: write internal/demo.txt                                             |
-| working dir: .                                                               |
-| expected effect: preview only; no mutation execution in approval fixture     |
-| preview:                                                                     |
-|   write requested by fake proposal                                           |
-|   default is deny until write classes exist                                  |
-| diff preview:                                                                |
-|   --- internal/demo.txt                                                      |
-|   +++ internal/demo.txt                                                      |
-|   @@                                                                         |
-|   -old                                                                       |
-|   +new                                                                       |
-| choices: a approve | n deny | d defer                                        |
-| mutation executed: false                                                     |
-|                                                                              |
-| No messages yet.                                                             |
 +------------------------------------------------------------------------------+
 + Prompt ----------------------------------------------------------------------+
 | >                                                                            |

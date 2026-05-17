@@ -1,0 +1,31 @@
+Aila                                                                                                              120x32
+Stage IDLE | Model placeholder | Utility placeholder | Auto placeholder
++ Conversation --------------------------------------------------------------------------------------------------------+
+| No messages yet.                                                                                                     |
+|                                                                                                                      |
+| diff:                                                                                                                |
+| command route: diff                                                                                                  |
+| route source: policy.command                                                                                         |
+| read-only: true                                                                                                      |
+| source: app.diff.fixture                                                                                             |
+| status: ready                                                                                                        |
+| files: 1                                                                                                             |
+| selected: 4                                                                                                          |
+|   file: internal/demo.txt status: modified                                                                           |
+|   hunk: @@ -1 +1 @@                                                                                                  |
+|   - old value                                                                                                        |
+| > + new value                                                                                                        |
+| selected kind: addition                                                                                              |
+| selected path: internal/demo.txt                                                                                     |
+| selected text: + new value                                                                                           |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
+|                                                                                                                      |
++----------------------------------------------------------------------------------------------------------------------+
++ Prompt --------------------------------------------------------------------------------------------------------------+
+| >                                                                                                                    |
++----------------------------------------------------------------------------------------------------------------------+
+                                                                        git: placeholder | context: placeholder | q quit

@@ -1062,6 +1062,153 @@ func TestInteractiveReadOnlyBuildLoopPTYSmoke(t *testing.T) {
 	}
 }
 
+func TestInteractiveWriteBuildLoopApprovalPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) { seedInteractiveWriteBuildWorkspace(t, workspace) })
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("create a note file for this workspace\r")); err != nil {
+		t.Fatalf("send interactive write prompt input: %v", err)
+	}
+
+	approval := readUntilAll(t, terminal, []string{
+		"Approval pending:",
+		"proposal id: approval-call-write-1",
+		"operation kind: mutation",
+		"path: docs/interactive-build-output.md",
+		"expected effect: create interactive build output file",
+		"choices: a approve | n deny | d defer",
+	}, 10*time.Second)
+	if strings.Contains(approval, "Mutation result:") {
+		t.Fatalf("interactive write ran mutation before approval: %q", approval)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "interactive-build-output.md")); !os.IsNotExist(err) {
+		t.Fatalf("interactive write created file before approval: %v", err)
+	}
+	if _, err := terminal.Write([]byte("a")); err != nil {
+		t.Fatalf("send interactive write approval input: %v", err)
+	}
+
+	readUntilAll(t, terminal, []string{
+		"Runtime idle",
+		"Mutation result:",
+		"tool: write",
+		"status: completed",
+		"path: docs/interactive-build-output.md",
+		"decision source: autonomy_policy",
+		"approval required: false",
+	}, 10*time.Second)
+	content, err := os.ReadFile(filepath.Join(workspace, "docs", "interactive-build-output.md"))
+	if err != nil || !strings.Contains(string(content), "create a note file for this workspace") {
+		t.Fatalf("interactive write content = %q err=%v", content, err)
+	}
+
+	if _, err := terminal.Write([]byte("/history\r")); err != nil {
+		t.Fatalf("send history command after interactive write: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"history:",
+		"read-only: true",
+		"entries:",
+		"undo enabled: true",
+	}, 10*time.Second)
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after interactive write approval smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("interactive write approval PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("interactive write approval PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
+func TestInteractiveWriteBuildLoopDenialPTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, workspace := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 160, 45, env.vars, func(workspace string) { seedInteractiveWriteBuildWorkspace(t, workspace) })
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("create a note file for this workspace\r")); err != nil {
+		t.Fatalf("send denied interactive write prompt input: %v", err)
+	}
+	readUntilAll(t, terminal, []string{"Approval pending:", "proposal id: approval-call-write-1", "path: docs/interactive-build-output.md"}, 10*time.Second)
+	if _, err := terminal.Write([]byte("n")); err != nil {
+		t.Fatalf("send interactive write denial input: %v", err)
+	}
+	readUntilAll(t, terminal, []string{"Runtime idle", "approval deny: docs/interactive-build-output.md"}, 10*time.Second)
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "interactive-build-output.md")); !os.IsNotExist(err) {
+		t.Fatalf("denied interactive write created file: %v", err)
+	}
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after interactive write denial smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("interactive write denial PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("interactive write denial PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
+func TestPromptPastePTYSmoke(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY smoke uses Unix pseudo-terminals")
+	}
+
+	env := newAilaPTYEnv(t)
+	ctx, cancel, terminal, wait, _ := startAilaPTYWithArgsSizeEnvAndWorkspace(t, nil, 120, 32, env.vars, func(workspace string) {
+		if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nPasted prompt smoke fixture.\n"), 0o644); err != nil {
+			t.Fatalf("seed README for paste PTY smoke: %v", err)
+		}
+	})
+	defer cancel()
+	defer func() { _ = terminal.Close() }()
+
+	readUntilAll(t, terminal, []string{"Aila", "Prompt"}, 20*time.Second)
+	if _, err := terminal.Write([]byte("summarize pasted prompt words\r")); err != nil {
+		t.Fatalf("send pasted prompt input: %v", err)
+	}
+	readUntilAll(t, terminal, []string{
+		"Runtime idle",
+		"user: summarize pasted prompt words",
+		"Read tool:",
+		"path: README.md",
+	}, 10*time.Second)
+	if _, err := terminal.Write([]byte("q")); err != nil {
+		t.Fatalf("send q after paste smoke: %v", err)
+	}
+	select {
+	case err := <-wait:
+		if err != nil {
+			t.Fatalf("paste PTY quit returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("paste PTY did not quit cleanly: %v", ctx.Err())
+	}
+}
+
 func TestReadOnlyProviderFailurePTYSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
@@ -1531,6 +1678,17 @@ func seedCurrentSessionSnapshot(t *testing.T, workspace string) {
 	if filepath.ToSlash(location.Provenance.RelativePath) != "sessions/current.json" {
 		t.Fatalf("resume smoke snapshot path = %q, want sessions/current.json", location.Provenance.RelativePath)
 	}
+}
+
+func seedInteractiveWriteBuildWorkspace(t *testing.T, workspace string) {
+	t.Helper()
+
+	if err := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("# Aila\nInteractive write build loop fixture.\n"), 0o644); err != nil {
+		t.Fatalf("write interactive build README: %v", err)
+	}
+	runPTYGit(t, workspace, "init")
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "add", "README.md")
+	runPTYGit(t, workspace, "-c", "user.name=Aila Tests", "-c", "user.email=aila@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "base")
 }
 
 func seedNonInteractiveRunSmokeWorkspace(t *testing.T, workspace string) {

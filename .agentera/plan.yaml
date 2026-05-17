@@ -1,170 +1,165 @@
 header:
   level: full
   created: '2026-05-17'
-  status: completed
+  status: complete
   reviewed: '2026-05-17'
-  critic_issues: M33 scope completed as read-only interactive BUILD loop; interactive writes, approval execution, real provider
-    configuration, richer async streaming mechanics, source indexing, hosted control planes, plugins, MCP servers, workflow
-    DSLs, and M34+ behavior remain deferred.
-  title: Milestone 33 Interactive Read-Only Build Loop
-what: Deliver ROADMAP.md Milestone 33 by making ordinary interactive prompts enter the read-only BUILD loop through the existing
-  Aila-owned agent runner, read-only tool effects, runtime state, and presentation-only TUI surfaces.
-why: Earlier read-only runner work proved a bounded agent turn behind an explicit environment gate, and M31-M32 made run results inspectable.
-  M33 turns the interactive path into useful read-only coding assistance while preserving the same queue, interrupt, tool,
-  and final-summary evidence before interactive writes arrive in M34.
-constraints: 'Execute only Milestone 33. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
-  it may render app-injected prompt, runtime, read-tool, queued, interrupt, diagnostic, and final-summary state, but it must
-  not inspect files, run commands, choose tools, decide permissions, mutate files, persist state, or own model prompts. Interactive
-  work must stay read-only and route tool requests through the existing runtime read effects and autonomy policy. Keep mutations,
-  approval execution, edit/write tools, real provider credential setup, arbitrary shell mutation, session replay, source indexing,
-  hosted control planes, plugins, MCP servers, workflow DSLs, and M34+ behavior out of scope. Use behavior-based test names.
-  Do not push.'
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m32.yaml
+  critic_issues: M34 must stay interactive and guarded without turning Aila into arbitrary provider-backed code generation,
+    plugin execution, MCP, workflow DSL, source indexing, or hosted control-plane behavior.
+  title: Milestone 34 Interactive Write Build Loop
+what: Deliver ROADMAP.md Milestone 34 by letting ordinary interactive BUILD prompts propose a bounded workspace write, show
+  an approval boundary, execute the real write effect only after approval, and keep mutation, diff, history, queue, interrupt,
+  resize, paste, and final-summary evidence visible through app-owned state.
+why: M33 made the ordinary interactive prompt path useful for read-only agent work. M27-M32 already provide mutation tools,
+  approvals, history/undo metadata, non-interactive write memory, and diff/history inspection. M34 should join those existing
+  seams into the live TUI loop instead of inventing a new executor.
+constraints: 'Execute only Milestone 34. Preserve statechart-MVU and explicit effect boundaries. Keep the TUI presentation-only:
+  it may render app-injected approval, mutation, diff, history, queued, interrupt, paste, resize, and final-summary state,
+  but it must not inspect files, choose tools, decide permissions, mutate files, persist state, or own model prompts. Use
+  the existing runtime write effects, app-owned dispatch, permission/autonomy records, approval UI, mutation history, diff
+  reader, and PTY harness. Keep real provider credential setup, arbitrary prompt-to-code synthesis, multi-file generation,
+  mutating shell commands, source indexing, session replay, plugins, MCP servers, workflow DSLs, hosted control planes, and
+  M35+ inspection command expansion out of scope. Use behavior-based test names. Do not push.'
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m33.yaml
 source_anchors:
 - ROADMAP.md:16-110
-- ROADMAP.md:1411-1433
+- ROADMAP.md:1436-1460
 - docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-163
-- README.md:226-329
-- ARCHITECTURE.md:403-545
-- ARCHITECTURE.md:681-727
-- docs/workflow-architecture.md:281-335
-- docs/workflow-architecture.md:523-533
-- docs/tui-testing.md:69-77
-- docs/tui-testing.md:216-318
+- README.md:103-159
+- README.md:160-218
+- ARCHITECTURE.md:1-170
+- ARCHITECTURE.md:171-240
+- docs/workflow-architecture.md:1-160
+- docs/tui-testing.md:1-230
 verification_commands:
 - mage fmt
-- go test ./internal/app -run 'Test.*ReadOnly.*Prompt|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff' -count=1
-- go test ./internal/runtime -run 'TestUpdateHandlesPrompt|TestUpdateQueues|TestUpdateHandlesAgent|TestUpdateHandlesInterrupt'
+- go test ./internal/agent -run 'Test.*Build.*|Test.*ReadOnly.*|TestGoAgentRunner' -count=1
+- go test ./internal/app -run 'Test.*Interactive.*Write|Test.*Agent.*Write|Test.*Approval.*Write|Test.*Prompt.*|Test.*History.*Mutation'
   -count=1
-- go test ./internal/tui -run 'Test.*ReadOnly.*|Test.*Queued.*|Test.*Interrupt.*|Test.*FixtureSnapshots|Test.*Focus.*|TestResizePathStaysPresentationOnlyAndIOFree'
+- go test ./internal/runtime -run 'TestUpdateHandles.*Write|TestUpdateHandlesApproval|TestUpdateHandlesAgent|TestUpdateHandlesInterrupt|TestUpdateQueues'
   -count=1
-- go test ./cmd/aila -run 'TestInteractiveReadOnlyBuildLoopPTYSmoke|TestReadOnlyProviderFailurePTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke'
+- go test ./internal/tui -run 'Test.*Approval.*|Test.*Mutation.*|Test.*Diff.*|Test.*History.*|Test.*Queued.*|Test.*Interrupt.*|Test.*Build.*|Test.*Final.*|Test.*Paste.*|TestResizePathStaysPresentationOnlyAndIOFree'
   -count=1
-- go test ./internal/app ./internal/runtime ./internal/tui ./cmd/aila -count=1
+- go test ./cmd/aila -run 'TestInteractiveWriteBuildLoop.*PTYSmoke|TestApprovalToWriteMutationPTYSmoke|Test.*Denial.*PTYSmoke|TestSubmitWhileActivePTYSmoke|TestInterruptActiveWorkPTYSmoke|TestResizePTYSmoke|TestPromptPastePTYSmoke'
+  -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
-- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m32.yaml cmd/aila
-  internal/app internal/runtime internal/tui internal/tui/testdata/fixtures
+- git diff --check -- ROADMAP.md .agentera/plan.yaml .agentera/progress.yaml .agentera/archive/plan-2026-05-17-m33.yaml cmd/aila
+  internal/agent internal/app internal/runtime internal/tui internal/tui/testdata/fixtures
 - changed-line home-path and milestone-numbered test-name hygiene returns no matches
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera hej
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --fields plan,progress,state_presence,next_action
 scope:
   included:
-  - Make the ordinary interactive prompt path start the bounded fake read-only agent BUILD loop by default, using the existing
-    Aila-owned agent runner adapter and read-only tool registry.
-  - Preserve app/runtime-owned visible state for active assistant output, read-only tool activity, final summaries, typed
-    provider failures, queued input, and interrupts.
-  - Refresh behavior-named app/runtime/TUI tests so prompt submission, active queueing, interrupt routing, and focus behavior
-    are covered without stale milestone-numbered names in touched tests.
-  - Refresh the required build-active, queued-message, tool-running, and tool-failed fixture evidence so the current read-only
-    loop is visible in render and semantic snapshots.
-  - Add or update PTY smoke to prove interactive read-only prompt submission, queue, interrupt, resize, and quit behavior
-    without mutation or approval surfaces.
+  - Make the ordinary interactive prompt path use a write-capable bounded fake BUILD agent that can still answer read-only
+    prompts but can request a guarded write for small file-creation prompts.
+  - Convert agent-requested writes into app-owned approval proposals with path, expected effect, diff preview, default deny,
+    and no mutation before an approval decision.
+  - Execute approved writes through the existing runtime WriteToolEffect, app dispatch, mutation tool validation, autonomy
+    decision evidence, mutation history persistence, and current-session snapshot path; denial must not mutate.
+  - Keep active/final assistant output, approval, mutation result, changed path evidence, diff/history inspection, queued
+    input, interrupts, paste input, resize, and quit behavior visible and presentation-only.
+  - Refresh or add fixtures, semantic snapshots, render snapshots, update/keybinding tests, and PTY smokes required by the
+    M34 validation gate.
   excluded:
-  - Interactive edit/write tools, approval execution, mutation history changes, real provider credential setup, arbitrary
-    shell mutation, source indexing, session replay, plugin/MCP/dynamic workflow behavior, hosted control planes, and M34+
-    behavior.
+  - Real provider credential setup, provider-backed arbitrary code generation, multi-file generation, mutating shell command
+    execution, new model selection behavior, source indexing, session replay, context compaction, plugin/MCP/dynamic workflow
+    behavior, hosted control planes, and M35+ inspection-command expansion.
   deferred:
-  - Interactive write build loop, guarded approvals plus mutation execution, richer asynchronous streaming mechanics, real
-    provider selection from configuration, durable event replay, source indexing, and stale-context validation.
-design: Use the existing read-only agent runner and runtime/tool surfaces instead of adding a new loop. The app
-  composition root should choose the read-only agent runner for normal interactive prompts, while test-only environment switches
-  remain available for provider-failure and hold-active queue/interrupt smokes. Runtime Update remains deterministic and effect-based;
-  read tool requests still execute only through app-owned readDispatchContext and permission decisions. The TUI receives TranscriptTurn/ViewState
-  data and renders it with no provider, filesystem, permission, or mutation ownership.
+  - Richer asynchronous streaming, manual approval overriding lower autonomy levels, real provider tool continuation after
+    approval, multi-step coding checks, source indexing, stale-context validation, and broader inspection command families.
+design: Reuse the M33 agent prompt runner and the existing mutation/approval seams. A write-capable fake agent emits read
+  and write tool requests for deterministic interactive smoke. The app maps a write tool request to an approval proposal and
+  stores the corresponding mutation request outside the TUI. Approval denial clears the proposal without mutation. Approval
+  approval dispatches the existing WriteToolEffect through app-owned tool/permission code, then surfaces the resulting mutation
+  and history metadata through existing view models. The TUI continues to emit only prompt, shortcut, interrupt, resize, paste,
+  and approval-decision messages.
 overall_acceptance:
-- A normal interactive prompt can produce a bounded read-only fake agent answer and README read-tool evidence without requiring
-  a test-only read-only flag.
-- Read-only tool requests continue to pass through runtime read effects, app-owned permission decisions, and tool result view
-  models; unsupported mutation/approval surfaces do not appear in the read-only loop.
-- Queued input, interrupt, focus, and resize behavior remain visible and presentation-only while work is active.
-- The required build-active, queued-message, tool-running, and tool-failed fixtures have current render and semantic evidence
-  for the read-only loop.
-- PTY smoke proves submit prompt, queue, interrupt, resize, and quit behavior with fake or read-only work, and full validation
-  passes before ROADMAP.md is updated.
-surprises:
-- The live read-only agent turn needed to use the existing agent evidence surface so chat, final summary, and read-tool details
-  stay visible together instead of letting tool details push the conversation below the fold.
-- Bounded provider event sanitization collapsed trailing delta whitespace, so runtime now inserts a space between adjacent
-  assistant deltas when needed.
+- A normal interactive read-only prompt still produces read-only BUILD output and does not show mutation or approval surfaces.
+- A normal interactive small file-creation prompt shows a write approval proposal with diff preview and does not create the
+  target before approval.
+- Approval creates the requested workspace file through the existing write effect, exposes mutation decision/result evidence,
+  records mutation history with undo metadata, and leaves the final summary visible.
+- Denial leaves the workspace unchanged and shows the decision.
+- Diff and history inspection can show the approved interactive write; queue, interrupt, paste, resize, and quit smokes remain
+  clean and bounded.
+- Required render and semantic snapshots cover active build, approval, diff, history, tool-running, tool-failed, queued input,
+  and final summary at the milestone-required sizes, or document a narrower already-existing fixture size when the scenario
+  is unchanged by M34.
+surprises: []
 tasks:
 - number: 1
-  name: Promote interactive prompts to the read-only agent loop
+  name: Plan and wire the interactive write-capable agent seam
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Aila starts interactively without test-only read-only flags WHEN the user submits a normal prompt THEN the app routes
-    it through the existing read-only agent runner and readDispatchContext instead of the old fake prompt echo.
-  - GIVEN the agent requests `read` WHEN autonomy allows read-only tools THEN the tool result carries app-owned permission
-    evidence and bounded preview lines.
-  - GIVEN provider-failure test configuration is set WHEN the prompt runs THEN typed provider diagnostics remain visible and
-    bounded.
+  - GIVEN ordinary interactive startup WHEN no test-only runner override is set THEN prompt submission uses a bounded BUILD
+    agent runner that can request read and guarded write tools.
+  - GIVEN a read-only prompt WHEN submitted THEN the M33 read-only behavior remains visible and no write approval appears.
+  - GIVEN source boundaries are reviewed WHEN implementation starts THEN the plan stays inside app/runtime/agent/TUI/cmd seams
+    already used by read-only agent, approval, mutation, diff, and history work.
   evidence:
-  - newInputRunnerForEnvironment now defaults ordinary interactive prompts to newInputRunnerWithAgentReadOnlyContext while
-    preserving AILA_FAKE_PROMPT_ECHO only for legacy layout smokes.
-  - TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects and TestPromptSubmitPTYSmoke prove the read-only agent path,
-    BUILD phase display, read tool result, and permission decision evidence without a test-only read-only flag.
+  - newInputRunnerForEnvironment now defaults to FakeBuildRunner with read/write tool names; read-only prompts remain read-only
+    through TestFakeBuildRunnerKeepsReadOnlyPromptReadOnly and TestInteractiveReadOnlyBuildLoopPTYSmoke.
+  - TestInteractiveAgentWritePromptShowsApprovalBeforeMutation covers the write-capable interactive seam without mutating
+    before approval.
 - number: 2
-  name: Preserve visible runtime state for active, queued, interrupt, and final states
+  name: Turn agent write requests into approval proposals
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN read-only BUILD work is active WHEN a second prompt is submitted THEN the prompt is queued and no second work item
-    starts immediately.
-  - GIVEN read-only or fake BUILD work is active WHEN interrupt is requested THEN the runtime exposes canceling/canceled display
-    state through the existing interrupt path without lower-layer cancellation claims.
-  - GIVEN the read-only turn completes WHEN the TUI renders THEN final assistant summary, source/model, read-tool evidence,
-    and runtime idle result remain visible.
+  - GIVEN the build agent requests `write` WHEN handling an interactive prompt THEN Aila records the tool request and shows
+    an app-owned approval proposal with operation kind, path, command, expected effect, diff preview, and default deny.
+  - GIVEN the approval proposal is visible WHEN the target file is inspected before approval THEN the file does not exist
+    or remains unchanged.
+  - GIVEN the TUI renders approval state THEN it receives only display data and cannot execute the write.
   evidence:
-  - Agent turns now inject BUILD phase and agent evidence surface data; runtime AgentAssistantDelta preserves spaces between
-    bounded deltas, and completed read-tool turns keep read tool dispatch status detail.
-  - TestSubmitWhileActivePTYSmoke and TestInterruptActiveWorkPTYSmoke passed, proving queue and interrupt visibility through
-    fake active work while TestInteractiveReadOnlyBuildLoopPTYSmoke proves final read-only summaries and read evidence remain
-    visible.
+  - agent write requests map to approval-call-write-1 with mutation operation kind, docs/interactive-build-output.md path,
+    command, expected effect, diff preview, and default deny.
+  - TestInteractiveAgentWritePromptShowsApprovalBeforeMutation and TestInteractiveWriteBuildLoopApprovalPTYSmoke verify the
+    file is absent before approval.
 - number: 3
-  name: Refresh behavior-named update and app tests
+  name: Execute approved writes and persist mutation evidence
   depends_on:
-  - 1
   - 2
   status: complete
   acceptance:
-  - GIVEN touched tests cover read-only prompt routing WHEN names are reviewed THEN they describe behavior rather than milestone
-    numbers.
-  - GIVEN TUI prompt, queue, interrupt, and focus inputs are exercised WHEN tests run THEN they emit app callbacks or local
-    presentation state only and do not perform IO.
-  - GIVEN runtime/app read-only tests run WHEN assertions inspect state THEN they prove deterministic updates, permission-backed
-    read results, final summaries, and provider diagnostics.
+  - GIVEN the user approves the proposal WHEN autonomy allows the classified write effect THEN the existing WriteToolEffect
+    creates the file and returns mutation result evidence.
+  - GIVEN the user denies the proposal WHEN the same prompt runs THEN no file is created and the denial remains visible.
+  - GIVEN an approved mutation completes WHEN history is read THEN mutation metadata, approval ID/action, changed path, and
+    undo availability are recorded through the existing fake history path.
   evidence:
-  - Touched read-only agent, PTY, queued, interrupt, and fixture tests were renamed to behavior-based names such as TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects,
-    TestInteractiveReadOnlyBuildLoopPTYSmoke, TestSubmitWhileActivePTYSmoke, and TestQueuedMessageFixtureSnapshots.
-  - 'Focused app/runtime/TUI tests passed after the naming and read-only route changes: go test ./internal/app -run ''TestReadOnlyAgent|TestPromptSubmitWhileRuntimeActive|TestPromptSubmitHandoff''
-    -count=1; go test ./internal/runtime -run ''TestUpdateHandlesAgent|TestUpdateHandlesPrompt|TestUpdateHandlesFakeResultMessages''
-    -count=1; and focused TUI input/fixture tests.'
+  - TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect and TestInteractiveWriteBuildLoopApprovalPTYSmoke verify approved
+    writes dispatch the existing WriteToolEffect and create the file only after approval.
+  - TestInteractiveAgentDeniedWriteDoesNotMutate and TestInteractiveWriteBuildLoopDenialPTYSmoke verify denial leaves the
+    workspace unchanged.
+  - TestSessionControllerPersistsInteractiveAgentApprovedMutationHistory verifies approval ID/action, changed path, and undo
+    metadata in fake history.
 - number: 4
-  name: Refresh required render and semantic fixtures
+  name: Refresh TUI fixtures, snapshots, and update/keybinding coverage
   depends_on:
-  - 1
   - 2
   - 3
   status: complete
   acceptance:
-  - GIVEN `build-active` renders WHEN inspected THEN active BUILD, streaming assistant text, read-only model/source, and running
-    read tool state are visible.
-  - GIVEN `queued-message`, `tool-running`, and `tool-failed` render WHEN inspected THEN queue defaults, running read state,
-    and failed read/tool evidence remain visible and machine-readable.
-  - GIVEN semantic snapshots are generated WHEN these fixtures are loaded THEN active/queued/runtime/tool/error meanings are
-    present without TUI-owned IO or mutation state.
+  - GIVEN required M34 states are loaded WHEN render and semantic tests run THEN active build, approval pending, diff view,
+    history view, tool-running, tool-failed, queued input, and final summary evidence are covered.
+  - GIVEN approval, denial, paste, queue, interrupt, resize, diff, and history interactions are exercised WHEN update tests
+    run THEN they emit app callbacks or local presentation state only.
+  - GIVEN touched tests are reviewed THEN new or renamed tests describe behavior rather than milestone numbers.
   evidence:
-  - The existing build-active, queued-message, tool-running, and tool-failed fixture artifacts remain current for the M33
-    loop and were validated through behavior-named fixture tests.
-  - go test ./internal/tui -run 'TestReadOnlyBuildActiveFixtureSnapshots|TestReadOnlyProviderFailureFixtureSnapshots|TestQueuedMessageFixtureSnapshots|TestReadToolFixtureSnapshots|TestCommandToolFixtureSnapshots|TestQueuedInput|TestNoQueue|TestInterrupting|TestCanceled|TestInterruptSemantic|TestPromptSubmit|TestCtrlC|TestCtrlXC|TestResizePathStaysPresentationOnlyAndIOFree'
-    -count=1 passed.
+  - Active build, approval pending, diff view, and mutation/final-summary fixtures now include 80x24, 120x32, and 160x45 render/semantic
+    coverage where M34 required it.
+  - Touched approval tests were renamed to behavior names; new app/agent/cmd tests use behavior names rather than milestone
+    IDs.
+  - Existing history-view, tool-running, tool-failed, queued-message, interrupt, resize, and diff presentation tests remained
+    green in focused and full validation.
 - number: 5
-  name: Add PTY smoke, full validation, and closeout
+  name: Add PTY smokes, full validation, roadmap closeout, and commit
   depends_on:
   - 1
   - 2
@@ -172,19 +167,19 @@ tasks:
   - 4
   status: complete
   acceptance:
-  - GIVEN a temp workspace interactive smoke starts Aila WHEN a read-only prompt is submitted THEN the screen shows the final
-    read-only answer, README read evidence, runtime idle result, and no mutation or approval surface.
-  - GIVEN fake or read-only active work is used WHEN queue, interrupt, resize, and quit are exercised THEN each behavior remains
-    visible and exits cleanly.
-  - GIVEN targeted and full validation pass WHEN ROADMAP.md and Agentera artifacts are updated THEN M33 is recorded complete
-    and M34 is next.
+  - GIVEN a temp workspace interactive smoke submits a small write prompt WHEN approval is selected THEN the screen shows
+    approval first, mutation result after approval, final summary, and the real file content exists only after approval.
+  - GIVEN denial, queue, interrupt, paste, resize, and quit smokes run WHEN observed through the PTY harness THEN each exits
+    cleanly without hidden mutation.
+  - GIVEN targeted, package, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN M34 is
+    recorded complete, M35 is next, and the completed slice is committed.
   evidence:
-  - TestPromptSubmitPTYSmoke, TestInteractiveReadOnlyBuildLoopPTYSmoke, TestReadOnlyProviderFailurePTYSmoke, TestSubmitWhileActivePTYSmoke,
-    TestInterruptActiveWorkPTYSmoke, and TestResizePTYSmoke passed, proving prompt submit, final read-only answer, provider
-    failure, queue, interrupt, resize, and quit behavior.
-  - Validated with mage fmt; focused app/runtime/TUI/cmd tests; go test ./internal/... -count=1; go test ./cmd/aila -count=1;
-    mage check with full cmd/internal tests, 0 lint issues, and no vulnerabilities; then ROADMAP.md and Agentera artifacts
-    were updated for M33 closeout.
+  - go test ./internal/agent ./internal/app focused M34 tests passed.
+  - go test ./internal/tui focused fixture/render/semantic tests passed.
+  - go test ./cmd/aila focused PTY bundle passed, including approval, denial, paste, queue, interrupt, resize, diff, and quit
+    coverage.
+  - go test ./internal/... -count=1 passed; go test ./cmd/aila -count=1 passed; mage check passed with 0 lint issues and no
+    vulnerabilities.
 complete: 5
 total: 5
 active: false

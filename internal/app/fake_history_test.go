@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/aila/internal/agent"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/history"
 	"github.com/jgabor/aila/internal/permission"
@@ -146,6 +147,51 @@ func TestSessionControllerPersistsApprovedMutationHistoryWithUndoMetadata(t *tes
 	}
 	if !event.Undo.Available || event.Undo.Action != "delete_created_file" || !reflect.DeepEqual(event.Undo.Paths, []string{"notes.txt"}) {
 		t.Fatalf("undo metadata = %#v", event.Undo)
+	}
+}
+
+func TestSessionControllerPersistsInteractiveAgentApprovedMutationHistory(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "README.md", "# Aila\n")
+	var commands []HistoryPersistenceCommand
+	view := snapshotTestView()
+	view.Autonomy = string(permission.AutonomyWrite)
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyWrite)), agent.DefaultFakeBuildRunner(), "fake", "fake-build", []string{"read", "write"})
+	controller := newSessionControllerWithPersistenceAndHistory(context.Background(), view, runner, nil, func(_ context.Context, command HistoryPersistenceCommand) HistoryPersistenceResult {
+		commands = append(commands, command)
+		return HistoryPersistenceResult{}
+	})
+
+	approvalTurn := controller.submitPrompt("create a note file for this workspace")
+	if approvalTurn.Approval == nil {
+		t.Fatalf("approval turn = %+v", approvalTurn)
+	}
+	turn := controller.decideApproval(tui.ApprovalDecisionInput{ProposalID: approvalTurn.Approval.ID, Action: string(runtime.ApprovalActionApprove)})
+	if turn.Mutation == nil || turn.Mutation.Status != "completed" {
+		t.Fatalf("approved mutation turn = %+v", turn)
+	}
+
+	var mutation *history.FakeEvent
+	for _, command := range commands {
+		if command.Event.Kind == history.EventKindMutation {
+			event := command.Event
+			mutation = &event
+		}
+	}
+	if mutation == nil || mutation.Mutation == nil || mutation.Undo == nil {
+		t.Fatalf("commands = %#v, want mutation history with undo", commands)
+	}
+	if _, err := history.NormalizeFakeEvent(*mutation); err != nil {
+		t.Fatalf("mutation history event invalid: %#v err=%v", *mutation, err)
+	}
+	if mutation.Mutation.ApprovalID != "approval-call-write-1" || mutation.Mutation.ApprovalAction != string(runtime.ApprovalActionApprove) {
+		t.Fatalf("approval metadata = %#v", mutation.Mutation)
+	}
+	if mutation.Mutation.CommandSource != "interactive-agent" || mutation.Mutation.RequestID != "call-write-1" || !reflect.DeepEqual(mutation.Mutation.ChangedPaths, []string{"docs/interactive-build-output.md"}) {
+		t.Fatalf("mutation source/path metadata = %#v", mutation.Mutation)
+	}
+	if !mutation.Undo.Available || mutation.Undo.Action != "delete_created_file" || !reflect.DeepEqual(mutation.Undo.Paths, []string{"docs/interactive-build-output.md"}) {
+		t.Fatalf("undo metadata = %#v", mutation.Undo)
 	}
 }
 

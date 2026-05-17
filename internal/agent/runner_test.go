@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jgabor/aila/internal/runtime"
@@ -32,6 +33,45 @@ func TestFakeReadOnlyRunnerStreamsBoundedToolTurn(t *testing.T) {
 	}
 }
 
+func TestFakeBuildRunnerRequestsApprovalBoundWriteForFilePrompts(t *testing.T) {
+	t.Parallel()
+
+	runner := DefaultFakeBuildRunner()
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "create a note file from this request", Provider: "fake", Model: "fake-build", ToolNames: []string{"read", "write"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var events []Event
+	for event := range stream {
+		events = append(events, event)
+	}
+	if len(events) != 4 || events[1].ToolName != "read" || events[3].ToolName != "write" {
+		t.Fatalf("events = %#v, want read then write tool requests", events)
+	}
+	if events[3].ToolCallID != "call-write-1" || toolArgumentValue(events[3].Arguments, "path") != "docs/interactive-build-output.md" || !strings.Contains(toolArgumentValue(events[3].Arguments, "content"), "create a note file") {
+		t.Fatalf("write event = %#v", events[3])
+	}
+}
+
+func TestFakeBuildRunnerKeepsReadOnlyPromptReadOnly(t *testing.T) {
+	t.Parallel()
+
+	runner := DefaultFakeBuildRunner()
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "summarize the project", Provider: "fake", Model: "fake-build", ToolNames: []string{"read", "write"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var toolNames []string
+	for event := range stream {
+		if event.Kind == EventToolRequest {
+			toolNames = append(toolNames, event.ToolName)
+		}
+	}
+	if !reflect.DeepEqual(toolNames, []string{"read"}) {
+		t.Fatalf("tool names = %#v, want read-only turn", toolNames)
+	}
+}
+
 func TestFakeReadOnlyRunnerStreamsTypedProviderFailures(t *testing.T) {
 	t.Parallel()
 
@@ -53,6 +93,15 @@ func TestFakeReadOnlyRunnerStreamsTypedProviderFailures(t *testing.T) {
 			}
 		})
 	}
+}
+
+func toolArgumentValue(arguments []ToolArgument, name string) string {
+	for _, argument := range arguments {
+		if argument.Name == name {
+			return argument.Value
+		}
+	}
+	return ""
 }
 
 func TestGoAgentRunnerMapsRealGoAgentEvents(t *testing.T) {

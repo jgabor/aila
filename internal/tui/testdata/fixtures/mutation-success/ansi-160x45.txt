@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime idle | Model placeholder | Utility placeholder | Auto write                                                                               [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: workflow.fixture         |
+| primary model: placeholder                                                                                       |  | primary model: placeholder             |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: write (display-only)                                                                                   |  | autonomy: write                        |
+|                                                                                                                  |  | status: idle                           |
+| Runtime status:                                                                                                  |  | status source: runtime.dispatch        |
+| status: idle                                                                                                     |  | detail: mutation tool dispatch         |
+| status source: runtime.dispatch                                                                                  |  | active: false                          |
+| detail: mutation tool dispatch                                                                                   |  | result: write internal/demo.txt: comp~ |
+| active: false                                                                                                    |  | display-only                           |
+| result: write internal/demo.txt: completed 12 bytes                                                              |  | tool_name: write                       |
+|                                                                                                                  |  | status: completed                      |
+| Mutation result:                                                                                                 |  | path: internal/demo.txt                |
+| path: internal/demo.txt                                                                                          |  | completed: true                        |
+| status: completed                                                                                                |  | previous_exists: false                 |
+| tool: write                                                                                                      |  | bytes_written: 12                      |
+| completed: true                                                                                                  |  | expected_effect: create demo file      |
+| previous exists: false                                                                                           |  | previous_version: missing              |
+| bytes written: 12                                                                                                |  | new_version: sha256:demo-new           |
+| decision source: autonomy_policy                                                                                 |  | decision_source: autonomy_policy       |
+| approval required: false                                                                                         |  | decision: allowed                      |
+| operation: mutation                                                                                              |  | decision_automatic: true               |
+| autonomy: write                                                                                                  |  | approval_required: false               |
+| decision tool: write                                                                                             |  | decision_autonomy: write               |
+| expected effect: create demo file                                                                                |  | operation_kind: mutation               |
+| previous version: missing                                                                                        |  | decision_tool: write                   |
+| new version: sha256:demo-new                                                                                     |  | decision_target: internal/demo.txt     |
+|                                                                                                                  |  | decision_expected_effect: create demo~ |
+| No messages yet.                                                                                                 |  | decision_reversible: false             |
+|                                                                                                                  |  | decision_run_id: run-write-fixture     |
+|                                                                                                                  |  | decision_capability: mutation-fixture  |
+|                                                                                                                  |  | decision_reason: write autonomy allow~ |
+|                                                                                                                  |  | app-owned                              |
+|                                                                                                                  |  | display-only                           |
+|                                                                                                                  |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

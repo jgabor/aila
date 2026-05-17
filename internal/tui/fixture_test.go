@@ -460,7 +460,7 @@ func loadDiffViewFixture(t *testing.T) renderFixture {
 }
 
 func diffViewFixtureSizes() []fixtureSize {
-	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "160x45", Width: 160, Height: 45}}
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}, {Name: "160x45", Width: 160, Height: 45}}
 }
 
 func TestSafeTextStripsTerminalControlsBeforeRedactingSecrets(t *testing.T) {
@@ -1484,7 +1484,7 @@ func TestDiffViewFixtureSnapshots(t *testing.T) {
 		t.Run(renderCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := renderCase.render(fixture.State, renderCase.size)
+			got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 			assertTextSnapshot(t, fixture, renderCase.file, got)
 			if !containsAll(stripANSI(got), []string{"diff:", "read-only: true", "internal/demo.txt", "old value", "new value"}) {
 				t.Fatalf("diff-view snapshot missing visible diff evidence:\n%s", got)
@@ -3743,6 +3743,10 @@ func TestM23StreamingAssistantFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func buildActiveFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}, {Name: "160x45", Width: 160, Height: 45}}
+}
+
 func readOnlyAgentFixtureSizes() []fixtureSize {
 	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
 }
@@ -3804,7 +3808,7 @@ func loadReadOnlyProviderFailureFixture(t *testing.T, name string) renderFixture
 
 func TestReadOnlyBuildActiveFixtureSnapshots(t *testing.T) {
 	fixture := loadReadOnlyBuildActiveFixture(t)
-	assertFixtureSizes(t, fixture, readOnlyAgentFixtureSizes())
+	assertFixtureSizes(t, fixture, buildActiveFixtureSizes())
 	for _, renderCase := range fixture.TextCases() {
 		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 		assertTextSnapshot(t, fixture, renderCase.file, got)
@@ -3875,11 +3879,11 @@ func TestM23StreamingPTYSmokeDecision(t *testing.T) {
 	}
 }
 
-func m25ApprovalFixtureSizes() []fixtureSize {
-	return []fixtureSize{{Name: "80x44", Width: 80, Height: 44}, {Name: "120x44", Width: 120, Height: 44}}
+func approvalPendingFixtureSizes() []fixtureSize {
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "80x44", Width: 80, Height: 44}, {Name: "120x32", Width: 120, Height: 32}, {Name: "120x44", Width: 120, Height: 44}, {Name: "160x45", Width: 160, Height: 45}}
 }
 
-func loadM25ApprovalPendingFixture(t *testing.T) renderFixture {
+func loadApprovalPendingFixture(t *testing.T) renderFixture {
 	t.Helper()
 
 	state := IdleEmptyState()
@@ -3903,23 +3907,30 @@ func loadM25ApprovalPendingFixture(t *testing.T) renderFixture {
 		Path:           "internal/demo.txt",
 		Command:        []string{"write", "internal/demo.txt"},
 		WorkingDir:     ".",
-		ExpectedEffect: "preview only; no mutation execution in M25",
+		ExpectedEffect: "preview only; no mutation execution in approval fixture",
 		DiffPreview:    []string{"--- internal/demo.txt", "+++ internal/demo.txt", "@@", "-old", "+new"},
 		Reversible:     true,
 		RunID:          "run-fake-approval",
-		Capability:     "m25-fixture",
+		Capability:     "approval-fixture",
 	}
 	return loadRenderFixture(t, state.Scenario, state)
 }
 
-func TestM25ApprovalPendingFixtureSnapshots(t *testing.T) {
-	fixture := loadM25ApprovalPendingFixture(t)
-	assertFixtureSizes(t, fixture, m25ApprovalFixtureSizes())
+func TestApprovalPendingFixtureSnapshots(t *testing.T) {
+	fixture := loadApprovalPendingFixture(t)
+	assertFixtureSizes(t, fixture, approvalPendingFixtureSizes())
 	for _, renderCase := range fixture.TextCases() {
 		got := trimSnapshotLinePadding(renderCase.render(fixture.State, renderCase.size))
 		assertTextSnapshot(t, fixture, renderCase.file, got)
 		plain := stripANSI(got)
-		if !containsAll(plain, []string{"Approval pending:", "proposal id: fake-approval-001", "operation kind: file_mutation", "target: internal/demo.txt", "path: internal/demo.txt", "command: write internal/demo.txt", "diff preview:", "-old", "+new", "default action: deny", "choices: a approve | n deny | d defer", "mutation executed: false"}) {
+		required := []string{"Approval pending:", "proposal id: fake-approval-001", "operation kind: file_mutation"}
+		if renderCase.size.Height >= 32 {
+			required = append(required, "target: internal/demo.txt", "path: internal/demo.txt", "command: write internal/demo.txt", "default action: deny")
+		}
+		if renderCase.size.Height >= 44 {
+			required = append(required, "diff preview:", "-old", "+new", "choices: a approve | n deny | d defer", "mutation executed: false")
+		}
+		if !containsAll(plain, required) {
 			t.Fatalf("approval fixture render missing evidence:\n%s", plain)
 		}
 	}
@@ -3941,7 +3952,7 @@ func TestM25ApprovalPendingFixtureSnapshots(t *testing.T) {
 	}
 }
 
-func TestM25ApprovalKeysEmitDecisionMessagesOnly(t *testing.T) {
+func TestApprovalKeysEmitDecisionMessagesOnly(t *testing.T) {
 	for _, tc := range []struct {
 		key    string
 		action string
@@ -4223,7 +4234,7 @@ func TestRecoveryResultFixtureSnapshots(t *testing.T) {
 }
 
 func mutationResultFixtureSizes() []fixtureSize {
-	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}}
+	return []fixtureSize{{Name: "80x24", Width: 80, Height: 24}, {Name: "120x32", Width: 120, Height: 32}, {Name: "160x45", Width: 160, Height: 45}}
 }
 
 func loadMutationResultFixture(t *testing.T, name string) renderFixture {

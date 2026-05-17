@@ -1,0 +1,44 @@
+[1mAila                                                                                                                                                      160x45[0m
+[2mStage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility placeholder | Auto read                                                             [0m
++ [33mConversation[0m ----------------------------------------------------------------------------------------------------+  + [33mSession[0m -------------------------------+
+| Display labels:                                                                                                  |  | phase source: workflow.fixture         |
+| primary model: fake/fake-readonly                                                                                |  | primary model: fake/fake-readonly      |
+| utility model: placeholder                                                                                       |  | utility model: placeholder             |
+| autonomy: read (display-only)                                                                                    |  | autonomy: read                         |
+|                                                                                                                  |  | status: approval-pending               |
+| Runtime status:                                                                                                  |  | status source: runtime.fixture         |
+| status: approval-pending                                                                                         |  | detail: approval pending               |
+| status source: runtime.fixture                                                                                   |  | active: true                           |
+| detail: approval pending                                                                                         |  | result: approval pending: internal/de~ |
+| active: true                                                                                                     |  | display-only                           |
+| result: approval pending: internal/demo.txt                                                                      |  | git: placeholder                       |
+|                                                                                                                  |  | context: placeholder                   |
+| Approval pending:                                                                                                |  |                                        |
+| proposal id: fake-approval-001                                                                                   |  |                                        |
+| operation kind: file_mutation                                                                                    |  |                                        |
+| target: internal/demo.txt                                                                                        |  |                                        |
+| risk: Would update a workspace file if mutation execution existed.                                               |  |                                        |
+| default action: deny                                                                                             |  |                                        |
+| path: internal/demo.txt                                                                                          |  |                                        |
+| command: write internal/demo.txt                                                                                 |  |                                        |
+| working dir: .                                                                                                   |  |                                        |
+| expected effect: preview only; no mutation execution in approval fixture                                         |  |                                        |
+| preview:                                                                                                         |  |                                        |
+|   write requested by fake proposal                                                                               |  |                                        |
+|   default is deny until write classes exist                                                                      |  |                                        |
+| diff preview:                                                                                                    |  |                                        |
+|   --- internal/demo.txt                                                                                          |  |                                        |
+|   +++ internal/demo.txt                                                                                          |  |                                        |
+|   @@                                                                                                             |  |                                        |
+|   -old                                                                                                           |  |                                        |
+|   +new                                                                                                           |  |                                        |
+| choices: a approve | n deny | d defer                                                                            |  |                                        |
+| mutation executed: false                                                                                         |  |                                        |
+|                                                                                                                  |  |                                        |
+| No messages yet.                                                                                                 |  |                                        |
+|                                                                                                                  |  |                                        |
++------------------------------------------------------------------------------------------------------------------+  +----------------------------------------+
++ [33mPrompt[0m ------------------------------------------------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                                                            |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+[2m                                                                                                                git: placeholder | context: placeholder | q quit[0m

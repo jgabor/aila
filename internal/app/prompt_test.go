@@ -94,6 +94,72 @@ func TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects(t *testing.T) {
 	}
 }
 
+func TestInteractiveAgentWritePromptShowsApprovalBeforeMutation(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "README.md", "# Aila\n")
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyWrite)), agent.DefaultFakeBuildRunner(), "fake", "fake-build", []string{"read", "write"})
+
+	turn := runner.submitPrompt("create a note file for this workspace")
+
+	if turn.Approval == nil || turn.Approval.ID != "approval-call-write-1" || turn.Approval.Path != "docs/interactive-build-output.md" || turn.Approval.DefaultAction != string(runtime.ApprovalActionDeny) {
+		t.Fatalf("approval turn = %+v approval=%+v", turn, turn.Approval)
+	}
+	if turn.Mutation != nil || runner.model.LastMutation.ToolName != "" {
+		t.Fatalf("write prompt executed mutation before approval: turn=%+v model=%+v", turn, runner.model.LastMutation)
+	}
+	if turn.AssistantSource != "fake" || turn.AssistantModel != "fake-build" || turn.Phase != workflow.PhaseBuild.DisplayLabel() || turn.RuntimeStatus != string(runtime.StatusApprovalPending) {
+		t.Fatalf("agent approval state = %+v", turn)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "interactive-build-output.md")); !os.IsNotExist(err) {
+		t.Fatalf("approval prompt created file before decision: %v", err)
+	}
+}
+
+func TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "README.md", "# Aila\n")
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyWrite)), agent.DefaultFakeBuildRunner(), "fake", "fake-build", []string{"read", "write"})
+	approvalTurn := runner.submitPrompt("create a note file for this workspace")
+	if approvalTurn.Approval == nil {
+		t.Fatalf("approval turn = %+v", approvalTurn)
+	}
+
+	turn := runner.decideApproval(tui.ApprovalDecisionInput{ProposalID: approvalTurn.Approval.ID, Action: string(runtime.ApprovalActionApprove)})
+
+	if turn.Mutation == nil || turn.Mutation.Name != "write" || turn.Mutation.Status != "completed" || turn.Mutation.Path != "docs/interactive-build-output.md" {
+		t.Fatalf("approved write turn = %+v mutation=%+v", turn, turn.Mutation)
+	}
+	if turn.ApprovalDecision == nil || turn.ApprovalDecision.ProposalID != "approval-call-write-1" || turn.ApprovalDecision.Action != string(runtime.ApprovalActionApprove) {
+		t.Fatalf("approval decision = %+v", turn.ApprovalDecision)
+	}
+	got := readAppTestFile(t, filepath.Join(workspace, "docs", "interactive-build-output.md"))
+	if !strings.Contains(got, "create a note file for this workspace") {
+		t.Fatalf("approved write content = %q", got)
+	}
+	assertMutationDecision(t, runner.model.LastMutation.Decision, string(permission.AutonomyWrite), "write", "docs/interactive-build-output.md", true)
+}
+
+func TestInteractiveAgentDeniedWriteDoesNotMutate(t *testing.T) {
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "README.md", "# Aila\n")
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyWrite)), agent.DefaultFakeBuildRunner(), "fake", "fake-build", []string{"read", "write"})
+	approvalTurn := runner.submitPrompt("create a note file for this workspace")
+	if approvalTurn.Approval == nil {
+		t.Fatalf("approval turn = %+v", approvalTurn)
+	}
+
+	turn := runner.decideApproval(tui.ApprovalDecisionInput{ProposalID: approvalTurn.Approval.ID, Action: string(runtime.ApprovalActionDeny)})
+
+	if turn.Mutation != nil || turn.ApprovalDecision == nil || turn.ApprovalDecision.Action != string(runtime.ApprovalActionDeny) {
+		t.Fatalf("denied agent write turn = %+v", turn)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "interactive-build-output.md")); !os.IsNotExist(err) {
+		t.Fatalf("denied agent write created file: %v", err)
+	}
+}
+
 func TestReadOnlyAgentProviderFailuresBecomeTypedDiagnostics(t *testing.T) {
 	t.Parallel()
 

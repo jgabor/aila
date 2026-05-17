@@ -1,6 +1,6 @@
-Aila                                                                                                              120x44
-Stage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility placeholder | Auto read
-+ Conversation --------------------------------------------------------------------------------------------------------+
+[1mAila                                                                                                              120x32[0m
+[2mStage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility placeholder | Auto read                     [0m
++ [33mConversation[0m --------------------------------------------------------------------------------------------------------+
 | Display labels:                                                                                                      |
 | primary model: fake/fake-readonly                                                                                    |
 | utility model: placeholder                                                                                           |
@@ -24,20 +24,8 @@ Stage BUILD | Runtime approval-pending | Model fake/fake-readonly | Utility plac
 | working dir: .                                                                                                       |
 | expected effect: preview only; no mutation execution in approval fixture                                             |
 | preview:                                                                                                             |
-|   write requested by fake proposal                                                                                   |
-|   default is deny until write classes exist                                                                          |
-| diff preview:                                                                                                        |
-|   --- internal/demo.txt                                                                                              |
-|   +++ internal/demo.txt                                                                                              |
-|   @@                                                                                                                 |
-|   -old                                                                                                               |
-|   +new                                                                                                               |
-| choices: a approve | n deny | d defer                                                                                |
-| mutation executed: false                                                                                             |
-|                                                                                                                      |
-| No messages yet.                                                                                                     |
 +----------------------------------------------------------------------------------------------------------------------+
-+ Prompt --------------------------------------------------------------------------------------------------------------+
-| >                                                                                                                    |
++ [33mPrompt[0m --------------------------------------------------------------------------------------------------------------+
+| [36m>[0m                                                                                                                    |
 +----------------------------------------------------------------------------------------------------------------------+
-                                                                        git: placeholder | context: placeholder | q quit
+[2m                                                                        git: placeholder | context: placeholder | q quit[0m
