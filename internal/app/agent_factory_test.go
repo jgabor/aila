@@ -26,7 +26,7 @@ func TestProductionAgentRunnerFactoryBuildsRealGoAgentRunnerForCustomConfig(t *t
 	if _, ok := selection.Runner.(*agent.GoAgentRunner); !ok {
 		t.Fatalf("runner = %T, want *agent.GoAgentRunner; selection=%+v", selection.Runner, selection)
 	}
-	if selection.Provider != "custom" || selection.Model != "custom/deepseek-chat:high" || !reflect.DeepEqual(selection.ToolNames, []string{"read", "write"}) {
+	if selection.Provider != "custom" || selection.Model != "custom/deepseek-chat:high" || !reflect.DeepEqual(selection.ToolNames, fixedBuildToolNames()) {
 		t.Fatalf("selection = %+v", selection)
 	}
 }
@@ -44,9 +44,43 @@ func TestProductionAgentRunnerFactoryBuildsRealGoAgentRunnerForOpenCodeGo(t *tes
 	if _, ok := selection.Runner.(*agent.GoAgentRunner); !ok {
 		t.Fatalf("runner = %T, want *agent.GoAgentRunner; selection=%+v", selection.Runner, selection)
 	}
-	if selection.Provider != "opencode-go" || selection.Model != "opencode-go/deepseek-v4-pro:high" || !reflect.DeepEqual(selection.ToolNames, []string{"read", "write"}) {
+	if selection.Provider != "opencode-go" || selection.Model != "opencode-go/deepseek-v4-pro:high" || !reflect.DeepEqual(selection.ToolNames, fixedBuildToolNames()) {
 		t.Fatalf("selection = %+v", selection)
 	}
+}
+
+func TestGoAgentBuildToolsRegisterAllFixedBuiltins(t *testing.T) {
+	t.Parallel()
+
+	tools, names, err := newGoAgentBuildTools(t.TempDir(), permission.AutonomyRead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(names, fixedBuildToolNames()) {
+		t.Fatalf("tool names = %#v, want %#v", names, fixedBuildToolNames())
+	}
+	got := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		got = append(got, tool.Name())
+	}
+	if !reflect.DeepEqual(got, fixedBuildToolNames()) {
+		t.Fatalf("registered tools = %#v", got)
+	}
+}
+
+func TestBuildAgentInstructionsIncludeContextAndTools(t *testing.T) {
+	t.Parallel()
+
+	instructions := buildAgentInstructions("/workspace/project", string(permission.AutonomyWrite), fixedBuildToolNames())
+	for _, want := range []string{"Workspace: /workspace/project", "Project: github.com/jgabor/aila", "Project summary:", "Workflow phase: build", "Active capability: build", "Autonomy level: write", "Tool definitions:", "read", "find", "grep", "bash", "fetch", "edit", "write"} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("instructions missing %q:\n%s", want, instructions)
+		}
+	}
+}
+
+func fixedBuildToolNames() []string {
+	return []string{"read", "find", "grep", "bash", "fetch", "edit", "write"}
 }
 
 func TestOpenAICompatibleBaseURLDefaultsOpenCodeGo(t *testing.T) {

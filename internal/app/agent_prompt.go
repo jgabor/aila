@@ -25,11 +25,12 @@ func (runner *inputRunner) applyAgentState(turn *tui.TranscriptTurn) {
 }
 
 type agentPromptRunner struct {
-	ctx       context.Context
-	runner    agent.Runner
-	provider  string
-	model     string
-	toolNames []string
+	ctx          context.Context
+	runner       agent.Runner
+	provider     string
+	model        string
+	toolNames    []string
+	instructions string
 }
 
 func newInputRunnerWithDispatchAndAgent(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner) *inputRunner {
@@ -37,17 +38,22 @@ func newInputRunnerWithDispatchAndAgent(ctx context.Context, dispatch runtimeDis
 }
 
 func newInputRunnerWithDispatchAndAgentConfig(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner, provider string, model string, toolNames []string) *inputRunner {
+	return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, agentRunner, provider, model, toolNames, "")
+}
+
+func newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner, provider string, model string, toolNames []string, instructions string) *inputRunner {
 	base := newInputRunnerWithDispatch(dispatch)
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if agentRunner != nil {
 		base.agent = &agentPromptRunner{
-			ctx:       ctx,
-			runner:    agentRunner,
-			provider:  defaultString(provider, "fake"),
-			model:     defaultString(model, "fake-readonly"),
-			toolNames: append([]string(nil), toolNames...),
+			ctx:          ctx,
+			runner:       agentRunner,
+			provider:     defaultString(provider, "fake"),
+			model:        defaultString(model, "fake-readonly"),
+			toolNames:    append([]string(nil), toolNames...),
+			instructions: strings.TrimSpace(instructions),
 		}
 	}
 	return base
@@ -73,12 +79,13 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	turnCtx, cancel := context.WithCancel(runner.agent.ctx)
 	defer cancel()
 	stream, err := runner.agent.runner.Stream(turnCtx, agent.RunRequest{
-		Prompt:    strings.TrimSpace(text),
-		Provider:  runner.agent.provider,
-		Model:     runner.agent.model,
-		RunID:     operation.ID,
-		MaxSteps:  4,
-		ToolNames: append([]string(nil), agentEffect.ToolNames...),
+		Prompt:       strings.TrimSpace(text),
+		Instructions: runner.agent.instructions,
+		Provider:     runner.agent.provider,
+		Model:        runner.agent.model,
+		RunID:        operation.ID,
+		MaxSteps:     4,
+		ToolNames:    append([]string(nil), agentEffect.ToolNames...),
 	})
 	if err != nil {
 		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: runner.agent.provider, Model: runner.agent.model, Failure: runtime.FailureMetadata{Code: "stream_error", Message: err.Error(), Retryable: true}})
@@ -96,12 +103,18 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 				case "read":
 					read = runner.executeAgentReadTool(requested.Request)
 					continue
-				case "write":
+				case "find", "grep", "bash", "fetch":
+					runner.executeAgentInspectionTool(requested.Request)
+					continue
+				case "edit", "write":
 					cancel()
 					return runner.proposeAgentWriteApproval(requested.Request, before)
 				default:
-					runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: requested.Request.Provider, Model: requested.Request.Model, Failure: runtime.FailureMetadata{Code: "unsupported_tool", Message: "agent tool not available: " + requested.Request.Name}})
-					continue
+					cancel()
+					runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: requested.Request.Provider, Model: requested.Request.Model, Failure: runtime.FailureMetadata{Code: "unsupported_tool", Message: unsupportedAgentToolMessage(requested.Request.Name)}})
+					turn := transcriptTurn(runner.model.Transcript[before:])
+					runner.applyRuntimeState(&turn)
+					return buildAgentEvidenceTurn(turn)
 				}
 			}
 			runner.model, _ = runner.update(message)
@@ -114,6 +127,27 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		turn.StatusDetail = "read tool dispatch"
 	}
 	return buildAgentEvidenceTurn(turn)
+}
+
+func (runner *inputRunner) executeAgentInspectionTool(request runtime.AgentToolRequest) {
+	operation := runtime.OperationMetadata{ID: defaultString(request.ID, "agent-"+request.Name), Kind: runtime.OperationRead, Subject: request.Name}
+	var effect runtime.Effect
+	sourceID := defaultString(request.ID, "agent-"+request.Name)
+	switch request.Name {
+	case "find":
+		effect = runtime.SearchToolEffect{Operation: operation, Request: runtime.SearchToolRequest{ToolName: runtime.SearchToolFind, Pattern: agentToolArgument(request.Arguments, "pattern"), MaxResults: intAgentToolArgument(request.Arguments, "max_results"), MaxPreviewBytes: intAgentToolArgument(request.Arguments, "max_preview_bytes"), Source: runtime.SearchSourceMetadata{Caller: "interactive-agent", RequestID: sourceID, Description: "agent-requested find"}}}
+	case "grep":
+		effect = runtime.SearchToolEffect{Operation: operation, Request: runtime.SearchToolRequest{ToolName: runtime.SearchToolGrep, Query: agentToolArgument(request.Arguments, "query"), Regex: boolAgentToolArgument(request.Arguments, "regex"), IncludePattern: agentToolArgument(request.Arguments, "include_pattern"), MaxResults: intAgentToolArgument(request.Arguments, "max_results"), MaxPreviewBytes: intAgentToolArgument(request.Arguments, "max_preview_bytes"), Source: runtime.SearchSourceMetadata{Caller: "interactive-agent", RequestID: sourceID, Description: "agent-requested grep"}}}
+	case "bash":
+		effect = runtime.BashToolEffect{Operation: operation, Request: runtime.BashToolRequest{Argv: stringSliceAgentToolArgument(request.Arguments, "argv"), WorkingDir: agentToolArgument(request.Arguments, "working_dir"), MaxOutputBytes: intAgentToolArgument(request.Arguments, "max_output_bytes"), TimeoutMillis: intAgentToolArgument(request.Arguments, "timeout_millis"), Source: runtime.BashSourceMetadata{Caller: "interactive-agent", RequestID: sourceID, Description: "agent-requested bash"}}}
+	case "fetch":
+		effect = runtime.FetchToolEffect{Operation: operation, Request: runtime.FetchToolRequest{URL: agentToolArgument(request.Arguments, "url"), Method: agentToolArgument(request.Arguments, "method"), MaxPreviewBytes: intAgentToolArgument(request.Arguments, "max_preview_bytes"), TimeoutMillis: intAgentToolArgument(request.Arguments, "timeout_millis"), Source: runtime.FetchSourceMetadata{Caller: "interactive-agent", RequestID: sourceID, Description: "agent-requested fetch"}}}
+	default:
+		return
+	}
+	for _, message := range runner.dispatchEffects([]runtime.Effect{effect}) {
+		runner.model, _ = runner.update(message)
+	}
 }
 
 func (runner *inputRunner) executeAgentReadTool(request runtime.AgentToolRequest) *tui.ReadView {
@@ -144,15 +178,23 @@ func agentWriteMutationRequest(request runtime.AgentToolRequest) runtime.Mutatio
 	path := agentToolArgument(request.Arguments, "path")
 	content := agentToolArgument(request.Arguments, "content")
 	expectedEffect := defaultString(agentToolArgument(request.Arguments, "expected_effect"), "write workspace file requested by agent")
+	toolName := runtime.MutationToolWrite
+	if request.Name == "edit" {
+		toolName = runtime.MutationToolEdit
+		expectedEffect = defaultString(agentToolArgument(request.Arguments, "expected_effect"), "edit workspace file requested by agent")
+	}
 	return runtime.MutationToolRequest{
+		ToolName:       toolName,
 		Path:           path,
 		TargetVersion:  defaultString(agentToolArgument(request.Arguments, "target_version"), "missing"),
+		OldText:        agentToolArgument(request.Arguments, "old_text"),
+		NewText:        agentToolArgument(request.Arguments, "new_text"),
 		Content:        content,
 		ExpectedEffect: expectedEffect,
 		Source: runtime.MutationSourceMetadata{
 			Caller:      "interactive-agent",
-			RequestID:   defaultString(request.ID, "agent-write"),
-			Description: "approved interactive agent write request",
+			RequestID:   defaultString(request.ID, "agent-"+request.Name),
+			Description: "approved interactive agent " + request.Name + " request",
 		},
 	}
 }
@@ -168,10 +210,10 @@ func agentWriteApprovalProposal(request runtime.AgentToolRequest, mutation runti
 		OperationKind:  "mutation",
 		Target:         path,
 		RiskSummary:    "Agent requested a workspace write; approval is required before executing it.",
-		Preview:        []string{"agent requested write tool", "approval dispatches an app-owned write effect"},
+		Preview:        []string{"agent requested " + string(mutation.ToolName) + " tool", "approval dispatches an app-owned mutation effect"},
 		DefaultAction:  runtime.ApprovalActionDeny,
 		Path:           mutation.Path,
-		Command:        []string{"write", path},
+		Command:        []string{string(mutation.ToolName), path},
 		WorkingDir:     ".",
 		ExpectedEffect: mutation.ExpectedEffect,
 		DiffPreview:    []string{"--- " + path, "+++ " + path, "@@", "+" + contentPreview},
@@ -207,6 +249,27 @@ func intAgentToolArgument(arguments []runtime.AgentToolArgument, name string) in
 		return 0
 	}
 	return parsed
+}
+
+func boolAgentToolArgument(arguments []runtime.AgentToolArgument, name string) bool {
+	return strings.EqualFold(strings.TrimSpace(agentToolArgument(arguments, name)), "true")
+}
+
+func stringSliceAgentToolArgument(arguments []runtime.AgentToolArgument, name string) []string {
+	value := strings.TrimSpace(agentToolArgument(arguments, name))
+	if value == "" {
+		return nil
+	}
+	value = strings.Trim(value, "[]")
+	return strings.Fields(value)
+}
+
+func unsupportedAgentToolMessage(name string) string {
+	name = strings.TrimSpace(name)
+	if len([]rune(name)) > 80 {
+		name = string([]rune(name)[:80]) + "..."
+	}
+	return "agent tool not available: " + name
 }
 
 func agentFailureDiagnosticView(failure runtime.FailureMetadata) tui.DiagnosticView {

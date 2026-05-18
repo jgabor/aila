@@ -84,15 +84,16 @@ func newInputRunnerWithReadContextAndFetchClient(ctx context.Context, workspaceP
 func newInputRunnerWithAgentBuildContext(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
 	dispatch := readDispatchContext(ctx, workspacePath, autonomyLevel)
 	if os.Getenv("AILA_AGENT_RUNNER") == "fake" {
-		return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", []string{"read", "write"})
+		toolNames := []string{tools.ReadToolName, tools.FindToolName, tools.GrepToolName, tools.BashToolName, tools.FetchToolName, tools.EditToolName, tools.WriteToolName}
+		return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", toolNames, buildAgentInstructions(workspacePath, autonomyLevel, toolNames))
 	}
 	config, _, err := LoadConfig()
 	if err != nil {
 		selection := unavailableAgentBuildRunner("config", "unavailable", string(agent.FailureModelUnavailable), "load startup config: "+boundedStoreError(err), false)
-		return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames)
+		return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions)
 	}
 	selection := newAgentBuildRunnerFromConfig(workspacePath, autonomyLevel, config, os.LookupEnv, http.DefaultClient)
-	return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames)
+	return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions)
 }
 
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {

@@ -1,4 +1,41 @@
 cycles:
+- number: 251
+  timestamp: 2026-05-18 11:02
+  type: build
+  phase: closeout
+  what: Wired dogfood-capable agent turns by registering all 7 fixed built-in go-agent tools, adding bounded system instructions
+    with workspace/project/phase/autonomy/tool context, passing instructions through Agent.Instructions and RunRequest.Instructions,
+    mapping registered bash/grep/find/fetch/edit/write tool-call events through app-owned runtime effect or approval paths, and
+    bounding unknown-tool failures.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: .agentera/plan.yaml tasks 1-3; internal/app/agent_factory.go; internal/app/agent_prompt.go; internal/agent/runner.go;
+    internal/tools primitives; go-agent public RunRequest/Instructions and ToolDefinition contract; mage check
+  discovered: Read-only tool functions can execute directly inside go-agent for model context while the app still dispatches
+    the corresponding observed tool-call events for Aila-visible evidence. Edit and write must remain approval-gated placeholders
+    for model-visible execution. Unsupported tool handling had to return immediately after AgentTurnFailed so a following completed
+    event could not mask the bounded failure. Empty instruction paths need an explicit minimal orientation fallback so a runner
+    constructed without a prompt never sends raw empty instructions.
+  verified: mage fmt passed. go test ./internal/tools -count=1 passed. go test ./internal/app ./internal/agent ./internal/tools
+    -count=1 passed. go test ./internal/runtime -count=1 passed. go test ./internal/... -count=1 passed. First mage check attempt
+    timed out after 300s while still running; retry with 600s timeout passed with cmd/aila in 445.441s, 0 lint issues, and no
+    vulnerabilities. After final context.Build wiring, targeted app/agent/tools/runtime tests and go test ./internal/... -count=1
+    passed again; one mage check run hit a transient TestResearchCommandFoldsContextWithoutArtifactPTYSmoke cleanup timeout, the
+    focused PTY test then passed in 14.011s, and final mage check passed with cmd/aila in 458.656s, 0 lint issues, and no vulnerabilities.
+    Final handoff verification added Agent.Instructions and minimal fallback instruction coverage, marked the P0 TODOs resolved,
+    updated CHANGELOG.md, and passed mage fmt, go test ./internal/app ./internal/agent ./internal/tools -count=1, go test ./internal/runtime
+    -count=1, go test ./internal/... -count=1, git diff --check, and final mage check with cmd/aila in 400.284s, 0 lint issues, and
+    no vulnerabilities.
+  next: Human M57 dogfooding remains human-only and was not executed; a supported OpenAI-compatible model config can now attempt
+    real dogfood turns with all fixed tools visible.
+  context:
+    intent: Execute the active Agentera realisera task to wire system prompt assembly and all seven fixed built-in tools for
+      dogfood-capable agent turns.
+    constraints: Preserve statechart-MVU and IO-free runtime.Update; keep TUI presentation-only; fixed built-in tools only;
+      no dynamic/plugin surface; no push or commit; do not execute human M57 dogfooding.
+    unknowns: Rich session/artifact context assembly and human dogfood walkthrough remain deferred; fetch uses the production
+      default HTTP client when a real model invokes fetch.
+    scope: internal/app/agent_factory.go, internal/app/agent_prompt.go, internal/app/prompt.go, internal/app/shutdown.go,
+      internal/agent/runner.go, app/agent tests, app prompt tests, and Agentera metadata.
 - number: 250
   timestamp: 2026-05-18 10:09
   type: build

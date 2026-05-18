@@ -170,8 +170,56 @@ func TestGoAgentRunnerMapsProviderFailures(t *testing.T) {
 	}
 }
 
+func TestGoAgentRunnerSendsConfiguredInstructions(t *testing.T) {
+	t.Parallel()
+
+	model := &capturingModel{result: goagent.TurnResult{Message: goagent.Message{Role: goagent.RoleAssistant, Content: "ready"}, StopReason: goagent.StopComplete}}
+	runner, err := NewGoAgentRunnerWithInstructions(goagent.ModelFromSimple(model), "goagent", "fake-model", "configured system prompt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range stream {
+	}
+	if model.instructions != "configured system prompt" {
+		t.Fatalf("instructions = %q, want configured system prompt", model.instructions)
+	}
+}
+
+func TestGoAgentRunnerSendsMinimalInstructionsWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	model := &capturingModel{result: goagent.TurnResult{Message: goagent.Message{Role: goagent.RoleAssistant, Content: "ready"}, StopReason: goagent.StopComplete}}
+	runner, err := NewGoAgentRunner(goagent.ModelFromSimple(model), "goagent", "fake-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect", Instructions: "   "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range stream {
+	}
+	if !strings.Contains(model.instructions, "You are Aila") || !strings.Contains(model.instructions, "fixed built-in tools") {
+		t.Fatalf("minimal instructions = %q", model.instructions)
+	}
+}
+
 type readInput struct {
 	Path string `json:"path"`
+}
+
+type capturingModel struct {
+	result       goagent.TurnResult
+	instructions string
+}
+
+func (model *capturingModel) Turn(_ context.Context, request goagent.TurnRequest) (goagent.TurnResult, error) {
+	model.instructions = request.Instructions
+	return model.result, nil
 }
 
 type scriptedModel struct {

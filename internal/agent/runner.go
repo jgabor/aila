@@ -17,12 +17,13 @@ type Runner interface {
 
 // RunRequest is the Aila-owned request shape passed behind the agent adapter.
 type RunRequest struct {
-	Prompt    string
-	Provider  string
-	Model     string
-	RunID     string
-	MaxSteps  int
-	ToolNames []string
+	Prompt       string
+	Instructions string
+	Provider     string
+	Model        string
+	RunID        string
+	MaxSteps     int
+	ToolNames    []string
 }
 
 // FailureMode selects deterministic fake provider failures for tests and PTY smoke.
@@ -241,18 +242,25 @@ func withRequestIdentity(event Event, request RunRequest) Event {
 
 // GoAgentRunner adapts github.com/jgabor/go-agent behind Aila's event contract.
 type GoAgentRunner struct {
-	runner   goagent.Runner
-	provider string
-	model    string
+	runner       goagent.Runner
+	provider     string
+	model        string
+	instructions string
 }
 
 // NewGoAgentRunner constructs an adapter over the real go-agent Runner.
 func NewGoAgentRunner(model goagent.Model, provider string, modelID string, tools ...goagent.Tool) (*GoAgentRunner, error) {
-	wrapped, err := goagent.NewRunner(goagent.Agent{Model: model, Tools: append([]goagent.Tool(nil), tools...)})
+	return NewGoAgentRunnerWithInstructions(model, provider, modelID, "", tools...)
+}
+
+// NewGoAgentRunnerWithInstructions constructs an adapter with host-owned system instructions.
+func NewGoAgentRunnerWithInstructions(model goagent.Model, provider string, modelID string, instructions string, tools ...goagent.Tool) (*GoAgentRunner, error) {
+	instructions = normalizeInstructions(instructions)
+	wrapped, err := goagent.NewRunner(goagent.Agent{Instructions: instructions, Model: model, Tools: append([]goagent.Tool(nil), tools...)})
 	if err != nil {
 		return nil, err
 	}
-	return &GoAgentRunner{runner: wrapped, provider: boundedEventText(provider), model: boundedEventText(modelID)}, nil
+	return &GoAgentRunner{runner: wrapped, provider: boundedEventText(provider), model: boundedEventText(modelID), instructions: instructions}, nil
 }
 
 // Stream runs go-agent and maps its stream into Aila provider-style events.
@@ -260,11 +268,17 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 	if runner == nil || runner.runner == nil {
 		return nil, fmt.Errorf("agent runner is nil")
 	}
+	instructions := strings.TrimSpace(request.Instructions)
+	if instructions == "" {
+		instructions = runner.instructions
+	}
+	instructions = normalizeInstructions(instructions)
 	stream, err := runner.runner.Stream(ctx, goagent.RunRequest{
-		Input:     strings.TrimSpace(request.Prompt),
-		RunID:     strings.TrimSpace(request.RunID),
-		MaxSteps:  request.MaxSteps,
-		ToolNames: append([]string(nil), request.ToolNames...),
+		Input:        strings.TrimSpace(request.Prompt),
+		Instructions: instructions,
+		RunID:        strings.TrimSpace(request.RunID),
+		MaxSteps:     request.MaxSteps,
+		ToolNames:    append([]string(nil), request.ToolNames...),
 	})
 	if err != nil {
 		return nil, err
@@ -279,6 +293,14 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 		}
 	}()
 	return out, nil
+}
+
+func normalizeInstructions(instructions string) string {
+	instructions = strings.TrimSpace(instructions)
+	if instructions != "" {
+		return instructions
+	}
+	return "You are Aila, a terminal coding agent. Inspect before answering, respect the configured autonomy boundary, and use only the fixed built-in tools exposed for this run."
 }
 
 func mapGoAgentEvent(event goagent.Event, provider string, model string) []Event {

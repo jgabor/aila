@@ -126,6 +126,75 @@ func TestInteractiveAgentWritePromptShowsApprovalBeforeMutation(t *testing.T) {
 	}
 }
 
+func TestAgentPromptHandlesRegisteredInspectionToolsWithoutUnsupportedFailure(t *testing.T) {
+	t.Parallel()
+
+	for _, toolName := range []string{"bash", "grep", "find", "fetch"} {
+		toolName := toolName
+		t.Run(toolName, func(t *testing.T) {
+			t.Parallel()
+			runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), func([]runtime.Effect) []runtime.Message { return nil }, agent.FakeBuildRunner{Events: []agent.Event{
+				{Kind: agent.EventToolRequest, Sequence: 1, ToolCallID: "call-" + toolName, ToolName: toolName, Arguments: registeredAgentToolArguments(toolName)},
+				{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+			}}, "fake", "fake-build", []string{"read", "find", "grep", "bash", "fetch", "edit", "write"})
+
+			turn := runner.submitPrompt("inspect with " + toolName)
+
+			if runner.model.LastAgentFailure.Code == "unsupported_tool" || strings.Contains(turn.AssistantText, "unsupported_tool") {
+				t.Fatalf("registered tool failed as unsupported: turn=%+v model=%+v", turn, runner.model.LastAgentFailure)
+			}
+		})
+	}
+}
+
+func TestAgentPromptHandlesEditWithApprovalGate(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), runtime.Dispatch, agent.FakeBuildRunner{Events: []agent.Event{
+		{Kind: agent.EventToolRequest, Sequence: 1, ToolCallID: "call-edit-1", ToolName: "edit", Arguments: []agent.ToolArgument{{Name: "path", Value: "README.md"}, {Name: "target_version", Value: "abc"}, {Name: "old_text", Value: "old"}, {Name: "new_text", Value: "new"}, {Name: "expected_effect", Value: "update readme"}}},
+	}}, "fake", "fake-build", []string{"read", "find", "grep", "bash", "fetch", "edit", "write"})
+
+	turn := runner.submitPrompt("edit readme")
+
+	if turn.Approval == nil || turn.Approval.Path != "README.md" || turn.Approval.DefaultAction != string(runtime.ApprovalActionDeny) {
+		t.Fatalf("edit approval = %+v turn=%+v", turn.Approval, turn)
+	}
+	if runner.model.LastMutation.ToolName != "" {
+		t.Fatalf("edit executed mutation before approval: %+v", runner.model.LastMutation)
+	}
+}
+
+func TestAgentPromptUnknownToolEmitsBoundedUnsupportedFailure(t *testing.T) {
+	t.Parallel()
+
+	longName := strings.Repeat("x", 120)
+	runner := newInputRunnerWithDispatchAndAgentConfig(t.Context(), runtime.Dispatch, agent.FakeBuildRunner{Events: []agent.Event{
+		{Kind: agent.EventToolRequest, Sequence: 1, ToolCallID: "call-unknown", ToolName: longName},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}, "fake", "fake-build", []string{"read", "find", "grep", "bash", "fetch", "edit", "write"})
+
+	turn := runner.submitPrompt("unknown tool")
+
+	if runner.model.LastAgentFailure.Code != "unsupported_tool" || !strings.Contains(runner.model.LastAgentFailure.Message, "agent tool not available") || len([]rune(runner.model.LastAgentFailure.Message)) > 110 {
+		t.Fatalf("unsupported failure = %+v turn=%+v", runner.model.LastAgentFailure, turn)
+	}
+}
+
+func registeredAgentToolArguments(name string) []agent.ToolArgument {
+	switch name {
+	case "bash":
+		return []agent.ToolArgument{{Name: "argv", Value: "[git status]"}}
+	case "grep":
+		return []agent.ToolArgument{{Name: "query", Value: "Aila"}}
+	case "find":
+		return []agent.ToolArgument{{Name: "pattern", Value: "*.go"}}
+	case "fetch":
+		return []agent.ToolArgument{{Name: "url", Value: "https://example.com"}}
+	default:
+		return nil
+	}
+}
+
 func TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect(t *testing.T) {
 	workspace := t.TempDir()
 	writeAppTestFile(t, workspace, "README.md", "# Aila\n")

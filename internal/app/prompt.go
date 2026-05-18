@@ -129,6 +129,9 @@ func (runner *inputRunner) decideApproval(decision tui.ApprovalDecisionInput) tu
 			return buildAgentEvidenceTurn(turn)
 		}
 		mutationTurn := runner.proposeWriteTool(request)
+		if request.ToolName == runtime.MutationToolEdit {
+			mutationTurn = runner.proposeEditTool(request)
+		}
 		mutationTurn.ApprovalDecision = turn.ApprovalDecision
 		return buildAgentEvidenceTurn(mutationTurn)
 	}

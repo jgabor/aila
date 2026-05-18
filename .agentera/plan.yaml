@@ -1,299 +1,114 @@
 header:
   level: full
   created: '2026-05-18'
-  status: complete
-  title: 'Fix Aila dogfood blockers for real TUI agent execution'
+  status: active
   reviewed: '2026-05-18'
-  completed: '2026-05-18'
-  critic_issues: Aila cannot yet dogfood itself because the production TUI chat path still reaches fake agent behavior,
-    runtime lacks real agent lifecycle handling, production config and credentials are not connected to GoAgentRunner,
-    fake prompt effects pollute agent-mode transcripts, completion does not reliably return runtime status to idle, and
-    a PTY smoke-test timeout blocks mage check.
-  previous_plan_archived: .agentera/archive/plan-2026-05-17-m56.yaml
-what: Prepare Aila for human M57 dogfooding by fixing the six blockers that prevent a production TUI user from typing
-  in chat, reaching a real model runner, executing fixed built-in tools through the existing permission/effect paths,
-  and seeing completion return to idle with mage check passing.
-why: M56 completed orchestration and the roadmap now points to human-only M57. Before a human can dogfood Aila on Aila,
-  the existing agent, runtime, app, tool, and TUI seams must be wired end-to-end for real model execution instead of fake
-  transcript behavior.
-constraints: Do not execute M57 dogfooding. Preserve statechart-MVU and explicit effect boundaries. Keep runtime.Update
-  deterministic and IO-free. Keep TUI presentation-only. Use Aila's fixed built-in tools only; do not add plugins, MCP,
-  dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broader framework scope. Fake runners
-  may remain for tests and deterministic fixtures but must not be the unconditional production path. Do not push.
-source_anchors:
-- AGENTS.md:1-178
-- ROADMAP.md:22-28
-- ROADMAP.md:2137-2175
-- ARCHITECTURE.md
-- docs/workflow-architecture.md
-- docs/tui-testing.md
-- internal/app/shutdown.go:84-86
-- internal/app/agent_prompt.go:56-107
-- internal/runtime/runtime.go
-- internal/agent/runner.go
-- internal/agent/credential.go
-- internal/tools
-- cmd/aila/pty_test.go
-verification_commands:
-- mage fmt
-- go test ./internal/app ./internal/agent -count=1
-- go test ./internal/runtime -count=1
-- go test ./internal/tui ./internal/app ./internal/runtime -count=1
-- go test ./internal/app ./internal/agent ./internal/tools -count=1
-- go test ./internal/runtime ./internal/agent -count=1
-- go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1
-- go test ./internal/... -count=1
-- go test ./cmd/aila -count=1
-- mage check
-- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
-- git diff --check
+  critic_issues: '3 found, 0 addressed, 3 dismissed'
+  revised: Initial write with self-review. Three non-blocking concerns noted in surprises.
+  title: 'Plan: Wire system prompt assembly and all 7 fixed built-in tools for dogfood-capable agent turns'
+
+what: Wire go-agent Instructions assembly that feeds project context, tool definitions, and
+  phase/autonomy boundaries to the model. Register the remaining 5 tools (bash, grep, find, edit,
+  fetch) with complete go-agent ToolDefinitions. Replace the hardcoded 2-tool dispatch switch in
+  submitAgentPrompt with a tool-to-effect mapping so every registered tool call flows through the
+  existing guarded effect/permission paths.
+why: The M56 plan wired the basic agent loop (real runners, agent lifecycle messages, no fake
+  transcript pollution) but the model receives zero guidance and can only call 2 tools. TODO.md P0
+  lists three 0.0.1 items that are genuinely new work not covered by M56. Without this, Aila cannot
+  hold a real coding session even though the infrastructure is ready.
+constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Use
+  Aila's fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces,
+  workflow DSLs, hosted control planes, or broader framework scope. Fake runners remain for tests
+  and fixtures but must not be the unconditional production path. Do not push. Do not execute human
+  M57 dogfooding.
+design: >
+  Keep the wiring narrow and additive. internal/app/agent_factory.go owns tool registration and
+  instructions assembly (newGoAgentBuildTools grows from 2 to 7 tools, a new instructions builder
+  produces the go-agent Instructions string from tools plus workspace plus config state).
+  internal/agent/runner.go already accepts Instructions through Agent.Instructions and
+  RunRequest.Instructions — the Aila adapter feeds instructions from the builder.
+  internal/app/agent_prompt.go replaces the switch on requested.Request.Name with an
+  agentToolDispatch function that maps tool name to the appropriate runtime effect (ReadToolEffect,
+  SearchToolEffect for grep and find, BashToolEffect, FetchToolEffect, EditToolEffect) and preserves
+  the existing write approval path. Go-agent tool Functions execute read-only tools directly for
+  model context; mutation tools return placeholders pending Aila approval.
+overall_acceptance: >
+  The model receives a system prompt with tool definitions, behavioral instructions, and project
+  context before processing user input. All 7 fixed built-in tools are registered with go-agent and
+  available for model calls. Any registered tool call flows through the runtime effect dispatch loop
+  instead of hitting an unsupported-tool error. Write approval gating is preserved. Runtime.Update
+  remains deterministic and IO-free. mage check passes.
+surprises: >
+  Go-agent can own direct execution of read-only tool functions while the app still maps provider
+  tool-call events back through Aila runtime effects for visible evidence; mutation tools therefore
+  return model-visible approval placeholders and app-side edit/write calls still stop for approval.
+  Unknown tool failures needed an immediate bounded return instead of continuing to a later completed
+  event, otherwise the terminal success event masked LastAgentFailure. The full mage check passed on
+  retry after the first 300s attempt timed out while cmd/aila tests were still running.
+previous_plan_archived: .agentera/archive/plan-2026-05-18-m56-dogfood-blockers.yaml
+
 scope:
   included:
-  - Document the production agent-mode path and boundaries needed for real TUI chat execution.
-  - Add regression coverage for production runner selection, config and credential resolution, fixed built-in tool wiring,
-    runtime agent message handling, prompt pollution, completion routing, and the PTY timeout.
-  - Replace unconditional production FakeBuildRunner construction with a config/credential-backed GoAgentRunner factory while
-    preserving injectable fake runners for tests and deterministic fixtures.
-  - Route agent assistant deltas, tool requests, completion, and failure through deterministic runtime messages/effects.
-  - Ensure submitAgentPrompt does not emit FakePromptEffect in agent mode and does feed AgentTurnCompleted through runtime.
-  - Repair or intentionally bound/skip TestResearchCommandFoldsContextWithoutArtifactPTYSmoke so mage check completes.
+  - Register the remaining 5 go-agent tools (bash, grep, find, edit, fetch) in agent_factory.go
+    with complete ToolDefinitions including schemas, safety flags, constraints, and function
+    adapters over the existing internal/tools primitives.
+  - Build and send Instructions to go-agent via Agent.Instructions or RunRequest.Instructions,
+    assembling tool definitions, behavioral instructions, workspace path, project summary, current
+    workflow phase, and autonomy boundary.
+  - Replace the hardcoded read/write dispatch switch in submitAgentPrompt with a tool-to-effect
+    mapping that routes any registered tool call through runtime effect dispatch, preserving write
+    approval gating and read display rendering.
+  - Add regression coverage for tool registration, instructions assembly, and generic dispatch.
   excluded:
-  - Human execution of M57 dogfooding, live dogfood walkthrough claims, pushes, plugin hosts, MCP servers, dynamic tool loading,
-    model marketplaces, hosted control planes, workflow DSLs, and TUI-owned execution or phase transitions.
+  - Stale-context checks. Utility model scheduling. Multi-turn conversation memory.
+    Capability-to-model integration. Workflow phase-aware tool selection. Git awareness. Session
+    persistence during interactive runs. Fake event cleanup. Test suite optimization. Any human M57
+    dogfooding execution.
   deferred:
-  - Human M57 dogfood task, visual review unless layout or interaction changes require it, richer provider UX beyond the minimum
-    actionable diagnostics needed for real runner construction, and any product decision to broaden Aila beyond fixed built-ins.
-design: Keep the final wiring narrow. internal/app owns production runner construction and prompt orchestration. internal/agent
-  adapts config, credentials, go-agent, and fixed Aila tool definitions. internal/runtime owns typed lifecycle state transitions
-  for agent deltas, tool requests, completion, and failure without performing IO. Existing effects, permission, tools, history,
-  state, and TUI projection paths remain the route for execution and visibility. internal/tui remains a display/input layer.
+  - Richer prompt assembly from session transcripts and artifact state (current scope is minimal
+    viable instructions). Human M57 dogfood walkthrough. Visual review unless layout or interaction
+    changes require it.
+
 tasks:
 - number: 1
-  name: Document production agent-mode intent and boundaries
+  name: Register remaining 5 go-agent tools with complete definitions
   depends_on: []
-  status: complete
+  status: completed
   acceptance:
-  - 'GIVEN the source docs are updated WHEN implementation starts THEN the intended production path is explicit: TUI chat to app/runtime, real go-agent runner, fixed built-in tools, runtime lifecycle updates, TUI projection.'
-  - GIVEN fake runner behavior is described WHEN docs are reviewed THEN fake runners are limited to tests, fixtures, or explicit
-    deterministic development paths rather than unconditional production construction.
-  - GIVEN scope boundaries are reviewed WHEN the docs are inspected THEN plugin, MCP, dynamic tool, marketplace, hosted control
-    plane, and M57 dogfood execution remain excluded.
-  validation:
-  - Documentation diff records the real agent-mode flow and exclusions.
-  - mage check passes after implementation.
-  evidence:
-  - README.md documents production chat turns using configured providers, bounded diagnostics instead of silent fake fallback,
-    deterministic fake runners only for tests/fixtures/development smoke paths, and fixed model-visible tool definitions flowing
-    through app/runtime boundaries.
-  - mage check passed.
+  - 'GIVEN newGoAgentBuildTools runs WHEN the factory builds tools THEN bash, grep, find, edit,
+    and fetch are registered alongside read and write, each with a complete goagent.ToolDefinition
+    including name, description, schema, safety flags, constraints, and a Function adapter.'
+  - GIVEN go-agent tool definitions are created WHEN the factory runs THEN read-only tools (bash
+    inspection, grep, find, fetch) execute directly through internal/tools primitives and return
+    results to the model; mutation tools (bash execution, edit, write) return placeholders pending
+    Aila approval.
+  - GIVEN the go-agent tool set WHEN constructed THEN it contains exactly 7 fixed built-in tools
+    and no dynamic or plugin-loaded tools.
 - number: 2
-  name: Specify production runner selection and config resolution regressions
+  name: Build and send system prompt through go-agent Instructions
   depends_on:
   - 1
-  status: complete
+  status: completed
   acceptance:
-  - GIVEN current production app construction WHEN tests exercise the factory path THEN they fail against the unconditional
-    FakeBuildRunner behavior in internal/app/shutdown.go.
-  - GIVEN valid config and credentials WHEN production runner construction runs THEN tests expect a real GoAgentRunner with
-    the configured provider/model and fixed built-in tool definitions.
-  - GIVEN missing or invalid credentials WHEN production runner construction runs THEN tests expect bounded actionable diagnostics
-    and no silent fake fallback.
-  - GIVEN test or fixture mode is selected WHEN construction runs THEN fake runner injection remains possible and explicit.
-  validation:
-  - go test ./internal/app ./internal/agent -count=1
-  - Evidence includes failing tests before implementation and passing tests after implementation.
-  evidence:
-  - internal/app/agent_factory_test.go covers real GoAgentRunner construction for custom and OpenCode Go OpenAI-compatible configs,
-    missing-credential diagnostics without fake fallback, unsupported adapter diagnostics without fake fallback, and explicit fake
-    runner selection.
-  - go test ./internal/app ./internal/agent -count=1 passed.
+  - 'GIVEN the agent runner is constructed WHEN go-agent receives Instructions THEN the model sees
+    tool definitions, behavioral instructions, workspace path, project phase, and autonomy
+    boundary.'
+  - GIVEN instructions are assembled WHEN the builder runs THEN it uses existing context.Build()
+    structures to produce a bounded Instructions string with source refs preserved for compaction.
+  - GIVEN instructions are missing or empty WHEN the runner streams THEN the model still receives
+    a minimal orientation message rather than raw empty text.
 - number: 3
-  name: Specify runtime agent lifecycle regressions
+  name: Replace hardcoded tool dispatch with generic tool-to-effect mapping
   depends_on:
   - 1
-  status: complete
+  status: completed
   acceptance:
-  - GIVEN AgentAssistantDelta is applied through runtime.Update WHEN a stream emits assistant text THEN runtime state records
-    or updates assistant output deterministically.
-  - GIVEN AgentToolRequested is applied through runtime.Update WHEN the model requests a tool THEN runtime records typed tool
-    request state or emits explicit effects without performing IO in Update.
-  - GIVEN AgentTurnCompleted is applied through runtime.Update WHEN streaming completes THEN runtime status returns to idle
-    or the expected non-running state.
-  - GIVEN AgentTurnFailed is applied through runtime.Update WHEN streaming fails THEN runtime status exits running state and
-    records failure visibility.
-  validation:
-  - go test ./internal/runtime -count=1
-  - Evidence includes missing-handler failures before implementation and passing lifecycle tests after implementation.
-  evidence:
-  - internal/runtime already had deterministic AgentAssistantDelta, AgentToolRequested, AgentTurnCompleted, and AgentTurnFailed
-    handlers and regression tests; new AgentPromptSubmitted coverage proves agent-mode start emits AgentPromptEffect instead of
-    FakePromptEffect and queues while active.
-  - go test ./internal/runtime -count=1 passed.
-- number: 4
-  name: Specify prompt submission regressions against fake transcript pollution
-  depends_on:
-  - 1
-  - 3
-  status: complete
-  acceptance:
-  - GIVEN agent mode prompt submission WHEN submitAgentPrompt starts a turn THEN it does not emit FakePromptEffect through
-    runtime.Update(PromptSubmitted{}).
-  - GIVEN assistant output appears in agent mode WHEN the transcript is inspected THEN it originates from agent events rather
-    than fake prompt generation.
-  - GIVEN fake/test mode prompt submission WHEN deterministic fixtures run THEN fake prompt behavior remains available only
-    through the intended explicit fake path.
-  validation:
-  - go test ./internal/tui ./internal/app ./internal/runtime -count=1
-  - Evidence includes a regression test that fails with current fake transcript pollution and passes after the fix.
-  evidence:
-  - internal/app/agent_prompt.go now starts agent turns through runtime.AgentPromptSubmitted and runtime.AgentPromptEffect, not
-    runtime.PromptSubmitted/FakePromptEffect.
-  - internal/app/prompt_test.go asserts agent-mode transcripts do not contain Fake Aila response text and that completion reaches
-    runtime.
-  - go test ./internal/tui ./internal/app ./internal/runtime -count=1 passed.
-- number: 5
-  name: Implement production GoAgentRunner factory and fixed tool wiring
-  depends_on:
-  - 1
-  - 2
-  status: complete
-  acceptance:
-  - GIVEN production app construction runs WHEN config and credentials are valid THEN internal/app no longer unconditionally
-    constructs agent.FakeBuildRunner and instead constructs a real GoAgentRunner.
-  - GIVEN config and credentials are missing or invalid WHEN construction runs THEN the user receives clear bounded diagnostics
-    and no silent fake fallback is used.
-  - GIVEN the real runner is created WHEN go-agent requires tool definitions THEN Aila passes only fixed built-in tools through
-    the adapter.
-  - GIVEN tests and fixtures need deterministic behavior WHEN they construct input runners THEN fake runners remain injectable
-    or explicitly gated.
-  validation:
-  - go test ./internal/app ./internal/agent ./internal/tools -count=1
-  - mage check
-  evidence:
-  - internal/app/agent_factory.go constructs real GoAgentRunner for supported OpenAI-compatible config and credentials, defaults
-    opencode-go to https://opencode.ai/zen/go/v1, returns bounded UnavailableRunner diagnostics for missing credentials, unsupported
-    adapters, and unwired device-code providers, and defines fixed read/write go-agent tools.
-  - internal/app/shutdown.go no longer unconditionally constructs agent.FakeBuildRunner; fake build runner requires AILA_AGENT_RUNNER=fake.
-  - go test ./internal/app ./internal/agent ./internal/tools -count=1 and mage check passed.
-- number: 6
-  name: Implement runtime handling for agent stream tool completion and failure messages
-  depends_on:
-  - 3
-  - 5
-  status: complete
-  acceptance:
-  - GIVEN AgentAssistantDelta messages arrive WHEN runtime.Update handles them THEN assistant stream state is visible without
-    direct runner or TUI mutation.
-  - GIVEN AgentToolRequested messages arrive WHEN runtime.Update handles them THEN tool execution remains represented as typed
-    effects or state subject to existing permission and effect dispatch paths.
-  - GIVEN AgentTurnCompleted arrives WHEN runtime.Update handles it THEN status reliably exits running state and returns idle
-    where appropriate.
-  - GIVEN AgentTurnFailed arrives WHEN runtime.Update handles it THEN failure is visible and status exits running state.
-  - GIVEN runtime.Update is reviewed WHEN implementation is complete THEN it remains deterministic and does not perform filesystem,
-    shell, network, model, persistence, or tool IO.
-  validation:
-  - go test ./internal/runtime ./internal/agent -count=1
-  - mage check
-  evidence:
-  - runtime.Update lifecycle handlers stayed IO-free and deterministic; AgentPromptEffect only requests provider-backed handling
-    outside Update.
-  - internal/agent.UnavailableRunner reports setup failures as provider events without fake output, and GoAgentRunner remains
-    the real go-agent adapter.
-  - go test ./internal/runtime ./internal/agent -count=1 and mage check passed.
-- number: 7
-  name: Route TUI app prompt submission through real agent lifecycle
-  depends_on:
-  - 3
-  - 4
-  - 5
-  - 6
-  status: complete
-  acceptance:
-  - GIVEN a user submits chat in the TUI in agent mode WHEN the app starts a turn THEN the prompt reaches the real runner path
-    instead of FakePromptEffect.
-  - GIVEN the model streams assistant output or requests tools WHEN events are adapted THEN the app feeds typed agent messages
-    through runtime and dispatches tool effects through existing guarded paths.
-  - GIVEN streaming completes WHEN the app finishes the turn THEN AgentTurnCompleted is fed through runtime and status returns idle.
-  - GIVEN the TUI renders the session WHEN the lifecycle changes THEN it remains presentation-only and does not own tool execution,
-    prompt construction, persistence, or workflow phase transitions.
-  validation:
-  - go test ./internal/tui ./internal/app ./internal/runtime -count=1
-  - go test ./internal/... -count=1
-  - mage check
-  evidence:
-  - internal/app/agent_prompt.go feeds adapted agent events through runtime, dispatches read evidence through existing guarded
-    effects, proposes write approval without direct mutation, cancels the stream on approval handoff, and relies on AgentTurnCompleted
-    for idle status.
-  - go test ./internal/tui ./internal/app ./internal/runtime -count=1, go test ./internal/... -count=1, and mage check passed.
-- number: 8
-  name: Repair bounded PTY smoke validation
-  depends_on:
-  - 1
-  - 7
-  status: complete
-  acceptance:
-  - GIVEN TestResearchCommandFoldsContextWithoutArtifactPTYSmoke is run WHEN the test executes THEN it passes, fails quickly
-    with a useful cause, or skips with an explicit valid reason instead of timing out.
-  - GIVEN the timeout root cause is diagnosed WHEN the fix is applied THEN it does not mask a real runtime lifecycle deadlock
-    introduced or exposed by agent-mode wiring.
-  - GIVEN docs/tui-testing.md guidance is applied WHEN PTY coverage is reviewed THEN deterministic fixtures and semantic snapshots
-    remain primary and PTY smoke coverage stays bounded to real terminal behavior.
-  - GIVEN canonical validation runs WHEN this task is complete THEN mage check completes successfully.
-  validation:
-  - go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1
-  - go test ./cmd/aila -count=1
-  - mage check
-  evidence:
-  - TestResearchCommandFoldsContextWithoutArtifactPTYSmoke passed in 8.690s.
-  - cmd/aila orchestration PTY cleanup was repaired by draining remaining terminal output before /quit, matching neighboring
-    capability smoke tests and avoiding PTY output backpressure.
-  - go test ./cmd/aila -count=1 passed in 401.596s; mage check passed with cmd/aila in 406.391s.
-overall_acceptance:
-- A production TUI user can submit a chat prompt that reaches the real GoAgentRunner path when config and credentials are valid.
-- Production app construction no longer always uses agent.FakeBuildRunner.
-- Production config and credential resolution are wired into runner construction and fail with actionable diagnostics when invalid.
-- The real runner receives Aila's fixed built-in tool definitions as needed, without plugins, MCP, or dynamic tool loading.
-- runtime.Update handles AgentAssistantDelta, AgentToolRequested, AgentTurnCompleted, and AgentTurnFailed deterministically.
-- submitAgentPrompt no longer emits FakePromptEffect in agent mode, and assistant transcript output comes from agent events.
-- Streaming completion feeds AgentTurnCompleted through runtime and returns status idle where appropriate.
-- TestResearchCommandFoldsContextWithoutArtifactPTYSmoke no longer times out, and mage check passes.
-- The work prepares Aila for a later human M57 dogfood walkthrough but does not claim or execute that milestone.
-surprises:
-- The first two Planera subagent attempts stalled because they tried to delegate planning; the final draft was produced with an
-  explicit no-subagent/no-delegation constraint.
-- The current M56 plan was complete and has been archived before replacement to preserve closeout evidence.
-- go-agent's exact tool registration API may require adapter changes; keep those changes narrow and inside internal/agent and
-  fixed internal/tools contracts.
-- The PTY timeout may reveal a broader event-loop lifecycle issue; fix the lifecycle if so rather than weakening the smoke test.
-- Current runtime agent lifecycle handlers already existed; the missing runtime piece was a non-fake agent prompt start effect.
-- The orchestrate PTY smoke had the same terminal-output backpressure pattern as neighboring capability PTY tests and needed
-  bounded output draining before sending /quit.
-self_review:
-- Blocker 1 is covered by tasks 2 and 5.
-- Blocker 2 is covered by tasks 3 and 6.
-- Blocker 3 is covered by tasks 2 and 5.
-- Blocker 4 is covered by tasks 4 and 7.
-- Blocker 5 is covered by tasks 3, 6, and 7.
-- Blocker 6 is covered by task 8.
-- Fixed built-in tool registry wiring is covered by tasks 1, 2, 5, and 7.
-- 'The plan follows DTC: task 1 documents intent, tasks 2-4 specify regressions, tasks 5-8 implement and validate.'
-- The plan does not execute the human-only M57 dogfood milestone.
-handoff:
-  suggested: ⧉ realisera
-  rationale: The plan is one focused implementation stream with ordered tests, code changes, and validation. Orkestrera is unnecessary
-    unless the user wants multi-cycle coordination across multiple agents.
-closeout_summary: Real TUI agent execution wiring is complete for supported OpenAI-compatible configs. Production startup no longer
-  silently falls back to FakeBuildRunner, agent-mode prompt start no longer emits FakePromptEffect, fixed read/write tool definitions
-  are registered with go-agent, provider setup failures surface as bounded diagnostics, runtime completion returns idle, and the
-  PTY smoke timeout/backpressure issue no longer blocks mage check.
-validation_evidence:
-- mage fmt passed.
-- go test ./internal/runtime -count=1 passed.
-- go test ./internal/app ./internal/agent ./internal/tools -count=1 passed.
-- go test ./internal/tui ./internal/app ./internal/runtime -count=1 passed.
-- go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1 passed in 8.690s.
-- go test ./internal/... -count=1 passed.
-- go test ./cmd/aila -count=1 passed in 401.596s.
-- mage check passed with cmd/aila in 406.391s, 0 lint issues, and no vulnerabilities.
-- git diff --check passed.
+  - 'GIVEN any registered go-agent tool is requested WHEN submitAgentPrompt receives the tool call
+    THEN it maps to the matching runtime effect via agentToolDispatch instead of hitting the
+    unsupported-tool error path.'
+  - GIVEN a write tool is requested WHEN submitAgentPrompt maps it THEN the stream is cancelled
+    and an approval proposal is created, matching the existing write-gating behavior.
+  - GIVEN a read tool is requested WHEN submitAgentPrompt maps it THEN the read view is rendered
+    through effect dispatch, matching the existing read display behavior.
+  - GIVEN an unregistered or unknown tool is requested WHEN submitAgentPrompt maps it THEN an
+    AgentTurnFailed with an unsupported-tool code is emitted and runtime status exits running state.
