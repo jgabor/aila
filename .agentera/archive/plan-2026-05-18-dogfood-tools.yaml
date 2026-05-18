@@ -1,0 +1,114 @@
+header:
+  level: full
+  created: '2026-05-18'
+  status: complete
+  reviewed: '2026-05-18'
+  critic_issues: '3 found, 0 addressed, 3 dismissed'
+  revised: Initial write with self-review. Three non-blocking concerns noted in surprises.
+  title: 'Plan: Wire system prompt assembly and all 7 fixed built-in tools for dogfood-capable agent turns'
+
+what: Wire go-agent Instructions assembly that feeds project context, tool definitions, and
+  phase/autonomy boundaries to the model. Register the remaining 5 tools (bash, grep, find, edit,
+  fetch) with complete go-agent ToolDefinitions. Replace the hardcoded 2-tool dispatch switch in
+  submitAgentPrompt with a tool-to-effect mapping so every registered tool call flows through the
+  existing guarded effect/permission paths.
+why: The M56 plan wired the basic agent loop (real runners, agent lifecycle messages, no fake
+  transcript pollution) but the model receives zero guidance and can only call 2 tools. TODO.md P0
+  lists three 0.0.1 items that are genuinely new work not covered by M56. Without this, Aila cannot
+  hold a real coding session even though the infrastructure is ready.
+constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Use
+  Aila's fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces,
+  workflow DSLs, hosted control planes, or broader framework scope. Fake runners remain for tests
+  and fixtures but must not be the unconditional production path. Do not push. Do not execute human
+  M57 dogfooding.
+design: >
+  Keep the wiring narrow and additive. internal/app/agent_factory.go owns tool registration and
+  instructions assembly (newGoAgentBuildTools grows from 2 to 7 tools, a new instructions builder
+  produces the go-agent Instructions string from tools plus workspace plus config state).
+  internal/agent/runner.go already accepts Instructions through Agent.Instructions and
+  RunRequest.Instructions — the Aila adapter feeds instructions from the builder.
+  internal/app/agent_prompt.go replaces the switch on requested.Request.Name with an
+  agentToolDispatch function that maps tool name to the appropriate runtime effect (ReadToolEffect,
+  SearchToolEffect for grep and find, BashToolEffect, FetchToolEffect, EditToolEffect) and preserves
+  the existing write approval path. Go-agent tool Functions execute read-only tools directly for
+  model context; mutation tools return placeholders pending Aila approval.
+overall_acceptance: >
+  The model receives a system prompt with tool definitions, behavioral instructions, and project
+  context before processing user input. All 7 fixed built-in tools are registered with go-agent and
+  available for model calls. Any registered tool call flows through the runtime effect dispatch loop
+  instead of hitting an unsupported-tool error. Write approval gating is preserved. Runtime.Update
+  remains deterministic and IO-free. mage check passes.
+surprises: >
+  Go-agent can own direct execution of read-only tool functions while the app still maps provider
+  tool-call events back through Aila runtime effects for visible evidence; mutation tools therefore
+  return model-visible approval placeholders and app-side edit/write calls still stop for approval.
+  Unknown tool failures needed an immediate bounded return instead of continuing to a later completed
+  event, otherwise the terminal success event masked LastAgentFailure. The full mage check passed on
+  retry after the first 300s attempt timed out while cmd/aila tests were still running.
+previous_plan_archived: .agentera/archive/plan-2026-05-18-m56-dogfood-blockers.yaml
+
+scope:
+  included:
+  - Register the remaining 5 go-agent tools (bash, grep, find, edit, fetch) in agent_factory.go
+    with complete ToolDefinitions including schemas, safety flags, constraints, and function
+    adapters over the existing internal/tools primitives.
+  - Build and send Instructions to go-agent via Agent.Instructions or RunRequest.Instructions,
+    assembling tool definitions, behavioral instructions, workspace path, project summary, current
+    workflow phase, and autonomy boundary.
+  - Replace the hardcoded read/write dispatch switch in submitAgentPrompt with a tool-to-effect
+    mapping that routes any registered tool call through runtime effect dispatch, preserving write
+    approval gating and read display rendering.
+  - Add regression coverage for tool registration, instructions assembly, and generic dispatch.
+  excluded:
+  - Stale-context checks. Utility model scheduling. Multi-turn conversation memory.
+    Capability-to-model integration. Workflow phase-aware tool selection. Git awareness. Session
+    persistence during interactive runs. Fake event cleanup. Test suite optimization. Any human M57
+    dogfooding execution.
+  deferred:
+  - Richer prompt assembly from session transcripts and artifact state (current scope is minimal
+    viable instructions). Human M57 dogfood walkthrough. Visual review unless layout or interaction
+    changes require it.
+
+tasks:
+- number: 1
+  name: Register remaining 5 go-agent tools with complete definitions
+  depends_on: []
+  status: completed
+  acceptance:
+  - 'GIVEN newGoAgentBuildTools runs WHEN the factory builds tools THEN bash, grep, find, edit,
+    and fetch are registered alongside read and write, each with a complete goagent.ToolDefinition
+    including name, description, schema, safety flags, constraints, and a Function adapter.'
+  - GIVEN go-agent tool definitions are created WHEN the factory runs THEN read-only tools (bash
+    inspection, grep, find, fetch) execute directly through internal/tools primitives and return
+    results to the model; mutation tools (bash execution, edit, write) return placeholders pending
+    Aila approval.
+  - GIVEN the go-agent tool set WHEN constructed THEN it contains exactly 7 fixed built-in tools
+    and no dynamic or plugin-loaded tools.
+- number: 2
+  name: Build and send system prompt through go-agent Instructions
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - 'GIVEN the agent runner is constructed WHEN go-agent receives Instructions THEN the model sees
+    tool definitions, behavioral instructions, workspace path, project phase, and autonomy
+    boundary.'
+  - GIVEN instructions are assembled WHEN the builder runs THEN it uses existing context.Build()
+    structures to produce a bounded Instructions string with source refs preserved for compaction.
+  - GIVEN instructions are missing or empty WHEN the runner streams THEN the model still receives
+    a minimal orientation message rather than raw empty text.
+- number: 3
+  name: Replace hardcoded tool dispatch with generic tool-to-effect mapping
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - 'GIVEN any registered go-agent tool is requested WHEN submitAgentPrompt receives the tool call
+    THEN it maps to the matching runtime effect via agentToolDispatch instead of hitting the
+    unsupported-tool error path.'
+  - GIVEN a write tool is requested WHEN submitAgentPrompt maps it THEN the stream is cancelled
+    and an approval proposal is created, matching the existing write-gating behavior.
+  - GIVEN a read tool is requested WHEN submitAgentPrompt maps it THEN the read view is rendered
+    through effect dispatch, matching the existing read display behavior.
+  - GIVEN an unregistered or unknown tool is requested WHEN submitAgentPrompt maps it THEN an
+    AgentTurnFailed with an unsupported-tool code is emitted and runtime status exits running state.

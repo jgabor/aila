@@ -12,6 +12,8 @@ import (
 	"github.com/jgabor/aila/internal/workflow"
 )
 
+const defaultInteractiveAgentMaxSteps = 16
+
 func (runner *inputRunner) applyAgentState(turn *tui.TranscriptTurn) {
 	if runner.model.AgentProvider != "" {
 		turn.AssistantSource = runner.model.AgentProvider
@@ -31,6 +33,11 @@ type agentPromptRunner struct {
 	model        string
 	toolNames    []string
 	instructions string
+	maxSteps     int
+}
+
+type agentPromptOptions struct {
+	MaxSteps int
 }
 
 func newInputRunnerWithDispatchAndAgent(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner) *inputRunner {
@@ -42,6 +49,10 @@ func newInputRunnerWithDispatchAndAgentConfig(ctx context.Context, dispatch runt
 }
 
 func newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner, provider string, model string, toolNames []string, instructions string) *inputRunner {
+	return newInputRunnerWithDispatchAndAgentOptions(ctx, dispatch, agentRunner, provider, model, toolNames, instructions, agentPromptOptions{})
+}
+
+func newInputRunnerWithDispatchAndAgentOptions(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner, provider string, model string, toolNames []string, instructions string, options agentPromptOptions) *inputRunner {
 	base := newInputRunnerWithDispatch(dispatch)
 	if ctx == nil {
 		ctx = context.Background()
@@ -54,9 +65,17 @@ func newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx context.Context
 			model:        defaultString(model, "fake-readonly"),
 			toolNames:    append([]string(nil), toolNames...),
 			instructions: strings.TrimSpace(instructions),
+			maxSteps:     normalizedAgentMaxSteps(options.MaxSteps),
 		}
 	}
 	return base
+}
+
+func normalizedAgentMaxSteps(maxSteps int) int {
+	if maxSteps > 0 {
+		return maxSteps
+	}
+	return defaultInteractiveAgentMaxSteps
 }
 
 func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
@@ -84,7 +103,7 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		Provider:     runner.agent.provider,
 		Model:        runner.agent.model,
 		RunID:        operation.ID,
-		MaxSteps:     4,
+		MaxSteps:     runner.agent.maxSteps,
 		ToolNames:    append([]string(nil), agentEffect.ToolNames...),
 	})
 	if err != nil {

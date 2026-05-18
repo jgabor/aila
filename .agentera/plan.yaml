@@ -3,112 +3,94 @@ header:
   created: '2026-05-18'
   status: active
   reviewed: '2026-05-18'
-  critic_issues: '3 found, 0 addressed, 3 dismissed'
-  revised: Initial write with self-review. Three non-blocking concerns noted in surprises.
-  title: 'Plan: Wire system prompt assembly and all 7 fixed built-in tools for dogfood-capable agent turns'
+  critic_issues: '3 found, 3 addressed, 0 dismissed'
+  revised: Scoped continuation to step-limit recovery, made the step budget internally adjustable only, forbade public config exposure, and kept queued input/interrupt work out of this plan.
+  title: 'Plan: Make agent step budget internally adjustable and resumable after limits'
 
-what: Wire go-agent Instructions assembly that feeds project context, tool definitions, and
-  phase/autonomy boundaries to the model. Register the remaining 5 tools (bash, grep, find, edit,
-  fetch) with complete go-agent ToolDefinitions. Replace the hardcoded 2-tool dispatch switch in
-  submitAgentPrompt with a tool-to-effect mapping so every registered tool call flows through the
-  existing guarded effect/permission paths.
-why: The M56 plan wired the basic agent loop (real runners, agent lifecycle messages, no fake
-  transcript pollution) but the model receives zero guidance and can only call 2 tools. TODO.md P0
-  lists three 0.0.1 items that are genuinely new work not covered by M56. Without this, Aila cannot
-  hold a real coding session even though the infrastructure is ready.
-constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Use
-  Aila's fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces,
-  workflow DSLs, hosted control planes, or broader framework scope. Fake runners remain for tests
-  and fixtures but must not be the unconditional production path. Do not push. Do not execute human
-  M57 dogfooding.
+what: Teach Aila's interactive agent runs to use an internally adjustable step budget instead of the hardcoded MaxSteps value of 4, and make a step-limit stop a resumable conversational state rather than a terminal-looking failure or silent dead end.
+why: The current agent loop is dogfood-capable enough to call tools, but long tool-using turns are artificially clipped by an app-local literal. Maintainers need a narrow seam to tune that budget without exposing another user setting; users need clear feedback when the budget is exhausted and a way to continue the same work from the point where the agent stopped.
+constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Do not expose MaxSteps, step budget, or equivalent agent-turn limit as a user-facing configuration option in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Make the budget easy for maintainers to adjust through a narrow internal default, constructor option, or test seam only. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broader conversation engines. Do not perform human M57 dogfooding. Do not push. Do not implement durable session restore, full transcript persistence, queued prompts, or interrupt cancellation in this plan.
 design: >
-  Keep the wiring narrow and additive. internal/app/agent_factory.go owns tool registration and
-  instructions assembly (newGoAgentBuildTools grows from 2 to 7 tools, a new instructions builder
-  produces the go-agent Instructions string from tools plus workspace plus config state).
-  internal/agent/runner.go already accepts Instructions through Agent.Instructions and
-  RunRequest.Instructions — the Aila adapter feeds instructions from the builder.
-  internal/app/agent_prompt.go replaces the switch on requested.Request.Name with an
-  agentToolDispatch function that maps tool name to the appropriate runtime effect (ReadToolEffect,
-  SearchToolEffect for grep and find, BashToolEffect, FetchToolEffect, EditToolEffect) and preserves
-  the existing write approval path. Go-agent tool Functions execute read-only tools directly for
-  model context; mutation tools return placeholders pending Aila approval.
+  Keep ownership narrow. The app-owned agent prompt path gets its step budget from an internal default or constructor/test seam, not from user configuration. That budget is passed into agent.RunRequest and recorded only as runtime behavior/view state when a limit is reached. The agent adapter preserves go-agent stop reasons, especially step_limit, without reclassifying them as provider setup failures. Continuation reuses Aila-owned run/session identity and the existing transcript/tool evidence for the active conversation so a follow-up prompt can resume after a limit stop; durable cross-process conversation history remains deferred.
 overall_acceptance: >
-  The model receives a system prompt with tool definitions, behavioral instructions, and project
-  context before processing user input. All 7 fixed built-in tools are registered with go-agent and
-  available for model calls. Any registered tool call flows through the runtime effect dispatch loop
-  instead of hitting an unsupported-tool error. Write approval gating is preserved. Runtime.Update
-  remains deterministic and IO-free. mage check passes.
-surprises: >
-  Go-agent can own direct execution of read-only tool functions while the app still maps provider
-  tool-call events back through Aila runtime effects for visible evidence; mutation tools therefore
-  return model-visible approval placeholders and app-side edit/write calls still stop for approval.
-  Unknown tool failures needed an immediate bounded return instead of continuing to a later completed
-  event, otherwise the terminal success event masked LastAgentFailure. The full mage check passed on
-  retry after the first 300s attempt timed out while cmd/aila tests were still running.
-previous_plan_archived: .agentera/archive/plan-2026-05-18-m56-dogfood-blockers.yaml
+  Agent-mode prompts no longer pass a scattered hardcoded MaxSteps value. A narrow internal default or constructor/test seam controls the step budget, no user-facing config key or public config output exposes it, and step-limit stops are visible as resumable state. Continuing after a step-limit stop resumes the same conversation context instead of starting an unrelated fresh run. Normal completion still leaves the TUI ready for the next user prompt. runtime.Update remains deterministic and IO-free, and the relevant app/agent/runtime tests plus mage check pass.
+surprises: []
+previous_plan_archived: .agentera/archive/plan-2026-05-18-dogfood-tools.yaml
 
 scope:
   included:
-  - Register the remaining 5 go-agent tools (bash, grep, find, edit, fetch) in agent_factory.go
-    with complete ToolDefinitions including schemas, safety flags, constraints, and function
-    adapters over the existing internal/tools primitives.
-  - Build and send Instructions to go-agent via Agent.Instructions or RunRequest.Instructions,
-    assembling tool definitions, behavioral instructions, workspace path, project summary, current
-    workflow phase, and autonomy boundary.
-  - Replace the hardcoded read/write dispatch switch in submitAgentPrompt with a tool-to-effect
-    mapping that routes any registered tool call through runtime effect dispatch, preserving write
-    approval gating and read display rendering.
-  - Add regression coverage for tool registration, instructions assembly, and generic dispatch.
+  - Add an internally adjustable interactive agent step-budget default or constructor/test seam that replaces the scattered MaxSteps literal without creating a user-facing config option.
+  - Pass the configured budget through app agent prompt submission into agent.RunRequest and then go-agent RunRequest without app-local literals.
+  - Preserve and surface step-limit stop reasons as resumable state rather than generic stream errors or terminal-looking completion.
+  - Support continuation after a step-limit stop using the active conversation/run context so the next prompt can continue the same work.
+  - Add regression coverage for the internal default budget, maintainable override/test seam, absence from public config surfaces, step-limit rendering/state, continuation, and normal completion readiness.
   excluded:
-  - Stale-context checks. Utility model scheduling. Multi-turn conversation memory.
-    Capability-to-model integration. Workflow phase-aware tool selection. Git awareness. Session
-    persistence during interactive runs. Fake event cleanup. Test suite optimization. Any human M57
-    dogfooding execution.
+  - Any user-facing MaxSteps, step-budget, or agent-turn-limit setting in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Full durable conversation history across process restarts, .aila session restore, /continue restore, queued user messages while the agent is running, interrupt-to-cancel behavior, utility scheduling, capability model invocation, and human M57 dogfooding.
+  - New tools, dynamic tool loading, provider marketplaces, MCP, plugins, workflow DSLs, hosted control planes, or changes that make the TUI own workflow/runtime behavior.
   deferred:
-  - Richer prompt assembly from session transcripts and artifact state (current scope is minimal
-    viable instructions). Human M57 dogfood walkthrough. Visual review unless layout or interaction
-    changes require it.
+  - Full goagent.SessionStore persistence for all turns. Durable transcript compaction. User-visible controls for queued prompts and interrupt cancellation.
 
 tasks:
 - number: 1
-  name: Register remaining 5 go-agent tools with complete definitions
+  name: Define the internal agent step-budget contract
   depends_on: []
   status: completed
   acceptance:
-  - 'GIVEN newGoAgentBuildTools runs WHEN the factory builds tools THEN bash, grep, find, edit,
-    and fetch are registered alongside read and write, each with a complete goagent.ToolDefinition
-    including name, description, schema, safety flags, constraints, and a Function adapter.'
-  - GIVEN go-agent tool definitions are created WHEN the factory runs THEN read-only tools (bash
-    inspection, grep, find, fetch) execute directly through internal/tools primitives and return
-    results to the model; mutation tools (bash execution, edit, write) return placeholders pending
-    Aila approval.
-  - GIVEN the go-agent tool set WHEN constructed THEN it contains exactly 7 fixed built-in tools
-    and no dynamic or plugin-loaded tools.
+  - GIVEN Aila starts an interactive agent turn WHEN no test or constructor override is supplied THEN it uses a single internal default step budget instead of the old literal 4.
+  - GIVEN maintainers need to tune the budget WHEN they inspect the app-owned agent setup path THEN the default is easy to adjust in one narrow internal location or constructor option.
+  - GIVEN users inspect config files, config command output, or docs-facing config examples WHEN this change is present THEN no MaxSteps, step-budget, or agent-turn-limit key is exposed.
+  - GIVEN tests need a smaller or larger budget WHEN they construct the app-owned agent prompt path THEN they can override the budget without editing global user configuration.
 - number: 2
-  name: Build and send system prompt through go-agent Instructions
+  name: Route the configured budget through the agent run path
   depends_on:
   - 1
-  status: completed
+  status: pending
   acceptance:
-  - 'GIVEN the agent runner is constructed WHEN go-agent receives Instructions THEN the model sees
-    tool definitions, behavioral instructions, workspace path, project phase, and autonomy
-    boundary.'
-  - GIVEN instructions are assembled WHEN the builder runs THEN it uses existing context.Build()
-    structures to produce a bounded Instructions string with source refs preserved for compaction.
-  - GIVEN instructions are missing or empty WHEN the runner streams THEN the model still receives
-    a minimal orientation message rather than raw empty text.
+  - GIVEN an agent-mode prompt is submitted WHEN the app creates agent.RunRequest THEN MaxSteps equals the internal default or explicit constructor/test override.
+  - GIVEN agent.RunRequest reaches the go-agent adapter WHEN go-agent RunRequest is built THEN the same step budget is preserved and no app-local hardcoded value is used.
+  - GIVEN fake runners and test runners observe a request WHEN they inspect RunRequest THEN they can assert the configured budget without provider IO.
+  - GIVEN non-agent commands run WHEN this change is present THEN they do not receive or depend on the interactive agent step-budget setting.
 - number: 3
-  name: Replace hardcoded tool dispatch with generic tool-to-effect mapping
+  name: Represent step-limit stops as resumable runtime state
+  depends_on:
+  - 2
+  status: pending
+  acceptance:
+  - GIVEN go-agent emits a step_limit stop WHEN Aila adapts the event stream THEN the runtime receives a bounded status that distinguishes budget exhaustion from provider failure.
+  - GIVEN a step-limit stop is rendered WHEN the user reads the transcript THEN the turn explains that the agent paused at the step budget and can be continued.
+  - GIVEN runtime.Update handles the adapted stop message WHEN state changes THEN it remains deterministic and performs no filesystem, shell, git, network, provider, or persistence IO.
+  - GIVEN the agent stops for a non-step-limit provider or tool error WHEN state is rendered THEN existing failure diagnostics remain failure diagnostics and are not mislabeled as continuation.
+- number: 4
+  name: Continue from the step-limit pause point
+  depends_on:
+  - 3
+  status: pending
+  acceptance:
+  - GIVEN an agent turn stops at the step budget WHEN the user sends a continuation prompt THEN Aila resumes with the active conversation/run context instead of discarding prior assistant and tool evidence.
+  - GIVEN continuation starts WHEN a new agent.RunRequest is created THEN the request carries enough session or transcript context for go-agent to proceed from the previous stop point.
+  - GIVEN continuation succeeds or stops again WHEN the transcript updates THEN prior evidence remains visible and the new turn is appended without duplicate fake transcript pollution.
+  - GIVEN there is no step-limit pause WHEN the user sends a normal prompt THEN Aila starts a normal next turn and does not invent continuation state.
+- number: 5
+  name: Keep normal completion ready for the next prompt
+  depends_on:
+  - 3
+  status: pending
+  acceptance:
+  - GIVEN go-agent emits a complete stop WHEN Aila adapts the event stream THEN the turn is recorded as completed, not failed or paused.
+  - GIVEN a completed agent turn is displayed WHEN the user returns to the prompt THEN the UI is ready for another message without requiring restart or manual state reset.
+  - GIVEN a user submits a new message after completion WHEN the app starts the next turn THEN the previous completed turn remains transcript context according to the current in-process conversation contract.
+  - GIVEN queued input and interrupt cancellation are not implemented in this plan WHEN tests cover completion behavior THEN they assert only readiness for the next prompt, not queueing or cancellation semantics.
+- number: 6
+  name: Sync evidence and close the plan state
   depends_on:
   - 1
-  status: completed
+  - 2
+  - 3
+  - 4
+  - 5
+  status: pending
   acceptance:
-  - 'GIVEN any registered go-agent tool is requested WHEN submitAgentPrompt receives the tool call
-    THEN it maps to the matching runtime effect via agentToolDispatch instead of hitting the
-    unsupported-tool error path.'
-  - GIVEN a write tool is requested WHEN submitAgentPrompt maps it THEN the stream is cancelled
-    and an approval proposal is created, matching the existing write-gating behavior.
-  - GIVEN a read tool is requested WHEN submitAgentPrompt maps it THEN the read view is rendered
-    through effect dispatch, matching the existing read display behavior.
-  - GIVEN an unregistered or unknown tool is requested WHEN submitAgentPrompt maps it THEN an
-    AgentTurnFailed with an unsupported-tool code is emitted and runtime status exits running state.
+  - GIVEN implementation is complete WHEN verification runs THEN focused app, agent, runtime, and config tests pass before the broader required check.
+  - GIVEN the full validation gate runs WHEN the change is ready for handoff THEN mage fmt and mage check pass or any failure is recorded with a precise blocker.
+  - GIVEN the TODO item is satisfied WHEN closeout metadata is updated THEN the MaxSteps/continuation TODO is marked resolved and progress records the verification evidence.
+  - GIVEN all tasks are complete WHEN Agentera state is updated THEN the plan can be archived and the next open TODO remains visible for future planning.

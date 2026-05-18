@@ -103,6 +103,41 @@ func TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects(t *testing.T) {
 	}
 }
 
+func TestAgentPromptUsesInternalDefaultStepBudget(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &capturingAgentRunner{}
+	runner := newInputRunnerWithDispatchAndAgentConfigAndInstructions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-readonly", []string{"read"}, "")
+
+	runner.submitPrompt("inspect the workspace")
+
+	if len(agentRunner.requests) != 1 {
+		t.Fatalf("agent requests = %d, want 1", len(agentRunner.requests))
+	}
+	if got := agentRunner.requests[0].MaxSteps; got != defaultInteractiveAgentMaxSteps {
+		t.Fatalf("MaxSteps = %d, want internal default %d", got, defaultInteractiveAgentMaxSteps)
+	}
+	if agentRunner.requests[0].MaxSteps == 4 {
+		t.Fatal("agent prompt still uses old hardcoded MaxSteps literal 4")
+	}
+}
+
+func TestAgentPromptStepBudgetCanBeOverriddenInternally(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &capturingAgentRunner{}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-readonly", []string{"read"}, "", agentPromptOptions{MaxSteps: 2})
+
+	runner.submitPrompt("inspect the workspace")
+
+	if len(agentRunner.requests) != 1 {
+		t.Fatalf("agent requests = %d, want 1", len(agentRunner.requests))
+	}
+	if got := agentRunner.requests[0].MaxSteps; got != 2 {
+		t.Fatalf("MaxSteps = %d, want internal override 2", got)
+	}
+}
+
 func TestInteractiveAgentWritePromptShowsApprovalBeforeMutation(t *testing.T) {
 	t.Parallel()
 
@@ -193,6 +228,23 @@ func registeredAgentToolArguments(name string) []agent.ToolArgument {
 	default:
 		return nil
 	}
+}
+
+type capturingAgentRunner struct {
+	requests []agent.RunRequest
+}
+
+func (runner *capturingAgentRunner) Stream(ctx context.Context, request agent.RunRequest) (<-chan agent.Event, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	runner.requests = append(runner.requests, request)
+	out := make(chan agent.Event, 1)
+	go func() {
+		defer close(out)
+		out <- agent.Event{Kind: agent.EventCompleted, Sequence: 1, FinishReason: "complete"}
+	}()
+	return out, nil
 }
 
 func TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect(t *testing.T) {

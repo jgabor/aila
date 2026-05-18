@@ -125,7 +125,7 @@ func TestGoAgentRunnerMapsRealGoAgentEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect", RunID: "run-1", MaxSteps: 4})
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect", RunID: "run-1", MaxSteps: 5})
 	if err != nil {
 		t.Fatal(err)
 	}

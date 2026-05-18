@@ -1,4 +1,49 @@
 cycles:
+- number: 254
+  timestamp: 2026-05-18 18:21
+  type: build
+  phase: build
+  what: Defined the interactive agent step-budget contract by replacing the app-local MaxSteps literal with a single internal default and an app-owned constructor/test override seam without adding user-facing config.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active .agentera/plan.yaml Task 1 for [feat:0.0.2] MaxSteps continuation; internal/app/agent_prompt.go; internal/app/config.go; internal/app prompt and config tests; internal/agent runner tests.
+  discovered: The budget belongs in the app-owned agent prompt path, not config.toml or config command output. A narrow unexported options seam lets tests and maintainers supply a budget while normal construction falls back to the internal default.
+  verified: mage fmt passed. Focused step-budget and config-surface app tests passed. Focused go-agent runner mapping test passed. go test ./internal/app ./internal/agent -count=1 passed. git diff --check passed. Repository grep found no remaining Go MaxSteps: 4 literal and no README step-budget config surface.
+  next: Execute Task 2 by preserving the configured budget through observable fake/test runner and go-agent adapter assertions without introducing public configuration.
+  context:
+    intent: Satisfy Task 1 by making the interactive agent step budget internally adjustable and removing the old app-local MaxSteps literal.
+    constraints: Do not expose MaxSteps, step budget, or agent-turn limits through config files, config commands, README config examples, or equivalent public config surfaces. Preserve statechart-MVU, TUI presentation-only boundaries, fixed built-in tools, no push, and no commit.
+    unknowns: The exact later step-limit continuation state remains for Tasks 3-5; this task only defines and validates the internal budget contract.
+    scope: internal/app/agent_prompt.go, internal/app/prompt_test.go, internal/app/config_test.go, internal/agent/runner_test.go, and Agentera metadata.
+- number: 253
+  timestamp: 2026-05-18 18:11
+  type: plan
+  phase: plan
+  what: Revised the MaxSteps continuation plan after user feedback to forbid exposing MaxSteps or an equivalent step-budget setting through user-facing config surfaces while keeping a narrow internal adjustment seam for maintainers and tests.
+  commit: 'N/A: plan revision before implementation commit'
+  inspiration: User constraint after Planera handoff; active .agentera/plan.yaml for [feat:0.0.2] MaxSteps continuation; Aila product rule to avoid unnecessary user-facing configuration surface.
+  discovered: The first draft overreached by implying config-file/default-config behavior. The intended product shape is an internally adjustable step budget, not a public config option.
+  verified: Revised PLAN.md lint passed for verbosity, abstraction, and filler. agentera plan --format json readback showed the no-public-config constraint in constraints, scope, design, overall acceptance, and Task 1 acceptance. agentera progress --format json readback showed this revision entry. git diff --check passed.
+  next: Execute the revised plan with ⎈ orkestrera or start Task 1 with ⧉ realisera, preserving the no-public-config constraint.
+  context:
+    intent: Encode the user constraint that MaxSteps must not become a config.yaml/config.toml or equivalent public configuration option.
+    constraints: Do not change vision, do not push, do not execute build, preserve statechart-MVU and TUI presentation-only boundaries, and keep fixed built-in tools only.
+    unknowns: Exact internal seam name is implementation-owned; the plan requires a narrow internal default or constructor/test seam rather than a user setting.
+    scope: .agentera/plan.yaml and .agentera/progress.yaml metadata only.
+- number: 252
+  timestamp: 2026-05-18 18:04
+  type: plan
+  phase: plan
+  what: Planned the next P1 0.0.2 work to replace the hardcoded interactive agent MaxSteps value with a configurable step budget and make step-limit stops resumable instead of terminal-looking dead ends.
+  commit: 'N/A: planning artifact before implementation commit'
+  inspiration: TODO.md P1 MaxSteps/continuation item; current completed tool/prompt plan; agentera plan/todo/docs/progress/decisions CLI state; go-agent RunRequest, RunLimits, StopStepLimit, Session, and SessionStore contracts; internal/app/agent_prompt.go hardcoded MaxSteps path; internal/app/config.go config parser.
+  discovered: The existing plan has all tasks completed, so direct Planera replacement can archive it implicitly. The next TODO must not expand into all P1 conversation-history behavior; this plan deliberately scopes continuation to step-limit recovery and leaves durable session restore, queued prompts, and interrupt cancellation for their own TODOs.
+  verified: agentera plan/todo/docs/progress/decisions readbacks completed through the installed CLI. agentera describe confirmed plan/progress paths and raw write boundaries. Draft and final PLAN.md lint passed for verbosity, abstraction, and filler; final agentera plan/progress readbacks passed; git diff --check passed.
+  next: 'Execute the new plan with ⎈ orkestrera or start Task 1 with ⧉ realisera: define and validate the configurable agent step-budget contract.'
+  context:
+    intent: Create the next Agentera plan for the highest-priority TODO, [feat:0.0.2] Raise MaxSteps from the hardcoded 4 to a configurable default and handle continuation from the step-limit stop point.
+    constraints: Preserve statechart-MVU and IO-free runtime.Update; keep TUI presentation-only; fixed built-in tools only; no plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, push, or human M57 dogfooding.
+    unknowns: Exact continuation implementation is Realisera-owned; go-agent exposes Session and SessionStore, but this plan does not choose durable persistence or full transcript compaction.
+    scope: .agentera/plan.yaml replacement, archival of the completed dogfood tools plan, .agentera/progress.yaml planning evidence, and no vision changes.
 - number: 251
   timestamp: 2026-05-18 11:02
   type: build

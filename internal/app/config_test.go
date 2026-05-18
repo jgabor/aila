@@ -81,6 +81,20 @@ func TestLoadConfigFileCreatesReadmeDefaultsWhenAbsent(t *testing.T) {
 	if strings.Contains(content, "base_url") {
 		t.Fatalf("created default config unexpectedly wrote base_url:\n%s", content)
 	}
+	assertNoStepBudgetConfigSurface(t, content)
+}
+
+func TestConfigCommandOutputDoesNotExposeAgentStepBudget(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+
+	output, err := ConfigCommandOutput(true)
+	if err != nil {
+		t.Fatalf("config command output: %v", err)
+	}
+
+	assertNoStepBudgetConfigSurface(t, output)
 }
 
 func TestLoadConfigFilePreservesPresentConfig(t *testing.T) {
@@ -348,4 +362,15 @@ func readFile(t *testing.T, path string) string {
 		t.Fatalf("read file: %v", err)
 	}
 	return string(content)
+}
+
+func assertNoStepBudgetConfigSurface(t *testing.T, content string) {
+	t.Helper()
+
+	lower := strings.ToLower(content)
+	for _, forbidden := range []string{"maxsteps", "max_steps", "max-steps", "step_budget", "step-budget", "step budget", "agent_turn_limit", "agent-turn-limit", "agent turn limit"} {
+		if strings.Contains(lower, forbidden) {
+			t.Fatalf("config surface exposes agent step budget token %q:\n%s", forbidden, content)
+		}
+	}
 }

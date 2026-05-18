@@ -2,16 +2,20 @@
 
 ## Project Overview
 
-Aila is a minimal, opinionated terminal coding agent built in Go. It embeds
-[`go-agent`](https://github.com/jgabor/go-agent) as the model/tool runtime and
-uses the Charm terminal ecosystem for the TUI.
-
-The module path is `github.com/jgabor/aila`.
+Aila is a minimal, **opinionated** terminal coding agent built in Go. It embeds
+[`go-agent`](https://github.com/jgabor/go-agent) as the model/tool runtime,
+and is the main driver behind its development. Any bugs or features that are
+blocked by on `go-agent` should be added to `~/git/go-agent/TODO.md`.
 
 Aila is a fixed product, not a plugin host or generic agent framework. Do not
 add runtime plugins, extensions, MCP servers, workflow DSLs, model marketplaces,
 dynamic tools, or hosted control-plane assumptions unless the product direction
 changes deliberately.
+
+CRITICAL: The bar for adding a user-facing configuration option to config.yaml
+is **extremely** high, and must be approved or requested beforehand.
+
+The module path is `github.com/jgabor/aila`.
 
 ## Source Authority
 
