@@ -1,252 +1,299 @@
 header:
   level: full
-  created: '2026-05-17'
+  created: '2026-05-18'
   status: complete
-  title: 'Milestone 56: Orchestration'
-  reviewed: '2026-05-17'
-  critic_issues: M56 is the last agent-completable milestone and must add bounded orchestration without turning Aila into
-    a generic graph engine, hidden actor swarm, plugin host, provider marketplace, or direct source-editing conductor. Visible
-    progress, retries, failures, blockers, final summary, subagent supervision, semantic evidence, PTY progress, and cancellation
-    must be covered before the roadmap can move to human-only M57.
-  completed: '2026-05-17'
-what: Deliver ROADMAP.md Milestone 56 by adding a bounded orchestrate command/capability that coordinates multiple existing
-  capability-shaped steps and supervised subagents with visible evaluation, retry, blocker, cancellation, and summary evidence.
-why: M55 made child work observable. M56 must connect that supervision into a small conductor so Aila can coordinate multiple
-  bounded steps before the roadmap enters human-only dogfooding work.
-constraints: Execute only Milestone 56. Preserve statechart-MVU and explicit effect boundaries. Orchestrate is a BUILD-phase
-  conductor over fixed built-in capabilities and runtime subagent messages/effects, not a source-editing capability. Keep
-  provider-backed child execution, real parallel scheduling, hidden background workers, generic graph engines, plugins, MCP,
-  dynamic tools, workflow DSLs, hosted control planes, marketplace behavior, direct workflow phase mutation, and pushes out
-  of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.
-previous_plan_archived: .agentera/archive/plan-2026-05-17-m55.yaml
+  title: 'Fix Aila dogfood blockers for real TUI agent execution'
+  reviewed: '2026-05-18'
+  completed: '2026-05-18'
+  critic_issues: Aila cannot yet dogfood itself because the production TUI chat path still reaches fake agent behavior,
+    runtime lacks real agent lifecycle handling, production config and credentials are not connected to GoAgentRunner,
+    fake prompt effects pollute agent-mode transcripts, completion does not reliably return runtime status to idle, and
+    a PTY smoke-test timeout blocks mage check.
+  previous_plan_archived: .agentera/archive/plan-2026-05-17-m56.yaml
+what: Prepare Aila for human M57 dogfooding by fixing the six blockers that prevent a production TUI user from typing
+  in chat, reaching a real model runner, executing fixed built-in tools through the existing permission/effect paths,
+  and seeing completion return to idle with mage check passing.
+why: M56 completed orchestration and the roadmap now points to human-only M57. Before a human can dogfood Aila on Aila,
+  the existing agent, runtime, app, tool, and TUI seams must be wired end-to-end for real model execution instead of fake
+  transcript behavior.
+constraints: Do not execute M57 dogfooding. Preserve statechart-MVU and explicit effect boundaries. Keep runtime.Update
+  deterministic and IO-free. Keep TUI presentation-only. Use Aila's fixed built-in tools only; do not add plugins, MCP,
+  dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broader framework scope. Fake runners
+  may remain for tests and deterministic fixtures but must not be the unconditional production path. Do not push.
 source_anchors:
-- docs/notes/PROMPT.md:1-31
 - AGENTS.md:1-178
 - ROADMAP.md:22-28
-- ROADMAP.md:118-136
-- ROADMAP.md:2114-2135
-- README.md:248-261
-- ARCHITECTURE.md:746-781
-- ARCHITECTURE.md:781-798
-- docs/workflow-architecture.md:279-304
-- docs/workflow-architecture.md:464-476
-- docs/workflow-architecture.md:600-620
-- docs/tui-testing.md:1-120
-- internal/capability/contract.go
-- internal/capability/brief.go
-- internal/policy/command.go
-- internal/app/session_snapshot.go
-- internal/app/brief.go
-- internal/app/subagent_view.go
-- internal/tui/model.go
-- internal/tui/render.go
+- ROADMAP.md:2137-2175
+- ARCHITECTURE.md
+- docs/workflow-architecture.md
+- docs/tui-testing.md
+- internal/app/shutdown.go:84-86
+- internal/app/agent_prompt.go:56-107
+- internal/runtime/runtime.go
+- internal/agent/runner.go
+- internal/agent/credential.go
+- internal/tools
 - cmd/aila/pty_test.go
 verification_commands:
 - mage fmt
-- go test ./internal/capability -run 'Test.*Orchestrate.*|TestRunBuiltInDispatchesOrchestrateCapability|TestCapabilityRegistryIsFixedAndPhaseOwned'
-  -count=1
-- go test ./internal/policy -run 'Test.*Orchestrate.*|TestCommand.*|TestCapability.*' -count=1
-- go test ./internal/app -run 'Test.*Orchestrat.*|Test.*Subagent.*|Test.*Status.*' -count=1
-- go test ./internal/tui -run 'Test.*Orchestrat.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract|TestCommandSemanticsSurviveLayoutSizes'
-  -count=1
-- go test ./cmd/aila -run 'TestOrchestrate.*PTYSmoke|TestInterruptActiveWorkPTYSmoke' -count=1
+- go test ./internal/app ./internal/agent -count=1
+- go test ./internal/runtime -count=1
+- go test ./internal/tui ./internal/app ./internal/runtime -count=1
+- go test ./internal/app ./internal/agent ./internal/tools -count=1
+- go test ./internal/runtime ./internal/agent -count=1
+- go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1
 - go test ./internal/... -count=1
 - go test ./cmd/aila -count=1
 - mage check
 - uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
 - uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
-- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
 - git diff --check
-- changed-line home-path and added func TestM<number> hygiene returns no matches
 scope:
   included:
-  - Add a fixed built-in orchestrate capability payload that records bounded cycles, child work, decisions, retry attempts,
-    evaluation state, blockers, final summary, source refs, and boundary descriptors.
-  - Route /orchestrate through the fixed command surface and app controller into runtime capability/subagent messages while
-    preserving BUILD ownership and no direct workflow phase mutation.
-  - Use existing subagent request/progress/completion/failure/cancellation state to show supervised child work during orchestration,
-    including retry and failure records that remain visible.
-  - Render orchestration progress, subagent progress, failures, retries, blockers, decisions, evidence, and final summary
-    in deterministic TUI fixtures and semantic snapshots.
-  - Add PTY smoke for visible /orchestrate progress and cancellation using fake deterministic runtime paths, without live
-    provider calls or hidden source edits.
-  - Run targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation, then update
-    ROADMAP.md and commit the milestone locally.
+  - Document the production agent-mode path and boundaries needed for real TUI chat execution.
+  - Add regression coverage for production runner selection, config and credential resolution, fixed built-in tool wiring,
+    runtime agent message handling, prompt pollution, completion routing, and the PTY timeout.
+  - Replace unconditional production FakeBuildRunner construction with a config/credential-backed GoAgentRunner factory while
+    preserving injectable fake runners for tests and deterministic fixtures.
+  - Route agent assistant deltas, tool requests, completion, and failure through deterministic runtime messages/effects.
+  - Ensure submitAgentPrompt does not emit FakePromptEffect in agent mode and does feed AgentTurnCompleted through runtime.
+  - Repair or intentionally bound/skip TestResearchCommandFoldsContextWithoutArtifactPTYSmoke so mage check completes.
   excluded:
-  - M57 dogfooding, real provider-backed child agents, true parallel worker scheduling, generic DAG/graph execution, plugin/MCP
-    surfaces, dynamic capability schemas, model marketplaces, hosted control planes, source incorporation outside existing
-    tool/permission/history/state paths, direct source-level checks by orchestrate itself, and push operations.
+  - Human execution of M57 dogfooding, live dogfood walkthrough claims, pushes, plugin hosts, MCP servers, dynamic tool loading,
+    model marketplaces, hosted control planes, workflow DSLs, and TUI-owned execution or phase transitions.
   deferred:
-  - Human-only dogfooding, real model-run child agents, multi-pane terminal management, richer plan artifact automation, distributed
-    worker scheduling, and any product decision to broaden Aila beyond fixed built-in capabilities.
-design: Keep M56 deterministic and bounded. internal/capability defines OrchestrateOutput as a typed conductor summary over
-  fixed capability aliases and child-work evidence. internal/policy exposes /orchestrate as a closed command route. internal/app
-  builds one deterministic orchestration run from the current plan/view state, records subagent spawn/progress/failure/completion
-  messages through runtime, and maps the capability payload into a display-only TUI view. internal/tui renders orchestration
-  cycles and semantic evidence; it never dispatches, cancels, incorporates, evaluates, mutates, or transitions workflow by
-  itself.
+  - Human M57 dogfood task, visual review unless layout or interaction changes require it, richer provider UX beyond the minimum
+    actionable diagnostics needed for real runner construction, and any product decision to broaden Aila beyond fixed built-ins.
+design: Keep the final wiring narrow. internal/app owns production runner construction and prompt orchestration. internal/agent
+  adapts config, credentials, go-agent, and fixed Aila tool definitions. internal/runtime owns typed lifecycle state transitions
+  for agent deltas, tool requests, completion, and failure without performing IO. Existing effects, permission, tools, history,
+  state, and TUI projection paths remain the route for execution and visibility. internal/tui remains a display/input layer.
 tasks:
 - number: 1
-  name: Plan and confirm the M56 orchestration boundary
+  name: Document production agent-mode intent and boundaries
   depends_on: []
   status: complete
   acceptance:
-  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M56 only, archives the
-    completed M55 plan, and records M57 as human-only and out of scope.
-  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan keeps orchestrate as a BUILD
-    conductor over fixed capabilities, runtime messages/effects, and existing tool/permission/history/state paths.
-  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
-    names.
+  - 'GIVEN the source docs are updated WHEN implementation starts THEN the intended production path is explicit: TUI chat to app/runtime, real go-agent runner, fixed built-in tools, runtime lifecycle updates, TUI projection.'
+  - GIVEN fake runner behavior is described WHEN docs are reviewed THEN fake runners are limited to tests, fixtures, or explicit
+    deterministic development paths rather than unconditional production construction.
+  - GIVEN scope boundaries are reviewed WHEN the docs are inspected THEN plugin, MCP, dynamic tool, marketplace, hosted control
+    plane, and M57 dogfood execution remain excluded.
+  validation:
+  - Documentation diff records the real agent-mode flow and exclusions.
+  - mage check passes after implementation.
   evidence:
-  - Installed Agentera CLI hej state showed M55 complete, no active plan, and M56 as the roadmap next milestone.
-  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M56 section, README capability table, ARCHITECTURE subagent/orchestration
-    and cancellation rules, docs/workflow-architecture orchestrate map and invariants, docs/tui-testing fixture/semantic/PTY
-    guidance, and current capability/policy/app/runtime/TUI/cmd seams were reviewed.
-  - A read-only explorer confirmed /orchestrate is policy-recognized but not command-bound, RunBuiltIn still rejects orchestrate,
-    subagent infrastructure exists, and the smallest safe slice is bounded command/capability/app/TUI/PTy coverage without
-    plugins or graph engines.
+  - README.md documents production chat turns using configured providers, bounded diagnostics instead of silent fake fallback,
+    deterministic fake runners only for tests/fixtures/development smoke paths, and fixed model-visible tool definitions flowing
+    through app/runtime boundaries.
+  - mage check passed.
 - number: 2
-  name: Add bounded orchestrate capability output
+  name: Specify production runner selection and config resolution regressions
   depends_on:
   - 1
   status: complete
   acceptance:
-  - GIVEN an orchestrate request with app-supplied plan/cycle metadata WHEN RunBuiltIn executes it THEN one OrchestrateOutput
-    payload records cycles, fixed capability names, child work, decisions, evaluation, retry attempt counts, blockers, final
-    summary, source refs, and boundary requests.
-  - GIVEN orchestration has retryable failure evidence WHEN the payload is inspected THEN failed work, retry decision, recovery
-    action, and final evaluation remain visible instead of being overwritten.
-  - GIVEN the package boundary is inspected WHEN tests build THEN orchestrate does not import tools, permission executors,
-    workflow mutation code, plugins, graph engines, provider marketplaces, or dynamic capability loaders.
+  - GIVEN current production app construction WHEN tests exercise the factory path THEN they fail against the unconditional
+    FakeBuildRunner behavior in internal/app/shutdown.go.
+  - GIVEN valid config and credentials WHEN production runner construction runs THEN tests expect a real GoAgentRunner with
+    the configured provider/model and fixed built-in tool definitions.
+  - GIVEN missing or invalid credentials WHEN production runner construction runs THEN tests expect bounded actionable diagnostics
+    and no silent fake fallback.
+  - GIVEN test or fixture mode is selected WHEN construction runs THEN fake runner injection remains possible and explicit.
+  validation:
+  - go test ./internal/app ./internal/agent -count=1
+  - Evidence includes failing tests before implementation and passing tests after implementation.
   evidence:
-  - internal/capability/orchestrate.go adds a fixed OrchestrateOutput payload with goal, retry budget, cycles, child work,
-    decisions, evidence, blockers, caveats, final summary, source refs, and boundary requests.
-  - internal/capability/contract.go carries OrchestrateOutput through ExitPayload cloning, and RunBuiltIn dispatches NameOrchestrate
-    without importing tools, permission executors, workflow mutation code, plugins, graph engines, provider marketplaces,
-    or dynamic loaders.
-  - Behavior-named capability tests prove retryable failure evidence, retry decisions, recovery action, completion, blocker
-    visibility, and fixed RunBuiltIn dispatch remain observable.
+  - internal/app/agent_factory_test.go covers real GoAgentRunner construction for custom and OpenCode Go OpenAI-compatible configs,
+    missing-credential diagnostics without fake fallback, unsupported adapter diagnostics without fake fallback, and explicit fake
+    runner selection.
+  - go test ./internal/app ./internal/agent -count=1 passed.
 - number: 3
-  name: Wire /orchestrate through app-owned runtime supervision
+  name: Specify runtime agent lifecycle regressions
   depends_on:
-  - 2
+  - 1
   status: complete
   acceptance:
-  - GIVEN /orchestrate is submitted WHEN policy and app routing handle it THEN the command is closed, command history is recorded,
-    and app-owned code proposes orchestrate capability/subagent runtime messages without TUI-owned execution.
-  - GIVEN the deterministic orchestration run includes a failed child and a retry WHEN runtime/app state is inspected THEN
-    subagent progress, failure, retry, completion, and final summary remain visible with parent run and evidence links.
-  - GIVEN cancellation is requested during visible orchestration WHEN the fake runtime path handles it THEN cancellation is
-    observable and does not claim lower-layer provider/tool cancellation or mutate workflow phase directly.
+  - GIVEN AgentAssistantDelta is applied through runtime.Update WHEN a stream emits assistant text THEN runtime state records
+    or updates assistant output deterministically.
+  - GIVEN AgentToolRequested is applied through runtime.Update WHEN the model requests a tool THEN runtime records typed tool
+    request state or emits explicit effects without performing IO in Update.
+  - GIVEN AgentTurnCompleted is applied through runtime.Update WHEN streaming completes THEN runtime status returns to idle
+    or the expected non-running state.
+  - GIVEN AgentTurnFailed is applied through runtime.Update WHEN streaming fails THEN runtime status exits running state and
+    records failure visibility.
+  validation:
+  - go test ./internal/runtime -count=1
+  - Evidence includes missing-handler failures before implementation and passing lifecycle tests after implementation.
   evidence:
-  - internal/policy/command.go recognizes /orchestrate as a closed command route, while internal/app/orchestrate.go builds
-    deterministic app-owned orchestration requests from current plan state and records command/runtime evidence through existing
-    paths.
-  - The app route records failed, retried, and completed supervised child work using runtime subagent lifecycle messages,
-    preserving parent run, evidence links, final summary, and retry counts.
-  - The fake held orchestration path supports visible cancellation without claiming lower-layer provider/tool cancellation
-    or mutating workflow phase directly.
+  - internal/runtime already had deterministic AgentAssistantDelta, AgentToolRequested, AgentTurnCompleted, and AgentTurnFailed
+    handlers and regression tests; new AgentPromptSubmitted coverage proves agent-mode start emits AgentPromptEffect instead of
+    FakePromptEffect and queues while active.
+  - go test ./internal/runtime -count=1 passed.
 - number: 4
-  name: Render orchestration progress and evidence in TUI snapshots
+  name: Specify prompt submission regressions against fake transcript pollution
   depends_on:
-  - 2
+  - 1
   - 3
   status: complete
   acceptance:
-  - GIVEN orchestration state is injected into ViewState WHEN fixtures render THEN progress, active cycle, subagent progress,
-    failures, retries, blockers, decisions, and final summary are visible where space allows.
-  - GIVEN semantic snapshots are inspected WHEN orchestration exists THEN machine-readable records include active cycle, child
-    work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
-  - GIVEN update/keybinding tests run WHEN /orchestrate is typed or selected THEN routing emits app command messages only
-    and no TUI-owned spawn/cancel/evaluate action is introduced.
+  - GIVEN agent mode prompt submission WHEN submitAgentPrompt starts a turn THEN it does not emit FakePromptEffect through
+    runtime.Update(PromptSubmitted{}).
+  - GIVEN assistant output appears in agent mode WHEN the transcript is inspected THEN it originates from agent events rather
+    than fake prompt generation.
+  - GIVEN fake/test mode prompt submission WHEN deterministic fixtures run THEN fake prompt behavior remains available only
+    through the intended explicit fake path.
+  validation:
+  - go test ./internal/tui ./internal/app ./internal/runtime -count=1
+  - Evidence includes a regression test that fails with current fake transcript pollution and passes after the fix.
   evidence:
-  - internal/tui/model.go and internal/tui/render.go add display-only OrchestrateView rendering and semantic snapshot records
-    for active cycle, child work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
-  - orchestration-progress and orchestrate-command fixture snapshots were added for deterministic plain, ANSI, and semantic
-    coverage; help-command snapshots were refreshed to include /orchestrate.
-  - Behavior-named TUI fixture tests prove orchestration progress, retries, blockers, final summary, and command routing without
-    adding TUI-owned spawn/cancel/evaluate actions.
+  - internal/app/agent_prompt.go now starts agent turns through runtime.AgentPromptSubmitted and runtime.AgentPromptEffect, not
+    runtime.PromptSubmitted/FakePromptEffect.
+  - internal/app/prompt_test.go asserts agent-mode transcripts do not contain Fake Aila response text and that completion reaches
+    runtime.
+  - go test ./internal/tui ./internal/app ./internal/runtime -count=1 passed.
 - number: 5
-  name: Validate PTY progress cancellation and boundaries
-  depends_on:
-  - 3
-  - 4
-  status: complete
-  acceptance:
-  - GIVEN /orchestrate runs in a PTY WHEN the smoke test waits for output THEN visible orchestration progress and final summary
-    appear without hidden provider calls or plugin behavior.
-  - GIVEN orchestration is visibly active in a PTY WHEN interrupt/cancellation is triggered THEN cancellation state appears,
-    the session remains responsive, and output does not claim real lower-layer cancellation.
-  - GIVEN human visual review requirements are considered WHEN bounded orchestration status rendering is added THEN review
-    is either performed or skipped with a concrete reason backed by deterministic snapshots.
-  evidence:
-  - cmd/aila PTY smoke tests prove /orchestrate shows visible progress/final summary and that interrupting a held orchestration
-    returns a visible canceled state while the session remains responsive.
-  - The PTY path uses deterministic fake runtime behavior and does not invoke live provider calls, plugins, hidden worker
-    scheduling, or source-level checks through orchestrate.
-  - Human visual review was not required because M56 adds bounded status/progress rendering rather than a major visual language
-    change; deterministic render and semantic snapshots carry the review contract.
-- number: 6
-  name: Run validation roadmap closeout and commit
+  name: Implement production GoAgentRunner factory and fixed tool wiring
   depends_on:
   - 1
   - 2
+  status: complete
+  acceptance:
+  - GIVEN production app construction runs WHEN config and credentials are valid THEN internal/app no longer unconditionally
+    constructs agent.FakeBuildRunner and instead constructs a real GoAgentRunner.
+  - GIVEN config and credentials are missing or invalid WHEN construction runs THEN the user receives clear bounded diagnostics
+    and no silent fake fallback is used.
+  - GIVEN the real runner is created WHEN go-agent requires tool definitions THEN Aila passes only fixed built-in tools through
+    the adapter.
+  - GIVEN tests and fixtures need deterministic behavior WHEN they construct input runners THEN fake runners remain injectable
+    or explicitly gated.
+  validation:
+  - go test ./internal/app ./internal/agent ./internal/tools -count=1
+  - mage check
+  evidence:
+  - internal/app/agent_factory.go constructs real GoAgentRunner for supported OpenAI-compatible config and credentials, defaults
+    opencode-go to https://opencode.ai/zen/go/v1, returns bounded UnavailableRunner diagnostics for missing credentials, unsupported
+    adapters, and unwired device-code providers, and defines fixed read/write go-agent tools.
+  - internal/app/shutdown.go no longer unconditionally constructs agent.FakeBuildRunner; fake build runner requires AILA_AGENT_RUNNER=fake.
+  - go test ./internal/app ./internal/agent ./internal/tools -count=1 and mage check passed.
+- number: 6
+  name: Implement runtime handling for agent stream tool completion and failure messages
+  depends_on:
   - 3
-  - 4
   - 5
   status: complete
   acceptance:
-  - GIVEN targeted, package, cmd PTY, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN
-    M56 is recorded complete, M57 is selected next, and Active milestone is none with human-only wording preserved.
-  - GIVEN the completed slice is staged WHEN committing THEN implementation, fixtures, tests, validation evidence, ROADMAP,
-    plan, progress, prior-plan archive, and M56 closeout are included in one meaningful local commit.
-  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
-    validation evidence and no goal completion is claimed until the full roadmap audit says so.
+  - GIVEN AgentAssistantDelta messages arrive WHEN runtime.Update handles them THEN assistant stream state is visible without
+    direct runner or TUI mutation.
+  - GIVEN AgentToolRequested messages arrive WHEN runtime.Update handles them THEN tool execution remains represented as typed
+    effects or state subject to existing permission and effect dispatch paths.
+  - GIVEN AgentTurnCompleted arrives WHEN runtime.Update handles it THEN status reliably exits running state and returns idle
+    where appropriate.
+  - GIVEN AgentTurnFailed arrives WHEN runtime.Update handles it THEN failure is visible and status exits running state.
+  - GIVEN runtime.Update is reviewed WHEN implementation is complete THEN it remains deterministic and does not perform filesystem,
+    shell, network, model, persistence, or tool IO.
+  validation:
+  - go test ./internal/runtime ./internal/agent -count=1
+  - mage check
   evidence:
-  - mage fmt passed.
-  - go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
-  - go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
-  - go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
-    -count=1 passed.
-  - go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
-    -count=1 passed.
-  - go test ./internal/... -count=1 passed.
-  - go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
-  - mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities before roadmap closeout.
-  - ROADMAP.md was updated to mark M56 complete, M57 next, and Active milestone none with human-only wording preserved.
-  - Agentera plan/progress/lint/hej validation passed after metadata closeout.
-  - git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
+  - runtime.Update lifecycle handlers stayed IO-free and deterministic; AgentPromptEffect only requests provider-backed handling
+    outside Update.
+  - internal/agent.UnavailableRunner reports setup failures as provider events without fake output, and GoAgentRunner remains
+    the real go-agent adapter.
+  - go test ./internal/runtime ./internal/agent -count=1 and mage check passed.
+- number: 7
+  name: Route TUI app prompt submission through real agent lifecycle
+  depends_on:
+  - 3
+  - 4
+  - 5
+  - 6
+  status: complete
+  acceptance:
+  - GIVEN a user submits chat in the TUI in agent mode WHEN the app starts a turn THEN the prompt reaches the real runner path
+    instead of FakePromptEffect.
+  - GIVEN the model streams assistant output or requests tools WHEN events are adapted THEN the app feeds typed agent messages
+    through runtime and dispatches tool effects through existing guarded paths.
+  - GIVEN streaming completes WHEN the app finishes the turn THEN AgentTurnCompleted is fed through runtime and status returns idle.
+  - GIVEN the TUI renders the session WHEN the lifecycle changes THEN it remains presentation-only and does not own tool execution,
+    prompt construction, persistence, or workflow phase transitions.
+  validation:
+  - go test ./internal/tui ./internal/app ./internal/runtime -count=1
+  - go test ./internal/... -count=1
+  - mage check
+  evidence:
+  - internal/app/agent_prompt.go feeds adapted agent events through runtime, dispatches read evidence through existing guarded
+    effects, proposes write approval without direct mutation, cancels the stream on approval handoff, and relies on AgentTurnCompleted
+    for idle status.
+  - go test ./internal/tui ./internal/app ./internal/runtime -count=1, go test ./internal/... -count=1, and mage check passed.
+- number: 8
+  name: Repair bounded PTY smoke validation
+  depends_on:
+  - 1
+  - 7
+  status: complete
+  acceptance:
+  - GIVEN TestResearchCommandFoldsContextWithoutArtifactPTYSmoke is run WHEN the test executes THEN it passes, fails quickly
+    with a useful cause, or skips with an explicit valid reason instead of timing out.
+  - GIVEN the timeout root cause is diagnosed WHEN the fix is applied THEN it does not mask a real runtime lifecycle deadlock
+    introduced or exposed by agent-mode wiring.
+  - GIVEN docs/tui-testing.md guidance is applied WHEN PTY coverage is reviewed THEN deterministic fixtures and semantic snapshots
+    remain primary and PTY smoke coverage stays bounded to real terminal behavior.
+  - GIVEN canonical validation runs WHEN this task is complete THEN mage check completes successfully.
+  validation:
+  - go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1
+  - go test ./cmd/aila -count=1
+  - mage check
+  evidence:
+  - TestResearchCommandFoldsContextWithoutArtifactPTYSmoke passed in 8.690s.
+  - cmd/aila orchestration PTY cleanup was repaired by draining remaining terminal output before /quit, matching neighboring
+    capability smoke tests and avoiding PTY output backpressure.
+  - go test ./cmd/aila -count=1 passed in 401.596s; mage check passed with cmd/aila in 406.391s.
 overall_acceptance:
-- Orchestrate is implemented as a fixed BUILD-owned conductor payload, not as a generic engine or source-editing capability.
-- /orchestrate has closed policy/app routing and visible command behavior through existing runtime messages/effects.
-- Supervised child work, failures, retries, blockers, decisions, evidence, cancellation, and final summary remain observable
-  in app/TUI state.
-- TUI fixtures, semantic snapshots, render snapshots, update/keybinding tests, and PTY smoke cover orchestration progress
-  and cancellation at the current product state.
-- Targeted, package, cmd, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before
-  ROADMAP.md is updated.
+- A production TUI user can submit a chat prompt that reaches the real GoAgentRunner path when config and credentials are valid.
+- Production app construction no longer always uses agent.FakeBuildRunner.
+- Production config and credential resolution are wired into runner construction and fail with actionable diagnostics when invalid.
+- The real runner receives Aila's fixed built-in tool definitions as needed, without plugins, MCP, or dynamic tool loading.
+- runtime.Update handles AgentAssistantDelta, AgentToolRequested, AgentTurnCompleted, and AgentTurnFailed deterministically.
+- submitAgentPrompt no longer emits FakePromptEffect in agent mode, and assistant transcript output comes from agent events.
+- Streaming completion feeds AgentTurnCompleted through runtime and returns status idle where appropriate.
+- TestResearchCommandFoldsContextWithoutArtifactPTYSmoke no longer times out, and mage check passes.
+- The work prepares Aila for a later human M57 dogfood walkthrough but does not claim or execute that milestone.
 surprises:
-- The apply_patch hook is still unavailable because /hooks/validate_artifact.py is missing, so scripted artifact edits must
-  stay narrow, structured, formatted, and validated.
-- M56 is explicitly the last agent-completable milestone; ROADMAP closeout must point to human-only M57 without starting it.
-- An initial 240s timeout around the full check path was too short for the cmd/aila PTY package; the unbounded reruns passed
-  with cmd/aila taking about six and a half minutes.
-closeout_summary: 'Milestone 56 completed: /orchestrate is now a fixed, bounded BUILD-owned conductor that records cycles,
-  retries, supervised child work, decisions, blockers, cancellation state, and final summary without becoming a generic graph
-  engine, plugin host, provider swarm, or source-editing capability.'
+- The first two Planera subagent attempts stalled because they tried to delegate planning; the final draft was produced with an
+  explicit no-subagent/no-delegation constraint.
+- The current M56 plan was complete and has been archived before replacement to preserve closeout evidence.
+- go-agent's exact tool registration API may require adapter changes; keep those changes narrow and inside internal/agent and
+  fixed internal/tools contracts.
+- The PTY timeout may reveal a broader event-loop lifecycle issue; fix the lifecycle if so rather than weakening the smoke test.
+- Current runtime agent lifecycle handlers already existed; the missing runtime piece was a non-fake agent prompt start effect.
+- The orchestrate PTY smoke had the same terminal-output backpressure pattern as neighboring capability PTY tests and needed
+  bounded output draining before sending /quit.
+self_review:
+- Blocker 1 is covered by tasks 2 and 5.
+- Blocker 2 is covered by tasks 3 and 6.
+- Blocker 3 is covered by tasks 2 and 5.
+- Blocker 4 is covered by tasks 4 and 7.
+- Blocker 5 is covered by tasks 3, 6, and 7.
+- Blocker 6 is covered by task 8.
+- Fixed built-in tool registry wiring is covered by tasks 1, 2, 5, and 7.
+- 'The plan follows DTC: task 1 documents intent, tasks 2-4 specify regressions, tasks 5-8 implement and validate.'
+- The plan does not execute the human-only M57 dogfood milestone.
+handoff:
+  suggested: ⧉ realisera
+  rationale: The plan is one focused implementation stream with ordered tests, code changes, and validation. Orkestrera is unnecessary
+    unless the user wants multi-cycle coordination across multiple agents.
+closeout_summary: Real TUI agent execution wiring is complete for supported OpenAI-compatible configs. Production startup no longer
+  silently falls back to FakeBuildRunner, agent-mode prompt start no longer emits FakePromptEffect, fixed read/write tool definitions
+  are registered with go-agent, provider setup failures surface as bounded diagnostics, runtime completion returns idle, and the
+  PTY smoke timeout/backpressure issue no longer blocks mage check.
 validation_evidence:
 - mage fmt passed.
-- go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
-- go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
-- go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
-  -count=1 passed.
-- go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
-  -count=1 passed.
+- go test ./internal/runtime -count=1 passed.
+- go test ./internal/app ./internal/agent ./internal/tools -count=1 passed.
+- go test ./internal/tui ./internal/app ./internal/runtime -count=1 passed.
+- go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke -count=1 passed in 8.690s.
 - go test ./internal/... -count=1 passed.
-- go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
-- mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities.
-- No major visual language change was made, so human visual review was not required; fixtures and semantic snapshots prove
-  the bounded progress display contract.
-- Agentera plan/progress/lint/hej validation passed after metadata closeout.
-- git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
+- go test ./cmd/aila -count=1 passed in 401.596s.
+- mage check passed with cmd/aila in 406.391s, 0 lint issues, and no vulnerabilities.
+- git diff --check passed.

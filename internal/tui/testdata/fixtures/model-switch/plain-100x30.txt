@@ -14,10 +14,10 @@ Stage IDLE | Model opencode-go/deepseek-v4-pro:high | Utility opencode-go/deepse
 | selected: 1                                                                                      |
 | detail: session-scoped model selection; config file unchanged                                    |
 | models:                                                                                          |
-| > opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=device_cod~ |
+| > opencode-go/deepseek-v4-pro:high provider=opencode-go model=deepseek-v4-pro family=api_key cl~ |
 |   openai/gpt-4.1 provider=openai model=gpt-4.1 family=api_key class=general status=degraded cre~ |
 |   custom/deepseek-chat provider=custom model=deepseek-chat family=custom class=general status=u~ |
-|   opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=device_code~ |
+|   opencode-go/deepseek-v4-flash provider=opencode-go model=deepseek-v4-flash family=api_key cla~ |
 | focus: model                                                                                     |
 | app-owned                                                                                        |
 | display-only                                                                                     |

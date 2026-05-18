@@ -456,10 +456,10 @@ func loadSwitchFixture(t *testing.T, name string) renderFixture {
 			Detail:         "session-scoped model selection; config file unchanged",
 			Focus:          true,
 			Items: []ModelSwitchItemView{
-				{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Reasoning: "high", Family: "device_code", Class: "reasoning", Status: "available", CredentialSource: "device-code", Detail: "current session primary model", Current: true},
+				{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Reasoning: "high", Family: "api_key", Class: "reasoning", Status: "available", CredentialSource: "OPENCODE_API_KEY", Detail: "current session primary model", Current: true},
 				{Label: "openai/gpt-4.1", SourceName: "openai", Model: "gpt-4.1", Family: "api_key", Class: "general", Status: "degraded", CredentialSource: "OPENAI_API_KEY", Detail: "readiness timeout"},
 				{Label: "custom/deepseek-chat", SourceName: "custom", Model: "deepseek-chat", Family: "custom", Class: "general", Status: "unavailable", CredentialSource: "OPENAI_API_KEY", Detail: "provider unavailable"},
-				{Label: "opencode-go/deepseek-v4-flash", SourceName: "opencode-go", Model: "deepseek-v4-flash", Family: "device_code", Class: "utility", Status: "available", CredentialSource: "device-code", Detail: "deterministic readiness row"},
+				{Label: "opencode-go/deepseek-v4-flash", SourceName: "opencode-go", Model: "deepseek-v4-flash", Family: "api_key", Class: "utility", Status: "available", CredentialSource: "OPENCODE_API_KEY", Detail: "deterministic readiness row"},
 			},
 		})
 	case "autonomy-switch":

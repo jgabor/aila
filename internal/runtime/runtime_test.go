@@ -2115,6 +2115,41 @@ func TestUpdateHandlesAgentStreamMessages(t *testing.T) {
 	}
 }
 
+func TestUpdateStartsAgentPromptWithoutFakeEffect(t *testing.T) {
+	t.Parallel()
+
+	updated, effects := Update(Model{Status: StatusIdle}, AgentPromptSubmitted{Text: "inspect repo", Provider: "openai", Model: "gpt-4.1", ToolNames: []string{"read", "write"}})
+	if updated.Status != StatusActive || updated.ActiveOperation.Kind != OperationPrompt || updated.ActiveOperation.Source != "runtime.agent" {
+		t.Fatalf("agent prompt model = %+v", updated)
+	}
+	if updated.Transcript[len(updated.Transcript)-1] != (TranscriptEntry{Kind: "prompt", Text: "inspect repo"}) {
+		t.Fatalf("agent prompt transcript = %#v", updated.Transcript)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("agent prompt effects = %#v", effects)
+	}
+	effect, ok := effects[0].(AgentPromptEffect)
+	if !ok {
+		t.Fatalf("agent prompt effect = %T, want AgentPromptEffect", effects[0])
+	}
+	if effect.Prompt != "inspect repo" || effect.Provider != "openai" || effect.Model != "gpt-4.1" || !reflect.DeepEqual(effect.ToolNames, []string{"read", "write"}) {
+		t.Fatalf("agent prompt effect = %#v", effect)
+	}
+	if _, ok := effects[0].(FakePromptEffect); ok {
+		t.Fatalf("agent prompt emitted fake prompt effect: %#v", effects[0])
+	}
+}
+
+func TestUpdateQueuesAgentPromptWhileRuntimeActive(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-active", Kind: OperationPrompt, Subject: "active"}
+	updated, effects := Update(Model{Status: StatusActive, ActiveOperation: operation}, AgentPromptSubmitted{Text: "queued", Provider: "openai", Model: "gpt-4.1"})
+	if len(effects) != 0 || updated.ActiveOperation != operation || !reflect.DeepEqual(updated.Queued, []QueuedEntry{{Kind: "prompt", Text: "queued"}}) {
+		t.Fatalf("queued agent prompt model=%+v effects=%v", updated, effects)
+	}
+}
+
 func TestUpdateHandlesAgentTurnFailure(t *testing.T) {
 	t.Parallel()
 

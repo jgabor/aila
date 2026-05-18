@@ -54,6 +54,13 @@ type FakeBuildRunner struct {
 	Events  []Event
 }
 
+// UnavailableRunner reports a bounded provider setup failure without silently falling back to fake output.
+type UnavailableRunner struct {
+	Provider string
+	Model    string
+	Failure  ProviderError
+}
+
 // DefaultFakeBuildRunner returns a bounded read/write model/tool script.
 func DefaultFakeBuildRunner() FakeBuildRunner {
 	return FakeBuildRunner{}
@@ -117,6 +124,34 @@ func (runner FakeBuildRunner) Stream(ctx context.Context, request RunRequest) (<
 			case out <- withRequestIdentity(event, request):
 			}
 		}
+	}()
+	return out, nil
+}
+
+// Stream implements Runner by returning one provider setup failure event.
+func (runner UnavailableRunner) Stream(ctx context.Context, request RunRequest) (<-chan Event, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	failure := runner.Failure
+	if failure.Code == "" {
+		failure.Code = string(FailureModelUnavailable)
+	}
+	if failure.Message == "" {
+		failure.Message = "agent runner unavailable"
+	}
+	provider := boundedEventText(runner.Provider)
+	if provider == "" {
+		provider = requestProvider(request)
+	}
+	model := boundedEventText(runner.Model)
+	if model == "" {
+		model = requestModel(request)
+	}
+	out := make(chan Event, 1)
+	go func() {
+		defer close(out)
+		out <- Event{Kind: EventError, Provider: provider, Model: model, Sequence: 1, Error: failure}
 	}()
 	return out, nil
 }

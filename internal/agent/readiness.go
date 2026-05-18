@@ -151,8 +151,8 @@ var fakeProviders = map[string]fakeProvider{
 		},
 	},
 	"opencode-go": {
-		family:     ProviderFamilyDeviceCode,
-		credential: CredentialSourceDeviceCode,
+		family:     ProviderFamilyAPIKey,
+		credential: CredentialSourceOpenCodeAPIKey,
 		models: map[string]string{
 			"deepseek-v4-flash": "utility",
 			"deepseek-v4-pro":   "reasoning",

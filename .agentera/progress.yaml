@@ -1,4 +1,38 @@
 cycles:
+- number: 250
+  timestamp: 2026-05-18 10:09
+  type: build
+  phase: closeout
+  what: Completed the Aila dogfood-blocker wiring plan by replacing unconditional production FakeBuildRunner construction with
+    config/credential-backed GoAgentRunner selection for supported OpenAI-compatible configs, adding bounded unavailable-provider
+    diagnostics, introducing runtime.AgentPromptSubmitted and AgentPromptEffect so agent-mode prompts no longer emit FakePromptEffect,
+    registering fixed read/write go-agent tools, preserving fake runners behind an explicit test/development gate, and repairing
+    PTY smoke backpressure.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: .agentera/plan.yaml tasks 1-8; README provider/tool boundaries; internal/app/shutdown.go; internal/app/agent_prompt.go;
+    internal/app/agent_factory.go; internal/runtime/runtime.go; internal/agent/runner.go; cmd/aila/pty_test.go; go-agent public
+    docs; focused app/runtime/agent/tool/TUI tests; mage check
+  discovered: >-
+    The runtime lifecycle handlers for AgentAssistantDelta, AgentToolRequested, AgentTurnCompleted, and AgentTurnFailed were
+    already present. The remaining runtime gap was the prompt-start path: agent mode reused PromptSubmitted and therefore requested
+    FakePromptEffect for operation metadata. Production runner construction can be real without breaking deterministic PTY tests
+    by making fake agent mode explicit with AILA_AGENT_RUNNER=fake. The research PTY smoke now passes; the full cmd package exposed
+    a separate orchestrate PTY output-backpressure cleanup issue, fixed by draining output before /quit like neighboring capability
+    smokes.
+  verified: mage fmt passed. go test ./internal/runtime -count=1 passed. go test ./internal/app ./internal/agent ./internal/tools
+    -count=1 passed. go test ./internal/tui ./internal/app ./internal/runtime -count=1 passed. go test ./cmd/aila -run TestResearchCommandFoldsContextWithoutArtifactPTYSmoke
+    -count=1 passed in 8.690s. go test ./internal/... -count=1 passed. go test ./cmd/aila -count=1 passed in 401.596s. mage
+    check passed with cmd/aila in 406.391s, 0 lint issues, and no vulnerabilities. git diff --check passed.
+  next: Human M57 dogfooding can be attempted with a supported OpenAI-compatible model config and credentials; unsupported
+    providers still report bounded unavailable-adapter diagnostics rather than fake output.
+  context:
+    intent: Execute the approved Realisera handoff for the six dogfood blockers without performing the human-only M57 walkthrough.
+    constraints: Preserve statechart-MVU and IO-free runtime.Update; keep TUI presentation-only; use fixed built-in tools; no
+      plugins, MCP, dynamic tools, provider marketplace, hosted control plane, workflow DSL, push, or M57 dogfood execution.
+    unknowns: opencode-go uses OPENCODE_API_KEY through the OpenCode Go OpenAI-compatible endpoint; device-code provider adapters
+      remain unavailable; write tool execution currently hands off to Aila approval rather than claiming immediate model-side
+      mutation.
+    scope: README.md, internal/runtime, internal/agent, internal/app, cmd/aila PTY tests, .agentera/plan.yaml, and .agentera/progress.yaml.
 - number: 249
   timestamp: 2026-05-17 21:12
   type: build

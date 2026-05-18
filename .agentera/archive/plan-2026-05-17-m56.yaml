@@ -1,0 +1,252 @@
+header:
+  level: full
+  created: '2026-05-17'
+  status: complete
+  title: 'Milestone 56: Orchestration'
+  reviewed: '2026-05-17'
+  critic_issues: M56 is the last agent-completable milestone and must add bounded orchestration without turning Aila into
+    a generic graph engine, hidden actor swarm, plugin host, provider marketplace, or direct source-editing conductor. Visible
+    progress, retries, failures, blockers, final summary, subagent supervision, semantic evidence, PTY progress, and cancellation
+    must be covered before the roadmap can move to human-only M57.
+  completed: '2026-05-17'
+what: Deliver ROADMAP.md Milestone 56 by adding a bounded orchestrate command/capability that coordinates multiple existing
+  capability-shaped steps and supervised subagents with visible evaluation, retry, blocker, cancellation, and summary evidence.
+why: M55 made child work observable. M56 must connect that supervision into a small conductor so Aila can coordinate multiple
+  bounded steps before the roadmap enters human-only dogfooding work.
+constraints: Execute only Milestone 56. Preserve statechart-MVU and explicit effect boundaries. Orchestrate is a BUILD-phase
+  conductor over fixed built-in capabilities and runtime subagent messages/effects, not a source-editing capability. Keep
+  provider-backed child execution, real parallel scheduling, hidden background workers, generic graph engines, plugins, MCP,
+  dynamic tools, workflow DSLs, hosted control planes, marketplace behavior, direct workflow phase mutation, and pushes out
+  of scope. Use behavior-based test names; do not introduce new TestM<number> symbols.
+previous_plan_archived: .agentera/archive/plan-2026-05-17-m55.yaml
+source_anchors:
+- docs/notes/PROMPT.md:1-31
+- AGENTS.md:1-178
+- ROADMAP.md:22-28
+- ROADMAP.md:118-136
+- ROADMAP.md:2114-2135
+- README.md:248-261
+- ARCHITECTURE.md:746-781
+- ARCHITECTURE.md:781-798
+- docs/workflow-architecture.md:279-304
+- docs/workflow-architecture.md:464-476
+- docs/workflow-architecture.md:600-620
+- docs/tui-testing.md:1-120
+- internal/capability/contract.go
+- internal/capability/brief.go
+- internal/policy/command.go
+- internal/app/session_snapshot.go
+- internal/app/brief.go
+- internal/app/subagent_view.go
+- internal/tui/model.go
+- internal/tui/render.go
+- cmd/aila/pty_test.go
+verification_commands:
+- mage fmt
+- go test ./internal/capability -run 'Test.*Orchestrate.*|TestRunBuiltInDispatchesOrchestrateCapability|TestCapabilityRegistryIsFixedAndPhaseOwned'
+  -count=1
+- go test ./internal/policy -run 'Test.*Orchestrate.*|TestCommand.*|TestCapability.*' -count=1
+- go test ./internal/app -run 'Test.*Orchestrat.*|Test.*Subagent.*|Test.*Status.*' -count=1
+- go test ./internal/tui -run 'Test.*Orchestrat.*|TestSemanticSnapshotsExposeContract|TestRenderFixturesStayWithinLayoutContract|TestCommandSemanticsSurviveLayoutSizes'
+  -count=1
+- go test ./cmd/aila -run 'TestOrchestrate.*PTYSmoke|TestInterruptActiveWorkPTYSmoke' -count=1
+- go test ./internal/... -count=1
+- go test ./cmd/aila -count=1
+- mage check
+- uv run $HOME/.local/share/agentera/app/scripts/agentera plan --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera progress --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera lint --artifact plan --file .agentera/plan.yaml --format json
+- uv run $HOME/.local/share/agentera/app/scripts/agentera hej --format json --capability-context orkestrera --fields plan,progress,state_presence,next_action
+- git diff --check
+- changed-line home-path and added func TestM<number> hygiene returns no matches
+scope:
+  included:
+  - Add a fixed built-in orchestrate capability payload that records bounded cycles, child work, decisions, retry attempts,
+    evaluation state, blockers, final summary, source refs, and boundary descriptors.
+  - Route /orchestrate through the fixed command surface and app controller into runtime capability/subagent messages while
+    preserving BUILD ownership and no direct workflow phase mutation.
+  - Use existing subagent request/progress/completion/failure/cancellation state to show supervised child work during orchestration,
+    including retry and failure records that remain visible.
+  - Render orchestration progress, subagent progress, failures, retries, blockers, decisions, evidence, and final summary
+    in deterministic TUI fixtures and semantic snapshots.
+  - Add PTY smoke for visible /orchestrate progress and cancellation using fake deterministic runtime paths, without live
+    provider calls or hidden source edits.
+  - Run targeted, package, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation, then update
+    ROADMAP.md and commit the milestone locally.
+  excluded:
+  - M57 dogfooding, real provider-backed child agents, true parallel worker scheduling, generic DAG/graph execution, plugin/MCP
+    surfaces, dynamic capability schemas, model marketplaces, hosted control planes, source incorporation outside existing
+    tool/permission/history/state paths, direct source-level checks by orchestrate itself, and push operations.
+  deferred:
+  - Human-only dogfooding, real model-run child agents, multi-pane terminal management, richer plan artifact automation, distributed
+    worker scheduling, and any product decision to broaden Aila beyond fixed built-in capabilities.
+design: Keep M56 deterministic and bounded. internal/capability defines OrchestrateOutput as a typed conductor summary over
+  fixed capability aliases and child-work evidence. internal/policy exposes /orchestrate as a closed command route. internal/app
+  builds one deterministic orchestration run from the current plan/view state, records subagent spawn/progress/failure/completion
+  messages through runtime, and maps the capability payload into a display-only TUI view. internal/tui renders orchestration
+  cycles and semantic evidence; it never dispatches, cancels, incorporates, evaluates, mutates, or transitions workflow by
+  itself.
+tasks:
+- number: 1
+  name: Plan and confirm the M56 orchestration boundary
+  depends_on: []
+  status: complete
+  acceptance:
+  - GIVEN Agentera and roadmap state are reviewed WHEN planning finishes THEN the active plan names M56 only, archives the
+    completed M55 plan, and records M57 as human-only and out of scope.
+  - GIVEN source docs and current seams are inspected WHEN implementation starts THEN the plan keeps orchestrate as a BUILD
+    conductor over fixed capabilities, runtime messages/effects, and existing tool/permission/history/state paths.
+  - GIVEN tests are named or touched WHEN planning is recorded THEN new coverage uses behavior-based names rather than milestone-number
+    names.
+  evidence:
+  - Installed Agentera CLI hej state showed M55 complete, no active plan, and M56 as the roadmap next milestone.
+  - docs/notes/PROMPT.md, AGENTS.md, ROADMAP.md top status and M56 section, README capability table, ARCHITECTURE subagent/orchestration
+    and cancellation rules, docs/workflow-architecture orchestrate map and invariants, docs/tui-testing fixture/semantic/PTY
+    guidance, and current capability/policy/app/runtime/TUI/cmd seams were reviewed.
+  - A read-only explorer confirmed /orchestrate is policy-recognized but not command-bound, RunBuiltIn still rejects orchestrate,
+    subagent infrastructure exists, and the smallest safe slice is bounded command/capability/app/TUI/PTy coverage without
+    plugins or graph engines.
+- number: 2
+  name: Add bounded orchestrate capability output
+  depends_on:
+  - 1
+  status: complete
+  acceptance:
+  - GIVEN an orchestrate request with app-supplied plan/cycle metadata WHEN RunBuiltIn executes it THEN one OrchestrateOutput
+    payload records cycles, fixed capability names, child work, decisions, evaluation, retry attempt counts, blockers, final
+    summary, source refs, and boundary requests.
+  - GIVEN orchestration has retryable failure evidence WHEN the payload is inspected THEN failed work, retry decision, recovery
+    action, and final evaluation remain visible instead of being overwritten.
+  - GIVEN the package boundary is inspected WHEN tests build THEN orchestrate does not import tools, permission executors,
+    workflow mutation code, plugins, graph engines, provider marketplaces, or dynamic capability loaders.
+  evidence:
+  - internal/capability/orchestrate.go adds a fixed OrchestrateOutput payload with goal, retry budget, cycles, child work,
+    decisions, evidence, blockers, caveats, final summary, source refs, and boundary requests.
+  - internal/capability/contract.go carries OrchestrateOutput through ExitPayload cloning, and RunBuiltIn dispatches NameOrchestrate
+    without importing tools, permission executors, workflow mutation code, plugins, graph engines, provider marketplaces,
+    or dynamic loaders.
+  - Behavior-named capability tests prove retryable failure evidence, retry decisions, recovery action, completion, blocker
+    visibility, and fixed RunBuiltIn dispatch remain observable.
+- number: 3
+  name: Wire /orchestrate through app-owned runtime supervision
+  depends_on:
+  - 2
+  status: complete
+  acceptance:
+  - GIVEN /orchestrate is submitted WHEN policy and app routing handle it THEN the command is closed, command history is recorded,
+    and app-owned code proposes orchestrate capability/subagent runtime messages without TUI-owned execution.
+  - GIVEN the deterministic orchestration run includes a failed child and a retry WHEN runtime/app state is inspected THEN
+    subagent progress, failure, retry, completion, and final summary remain visible with parent run and evidence links.
+  - GIVEN cancellation is requested during visible orchestration WHEN the fake runtime path handles it THEN cancellation is
+    observable and does not claim lower-layer provider/tool cancellation or mutate workflow phase directly.
+  evidence:
+  - internal/policy/command.go recognizes /orchestrate as a closed command route, while internal/app/orchestrate.go builds
+    deterministic app-owned orchestration requests from current plan state and records command/runtime evidence through existing
+    paths.
+  - The app route records failed, retried, and completed supervised child work using runtime subagent lifecycle messages,
+    preserving parent run, evidence links, final summary, and retry counts.
+  - The fake held orchestration path supports visible cancellation without claiming lower-layer provider/tool cancellation
+    or mutating workflow phase directly.
+- number: 4
+  name: Render orchestration progress and evidence in TUI snapshots
+  depends_on:
+  - 2
+  - 3
+  status: complete
+  acceptance:
+  - GIVEN orchestration state is injected into ViewState WHEN fixtures render THEN progress, active cycle, subagent progress,
+    failures, retries, blockers, decisions, and final summary are visible where space allows.
+  - GIVEN semantic snapshots are inspected WHEN orchestration exists THEN machine-readable records include active cycle, child
+    work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
+  - GIVEN update/keybinding tests run WHEN /orchestrate is typed or selected THEN routing emits app command messages only
+    and no TUI-owned spawn/cancel/evaluate action is introduced.
+  evidence:
+  - internal/tui/model.go and internal/tui/render.go add display-only OrchestrateView rendering and semantic snapshot records
+    for active cycle, child work, decisions, evidence, blockers, retry counts, display_only=true, and transition_claimed=false.
+  - orchestration-progress and orchestrate-command fixture snapshots were added for deterministic plain, ANSI, and semantic
+    coverage; help-command snapshots were refreshed to include /orchestrate.
+  - Behavior-named TUI fixture tests prove orchestration progress, retries, blockers, final summary, and command routing without
+    adding TUI-owned spawn/cancel/evaluate actions.
+- number: 5
+  name: Validate PTY progress cancellation and boundaries
+  depends_on:
+  - 3
+  - 4
+  status: complete
+  acceptance:
+  - GIVEN /orchestrate runs in a PTY WHEN the smoke test waits for output THEN visible orchestration progress and final summary
+    appear without hidden provider calls or plugin behavior.
+  - GIVEN orchestration is visibly active in a PTY WHEN interrupt/cancellation is triggered THEN cancellation state appears,
+    the session remains responsive, and output does not claim real lower-layer cancellation.
+  - GIVEN human visual review requirements are considered WHEN bounded orchestration status rendering is added THEN review
+    is either performed or skipped with a concrete reason backed by deterministic snapshots.
+  evidence:
+  - cmd/aila PTY smoke tests prove /orchestrate shows visible progress/final summary and that interrupting a held orchestration
+    returns a visible canceled state while the session remains responsive.
+  - The PTY path uses deterministic fake runtime behavior and does not invoke live provider calls, plugins, hidden worker
+    scheduling, or source-level checks through orchestrate.
+  - Human visual review was not required because M56 adds bounded status/progress rendering rather than a major visual language
+    change; deterministic render and semantic snapshots carry the review contract.
+- number: 6
+  name: Run validation roadmap closeout and commit
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  acceptance:
+  - GIVEN targeted, package, cmd PTY, full Mage, Agentera, diff, and hygiene validation pass WHEN ROADMAP.md is updated THEN
+    M56 is recorded complete, M57 is selected next, and Active milestone is none with human-only wording preserved.
+  - GIVEN the completed slice is staged WHEN committing THEN implementation, fixtures, tests, validation evidence, ROADMAP,
+    plan, progress, prior-plan archive, and M56 closeout are included in one meaningful local commit.
+  - GIVEN final closeout is reported WHEN this milestone finishes THEN the Slice Completion Template is filled with concrete
+    validation evidence and no goal completion is claimed until the full roadmap audit says so.
+  evidence:
+  - mage fmt passed.
+  - go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
+  - go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
+  - go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
+    -count=1 passed.
+  - go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
+    -count=1 passed.
+  - go test ./internal/... -count=1 passed.
+  - go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
+  - mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities before roadmap closeout.
+  - ROADMAP.md was updated to mark M56 complete, M57 next, and Active milestone none with human-only wording preserved.
+  - Agentera plan/progress/lint/hej validation passed after metadata closeout.
+  - git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.
+overall_acceptance:
+- Orchestrate is implemented as a fixed BUILD-owned conductor payload, not as a generic engine or source-editing capability.
+- /orchestrate has closed policy/app routing and visible command behavior through existing runtime messages/effects.
+- Supervised child work, failures, retries, blockers, decisions, evidence, cancellation, and final summary remain observable
+  in app/TUI state.
+- TUI fixtures, semantic snapshots, render snapshots, update/keybinding tests, and PTY smoke cover orchestration progress
+  and cancellation at the current product state.
+- Targeted, package, cmd, full Mage, Agentera, diff, home-path, and added func TestM<number> hygiene validation pass before
+  ROADMAP.md is updated.
+surprises:
+- The apply_patch hook is still unavailable because /hooks/validate_artifact.py is missing, so scripted artifact edits must
+  stay narrow, structured, formatted, and validated.
+- M56 is explicitly the last agent-completable milestone; ROADMAP closeout must point to human-only M57 without starting it.
+- An initial 240s timeout around the full check path was too short for the cmd/aila PTY package; the unbounded reruns passed
+  with cmd/aila taking about six and a half minutes.
+closeout_summary: 'Milestone 56 completed: /orchestrate is now a fixed, bounded BUILD-owned conductor that records cycles,
+  retries, supervised child work, decisions, blockers, cancellation state, and final summary without becoming a generic graph
+  engine, plugin host, provider swarm, or source-editing capability.'
+validation_evidence:
+- mage fmt passed.
+- go test ./internal/capability ./internal/policy ./internal/app ./internal/tui -count=1 passed.
+- go test ./internal/app -run 'TestOrchestrate|TestApplyRuntimeModelToViewExposesSubagentSupervision' -count=1 passed.
+- go test ./internal/tui -run 'TestOrchestrationProgressFixtureShowsCyclesRetriesBlockersAndSummary|TestCommandFixtureSet/orchestrate-command|TestCommandFixtureSet/help-command'
+  -count=1 passed.
+- go test ./cmd/aila -run 'TestOrchestrateCommandShowsProgressSummaryPTYSmoke|TestOrchestrateCommandCancellationPTYSmoke'
+  -count=1 passed.
+- go test ./internal/... -count=1 passed.
+- go test ./cmd/aila -count=1 passed with cmd/aila in 405.900s.
+- mage check passed with cmd/aila in 384.108s, 0 lint issues, and no vulnerabilities.
+- No major visual language change was made, so human visual review was not required; fixtures and semantic snapshots prove
+  the bounded progress display contract.
+- Agentera plan/progress/lint/hej validation passed after metadata closeout.
+- git diff --check passed; changed-line home-path hygiene and added func TestM<number> hygiene returned no matches.

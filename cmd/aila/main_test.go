@@ -62,8 +62,8 @@ const wantModelsOutput = "aila test-version\n" +
 	"openai gpt-4.1 api_key general degraded readiness timeout\n" +
 	"openai gpt-4.1-mini api_key utility available -\n" +
 	"openai o4-mini api_key reasoning available -\n" +
-	"opencode-go deepseek-v4-flash device_code utility available -\n" +
-	"opencode-go deepseek-v4-pro device_code reasoning available -\n" +
+	"opencode-go deepseek-v4-flash api_key utility available -\n" +
+	"opencode-go deepseek-v4-pro api_key reasoning available -\n" +
 	"opencode-zen zen-flash api_key utility available -\n" +
 	"opencode-zen zen-pro api_key general available -\n" +
 	"xiaomi-plan mi-flash device_code utility available -\n" +

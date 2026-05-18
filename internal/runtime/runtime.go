@@ -35,6 +35,16 @@ type PromptSubmitted struct {
 
 func (PromptSubmitted) runtimeMessage() {}
 
+// AgentPromptSubmitted records a prompt that should be handled by a provider-backed agent runner.
+type AgentPromptSubmitted struct {
+	Text      string
+	Provider  string
+	Model     string
+	ToolNames []string
+}
+
+func (AgentPromptSubmitted) runtimeMessage() {}
+
 // CommandSelected records an inert command selected through a presentation
 // adapter.
 type CommandSelected struct {
@@ -412,6 +422,21 @@ type FakePromptEffect struct {
 func (FakePromptEffect) runtimeEffect() {}
 
 func (effect FakePromptEffect) Metadata() OperationMetadata {
+	return effect.Operation
+}
+
+// AgentPromptEffect requests provider-backed agent handling outside Update.
+type AgentPromptEffect struct {
+	Operation OperationMetadata
+	Prompt    string
+	Provider  string
+	Model     string
+	ToolNames []string
+}
+
+func (AgentPromptEffect) runtimeEffect() {}
+
+func (effect AgentPromptEffect) Metadata() OperationMetadata {
 	return effect.Operation
 }
 
@@ -1351,6 +1376,37 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastAgentFailure = FailureMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
+	case AgentPromptSubmitted:
+		text := msg.Text
+		if strings.TrimSpace(text) == "" {
+			return next, nil
+		}
+		if hasActiveWork(next.Status) {
+			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
+			return next, nil
+		}
+
+		operation := nextOperation(&next, OperationPrompt, text)
+		operation.Source = "runtime.agent"
+		next.Status = StatusActive
+		next.Result = ""
+		next.ActiveCompact = CompactContextRequest{}
+		next.LastCompact = CompactContextResult{}
+		next.ActiveRead = ReadToolRequest{}
+		next.LastRead = ReadToolResult{}
+		next.ActiveFetch = FetchToolRequest{}
+		next.LastFetch = FetchToolResult{}
+		next.ActiveMutation = MutationToolRequest{}
+		next.LastMutation = MutationToolResult{}
+		next.ActiveOperation = operation
+		next.AssistantDraft = ""
+		next.AgentProvider = msg.Provider
+		next.AgentModel = msg.Model
+		next.LastAgentToolRequest = AgentToolRequest{}
+		next.AgentFinishReason = ""
+		next.LastAgentFailure = FailureMetadata{}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
+		return next, []Effect{AgentPromptEffect{Operation: operation, Prompt: text, Provider: msg.Provider, Model: msg.Model, ToolNames: append([]string(nil), msg.ToolNames...)}}
 	case CommandSelected:
 		operation := nextOperation(&next, OperationCommand, msg.Name)
 		next.Status = StatusActive

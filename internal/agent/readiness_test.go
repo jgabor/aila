@@ -24,7 +24,7 @@ func TestClassifyFakeReadinessProviderFamiliesAndCredentialSourceNames(t *testin
 		{name: "custom", request: ReadinessRequest{Provider: "custom", Model: "deepseek-chat", BaseURL: "https://api.deepseek.com"}, wantFamily: ProviderFamilyCustom, wantSources: []string{CredentialSourceOpenAIAPIKey}, wantCheck: true},
 		{name: "codex", request: ReadinessRequest{Provider: "codex", Model: "codex-high"}, wantFamily: ProviderFamilyDeviceCode, wantSources: []string{CredentialSourceDeviceCode}},
 		{name: "copilot", request: ReadinessRequest{Provider: "copilot", Model: "copilot-chat"}, wantFamily: ProviderFamilyDeviceCode, wantSources: []string{CredentialSourceDeviceCode}},
-		{name: "opencode-go", request: ReadinessRequest{Provider: "opencode-go", Model: "deepseek-v4-pro", Reasoning: "high"}, wantFamily: ProviderFamilyDeviceCode, wantSources: []string{CredentialSourceDeviceCode}},
+		{name: "opencode-go", request: ReadinessRequest{Provider: "opencode-go", Model: "deepseek-v4-pro", Reasoning: "high"}, wantFamily: ProviderFamilyAPIKey, wantSources: []string{CredentialSourceOpenCodeAPIKey}, wantCheck: true},
 		{name: "xiaomi-plan", request: ReadinessRequest{Provider: "xiaomi-plan", Model: "mi-pro"}, wantFamily: ProviderFamilyDeviceCode, wantSources: []string{CredentialSourceDeviceCode}},
 		{name: "zai-plan", request: ReadinessRequest{Provider: "zai-plan", Model: "glm-4.5"}, wantFamily: ProviderFamilyDeviceCode, wantSources: []string{CredentialSourceDeviceCode}},
 	} {

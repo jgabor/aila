@@ -166,7 +166,12 @@ API providers use API keys or OpenAI-compatible local endpoints.
 
 - `custom`: OpenAI-compatible API (`OPENAI_API_KEY`)
 - `openai`: OpenAI Realtime API (`OPENAI_API_KEY`)
+- `opencode-go`: OpenCode Go (`OPENCODE_API_KEY`)
 - `opencode-zen`: OpenCode Zen (`OPENCODE_API_KEY`)
+
+`opencode-go` uses the OpenCode Go OpenAI-compatible endpoint at `https://opencode.ai/zen/go/v1` unless `llm.base_url` is set explicitly.
+
+Production chat turns use the configured provider to construct a real `go-agent` runner. If the selected provider is not wired for real turns yet, or if required credentials are missing, Aila reports a bounded provider diagnostic instead of silently falling back to fake output. Deterministic fake runners are reserved for tests, fixtures, and explicit development smoke paths.
 
 #### Plans
 
@@ -174,7 +179,6 @@ Plan providers use device code authentication.
 
 - `codex`: OpenAI Codex
 - `copilot`: GitHub Copilot
-- `opencode-go`: OpenCode Go
 - `xiaomi-plan`: Xiaomi Token Plan
 - `zai-plan`: Z.Ai Coding Plan
 
@@ -241,6 +245,8 @@ Everything here is built in. A few words below are intentional:
 | grep  | Searches project content and returns matching files and lines  |
 | find  | Finds project files by path patterns                           |
 | fetch | Fetches remote content and returns it as Markdown              |
+
+Model-visible tool definitions are fixed by Aila. The TUI does not execute tools directly: model events flow through the app/runtime boundary, and filesystem, shell, fetch, edit, and write operations still pass through guarded effects, permission policy, and visible history/state surfaces.
 
 Capabilities are the higher-level parts of a coding session:
 

@@ -93,6 +93,14 @@ func TestReadOnlyAgentPromptRoutesToolThroughPermissionEffects(t *testing.T) {
 	if turn.Read.Decision == nil || !turn.Read.Decision.Allowed || turn.Read.Decision.OperationKind != "read" {
 		t.Fatalf("agent read decision = %+v", turn.Read.Decision)
 	}
+	for _, entry := range runner.model.Transcript {
+		if strings.Contains(entry.Text, "Fake Aila response") {
+			t.Fatalf("agent mode transcript used fake prompt effect: %#v", runner.model.Transcript)
+		}
+	}
+	if runner.model.AgentFinishReason == "" {
+		t.Fatalf("agent completion did not reach runtime: %+v", runner.model)
+	}
 }
 
 func TestInteractiveAgentWritePromptShowsApprovalBeforeMutation(t *testing.T) {

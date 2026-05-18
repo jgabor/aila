@@ -2534,6 +2534,12 @@ func TestOrchestrateCommandShowsProgressSummaryPTYSmoke(t *testing.T) {
 		t.Fatalf("orchestrate PTY changed tracked git status: before=%q after=%q", trackedStatusBefore, trackedStatusAfter)
 	}
 
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
 	if _, err := terminal.Write([]byte("/quit\r")); err != nil {
 		t.Fatalf("send /quit input after orchestrate command smoke: %v", err)
 	}
@@ -2545,6 +2551,10 @@ func TestOrchestrateCommandShowsProgressSummaryPTYSmoke(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		cancel()
 		t.Fatalf("orchestrate command PTY did not exit after /quit")
+	}
+	select {
+	case <-drained:
+	case <-time.After(2 * time.Second):
 	}
 	assertNoDurableStatePollution(t, env, baseline)
 }
@@ -4383,6 +4393,7 @@ func newAilaPTYEnv(t *testing.T) ailaPTYTestEnv {
 		"GOCACHE=" + filepath.Join(tmp, "go-build"),
 		"TMPDIR=" + filepath.Join(tmp, "tmp"),
 		"GOENV=off",
+		"AILA_AGENT_RUNNER=fake",
 	}
 	if path := os.Getenv("PATH"); path != "" {
 		env = append(env, "PATH="+path)

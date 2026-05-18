@@ -55,21 +55,30 @@ func newInputRunnerWithDispatchAndAgentConfig(ctx context.Context, dispatch runt
 
 func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
-	model, effects := runner.update(runtime.PromptSubmitted{Text: text})
+	model, effects := runner.update(runtime.AgentPromptSubmitted{Text: text, Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
 	runner.model = model
 	if len(effects) == 0 {
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
 		return buildAgentEvidenceTurn(turn)
 	}
-	operation := effects[0].Metadata()
-	stream, err := runner.agent.runner.Stream(runner.agent.ctx, agent.RunRequest{
+	agentEffect, ok := effects[0].(runtime.AgentPromptEffect)
+	if !ok {
+		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: effects[0].Metadata(), Provider: runner.agent.provider, Model: runner.agent.model, Failure: runtime.FailureMetadata{Code: "invalid_agent_effect", Message: "agent prompt did not produce an agent effect"}})
+		turn := transcriptTurn(runner.model.Transcript[before:])
+		runner.applyRuntimeState(&turn)
+		return buildAgentEvidenceTurn(turn)
+	}
+	operation := agentEffect.Operation
+	turnCtx, cancel := context.WithCancel(runner.agent.ctx)
+	defer cancel()
+	stream, err := runner.agent.runner.Stream(turnCtx, agent.RunRequest{
 		Prompt:    strings.TrimSpace(text),
 		Provider:  runner.agent.provider,
 		Model:     runner.agent.model,
 		RunID:     operation.ID,
 		MaxSteps:  4,
-		ToolNames: append([]string(nil), runner.agent.toolNames...),
+		ToolNames: append([]string(nil), agentEffect.ToolNames...),
 	})
 	if err != nil {
 		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: runner.agent.provider, Model: runner.agent.model, Failure: runtime.FailureMetadata{Code: "stream_error", Message: err.Error(), Retryable: true}})
@@ -88,6 +97,7 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 					read = runner.executeAgentReadTool(requested.Request)
 					continue
 				case "write":
+					cancel()
 					return runner.proposeAgentWriteApproval(requested.Request, before)
 				default:
 					runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: requested.Request.Provider, Model: requested.Request.Model, Failure: runtime.FailureMetadata{Code: "unsupported_tool", Message: "agent tool not available: " + requested.Request.Name}})

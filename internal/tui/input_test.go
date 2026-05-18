@@ -938,7 +938,7 @@ func TestModelSwitchSelectionAppliesThroughAppCallback(t *testing.T) {
 		CurrentUtility: "opencode-go/deepseek-v4-flash:max",
 		Focus:          true,
 		Items: []ModelSwitchItemView{
-			{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Family: "device_code", Class: "reasoning", Status: "available", CredentialSource: "device-code", Current: true},
+			{Label: "opencode-go/deepseek-v4-pro:high", SourceName: "opencode-go", Model: "deepseek-v4-pro", Family: "api_key", Class: "reasoning", Status: "available", CredentialSource: "OPENCODE_API_KEY", Current: true},
 			{Label: "openai/o4-mini", SourceName: "openai", Model: "o4-mini", Family: "api_key", Class: "reasoning", Status: "available", CredentialSource: "OPENAI_API_KEY"},
 		},
 	})

@@ -82,7 +82,17 @@ func newInputRunnerWithReadContextAndFetchClient(ctx context.Context, workspaceP
 }
 
 func newInputRunnerWithAgentBuildContext(ctx context.Context, workspacePath string, autonomyLevel string) *inputRunner {
-	return newInputRunnerWithDispatchAndAgentConfig(ctx, readDispatchContext(ctx, workspacePath, autonomyLevel), agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", []string{"read", "write"})
+	dispatch := readDispatchContext(ctx, workspacePath, autonomyLevel)
+	if os.Getenv("AILA_AGENT_RUNNER") == "fake" {
+		return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", []string{"read", "write"})
+	}
+	config, _, err := LoadConfig()
+	if err != nil {
+		selection := unavailableAgentBuildRunner("config", "unavailable", string(agent.FailureModelUnavailable), "load startup config: "+boundedStoreError(err), false)
+		return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames)
+	}
+	selection := newAgentBuildRunnerFromConfig(workspacePath, autonomyLevel, config, os.LookupEnv, http.DefaultClient)
+	return newInputRunnerWithDispatchAndAgentConfig(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames)
 }
 
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {
