@@ -8,5 +8,8 @@ docs/notes/*
 build/
 tmp/
 
+# Aila state management
+.aila/
+
 # Worktrees
 .worktrees/
