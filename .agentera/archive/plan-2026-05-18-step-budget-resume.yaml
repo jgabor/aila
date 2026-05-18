@@ -1,0 +1,116 @@
+header:
+  level: full
+  created: '2026-05-18'
+  status: complete
+  reviewed: '2026-05-18'
+  critic_issues: '3 found, 3 addressed, 0 dismissed'
+  revised: Scoped continuation to step-limit recovery, made the step budget internally adjustable only, forbade public config exposure, and kept queued input/interrupt work out of this plan.
+  title: 'Plan: Make agent step budget internally adjustable and resumable after limits'
+
+what: Teach Aila's interactive agent runs to use an internally adjustable step budget instead of the hardcoded MaxSteps value of 4, and make a step-limit stop a resumable conversational state rather than a terminal-looking failure or silent dead end.
+why: The current agent loop is dogfood-capable enough to call tools, but long tool-using turns are artificially clipped by an app-local literal. Maintainers need a narrow seam to tune that budget without exposing another user setting; users need clear feedback when the budget is exhausted and a way to continue the same work from the point where the agent stopped.
+constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Do not expose MaxSteps, step budget, or equivalent agent-turn limit as a user-facing configuration option in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Make the budget easy for maintainers to adjust through a narrow internal default, constructor option, or test seam only. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broader conversation engines. Do not perform human M57 dogfooding. Do not push. Do not implement durable session restore, full transcript persistence, queued prompts, or interrupt cancellation in this plan.
+design: >
+  Keep ownership narrow. The app-owned agent prompt path gets its step budget from an internal default or constructor/test seam, not from user configuration. That budget is passed into agent.RunRequest and recorded only as runtime behavior/view state when a limit is reached. The agent adapter preserves go-agent stop reasons, especially step_limit, without reclassifying them as provider setup failures. Continuation reuses Aila-owned run/session identity and the existing transcript/tool evidence for the active conversation so a follow-up prompt can resume after a limit stop; durable cross-process conversation history remains deferred.
+overall_acceptance: >
+  Agent-mode prompts no longer pass a scattered hardcoded MaxSteps value. A narrow internal default or constructor/test seam controls the step budget, no user-facing config key or public config output exposes it, and step-limit stops are visible as resumable state. Continuing after a step-limit stop resumes the same conversation context instead of starting an unrelated fresh run. Normal completion still leaves the TUI ready for the next user prompt. runtime.Update remains deterministic and IO-free, and the relevant app/agent/runtime tests plus mage check pass.
+surprises:
+- Aila can satisfy the continuation contract with an in-process go-agent Session plus compact transcript context, without durable session restore or a public step-budget setting.
+previous_plan_archived: .agentera/archive/plan-2026-05-18-dogfood-tools.yaml
+
+scope:
+  included:
+  - Add an internally adjustable interactive agent step-budget default or constructor/test seam that replaces the scattered MaxSteps literal without creating a user-facing config option.
+  - Pass the configured budget through app agent prompt submission into agent.RunRequest and then go-agent RunRequest without app-local literals.
+  - Preserve and surface step-limit stop reasons as resumable state rather than generic stream errors or terminal-looking completion.
+  - Support continuation after a step-limit stop using the active conversation/run context so the next prompt can continue the same work.
+  - Add regression coverage for the internal default budget, maintainable override/test seam, absence from public config surfaces, step-limit rendering/state, continuation, and normal completion readiness.
+  excluded:
+  - Any user-facing MaxSteps, step-budget, or agent-turn-limit setting in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Full durable conversation history across process restarts, .aila session restore, /continue restore, queued user messages while the agent is running, interrupt-to-cancel behavior, utility scheduling, capability model invocation, and human M57 dogfooding.
+  - New tools, dynamic tool loading, provider marketplaces, MCP, plugins, workflow DSLs, hosted control planes, or changes that make the TUI own workflow/runtime behavior.
+  deferred:
+  - Full goagent.SessionStore persistence for all turns. Durable transcript compaction. User-visible controls for queued prompts and interrupt cancellation.
+
+tasks:
+- number: 1
+  name: Define the internal agent step-budget contract
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN Aila starts an interactive agent turn WHEN no test or constructor override is supplied THEN it uses a single internal default step budget instead of the old literal 4.
+  - GIVEN maintainers need to tune the budget WHEN they inspect the app-owned agent setup path THEN the default is easy to adjust in one narrow internal location or constructor option.
+  - GIVEN users inspect config files, config command output, or docs-facing config examples WHEN this change is present THEN no MaxSteps, step-budget, or agent-turn-limit key is exposed.
+  - GIVEN tests need a smaller or larger budget WHEN they construct the app-owned agent prompt path THEN they can override the budget without editing global user configuration.
+- number: 2
+  name: Route the configured budget through the agent run path
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN an agent-mode prompt is submitted WHEN the app creates agent.RunRequest THEN MaxSteps equals the internal default or explicit constructor/test override.
+  - GIVEN agent.RunRequest reaches the go-agent adapter WHEN go-agent RunRequest is built THEN the same step budget is preserved and no app-local hardcoded value is used.
+  - GIVEN fake runners and test runners observe a request WHEN they inspect RunRequest THEN they can assert the configured budget without provider IO.
+  - GIVEN non-agent commands run WHEN this change is present THEN they do not receive or depend on the interactive agent step-budget setting.
+  evidence:
+  - Added TestNonAgentCommandsDoNotUseAgentStepBudget to prove status/help/quit command routes do not create agent.RunRequest even when the runner has an internal MaxSteps override.
+  - go test ./internal/app ./internal/agent -run 'TestAgentPromptUsesInternalDefaultStepBudget|TestAgentPromptStepBudgetCanBeOverriddenInternally|TestNonAgentCommandsDoNotUseAgentStepBudget|TestFakeRunnersExposeConfiguredStepBudget|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1 passed.
+- number: 3
+  name: Represent step-limit stops as resumable runtime state
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN go-agent emits a step_limit stop WHEN Aila adapts the event stream THEN the runtime receives a bounded status that distinguishes budget exhaustion from provider failure.
+  - GIVEN a step-limit stop is rendered WHEN the user reads the transcript THEN the turn explains that the agent paused at the step budget and can be continued.
+  - GIVEN runtime.Update handles the adapted stop message WHEN state changes THEN it remains deterministic and performs no filesystem, shell, git, network, provider, or persistence IO.
+  - GIVEN the agent stops for a non-step-limit provider or tool error WHEN state is rendered THEN existing failure diagnostics remain failure diagnostics and are not mislabeled as continuation.
+  evidence:
+  - Added EventPaused, runtime.AgentTurnPaused, StatusPaused, and AgentPauseMetadata so go-agent step_limit stops become bounded resumable runtime state rather than provider failures.
+  - Added app/runtime rendering coverage that shows "Agent paused at the step budget. Send a continuation prompt to continue." and keeps provider/tool errors as failure diagnostics.
+  - mage fmt passed. Focused step-limit tests passed. go test ./internal/agent ./internal/runtime ./internal/app -count=1 passed.
+- number: 4
+  name: Continue from the step-limit pause point
+  depends_on:
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN an agent turn stops at the step budget WHEN the user sends a continuation prompt THEN Aila resumes with the active conversation/run context instead of discarding prior assistant and tool evidence.
+  - GIVEN continuation starts WHEN a new agent.RunRequest is created THEN the request carries enough session or transcript context for go-agent to proceed from the previous stop point.
+  - GIVEN continuation succeeds or stops again WHEN the transcript updates THEN prior evidence remains visible and the new turn is appended without duplicate fake transcript pollution.
+  - GIVEN there is no step-limit pause WHEN the user sends a normal prompt THEN Aila starts a normal next turn and does not invent continuation state.
+  evidence:
+  - Added Aila-owned in-process agent.ContextMessage context and SessionID fields to agent.RunRequest, populated from prior runtime transcript before submitting the new prompt.
+  - GoAgentRunner now forwards the stable session id and prior user/assistant context plus textual tool evidence into goagent.RunRequest.Session without durable persistence.
+  - Added TestAgentContinuationAfterStepLimitCarriesPriorContext to prove continuation after step-limit pause carries prior prompt, tool request evidence, and paused assistant output without duplicate transcript entries.
+- number: 5
+  name: Keep normal completion ready for the next prompt
+  depends_on:
+  - 3
+  status: completed
+  acceptance:
+  - GIVEN go-agent emits a complete stop WHEN Aila adapts the event stream THEN the turn is recorded as completed, not failed or paused.
+  - GIVEN a completed agent turn is displayed WHEN the user returns to the prompt THEN the UI is ready for another message without requiring restart or manual state reset.
+  - GIVEN a user submits a new message after completion WHEN the app starts the next turn THEN the previous completed turn remains transcript context according to the current in-process conversation contract.
+  - GIVEN queued input and interrupt cancellation are not implemented in this plan WHEN tests cover completion behavior THEN they assert only readiness for the next prompt, not queueing or cancellation semantics.
+  evidence:
+  - Added TestAgentNormalNextPromptCarriesCompletedContextWithoutPause to prove completed turns remain idle/ready, leave no queued messages, and pass previous prompt/result as next-turn context.
+  - Existing AgentTurnCompleted runtime behavior remains idle/completed, and the new context builder ignores pause-only continuation state when none exists.
+- number: 6
+  name: Sync evidence and close the plan state
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: completed
+  acceptance:
+  - GIVEN implementation is complete WHEN verification runs THEN focused app, agent, runtime, and config tests pass before the broader required check.
+  - GIVEN the full validation gate runs WHEN the change is ready for handoff THEN mage fmt and mage check pass or any failure is recorded with a precise blocker.
+  - GIVEN the TODO item is satisfied WHEN closeout metadata is updated THEN the MaxSteps/continuation TODO is marked resolved and progress records the verification evidence.
+  - GIVEN all tasks are complete WHEN Agentera state is updated THEN the plan can be archived and the next open TODO remains visible for future planning.
+  evidence:
+  - mage fmt passed.
+  - Focused continuation and completion tests passed with go test ./internal/app ./internal/agent -run 'TestAgentContinuationAfterStepLimitCarriesPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestGoAgentRunnerPassesSessionContext|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1.
+  - Package regression passed with go test ./internal/app ./internal/agent ./internal/runtime -count=1.
+  - 'Full validation passed with mage check: cmd/aila passed in 393.203s, 0 lint issues, and no vulnerabilities.'

@@ -1,4 +1,19 @@
 cycles:
+- number: 259
+  timestamp: 2026-05-18 20:15
+  type: feat
+  phase: build
+  what: Completed the AgentTurnCompleted lifecycle plan by adding deterministic queued prompt draining after terminal agent turns, bounded queued-input diagnostics, active agent cancellation handoff, and regression coverage for continuation context.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan for AgentTurnCompleted continuation; internal/runtime queued prompt and terminal state seams; internal/app agent prompt path; internal/tui typed interrupt callback tests.
+  discovered: Queued prompts need an explicit runtime drain message instead of automatic terminal-state effects so runtime.Update stays deterministic and the app starts drained agent work through the same AgentPromptEffect path with prior transcript context.
+  verified: Focused lifecycle tests passed with go test ./internal/runtime ./internal/app -run 'TestUpdateDrainsQueuedAgentPromptAfterTerminalState|TestUpdateReportsBoundedQueuedPromptLimit|TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestInterruptRequest' -count=1. Package regression passed with go test ./internal/runtime ./internal/app ./internal/tui ./internal/agent -count=1. mage fmt passed. Full validation passed with mage check: cmd/aila passed in 401.384s, 0 lint issues, and no vulnerabilities.
+  next: P2 capability model invocation is the next open critical TODO.
+  context:
+    intent: Satisfy the critical TODO for graceful AgentTurnCompleted continuation, queued prompts while running, and interrupt-to-cancel behavior.
+    constraints: Preserve statechart-MVU, keep runtime.Update IO-free, keep TUI presentation-only, add no user-facing lifecycle or queue config, no durable restore, do not push, and do not commit.
+    unknowns: Real-time cancellation responsiveness still depends on the synchronous interactive prompt loop; cross-process cancellation recovery and durable queued prompts remain deferred.
+    scope: internal/runtime/runtime.go, internal/runtime/runtime_test.go, internal/app/agent_prompt.go, internal/app/prompt.go, internal/app/prompt_test.go, TODO.md, and Agentera plan/progress metadata.
 - number: 258
   timestamp: 2026-05-18 19:43
   type: feat

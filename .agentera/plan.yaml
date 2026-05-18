@@ -4,113 +4,113 @@ header:
   status: complete
   reviewed: '2026-05-18'
   critic_issues: '3 found, 3 addressed, 0 dismissed'
-  revised: Scoped continuation to step-limit recovery, made the step budget internally adjustable only, forbade public config exposure, and kept queued input/interrupt work out of this plan.
-  title: 'Plan: Make agent step budget internally adjustable and resumable after limits'
+  revised: Scoped the TODO into continuation-after-completion, bounded queued prompts, and interrupt-to-cancel behavior without adding durable restore or moving workflow ownership into the TUI.
+  title: 'Plan: Handle AgentTurnCompleted with continuation, queued prompts, and cancel'
 
-what: Teach Aila's interactive agent runs to use an internally adjustable step budget instead of the hardcoded MaxSteps value of 4, and make a step-limit stop a resumable conversational state rather than a terminal-looking failure or silent dead end.
-why: The current agent loop is dogfood-capable enough to call tools, but long tool-using turns are artificially clipped by an app-local literal. Maintainers need a narrow seam to tune that budget without exposing another user setting; users need clear feedback when the budget is exhausted and a way to continue the same work from the point where the agent stopped.
-constraints: Preserve statechart-MVU and IO-free runtime.Update. Keep TUI presentation-only. Do not expose MaxSteps, step budget, or equivalent agent-turn limit as a user-facing configuration option in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Make the budget easy for maintainers to adjust through a narrow internal default, constructor option, or test seam only. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broader conversation engines. Do not perform human M57 dogfooding. Do not push. Do not implement durable session restore, full transcript persistence, queued prompts, or interrupt cancellation in this plan.
+what: Implement the critical TODO to handle `AgentTurnCompleted` gracefully by keeping completed agent turns ready for conversational continuation, accepting user messages while an agent turn is still running by queueing them deterministically, and mapping interrupt input to cancellation of the active stream.
+why: Aila's agent loop can now preserve in-process context, but the user-facing turn lifecycle is still incomplete. Users need to keep working after an agent completes, type follow-up intent without losing it while the agent is running, and stop a bad or obsolete run without killing the whole application.
+constraints: Preserve statechart-MVU and keep runtime.Update deterministic and IO-free. Keep the TUI presentation-only; it may collect input and render state, but must not own workflow transitions, tool execution, permission classification, persistence, model prompt construction, or cancellation policy. Route mutations through typed effects and guarded IO. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broad conversation-engine abstractions. Do not add user-facing configuration for queue length, cancellation policy, or agent turn lifecycle. Do not implement durable session restore, full transcript persistence across restarts, utility scheduling, or capability model invocation in this plan. Do not push.
 design: >
-  Keep ownership narrow. The app-owned agent prompt path gets its step budget from an internal default or constructor/test seam, not from user configuration. That budget is passed into agent.RunRequest and recorded only as runtime behavior/view state when a limit is reached. The agent adapter preserves go-agent stop reasons, especially step_limit, without reclassifying them as provider setup failures. Continuation reuses Aila-owned run/session identity and the existing transcript/tool evidence for the active conversation so a follow-up prompt can resume after a limit stop; durable cross-process conversation history remains deferred.
+  Treat the agent turn lifecycle as app/runtime state first, with TUI input translated into typed messages or effects. Completion remains an idle, ready state with transcript context available to the next prompt. While a turn is running, submitted user text is captured as a bounded pending prompt in deterministic state rather than dropped or run concurrently. Interrupt input requests cancellation through an explicit effect that cancels the active agent context and reports a typed cancelled result back into runtime state. After completion or cancellation, the app drains the next queued prompt through the same prompt-submission path so context, permissions, history, and rendering stay centralized.
 overall_acceptance: >
-  Agent-mode prompts no longer pass a scattered hardcoded MaxSteps value. A narrow internal default or constructor/test seam controls the step budget, no user-facing config key or public config output exposes it, and step-limit stops are visible as resumable state. Continuing after a step-limit stop resumes the same conversation context instead of starting an unrelated fresh run. Normal completion still leaves the TUI ready for the next user prompt. runtime.Update remains deterministic and IO-free, and the relevant app/agent/runtime tests plus mage check pass.
+  When an agent turn completes, the user can continue the same in-process conversation without restart and without losing prior transcript context. When the user submits text during an active agent turn, Aila queues it visibly and starts it after the active turn reaches a terminal completed, failed, paused, or cancelled state, without concurrent agent runs or fake transcript pollution. When the user interrupts an active stream, Aila cancels the active operation through an explicit effect, records a cancelled turn, leaves the app usable, and preserves or drains queued prompts according to the deterministic lifecycle contract. The behavior is covered by focused app/runtime/TUI tests plus mage fmt and mage check.
 surprises:
-- Aila can satisfy the continuation contract with an in-process go-agent Session plus compact transcript context, without durable session restore or a public step-budget setting.
-previous_plan_archived: .agentera/archive/plan-2026-05-18-dogfood-tools.yaml
+- Runtime now has an explicit queued-prompt drain message so terminal agent states remain idle until the app starts queued work through the normal prompt path.
+previous_plan_archived: .agentera/archive/plan-2026-05-18-step-budget-resume.yaml
 
 scope:
   included:
-  - Add an internally adjustable interactive agent step-budget default or constructor/test seam that replaces the scattered MaxSteps literal without creating a user-facing config option.
-  - Pass the configured budget through app agent prompt submission into agent.RunRequest and then go-agent RunRequest without app-local literals.
-  - Preserve and surface step-limit stop reasons as resumable state rather than generic stream errors or terminal-looking completion.
-  - Support continuation after a step-limit stop using the active conversation/run context so the next prompt can continue the same work.
-  - Add regression coverage for the internal default budget, maintainable override/test seam, absence from public config surfaces, step-limit rendering/state, continuation, and normal completion readiness.
+  - Define the completed/running/queued/cancelling agent-turn lifecycle and the typed messages/effects that move between those states.
+  - Preserve continuation after `AgentTurnCompleted` using the existing in-process transcript/session context contract.
+  - Queue user messages submitted while the agent is running and drain them after terminal turn states without concurrent runs.
+  - Map interrupt input to cancellation of the active agent stream through explicit effect-owned IO and typed runtime results.
+  - Add regression coverage for completion continuation, queue visibility/draining, interrupt cancellation, no dropped prompts, no duplicate transcript pollution, and deterministic runtime.Update behavior.
   excluded:
-  - Any user-facing MaxSteps, step-budget, or agent-turn-limit setting in config.yaml, config.toml, config commands, docs-facing config examples, or equivalent public config surfaces. Full durable conversation history across process restarts, .aila session restore, /continue restore, queued user messages while the agent is running, interrupt-to-cancel behavior, utility scheduling, capability model invocation, and human M57 dogfooding.
-  - New tools, dynamic tool loading, provider marketplaces, MCP, plugins, workflow DSLs, hosted control planes, or changes that make the TUI own workflow/runtime behavior.
+  - Durable session restore, `.aila/sessions/` persistence, `/continue` restore, full transcript persistence across process restarts, utility scheduling, capability model invocation, broad conversation-engine abstractions, plugins, MCP, dynamic tools, hosted control planes, and user-facing lifecycle/queue/cancel configuration.
   deferred:
-  - Full goagent.SessionStore persistence for all turns. Durable transcript compaction. User-visible controls for queued prompts and interrupt cancellation.
+  - Multi-item persistent prompt queues across restarts.
+  - Cross-process cancellation recovery after application crash.
+  - User-visible queue management commands beyond the minimal lifecycle needed for this TODO.
 
 tasks:
 - number: 1
-  name: Define the internal agent step-budget contract
+  name: Capture the current turn lifecycle and regression seams
   depends_on: []
   status: completed
   acceptance:
-  - GIVEN Aila starts an interactive agent turn WHEN no test or constructor override is supplied THEN it uses a single internal default step budget instead of the old literal 4.
-  - GIVEN maintainers need to tune the budget WHEN they inspect the app-owned agent setup path THEN the default is easy to adjust in one narrow internal location or constructor option.
-  - GIVEN users inspect config files, config command output, or docs-facing config examples WHEN this change is present THEN no MaxSteps, step-budget, or agent-turn-limit key is exposed.
-  - GIVEN tests need a smaller or larger budget WHEN they construct the app-owned agent prompt path THEN they can override the budget without editing global user configuration.
+  - GIVEN the current app/runtime/TUI prompt path is inspected WHEN implementation starts THEN the active turn, terminal completion, input submission, and interrupt seams are identified without moving IO into runtime.Update.
+  - GIVEN current tests do not cover the TODO WHEN the first regression tests are added THEN at least one focused test demonstrates the missing queued-prompt or interrupt behavior before production code is changed.
+  - GIVEN the existing in-process context from completed turns WHEN new lifecycle tests are written THEN they preserve the prior completion-continuation contract and do not broaden it into durable restore.
+  - GIVEN the architecture docs require typed messages and effects WHEN the lifecycle seam is documented in code/tests THEN TUI remains presentation-only and runtime.Update remains deterministic.
+  evidence:
+  - Inspected internal/app agent prompt submission, internal/runtime prompt/agent terminal update handling, and internal/tui ctrl-c routing seams.
+  - Added runtime and app regression coverage for queued prompt draining, bounded queue overflow diagnostics, continuation context, and existing TUI interrupt routing.
 - number: 2
-  name: Route the configured budget through the agent run path
+  name: Model queued prompt state deterministically
   depends_on:
   - 1
   status: completed
   acceptance:
-  - GIVEN an agent-mode prompt is submitted WHEN the app creates agent.RunRequest THEN MaxSteps equals the internal default or explicit constructor/test override.
-  - GIVEN agent.RunRequest reaches the go-agent adapter WHEN go-agent RunRequest is built THEN the same step budget is preserved and no app-local hardcoded value is used.
-  - GIVEN fake runners and test runners observe a request WHEN they inspect RunRequest THEN they can assert the configured budget without provider IO.
-  - GIVEN non-agent commands run WHEN this change is present THEN they do not receive or depend on the interactive agent step-budget setting.
+  - GIVEN a user submits a prompt while an agent turn is running WHEN runtime/app state updates THEN the prompt is recorded as pending queued intent rather than dropped, run concurrently, or appended as fake assistant output.
+  - GIVEN queued prompt state is rendered WHEN the user observes the TUI THEN the UI communicates that the prompt is queued or pending without claiming it has already run.
+  - GIVEN runtime.Update handles queued-prompt messages WHEN state changes THEN it performs no filesystem, shell, git, network, provider, cancellation, or persistence IO.
+  - GIVEN there is no active agent turn WHEN a prompt is submitted THEN Aila starts the normal agent path and does not unnecessarily queue it.
   evidence:
-  - Added TestNonAgentCommandsDoNotUseAgentStepBudget to prove status/help/quit command routes do not create agent.RunRequest even when the runner has an internal MaxSteps override.
-  - go test ./internal/app ./internal/agent -run 'TestAgentPromptUsesInternalDefaultStepBudget|TestAgentPromptStepBudgetCanBeOverriddenInternally|TestNonAgentCommandsDoNotUseAgentStepBudget|TestFakeRunnersExposeConfiguredStepBudget|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1 passed.
+  - runtime.Update now records AgentPromptSubmitted and PromptSubmitted text as QueuedEntry while active without appending fake transcript output.
+  - Queue state remains visible through existing app/TUI QueuedCount and QueuedText handoff.
 - number: 3
-  name: Represent step-limit stops as resumable runtime state
+  name: Drain queued prompts after terminal turn states
   depends_on:
   - 2
   status: completed
   acceptance:
-  - GIVEN go-agent emits a step_limit stop WHEN Aila adapts the event stream THEN the runtime receives a bounded status that distinguishes budget exhaustion from provider failure.
-  - GIVEN a step-limit stop is rendered WHEN the user reads the transcript THEN the turn explains that the agent paused at the step budget and can be continued.
-  - GIVEN runtime.Update handles the adapted stop message WHEN state changes THEN it remains deterministic and performs no filesystem, shell, git, network, provider, or persistence IO.
-  - GIVEN the agent stops for a non-step-limit provider or tool error WHEN state is rendered THEN existing failure diagnostics remain failure diagnostics and are not mislabeled as continuation.
+  - GIVEN an active agent turn completes WHEN a queued prompt exists THEN Aila starts the queued prompt through the same app-owned prompt submission path using the current in-process conversation context.
+  - GIVEN an active agent turn fails, pauses at the step budget, or is cancelled WHEN a queued prompt exists THEN the lifecycle contract deterministically either drains or preserves the queued prompt, with tests covering the chosen behavior.
+  - GIVEN queued prompt draining starts a new agent.RunRequest WHEN fake runners inspect it THEN the prior transcript context is available and duplicate queued text is not inserted into the transcript.
+  - GIVEN multiple rapid submissions occur WHEN the bounded queue policy is reached THEN Aila reports the limit or replacement behavior explicitly instead of silently losing user intent.
   evidence:
-  - Added EventPaused, runtime.AgentTurnPaused, StatusPaused, and AgentPauseMetadata so go-agent step_limit stops become bounded resumable runtime state rather than provider failures.
-  - Added app/runtime rendering coverage that shows "Agent paused at the step budget. Send a continuation prompt to continue." and keeps provider/tool errors as failure diagnostics.
-  - mage fmt passed. Focused step-limit tests passed. go test ./internal/agent ./internal/runtime ./internal/app -count=1 passed.
+  - Added QueuedPromptDrainRequested and app drain handling so queued prompts start after terminal agent completion through AgentPromptEffect.
+  - Added an internal eight-entry queue cap with a runtime diagnostic when additional prompt input cannot be queued.
+  - TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext and TestUpdateDrainsQueuedAgentPromptAfterTerminalState prove context-preserving drain without duplicate queued transcript entries.
 - number: 4
-  name: Continue from the step-limit pause point
-  depends_on:
-  - 3
-  status: completed
-  acceptance:
-  - GIVEN an agent turn stops at the step budget WHEN the user sends a continuation prompt THEN Aila resumes with the active conversation/run context instead of discarding prior assistant and tool evidence.
-  - GIVEN continuation starts WHEN a new agent.RunRequest is created THEN the request carries enough session or transcript context for go-agent to proceed from the previous stop point.
-  - GIVEN continuation succeeds or stops again WHEN the transcript updates THEN prior evidence remains visible and the new turn is appended without duplicate fake transcript pollution.
-  - GIVEN there is no step-limit pause WHEN the user sends a normal prompt THEN Aila starts a normal next turn and does not invent continuation state.
-  evidence:
-  - Added Aila-owned in-process agent.ContextMessage context and SessionID fields to agent.RunRequest, populated from prior runtime transcript before submitting the new prompt.
-  - GoAgentRunner now forwards the stable session id and prior user/assistant context plus textual tool evidence into goagent.RunRequest.Session without durable persistence.
-  - Added TestAgentContinuationAfterStepLimitCarriesPriorContext to prove continuation after step-limit pause carries prior prompt, tool request evidence, and paused assistant output without duplicate transcript entries.
-- number: 5
-  name: Keep normal completion ready for the next prompt
-  depends_on:
-  - 3
-  status: completed
-  acceptance:
-  - GIVEN go-agent emits a complete stop WHEN Aila adapts the event stream THEN the turn is recorded as completed, not failed or paused.
-  - GIVEN a completed agent turn is displayed WHEN the user returns to the prompt THEN the UI is ready for another message without requiring restart or manual state reset.
-  - GIVEN a user submits a new message after completion WHEN the app starts the next turn THEN the previous completed turn remains transcript context according to the current in-process conversation contract.
-  - GIVEN queued input and interrupt cancellation are not implemented in this plan WHEN tests cover completion behavior THEN they assert only readiness for the next prompt, not queueing or cancellation semantics.
-  evidence:
-  - Added TestAgentNormalNextPromptCarriesCompletedContextWithoutPause to prove completed turns remain idle/ready, leave no queued messages, and pass previous prompt/result as next-turn context.
-  - Existing AgentTurnCompleted runtime behavior remains idle/completed, and the new context builder ignores pause-only continuation state when none exists.
-- number: 6
-  name: Sync evidence and close the plan state
+  name: Route interrupt input to active stream cancellation
   depends_on:
   - 1
+  status: completed
+  acceptance:
+  - GIVEN an agent turn is running WHEN the user triggers the interrupt keybinding THEN the TUI emits a typed cancellation request instead of directly cancelling provider IO or mutating workflow state.
+  - GIVEN the app receives a cancellation request WHEN an active agent operation exists THEN it dispatches an explicit cancel effect against that operation's context and records a typed cancellation result.
+  - GIVEN cancellation completes WHEN runtime state updates THEN the active turn is marked cancelled, the prompt is usable again, and any queued prompt behavior follows the lifecycle contract from Task 3.
+  - GIVEN no agent turn is running WHEN interrupt is triggered THEN Aila handles it as a no-op or existing input-editing behavior without creating a bogus cancelled turn.
+  evidence:
+  - TUI ctrl-c remains a typed app interrupt callback, not a Bubble Tea quit or lower-layer cancellation.
+  - inputRunner now stores the active agent cancel function and invokes it before runtime records InterruptRequested.
+  - Existing interrupt tests cover active, canceled, queued, and idle paths.
+- number: 5
+  name: Preserve graceful completion continuation
+  depends_on:
   - 2
+  status: completed
+  acceptance:
+  - GIVEN go-agent emits `AgentTurnCompleted` WHEN Aila adapts and records the event THEN the turn becomes completed/idle rather than failed, cancelled, paused, or stuck running.
+  - GIVEN a user submits a follow-up after `AgentTurnCompleted` WHEN the next run starts THEN the previous user/assistant/tool evidence remains available through the in-process context contract.
+  - GIVEN a completed turn is displayed WHEN the user returns to the prompt THEN queued/cancel affordances are not shown as active unless there is actually queued or cancelling state.
+  - GIVEN completion happens while no queued prompt exists WHEN state settles THEN Aila is simply ready for the next user message without requiring restart or a manual reset.
+  evidence:
+  - AgentTurnCompleted continues to settle runtime to idle with completed result state, preserving in-process transcript context for follow-up prompts.
+  - TestAgentNormalNextPromptCarriesCompletedContextWithoutPause remains passing with no queued or cancel affordances after ordinary completion.
+- number: 6
+  name: Verify and close the critical TODO
+  depends_on:
   - 3
   - 4
   - 5
   status: completed
   acceptance:
-  - GIVEN implementation is complete WHEN verification runs THEN focused app, agent, runtime, and config tests pass before the broader required check.
-  - GIVEN the full validation gate runs WHEN the change is ready for handoff THEN mage fmt and mage check pass or any failure is recorded with a precise blocker.
-  - GIVEN the TODO item is satisfied WHEN closeout metadata is updated THEN the MaxSteps/continuation TODO is marked resolved and progress records the verification evidence.
-  - GIVEN all tasks are complete WHEN Agentera state is updated THEN the plan can be archived and the next open TODO remains visible for future planning.
+  - GIVEN implementation is complete WHEN focused tests run THEN app, runtime, TUI, and agent-adapter coverage passes for completion continuation, queueing, draining, cancellation, and no concurrent runs.
+  - GIVEN Go files changed WHEN validation is ready THEN mage fmt passes before broader checks.
+  - GIVEN the full validation gate runs WHEN the plan is ready to close THEN mage check passes or any failure is recorded with a precise blocker and owner.
+  - GIVEN the critical TODO is satisfied WHEN closeout metadata is updated THEN TODO.md marks the `AgentTurnCompleted` item resolved and progress records verification evidence.
   evidence:
-  - mage fmt passed.
-  - Focused continuation and completion tests passed with go test ./internal/app ./internal/agent -run 'TestAgentContinuationAfterStepLimitCarriesPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestGoAgentRunnerPassesSessionContext|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1.
-  - Package regression passed with go test ./internal/app ./internal/agent ./internal/runtime -count=1.
-  - 'Full validation passed with mage check: cmd/aila passed in 393.203s, 0 lint issues, and no vulnerabilities.'
+  - TODO.md marks the AgentTurnCompleted/queued prompt/interrupt cancellation TODO resolved.
+  - Focused lifecycle tests, package regressions, mage fmt, and mage check passed before closeout metadata was updated.

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"os"
@@ -1386,6 +1387,71 @@ func TestUpdateKeepsQueuedPromptsVisibleAfterFakeWorkCompletes(t *testing.T) {
 	if got := failed.Transcript[len(failed.Transcript)-1]; got != (TranscriptEntry{Kind: "failure", Text: "failed"}) {
 		t.Fatalf("failed last transcript = %#v", got)
 	}
+}
+
+func TestUpdateDrainsQueuedAgentPromptAfterTerminalState(t *testing.T) {
+	t.Parallel()
+
+	active, effects := Update(Model{}, AgentPromptSubmitted{Text: "first", Provider: "fake", Model: "fake-build", ToolNames: []string{"read"}})
+	if len(effects) != 1 {
+		t.Fatalf("initial effects = %d, want 1", len(effects))
+	}
+	active, effects = Update(active, AgentPromptSubmitted{Text: "queued follow-up", Provider: "fake", Model: "fake-build", ToolNames: []string{"read"}})
+	if len(effects) != 0 || len(active.Queued) != 1 {
+		t.Fatalf("queued model/effects = %+v %d", active.Queued, len(effects))
+	}
+	completed, effects := Update(active, AgentTurnCompleted{Operation: effectsOrPanic(t, active.ActiveOperation), Provider: "fake", Model: "fake-build", FinishReason: "complete"})
+	if len(effects) != 0 || completed.Status != StatusIdle || len(completed.Queued) != 1 {
+		t.Fatalf("terminal model/effects = status %s queue %+v effects %d", completed.Status, completed.Queued, len(effects))
+	}
+
+	drained, effects := Update(completed, QueuedPromptDrainRequested{Provider: "fake", Model: "fake-build", ToolNames: []string{"read"}})
+
+	if drained.Status != StatusActive || len(drained.Queued) != 0 {
+		t.Fatalf("drained status/queue = %s %+v, want active empty queue", drained.Status, drained.Queued)
+	}
+	if got := drained.Transcript[len(drained.Transcript)-1]; got != (TranscriptEntry{Kind: "prompt", Text: "queued follow-up"}) {
+		t.Fatalf("drained last transcript = %#v", got)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("drain effects = %d, want 1", len(effects))
+	}
+	agentEffect, ok := effects[0].(AgentPromptEffect)
+	if !ok {
+		t.Fatalf("drain effect = %T, want AgentPromptEffect", effects[0])
+	}
+	if agentEffect.Prompt != "queued follow-up" || agentEffect.Provider != "fake" || agentEffect.Model != "fake-build" || !reflect.DeepEqual(agentEffect.ToolNames, []string{"read"}) {
+		t.Fatalf("agent drain effect = %#v", agentEffect)
+	}
+}
+
+func TestUpdateReportsBoundedQueuedPromptLimit(t *testing.T) {
+	t.Parallel()
+
+	model := Model{Status: StatusActive}
+	for index := 0; index < maxQueuedEntries; index++ {
+		model.Queued = append(model.Queued, QueuedEntry{Kind: "prompt", Text: fmt.Sprintf("queued %d", index)})
+	}
+
+	updated, effects := Update(model, PromptSubmitted{Text: "overflow"})
+
+	if len(effects) != 0 {
+		t.Fatalf("effects = %d, want 0", len(effects))
+	}
+	if len(updated.Queued) != maxQueuedEntries || updated.Queued[len(updated.Queued)-1].Text == "overflow" {
+		t.Fatalf("queue after overflow = %#v", updated.Queued)
+	}
+	if len(updated.Diagnostics) != 1 || !strings.Contains(updated.Diagnostics[0].BoundedMessage, "queued input limit reached") {
+		t.Fatalf("diagnostics = %#v, want queued limit diagnostic", updated.Diagnostics)
+	}
+}
+
+func effectsOrPanic(t *testing.T, operation OperationMetadata) OperationMetadata {
+	t.Helper()
+	if operation.ID == "" {
+		t.Fatal("missing active operation")
+	}
+	return operation
 }
 
 func TestDispatchHandlesPromptEffect(t *testing.T) {

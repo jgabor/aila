@@ -463,6 +463,48 @@ func TestAgentNormalNextPromptCarriesCompletedContextWithoutPause(t *testing.T) 
 	}
 }
 
+func TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{
+		{
+			{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "Queued answer."},
+			{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+		},
+	}}
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agentRunner)
+	model, effects := runner.update(runtime.AgentPromptSubmitted{Text: "first question", Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
+	runner.model = model
+	if len(effects) != 1 {
+		t.Fatalf("initial effects = %d, want active agent effect", len(effects))
+	}
+	runner.model, _ = runner.update(runtime.AgentAssistantDelta{Operation: effects[0].Metadata(), Provider: runner.agent.provider, Model: runner.agent.model, Text: "First answer."})
+	runner.model, _ = runner.update(runtime.AgentPromptSubmitted{Text: "queued follow-up", Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
+	runner.model, _ = runner.update(runtime.AgentTurnCompleted{Operation: effects[0].Metadata(), Provider: runner.agent.provider, Model: runner.agent.model, FinishReason: "complete"})
+
+	runner.drainQueuedAgentPrompts()
+
+	if len(agentRunner.requests) != 1 {
+		t.Fatalf("drained requests = %d, want 1", len(agentRunner.requests))
+	}
+	if agentRunner.requests[0].Prompt != "queued follow-up" {
+		t.Fatalf("drained prompt = %q", agentRunner.requests[0].Prompt)
+	}
+	wantContext := []agent.ContextMessage{
+		{Role: "user", Content: "first question"},
+		{Role: "assistant", Content: "First answer."},
+	}
+	if !reflect.DeepEqual(agentRunner.requests[0].Context, wantContext) {
+		t.Fatalf("queued prompt context = %#v, want %#v", agentRunner.requests[0].Context, wantContext)
+	}
+	if got := countTranscriptEntries(runner.model.Transcript, "prompt", "queued follow-up"); got != 1 {
+		t.Fatalf("queued prompt transcript count = %d, want 1", got)
+	}
+	if len(runner.model.Queued) != 0 || runner.model.Status != runtime.StatusIdle {
+		t.Fatalf("drained model status/queue = %s %+v", runner.model.Status, runner.model.Queued)
+	}
+}
+
 func countTranscriptEntries(transcript []runtime.TranscriptEntry, kind string, text string) int {
 	count := 0
 	for _, entry := range transcript {

@@ -5,6 +5,7 @@
 ### Added
 
 - Wired go-agent build turns with bounded system instructions, all seven fixed built-in tools, and registered tool-call dispatch through Aila runtime effects.
+- Added graceful agent turn continuation with queued prompt draining and interrupt-to-cancel handoff.
 
 ### Changed
 

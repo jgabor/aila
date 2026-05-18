@@ -80,7 +80,6 @@ func normalizedAgentMaxSteps(maxSteps int) int {
 
 func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
-	conversationContext := agentContextFromTranscript(runner.model.Transcript)
 	model, effects := runner.update(runtime.AgentPromptSubmitted{Text: text, Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
 	runner.model = model
 	if len(effects) == 0 {
@@ -95,11 +94,20 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		runner.applyRuntimeState(&turn)
 		return buildAgentEvidenceTurn(turn)
 	}
+	return runner.executeAgentPromptEffect(agentEffect, before)
+}
+
+func (runner *inputRunner) executeAgentPromptEffect(agentEffect runtime.AgentPromptEffect, before int) tui.TranscriptTurn {
+	conversationContext := agentContextFromTranscript(runner.model.Transcript[:before])
 	operation := agentEffect.Operation
 	turnCtx, cancel := context.WithCancel(runner.agent.ctx)
-	defer cancel()
+	runner.activeAgentCancel = cancel
+	defer func() {
+		runner.activeAgentCancel = nil
+		cancel()
+	}()
 	stream, err := runner.agent.runner.Stream(turnCtx, agent.RunRequest{
-		Prompt:       strings.TrimSpace(text),
+		Prompt:       strings.TrimSpace(agentEffect.Prompt),
 		Instructions: runner.agent.instructions,
 		Provider:     runner.agent.provider,
 		Model:        runner.agent.model,
@@ -113,6 +121,7 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: runner.agent.provider, Model: runner.agent.model, Failure: runtime.FailureMetadata{Code: "stream_error", Message: err.Error(), Retryable: true}})
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
+		runner.drainQueuedAgentPrompts()
 		return buildAgentEvidenceTurn(turn)
 	}
 
@@ -148,7 +157,24 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		turn.Read = read
 		turn.StatusDetail = "read tool dispatch"
 	}
+	runner.drainQueuedAgentPrompts()
 	return buildAgentEvidenceTurn(turn)
+}
+
+func (runner *inputRunner) drainQueuedAgentPrompts() {
+	for len(runner.model.Queued) > 0 && !runtimeActive(runner.model) {
+		before := len(runner.model.Transcript)
+		model, effects := runner.update(runtime.QueuedPromptDrainRequested{Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
+		runner.model = model
+		if len(effects) == 0 {
+			return
+		}
+		agentEffect, ok := effects[0].(runtime.AgentPromptEffect)
+		if !ok {
+			return
+		}
+		runner.executeAgentPromptEffect(agentEffect, before)
+	}
 }
 
 func agentContextFromTranscript(transcript []runtime.TranscriptEntry) []agent.ContextMessage {

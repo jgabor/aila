@@ -15,6 +15,7 @@ type inputRunner struct {
 	model                    runtime.Model
 	dispatch                 runtimeDispatchFunc
 	agent                    *agentPromptRunner
+	activeAgentCancel        func()
 	pendingMutationApprovals map[string]runtime.MutationToolRequest
 }
 
@@ -38,6 +39,9 @@ func (runner *inputRunner) submitPrompt(text string) tui.TranscriptTurn {
 
 func (runner *inputRunner) requestInterrupt(reason string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
+	if runner.activeAgentCancel != nil {
+		runner.activeAgentCancel()
+	}
 	runner.apply(runtime.InterruptRequested{Reason: reason})
 	turn := transcriptTurn(runner.model.Transcript[before:])
 	runner.applyRuntimeState(&turn)

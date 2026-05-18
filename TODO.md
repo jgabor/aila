@@ -35,7 +35,7 @@ no project context. Without this, no other wiring matters.
       `goagent.Session` / `goagent.SessionStore` or by injecting prior turns into
       the system prompt so each run sees the full transcript instead of starting
       fresh.
-- [ ] [feat:0.0.2] Handle `AgentTurnCompleted` gracefully: allow the user to
+- [x] [feat:0.0.2] Handle `AgentTurnCompleted` gracefully: allow the user to
       continue the conversation after the agent stops, queue user messages while
       the agent is running, and support interrupt → cancel the active stream.
 

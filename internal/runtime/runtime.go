@@ -46,6 +46,16 @@ type AgentPromptSubmitted struct {
 
 func (AgentPromptSubmitted) runtimeMessage() {}
 
+// QueuedPromptDrainRequested records app intent to start the oldest queued
+// prompt after the active turn has reached a terminal state.
+type QueuedPromptDrainRequested struct {
+	Provider  string
+	Model     string
+	ToolNames []string
+}
+
+func (QueuedPromptDrainRequested) runtimeMessage() {}
+
 // CommandSelected records an inert command selected through a presentation
 // adapter.
 type CommandSelected struct {
@@ -381,6 +391,7 @@ type Model struct {
 	AssistantDraft       string
 	AgentProvider        string
 	AgentModel           string
+	AgentToolNames       []string
 	LastAgentToolRequest AgentToolRequest
 	AgentFinishReason    string
 	LastAgentPause       AgentPauseMetadata
@@ -1362,6 +1373,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 	next.Queued = append([]QueuedEntry(nil), model.Queued...)
 	next.Diagnostics = append([]diagnostic.Diagnostic(nil), model.Diagnostics...)
 	next.Subagents = cloneSubagentRuns(model.Subagents)
+	next.AgentToolNames = append([]string(nil), model.AgentToolNames...)
 	next.PendingApproval = cloneApprovalProposal(model.PendingApproval)
 	next.LastApprovalDecision = model.LastApprovalDecision
 
@@ -1372,63 +1384,47 @@ func Update(model Model, message Message) (Model, []Effect) {
 			return next, nil
 		}
 		if hasActiveWork(next.Status) {
-			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
+			next = appendQueuedEntry(next, QueuedEntry{Kind: "prompt", Text: text})
 			return next, nil
 		}
 
-		operation := nextOperation(&next, OperationPrompt, text)
-		next.Status = StatusActive
-		next.Result = ""
-		next.ActiveCompact = CompactContextRequest{}
-		next.LastCompact = CompactContextResult{}
-		next.ActiveRead = ReadToolRequest{}
-		next.LastRead = ReadToolResult{}
-		next.ActiveFetch = FetchToolRequest{}
-		next.LastFetch = FetchToolResult{}
-		next.ActiveMutation = MutationToolRequest{}
-		next.LastMutation = MutationToolResult{}
-		next.ActiveOperation = operation
-		next.AssistantDraft = ""
-		next.AgentProvider = ""
-		next.AgentModel = ""
-		next.LastAgentToolRequest = AgentToolRequest{}
-		next.AgentFinishReason = ""
-		next.LastAgentPause = AgentPauseMetadata{}
-		next.LastAgentFailure = FailureMetadata{}
-		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
-		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
+		return startFakePrompt(next, text)
 	case AgentPromptSubmitted:
 		text := msg.Text
 		if strings.TrimSpace(text) == "" {
 			return next, nil
 		}
 		if hasActiveWork(next.Status) {
-			next.Queued = append(next.Queued, QueuedEntry{Kind: "prompt", Text: text})
+			next = appendQueuedEntry(next, QueuedEntry{Kind: "prompt", Text: text})
 			return next, nil
 		}
 
-		operation := nextOperation(&next, OperationPrompt, text)
-		operation.Source = "runtime.agent"
-		next.Status = StatusActive
-		next.Result = ""
-		next.ActiveCompact = CompactContextRequest{}
-		next.LastCompact = CompactContextResult{}
-		next.ActiveRead = ReadToolRequest{}
-		next.LastRead = ReadToolResult{}
-		next.ActiveFetch = FetchToolRequest{}
-		next.LastFetch = FetchToolResult{}
-		next.ActiveMutation = MutationToolRequest{}
-		next.LastMutation = MutationToolResult{}
-		next.ActiveOperation = operation
-		next.AssistantDraft = ""
-		next.AgentProvider = msg.Provider
-		next.AgentModel = msg.Model
-		next.LastAgentToolRequest = AgentToolRequest{}
-		next.AgentFinishReason = ""
-		next.LastAgentPause = AgentPauseMetadata{}
-		next.LastAgentFailure = FailureMetadata{}
-		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
-		return next, []Effect{AgentPromptEffect{Operation: operation, Prompt: text, Provider: msg.Provider, Model: msg.Model, ToolNames: append([]string(nil), msg.ToolNames...)}}
+		return startAgentPrompt(next, text, msg.Provider, msg.Model, msg.ToolNames)
+	case QueuedPromptDrainRequested:
+		if hasActiveWork(next.Status) || len(next.Queued) == 0 {
+			return next, nil
+		}
+		entry := next.Queued[0]
+		next.Queued = append([]QueuedEntry(nil), next.Queued[1:]...)
+		if entry.Kind != "prompt" || strings.TrimSpace(entry.Text) == "" {
+			return next, nil
+		}
+		provider := strings.TrimSpace(msg.Provider)
+		if provider == "" {
+			provider = next.AgentProvider
+		}
+		modelName := strings.TrimSpace(msg.Model)
+		if modelName == "" {
+			modelName = next.AgentModel
+		}
+		toolNames := msg.ToolNames
+		if len(toolNames) == 0 {
+			toolNames = next.AgentToolNames
+		}
+		if provider != "" || modelName != "" || len(toolNames) > 0 {
+			return startAgentPrompt(next, entry.Text, provider, modelName, toolNames)
+		}
+		return startFakePrompt(next, entry.Text)
 	case CommandSelected:
 		operation := nextOperation(&next, OperationCommand, msg.Name)
 		next.Status = StatusActive
@@ -2421,6 +2417,82 @@ func capabilityResultSummary(payload capability.ExitPayload) string {
 		return name + " " + string(payload.Signal)
 	}
 	return name + " completed"
+}
+
+const maxQueuedEntries = 8
+
+func appendQueuedEntry(model Model, entry QueuedEntry) Model {
+	entry.Kind = strings.TrimSpace(entry.Kind)
+	entry.Text = strings.TrimSpace(entry.Text)
+	if entry.Kind == "" || entry.Text == "" {
+		return model
+	}
+	if len(model.Queued) >= maxQueuedEntries {
+		model.Diagnostics = append(model.Diagnostics, diagnostic.New(diagnostic.Spec{
+			Category:         diagnostic.CategoryRuntime,
+			Source:           diagnostic.SourceRuntime,
+			Severity:         diagnostic.SeverityWarning,
+			Message:          fmt.Sprintf("queued input limit reached (%d); newest %s request was not queued", maxQueuedEntries, entry.Kind),
+			AffectedArtifact: diagnostic.ArtifactRuntimeEffect,
+			RecoveryAction:   diagnostic.RecoveryManualRepair,
+			UserInputNeeded:  true,
+		}))
+		return model
+	}
+	model.Queued = append(model.Queued, entry)
+	return model
+}
+
+func startFakePrompt(model Model, text string) (Model, []Effect) {
+	operation := nextOperation(&model, OperationPrompt, text)
+	model.Status = StatusActive
+	model.Result = ""
+	model.ActiveCompact = CompactContextRequest{}
+	model.LastCompact = CompactContextResult{}
+	model.ActiveRead = ReadToolRequest{}
+	model.LastRead = ReadToolResult{}
+	model.ActiveFetch = FetchToolRequest{}
+	model.LastFetch = FetchToolResult{}
+	model.ActiveMutation = MutationToolRequest{}
+	model.LastMutation = MutationToolResult{}
+	model.ActiveOperation = operation
+	model.AssistantDraft = ""
+	model.AgentProvider = ""
+	model.AgentModel = ""
+	model.AgentToolNames = nil
+	model.LastAgentToolRequest = AgentToolRequest{}
+	model.AgentFinishReason = ""
+	model.LastAgentPause = AgentPauseMetadata{}
+	model.LastAgentFailure = FailureMetadata{}
+	model.Transcript = append(model.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
+	return model, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
+}
+
+func startAgentPrompt(model Model, text string, provider string, modelName string, toolNames []string) (Model, []Effect) {
+	operation := nextOperation(&model, OperationPrompt, text)
+	operation.Source = "runtime.agent"
+	toolNames = append([]string(nil), toolNames...)
+	model.Status = StatusActive
+	model.Result = ""
+	model.ActiveCompact = CompactContextRequest{}
+	model.LastCompact = CompactContextResult{}
+	model.ActiveRead = ReadToolRequest{}
+	model.LastRead = ReadToolResult{}
+	model.ActiveFetch = FetchToolRequest{}
+	model.LastFetch = FetchToolResult{}
+	model.ActiveMutation = MutationToolRequest{}
+	model.LastMutation = MutationToolResult{}
+	model.ActiveOperation = operation
+	model.AssistantDraft = ""
+	model.AgentProvider = provider
+	model.AgentModel = modelName
+	model.AgentToolNames = toolNames
+	model.LastAgentToolRequest = AgentToolRequest{}
+	model.AgentFinishReason = ""
+	model.LastAgentPause = AgentPauseMetadata{}
+	model.LastAgentFailure = FailureMetadata{}
+	model.Transcript = append(model.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
+	return model, []Effect{AgentPromptEffect{Operation: operation, Prompt: text, Provider: provider, Model: modelName, ToolNames: toolNames}}
 }
 
 func nextOperation(model *Model, kind OperationKind, subject string) OperationMetadata {
