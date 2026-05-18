@@ -80,6 +80,7 @@ func normalizedAgentMaxSteps(maxSteps int) int {
 
 func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
+	conversationContext := agentContextFromTranscript(runner.model.Transcript)
 	model, effects := runner.update(runtime.AgentPromptSubmitted{Text: text, Provider: runner.agent.provider, Model: runner.agent.model, ToolNames: runner.agent.toolNames})
 	runner.model = model
 	if len(effects) == 0 {
@@ -102,6 +103,8 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		Instructions: runner.agent.instructions,
 		Provider:     runner.agent.provider,
 		Model:        runner.agent.model,
+		SessionID:    "interactive-agent",
+		Context:      conversationContext,
 		RunID:        operation.ID,
 		MaxSteps:     runner.agent.maxSteps,
 		ToolNames:    append([]string(nil), agentEffect.ToolNames...),
@@ -146,6 +149,38 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 		turn.StatusDetail = "read tool dispatch"
 	}
 	return buildAgentEvidenceTurn(turn)
+}
+
+func agentContextFromTranscript(transcript []runtime.TranscriptEntry) []agent.ContextMessage {
+	if len(transcript) == 0 {
+		return nil
+	}
+	context := make([]agent.ContextMessage, 0, len(transcript))
+	for _, entry := range transcript {
+		role, ok := agentContextRole(entry.Kind)
+		if !ok {
+			continue
+		}
+		text := strings.TrimSpace(entry.Text)
+		if text == "" {
+			continue
+		}
+		context = append(context, agent.ContextMessage{Role: role, Content: text})
+	}
+	return context
+}
+
+func agentContextRole(kind string) (string, bool) {
+	switch kind {
+	case "prompt":
+		return "user", true
+	case "tool_request", "tool":
+		return "tool", true
+	case "result", "paused", "failure":
+		return "assistant", true
+	default:
+		return "", false
+	}
 }
 
 func (runner *inputRunner) executeAgentInspectionTool(request runtime.AgentToolRequest) {

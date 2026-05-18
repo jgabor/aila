@@ -1,4 +1,64 @@
 cycles:
+- number: 258
+  timestamp: 2026-05-18 19:43
+  type: feat
+  phase: build
+  what: Completed the internally adjustable agent step-budget plan by adding in-process continuation context for paused and completed agent turns, forwarding user/assistant context plus textual tool evidence through go-agent Session, and closing Agentera task evidence.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Tasks 4-6; go-agent RunRequest Session contract; runtime transcript state; app-owned agent prompt path; user instruction to continue through dependency-ready tasks.
+  discovered: The app can preserve prior prompt, tool request, pause, and result evidence as compact in-process ContextMessage entries before runtime starts the next operation. This satisfies continuation without durable session restore, full transcript persistence, queued prompts, interrupt cancellation, or public MaxSteps configuration.
+  verified: 'mage fmt passed. Focused tests passed with go test ./internal/app ./internal/agent -run ''TestAgentContinuationAfterStepLimitCarriesPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestGoAgentRunnerPassesSessionContext|TestGoAgentRunnerPreservesConfiguredStepBudget'' -count=1. Package regression passed with go test ./internal/app ./internal/agent ./internal/runtime -count=1. Full validation passed with mage check: cmd/aila passed in 393.203s, 0 lint issues, and no vulnerabilities.'
+  next: The MaxSteps/continuation plan is complete. The next open TODO is the remaining completion-loop work for queueing user messages while running and interrupt-to-cancel semantics, which this plan intentionally deferred.
+  context:
+    intent: Finish Tasks 4, 5, and 6 by preserving active conversation context across step-budget pauses and normal completed turns, then close plan evidence.
+    constraints: Preserve statechart-MVU, keep runtime.Update deterministic and IO-free, keep TUI presentation-only, expose no user-facing step-budget config, use fixed built-in tools only, do not push, and do not commit.
+    unknowns: Durable SessionStore persistence, full transcript compaction, queued prompt controls, and interrupt cancellation remain deferred TODOs.
+    scope: internal/agent/runner.go, internal/agent/runner_test.go, internal/app/agent_prompt.go, internal/app/prompt_test.go, TODO.md, .agentera/plan.yaml, and .agentera/progress.yaml.
+- number: 257
+  timestamp: 2026-05-18 19:27
+  type: build
+  phase: build
+  what: Represented go-agent step_limit stops as resumable runtime pause state with user-visible continuation wording while preserving non-step-limit errors as failures.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 3; go-agent StopStepLimit contract; internal/agent event adapter; internal/runtime deterministic update path; app transcript rendering tests.
+  discovered: The go-agent adapter previously converted every non-complete stop reason into EventError, causing step_limit budget exhaustion to look like a provider failure. Aila needed a separate paused event/message/status path with no runtime.Update IO and no provider diagnostic.
+  verified: mage fmt passed. Focused tests passed with go test ./internal/agent ./internal/runtime ./internal/app -run 'TestAdaptEventsMapsStepLimitPauseAsResumableState|TestGoAgentRunnerMapsStepLimitStopAsPauseNotFailure|TestGoAgentRunnerMapsNonStepLimitStopAsFailure|TestUpdateHandlesAgentStepLimitPauseWithoutEffects|TestUpdateKeepsNonStepLimitAgentStopsAsFailures|TestReadOnlyAgentStepLimitPauseRendersContinuationMessage|TestReadOnlyAgentProviderFailuresBecomeTypedDiagnostics' -count=1. Broader package regression passed with go test ./internal/agent ./internal/runtime ./internal/app -count=1.
+  next: 'Continue with Task 4: resume from the step-limit pause point using active conversation/run context.'
+  context:
+    intent: Satisfy Task 3 by making budget exhaustion visible as resumable runtime state without implementing full continuation yet.
+    constraints: Preserve statechart-MVU, keep runtime.Update deterministic and IO-free, keep TUI presentation-only, expose no user-facing step-budget config, use fixed built-in tools only, do not push, and do not commit.
+    unknowns: Continuation from the pause point and normal completion readiness remain for Tasks 4 and 5.
+    scope: internal/agent/events.go, internal/agent/runner.go, internal/runtime/runtime.go, internal/app/prompt.go, focused tests, and Agentera metadata.
+- number: 256
+  timestamp: 2026-05-18 19:16
+  type: test
+  phase: build
+  what: Repaired Task 2 evidence by adding direct non-agent command coverage for the internally configured agent step budget.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Agentera plan Task 2 blocked_reason and progress cycle 255 evidence-audit gap for non-agent command coverage.
+  discovered: Existing tests proved app-created agent budgets, fake runner observation, and go-agent adapter preservation, but only asserted that non-agent commands were unchanged by statement. The missing evidence was a command-route regression test proving command routes do not create agent.RunRequest when an agent step budget override exists.
+  verified: mage fmt passed. go test ./internal/app ./internal/agent -run 'TestAgentPromptUsesInternalDefaultStepBudget|TestAgentPromptStepBudgetCanBeOverriddenInternally|TestNonAgentCommandsDoNotUseAgentStepBudget|TestFakeRunnersExposeConfiguredStepBudget|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1 passed.
+  next: 'Continue with Task 3: represent go-agent step_limit stops as resumable runtime state.'
+  context:
+    intent: Directly fix the evidence gap that kept Task 2 blocked after Orkestrera exhausted retries.
+    constraints: Preserve existing Task 2 implementation, avoid user-facing config, do not broaden into step-limit continuation, do not push, and do not commit without explicit permission.
+    unknowns: Step-limit pause rendering and continuation remain for later tasks.
+    scope: internal/app/prompt_test.go, .agentera/progress.yaml, .agentera/plan.yaml, and TODO.md only.
+- number: 255
+  timestamp: 2026-05-18 18:59
+  type: feat
+  phase: build
+  what: Preserved the configured interactive agent step budget through fake runner observation and the go-agent adapter request path without adding user-facing config or command behavior.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active .agentera/plan.yaml Task 2; Orkestrera retry finding that agentera progress --format json needed a latest entry with non-empty verified evidence; internal/agent/runner.go; internal/agent/runner_test.go; existing internal/app step-budget tests.
+  discovered: FakeReadOnlyRunner and FakeBuildRunner needed a provider-free request observation seam so tests can assert MaxSteps before scripted events run. The go-agent adapter already accepts MaxSteps from Aila RunRequest and now has a focused capture test proving preservation.
+  verified: go test ./internal/app ./internal/agent -run 'TestAgentPromptUsesInternalDefaultStepBudget|TestAgentPromptStepBudgetCanBeOverriddenInternally|TestFakeRunnersExposeConfiguredStepBudget|TestGoAgentRunnerPreservesConfiguredStepBudget' -count=1 passed. This covers the app-created default and override budgets, fake/test runner observation without provider IO, and go-agent RunRequest MaxSteps preservation. Non-agent commands were not changed and no config surface was added.
+  next: 'Continue with Task 3: represent go-agent step_limit stops as resumable runtime state.'
+  context:
+    intent: Repair Task 2 evidence after Orkestrera found no latest progress entry with a non-empty verified field.
+    constraints: Preserve the existing implementation, do not broaden beyond Task 2, do not push, and do not commit without explicit permission.
+    unknowns: Step-limit pause rendering and continuation remain for later tasks.
+    scope: internal/agent/runner.go, internal/agent/runner_test.go, .agentera/progress.yaml, and .agentera/plan.yaml only.
 - number: 254
   timestamp: 2026-05-18 18:21
   type: build
@@ -7,7 +67,7 @@ cycles:
   commit: 'N/A: local working tree changes, no commit requested'
   inspiration: Active .agentera/plan.yaml Task 1 for [feat:0.0.2] MaxSteps continuation; internal/app/agent_prompt.go; internal/app/config.go; internal/app prompt and config tests; internal/agent runner tests.
   discovered: The budget belongs in the app-owned agent prompt path, not config.toml or config command output. A narrow unexported options seam lets tests and maintainers supply a budget while normal construction falls back to the internal default.
-  verified: mage fmt passed. Focused step-budget and config-surface app tests passed. Focused go-agent runner mapping test passed. go test ./internal/app ./internal/agent -count=1 passed. git diff --check passed. Repository grep found no remaining Go MaxSteps: 4 literal and no README step-budget config surface.
+  verified: 'mage fmt passed. Focused step-budget and config-surface app tests passed. Focused go-agent runner mapping test passed. go test ./internal/app ./internal/agent -count=1 passed. git diff --check passed. Repository grep found no remaining Go MaxSteps: 4 literal and no README step-budget config surface.'
   next: Execute Task 2 by preserving the configured budget through observable fake/test runner and go-agent adapter assertions without introducing public configuration.
   context:
     intent: Satisfy Task 1 by making the interactive agent step budget internally adjustable and removing the old app-local MaxSteps literal.

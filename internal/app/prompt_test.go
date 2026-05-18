@@ -138,6 +138,38 @@ func TestAgentPromptStepBudgetCanBeOverriddenInternally(t *testing.T) {
 	}
 }
 
+func TestNonAgentCommandsDoNotUseAgentStepBudget(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &capturingAgentRunner{}
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	}, agentRunner, "fake", "fake-readonly", []string{"read"}, "", agentPromptOptions{MaxSteps: 2})
+
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteStatus, Kind: policy.CommandInputSlash})
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteHelp, Kind: policy.CommandInputSlash})
+	runner.routeCommand(policy.CommandRecommendation{Route: policy.CommandRouteQuit, Kind: policy.CommandInputShortcut})
+
+	if len(agentRunner.requests) != 0 {
+		t.Fatalf("non-agent commands created agent requests with step budget: %#v", agentRunner.requests)
+	}
+	if len(dispatched) != 1 || len(dispatched[0]) != 1 {
+		t.Fatalf("non-agent command dispatches = %#v, want only status runtime effect", dispatched)
+	}
+	effect, ok := dispatched[0][0].(runtime.FakeCommandEffect)
+	if !ok {
+		t.Fatalf("status dispatch = %T, want runtime.FakeCommandEffect", dispatched[0][0])
+	}
+	if effect.Command != "status" || effect.Metadata().Kind != runtime.OperationCommand {
+		t.Fatalf("status effect = %#v", effect)
+	}
+	if runner.model.LastCommand != "status" || runner.model.NextOperation != 1 {
+		t.Fatalf("command model = %#v, want status command without agent run", runner.model)
+	}
+}
+
 func TestInteractiveAgentWritePromptShowsApprovalBeforeMutation(t *testing.T) {
 	t.Parallel()
 
@@ -247,6 +279,31 @@ func (runner *capturingAgentRunner) Stream(ctx context.Context, request agent.Ru
 	return out, nil
 }
 
+type scriptedAgentRunner struct {
+	requests []agent.RunRequest
+	events   [][]agent.Event
+}
+
+func (runner *scriptedAgentRunner) Stream(ctx context.Context, request agent.RunRequest) (<-chan agent.Event, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	runner.requests = append(runner.requests, request)
+	call := len(runner.requests) - 1
+	events := []agent.Event{{Kind: agent.EventCompleted, Sequence: 1, FinishReason: "complete"}}
+	if call < len(runner.events) {
+		events = runner.events[call]
+	}
+	out := make(chan agent.Event, len(events))
+	go func() {
+		defer close(out)
+		for _, event := range events {
+			out <- event
+		}
+	}()
+	return out, nil
+}
+
 func TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect(t *testing.T) {
 	workspace := t.TempDir()
 	writeAppTestFile(t, workspace, "README.md", "# Aila\n")
@@ -303,6 +360,117 @@ func TestReadOnlyAgentProviderFailuresBecomeTypedDiagnostics(t *testing.T) {
 	if len(turn.Diagnostics) != 1 || turn.Diagnostics[0].Source != string(diagnostic.SourceProvider) || !strings.Contains(turn.Diagnostics[0].BoundedMessage, "provider_auth_failed") || !turn.Diagnostics[0].UserInputNeeded {
 		t.Fatalf("provider diagnostics = %+v", turn.Diagnostics)
 	}
+}
+
+func TestReadOnlyAgentStepLimitPauseRendersContinuationMessage(t *testing.T) {
+	t.Parallel()
+
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agent.FakeReadOnlyRunner{Events: []agent.Event{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "I inspected part of the repository."},
+		{Kind: agent.EventPaused, Sequence: 2, FinishReason: "step_limit"},
+	}})
+
+	turn := runner.submitAgentPrompt("inspect deeply")
+	if runner.model.Status != runtime.StatusPaused || turn.RuntimeStatus != string(runtime.StatusPaused) || turn.RuntimeActive {
+		t.Fatalf("runtime status model=%q turn=%q active=%v", runner.model.Status, turn.RuntimeStatus, turn.RuntimeActive)
+	}
+	if runner.model.LastAgentFailure.Code != "" || len(turn.Diagnostics) != 0 {
+		t.Fatalf("step-limit pause was treated as failure: model=%+v diagnostics=%+v", runner.model.LastAgentFailure, turn.Diagnostics)
+	}
+	if !strings.Contains(turn.AssistantText, "paused at the step budget") || !strings.Contains(turn.AssistantText, "continue") || turn.StatusDetail != "agent paused at step budget" {
+		t.Fatalf("pause turn = %+v", turn)
+	}
+}
+
+func TestAgentContinuationAfterStepLimitCarriesPriorContext(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{
+		{
+			{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "I inspected part one."},
+			{Kind: agent.EventToolRequest, Sequence: 2, ToolCallID: "call-read-1", ToolName: "read", Arguments: []agent.ToolArgument{{Name: "path", Value: "README.md"}}},
+			{Kind: agent.EventPaused, Sequence: 3, FinishReason: "step_limit"},
+		},
+		{
+			{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "Continuing from part one."},
+			{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+		},
+	}}
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agentRunner)
+
+	paused := runner.submitAgentPrompt("inspect deeply")
+	continued := runner.submitAgentPrompt("continue")
+
+	if paused.RuntimeStatus != string(runtime.StatusPaused) || continued.RuntimeStatus != string(runtime.StatusIdle) {
+		t.Fatalf("statuses paused=%q continued=%q", paused.RuntimeStatus, continued.RuntimeStatus)
+	}
+	if len(agentRunner.requests) != 2 {
+		t.Fatalf("requests = %d, want 2", len(agentRunner.requests))
+	}
+	context := agentRunner.requests[1].Context
+	wantContext := []agent.ContextMessage{
+		{Role: "user", Content: "inspect deeply"},
+		{Role: "tool", Content: "tool request read call-read-1"},
+		{Role: "assistant", Content: "I inspected part one.\n\nAgent paused at the step budget. Send a continuation prompt to continue."},
+	}
+	if !reflect.DeepEqual(context, wantContext) {
+		t.Fatalf("continuation context = %#v, want %#v", context, wantContext)
+	}
+	if got := agentRunner.requests[1].SessionID; got == "" {
+		t.Fatal("continuation request missing session id")
+	}
+	if got := countTranscriptEntries(runner.model.Transcript, "prompt", "inspect deeply"); got != 1 {
+		t.Fatalf("initial prompt transcript count = %d, want 1", got)
+	}
+	if got := countTranscriptEntries(runner.model.Transcript, "paused", paused.AssistantText); got != 1 {
+		t.Fatalf("paused transcript count = %d, want 1", got)
+	}
+}
+
+func TestAgentNormalNextPromptCarriesCompletedContextWithoutPause(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{
+		{
+			{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "First answer."},
+			{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+		},
+		{
+			{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "Second answer."},
+			{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+		},
+	}}
+	runner := newInputRunnerWithDispatchAndAgent(t.Context(), runtime.Dispatch, agentRunner)
+
+	first := runner.submitAgentPrompt("first question")
+	second := runner.submitAgentPrompt("second question")
+
+	if first.RuntimeStatus != string(runtime.StatusIdle) || second.RuntimeStatus != string(runtime.StatusIdle) || runner.model.LastAgentPause.Resumable {
+		t.Fatalf("completion readiness first=%q second=%q pause=%+v", first.RuntimeStatus, second.RuntimeStatus, runner.model.LastAgentPause)
+	}
+	if len(agentRunner.requests) != 2 {
+		t.Fatalf("requests = %d, want 2", len(agentRunner.requests))
+	}
+	wantContext := []agent.ContextMessage{
+		{Role: "user", Content: "first question"},
+		{Role: "assistant", Content: "First answer."},
+	}
+	if !reflect.DeepEqual(agentRunner.requests[1].Context, wantContext) {
+		t.Fatalf("next prompt context = %#v, want %#v", agentRunner.requests[1].Context, wantContext)
+	}
+	if got := len(runner.model.Queued); got != 0 {
+		t.Fatalf("queued messages = %d, want 0", got)
+	}
+}
+
+func countTranscriptEntries(transcript []runtime.TranscriptEntry, kind string, text string) int {
+	count := 0
+	for _, entry := range transcript {
+		if entry.Kind == kind && entry.Text == text {
+			count++
+		}
+	}
+	return count
 }
 
 func TestPromptSubmitWhileRuntimeActiveReturnsQueuedIntent(t *testing.T) {

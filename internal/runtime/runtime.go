@@ -20,6 +20,7 @@ const (
 	StatusApprovalPending Status = "approval-pending"
 	StatusCanceling       Status = "canceling"
 	StatusCanceled        Status = "canceled"
+	StatusPaused          Status = "paused"
 )
 
 // Message is an input to the deterministic runtime update function.
@@ -190,6 +191,16 @@ type AgentTurnCompleted struct {
 }
 
 func (AgentTurnCompleted) runtimeMessage() {}
+
+// AgentTurnPaused records a resumable provider stop that did not complete or fail the turn.
+type AgentTurnPaused struct {
+	Operation OperationMetadata
+	Provider  string
+	Model     string
+	Pause     AgentPauseMetadata
+}
+
+func (AgentTurnPaused) runtimeMessage() {}
 
 // AgentTurnFailed records a bounded provider-style turn failure.
 type AgentTurnFailed struct {
@@ -372,6 +383,7 @@ type Model struct {
 	AgentModel           string
 	LastAgentToolRequest AgentToolRequest
 	AgentFinishReason    string
+	LastAgentPause       AgentPauseMetadata
 	LastAgentFailure     FailureMetadata
 	NextOperation        int
 	ActiveOperation      OperationMetadata
@@ -392,6 +404,14 @@ type AgentToolRequest struct {
 	Provider  string
 	Model     string
 	Sequence  int
+}
+
+// AgentPauseMetadata describes a bounded resumable stop surfaced by the agent adapter.
+type AgentPauseMetadata struct {
+	Reason     string
+	Message    string
+	Resumable  bool
+	Suggestion string
 }
 
 // QueuedEntry is a user message queued while fake work is active.
@@ -1373,6 +1393,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.AgentModel = ""
 		next.LastAgentToolRequest = AgentToolRequest{}
 		next.AgentFinishReason = ""
+		next.LastAgentPause = AgentPauseMetadata{}
 		next.LastAgentFailure = FailureMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{FakePromptEffect{Operation: operation, Prompt: text}}
@@ -1404,6 +1425,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.AgentModel = msg.Model
 		next.LastAgentToolRequest = AgentToolRequest{}
 		next.AgentFinishReason = ""
+		next.LastAgentPause = AgentPauseMetadata{}
 		next.LastAgentFailure = FailureMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "prompt", Text: text})
 		return next, []Effect{AgentPromptEffect{Operation: operation, Prompt: text, Provider: msg.Provider, Model: msg.Model, ToolNames: append([]string(nil), msg.ToolNames...)}}
@@ -1748,6 +1770,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.AgentProvider = msg.Provider
 		next.AgentModel = msg.Model
 		next.AgentFinishReason = msg.FinishReason
+		next.LastAgentPause = AgentPauseMetadata{}
 		next.LastAgentFailure = FailureMetadata{}
 		result := strings.TrimSpace(next.AssistantDraft)
 		if result == "" {
@@ -1757,11 +1780,30 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "result", Text: result})
 		return next, nil
+	case AgentTurnPaused:
+		pause := normalizeAgentPause(msg.Pause)
+		next.Status = StatusPaused
+		next.AgentProvider = msg.Provider
+		next.AgentModel = msg.Model
+		next.AgentFinishReason = pause.Reason
+		next.LastAgentPause = pause
+		next.LastAgentFailure = FailureMetadata{}
+		result := strings.TrimSpace(next.AssistantDraft)
+		if result != "" {
+			result += "\n\n" + pause.Message
+		} else {
+			result = pause.Message
+		}
+		next.Result = result
+		next.ActiveOperation = OperationMetadata{}
+		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "paused", Text: result})
+		return next, nil
 	case AgentTurnFailed:
 		next.Status = StatusIdle
 		next.Result = msg.Failure.Message
 		next.AgentProvider = msg.Provider
 		next.AgentModel = msg.Model
+		next.LastAgentPause = AgentPauseMetadata{}
 		next.LastAgentFailure = msg.Failure
 		next.ActiveOperation = OperationMetadata{}
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "failure", Text: msg.Failure.Message})
@@ -2234,6 +2276,23 @@ func subagentLifecycleSummary(purpose string, summary string) string {
 
 func hasActiveWork(status Status) bool {
 	return status == StatusActive || status == StatusApprovalPending || status == StatusCanceling
+}
+
+func normalizeAgentPause(pause AgentPauseMetadata) AgentPauseMetadata {
+	pause.Reason = strings.TrimSpace(pause.Reason)
+	if pause.Reason == "" {
+		pause.Reason = "step_limit"
+	}
+	pause.Message = strings.TrimSpace(pause.Message)
+	if pause.Message == "" {
+		pause.Message = "Agent paused at the step budget. Send a continuation prompt to continue."
+	}
+	pause.Suggestion = strings.TrimSpace(pause.Suggestion)
+	if pause.Suggestion == "" {
+		pause.Suggestion = "continue"
+	}
+	pause.Resumable = true
+	return pause
 }
 
 func hasActiveFakeWork(model Model) bool {

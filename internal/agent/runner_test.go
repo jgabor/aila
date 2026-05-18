@@ -33,6 +33,48 @@ func TestFakeReadOnlyRunnerStreamsBoundedToolTurn(t *testing.T) {
 	}
 }
 
+func TestFakeRunnersExposeConfiguredStepBudget(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name      string
+		newRunner func(*int) Runner
+	}{
+		{
+			name: "read-only",
+			newRunner: func(observed *int) Runner {
+				return FakeReadOnlyRunner{ObserveRequest: func(request RunRequest) {
+					*observed = request.MaxSteps
+				}}
+			},
+		},
+		{
+			name: "build",
+			newRunner: func(observed *int) Runner {
+				return FakeBuildRunner{ObserveRequest: func(request RunRequest) {
+					*observed = request.MaxSteps
+				}}
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var observed int
+			stream, err := tc.newRunner(&observed).Stream(context.Background(), RunRequest{Prompt: "inspect", MaxSteps: 9})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for range stream {
+			}
+			if observed != 9 {
+				t.Fatalf("observed MaxSteps = %d, want 9", observed)
+			}
+		})
+	}
+}
+
 func TestFakeBuildRunnerRequestsApprovalBoundWriteForFilePrompts(t *testing.T) {
 	t.Parallel()
 
@@ -146,6 +188,55 @@ func TestGoAgentRunnerMapsRealGoAgentEvents(t *testing.T) {
 	}
 }
 
+func TestGoAgentRunnerPreservesConfiguredStepBudget(t *testing.T) {
+	t.Parallel()
+
+	goRunner := &capturingGoAgentRunner{}
+	runner := &GoAgentRunner{runner: goRunner, provider: "goagent", model: "fake-model"}
+
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect", RunID: "run-budget", MaxSteps: 11})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range stream {
+	}
+
+	if goRunner.request.MaxSteps != 11 {
+		t.Fatalf("go-agent MaxSteps = %d, want 11", goRunner.request.MaxSteps)
+	}
+}
+
+func TestGoAgentRunnerPassesSessionContext(t *testing.T) {
+	t.Parallel()
+
+	goRunner := &capturingGoAgentRunner{}
+	runner := &GoAgentRunner{runner: goRunner, provider: "goagent", model: "fake-model"}
+	contextMessages := []ContextMessage{
+		{Role: "user", Content: "previous prompt"},
+		{Role: "tool", Content: "tool request read call-1"},
+		{Role: "assistant", Content: "previous answer"},
+	}
+
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "continue", SessionID: "interactive-agent", Context: contextMessages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range stream {
+	}
+
+	if goRunner.request.SessionID != "interactive-agent" || goRunner.request.Session.ID != "interactive-agent" {
+		t.Fatalf("session ids = request %q session %q", goRunner.request.SessionID, goRunner.request.Session.ID)
+	}
+	want := []goagent.Message{
+		{Role: goagent.RoleUser, Content: "previous prompt"},
+		{Role: goagent.RoleAssistant, Content: "Tool evidence: tool request read call-1"},
+		{Role: goagent.RoleAssistant, Content: "previous answer"},
+	}
+	if !reflect.DeepEqual(goRunner.request.Session.Messages, want) {
+		t.Fatalf("session messages = %#v, want %#v", goRunner.request.Session.Messages, want)
+	}
+}
+
 func TestGoAgentRunnerMapsProviderFailures(t *testing.T) {
 	t.Parallel()
 
@@ -167,6 +258,30 @@ func TestGoAgentRunnerMapsProviderFailures(t *testing.T) {
 	}
 	if len(failures) == 0 || failures[0].Error.Code != string(FailureProviderAuth) || failures[0].Error.Retryable {
 		t.Fatalf("failures = %#v", failures)
+	}
+}
+
+func TestGoAgentRunnerMapsStepLimitStopAsPauseNotFailure(t *testing.T) {
+	t.Parallel()
+
+	events := mapGoAgentEvent(goagent.Event{Kind: goagent.EventStop, StopReason: goagent.StopStepLimit, Sequence: 7}, "goagent", "fake-model")
+	if len(events) != 1 {
+		t.Fatalf("events = %#v", events)
+	}
+	if events[0].Kind != EventPaused || events[0].FinishReason != string(goagent.StopStepLimit) || events[0].Error.Code != "" {
+		t.Fatalf("step limit event = %#v, want pause without error", events[0])
+	}
+}
+
+func TestGoAgentRunnerMapsNonStepLimitStopAsFailure(t *testing.T) {
+	t.Parallel()
+
+	events := mapGoAgentEvent(goagent.Event{Kind: goagent.EventStop, StopReason: goagent.StopToolError, Sequence: 7}, "goagent", "fake-model")
+	if len(events) != 1 {
+		t.Fatalf("events = %#v", events)
+	}
+	if events[0].Kind != EventError || events[0].Error.Code != string(goagent.StopToolError) {
+		t.Fatalf("tool error event = %#v, want failure", events[0])
 	}
 }
 
@@ -220,6 +335,29 @@ type capturingModel struct {
 func (model *capturingModel) Turn(_ context.Context, request goagent.TurnRequest) (goagent.TurnResult, error) {
 	model.instructions = request.Instructions
 	return model.result, nil
+}
+
+type capturingGoAgentRunner struct {
+	request goagent.RunRequest
+}
+
+func (runner *capturingGoAgentRunner) Run(ctx context.Context, request goagent.RunRequest) (goagent.RunResult, error) {
+	runner.request = request
+	return goagent.RunResult{}, ctx.Err()
+}
+
+func (runner *capturingGoAgentRunner) Stream(ctx context.Context, request goagent.RunRequest) (<-chan goagent.Event, error) {
+	runner.request = request
+	out := make(chan goagent.Event, 1)
+	go func() {
+		defer close(out)
+		if err := ctx.Err(); err != nil {
+			out <- goagent.Event{Kind: goagent.EventError, Err: err}
+			return
+		}
+		out <- goagent.Event{Kind: goagent.EventStop, StopReason: goagent.StopComplete}
+	}()
+	return out, nil
 }
 
 type scriptedModel struct {

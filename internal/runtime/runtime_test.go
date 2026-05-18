@@ -2164,6 +2164,40 @@ func TestUpdateHandlesAgentTurnFailure(t *testing.T) {
 	}
 }
 
+func TestUpdateHandlesAgentStepLimitPauseWithoutEffects(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-agent", Kind: OperationPrompt, Subject: "explain", Source: "agent-test"}
+	model := Model{Status: StatusActive, ActiveOperation: operation, AssistantDraft: "Partial answer", Transcript: []TranscriptEntry{{Kind: "prompt", Text: "explain"}}}
+	updated, effects := Update(model, AgentTurnPaused{Operation: operation, Provider: "fake", Model: "fake-model", Pause: AgentPauseMetadata{Reason: "step_limit", Message: "Agent paused at the step budget. Send a continuation prompt to continue.", Resumable: true}})
+	if len(effects) != 0 {
+		t.Fatalf("effects = %#v, want none", effects)
+	}
+	if updated.Status != StatusPaused || updated.ActiveOperation.ID != "" || updated.AgentFinishReason != "step_limit" || !updated.LastAgentPause.Resumable || updated.LastAgentFailure.Code != "" {
+		t.Fatalf("paused model=%+v", updated)
+	}
+	if !strings.Contains(updated.Result, "Partial answer") || !strings.Contains(updated.Result, "paused at the step budget") {
+		t.Fatalf("result = %q", updated.Result)
+	}
+	if got := updated.Transcript[len(updated.Transcript)-1]; got.Kind != "paused" || !strings.Contains(got.Text, "continue") {
+		t.Fatalf("pause transcript = %+v", got)
+	}
+}
+
+func TestUpdateKeepsNonStepLimitAgentStopsAsFailures(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-agent", Kind: OperationPrompt, Subject: "explain", Source: "agent-test"}
+	failure := FailureMetadata{Code: "tool_error", Message: "agent stopped: tool_error", Retryable: false}
+	updated, effects := Update(Model{Status: StatusActive, ActiveOperation: operation}, AgentTurnFailed{Operation: operation, Provider: "fake", Model: "fake-model", Failure: failure})
+	if len(effects) != 0 || updated.Status != StatusIdle || updated.LastAgentFailure.Code != "tool_error" || updated.LastAgentPause.Resumable {
+		t.Fatalf("failed model=%+v effects=%v", updated, effects)
+	}
+	if got := updated.Transcript[len(updated.Transcript)-1]; got.Kind != "failure" || strings.Contains(got.Text, "continue") || strings.Contains(got.Text, "step budget") {
+		t.Fatalf("failure transcript mislabeled as continuation: %+v", got)
+	}
+}
+
 func TestUpdateHandlesApprovalProposalWithoutEffects(t *testing.T) {
 	t.Parallel()
 

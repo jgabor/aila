@@ -234,6 +234,9 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 	if len(turn.Subagents) > 0 && turn.StatusDetail == "fake in-memory runtime loop" {
 		turn.StatusDetail = "subagent supervision"
 	}
+	if runner.model.LastAgentPause.Resumable {
+		turn.StatusDetail = "agent paused at step budget"
+	}
 }
 
 func (runner *inputRunner) routeCommand(recommendation policy.CommandRecommendation) {
@@ -287,7 +290,7 @@ func transcriptTurn(entries []runtime.TranscriptEntry) tui.TranscriptTurn {
 		switch entry.Kind {
 		case "prompt":
 			turn.UserText = entry.Text
-		case "result", "failure":
+		case "result", "failure", "paused":
 			turn.AssistantText = entry.Text
 		}
 	}

@@ -15,6 +15,7 @@ const (
 	EventAssistantDelta EventKind = "assistant_delta"
 	EventToolRequest    EventKind = "tool_request"
 	EventError          EventKind = "error"
+	EventPaused         EventKind = "paused"
 	EventCompleted      EventKind = "completed"
 )
 
@@ -63,11 +64,17 @@ func AdaptEvents(operation runtime.OperationMetadata, events []Event) []runtime.
 			messages = append(messages, runtime.AgentToolRequested{Operation: operation, Request: runtime.AgentToolRequest{ID: boundedEventText(event.ToolCallID), Name: boundedEventText(event.ToolName), Arguments: runtimeToolArguments(event.Arguments), Provider: provider, Model: model, Sequence: event.Sequence}})
 		case EventError:
 			messages = append(messages, runtime.AgentTurnFailed{Operation: operation, Provider: provider, Model: model, Failure: runtime.FailureMetadata{Code: boundedEventText(event.Error.Code), Message: boundedEventText(event.Error.Message), Retryable: event.Error.Retryable}})
+		case EventPaused:
+			messages = append(messages, runtime.AgentTurnPaused{Operation: operation, Provider: provider, Model: model, Pause: runtime.AgentPauseMetadata{Reason: boundedEventText(event.FinishReason), Message: stepLimitPauseMessage(), Resumable: true, Suggestion: "continue"}})
 		case EventCompleted:
 			messages = append(messages, runtime.AgentTurnCompleted{Operation: operation, Provider: provider, Model: model, FinishReason: boundedEventText(event.FinishReason)})
 		}
 	}
 	return messages
+}
+
+func stepLimitPauseMessage() string {
+	return "Agent paused at the step budget. Send a continuation prompt to continue."
 }
 
 func runtimeToolArguments(arguments []ToolArgument) []runtime.AgentToolArgument {

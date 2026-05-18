@@ -28,10 +28,10 @@ no project context. Without this, no other wiring matters.
 
 ### P1 — continuation and multi-turn conversations
 
-- [ ] [feat:0.0.2] Raise `MaxSteps` from the hardcoded 4 to a configurable
-      default and handle continuation from where the agent left off instead of
-      stopping the stream.
-- [ ] [feat:0.0.2] Pass conversation history to the model using
+- [x] [feat:0.0.2] Raise `MaxSteps` from the hardcoded 4 to an internally
+      adjustable default and handle continuation from where the agent left off
+      instead of stopping the stream.
+- [x] [feat:0.0.2] Pass conversation history to the model using
       `goagent.Session` / `goagent.SessionStore` or by injecting prior turns into
       the system prompt so each run sees the full transcript instead of starting
       fresh.
@@ -161,5 +161,9 @@ Cleared after P0–P9. Cut the first dogfoodable release.
 
 ## Resolved
 
+- [feat:0.0.2] Interactive agent runs now use an internal step-budget default,
+  preserve step-limit pauses as resumable state, and pass in-process prior
+  prompt/tool/assistant context through go-agent Session for continuation and
+  normal next turns.
 - [feat:0.0.1] P0 system prompt, fixed built-in go-agent tools, and generic
   registered tool dispatch are wired for dogfood-capable agent turns.

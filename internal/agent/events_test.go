@@ -52,3 +52,21 @@ func TestAdaptEventsMapsProviderErrorAndBoundsUnsafeText(t *testing.T) {
 		t.Fatalf("failure = %+v", failure.Failure)
 	}
 }
+
+func TestAdaptEventsMapsStepLimitPauseAsResumableState(t *testing.T) {
+	t.Parallel()
+
+	operation := runtime.OperationMetadata{ID: "op-agent", Kind: runtime.OperationPrompt, Subject: "explain", Source: "test"}
+	messages := AdaptEvents(operation, FakeStream(Event{Kind: EventPaused, Provider: "fake", Model: "fake-model", Sequence: 3, FinishReason: "step_limit"}))
+
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	paused, ok := messages[0].(runtime.AgentTurnPaused)
+	if !ok {
+		t.Fatalf("message = %T, want runtime.AgentTurnPaused", messages[0])
+	}
+	if paused.Pause.Reason != "step_limit" || !paused.Pause.Resumable || !strings.Contains(paused.Pause.Message, "paused at the step budget") {
+		t.Fatalf("pause = %+v", paused.Pause)
+	}
+}

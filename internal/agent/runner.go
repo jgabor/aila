@@ -21,9 +21,17 @@ type RunRequest struct {
 	Instructions string
 	Provider     string
 	Model        string
+	SessionID    string
+	Context      []ContextMessage
 	RunID        string
 	MaxSteps     int
 	ToolNames    []string
+}
+
+// ContextMessage is Aila's in-process conversation context for a new agent run.
+type ContextMessage struct {
+	Role    string
+	Content string
 }
 
 // FailureMode selects deterministic fake provider failures for tests and PTY smoke.
@@ -40,8 +48,9 @@ const (
 
 // FakeReadOnlyRunner is the default deterministic runner used by app tests and smoke tests.
 type FakeReadOnlyRunner struct {
-	Failure FailureMode
-	Events  []Event
+	Failure        FailureMode
+	Events         []Event
+	ObserveRequest func(RunRequest)
 }
 
 // DefaultFakeReadOnlyRunner returns a bounded read-only model/tool script.
@@ -51,8 +60,9 @@ func DefaultFakeReadOnlyRunner() FakeReadOnlyRunner {
 
 // FakeBuildRunner is the deterministic interactive build runner used by the live TUI loop.
 type FakeBuildRunner struct {
-	Failure FailureMode
-	Events  []Event
+	Failure        FailureMode
+	Events         []Event
+	ObserveRequest func(RunRequest)
 }
 
 // UnavailableRunner reports a bounded provider setup failure without silently falling back to fake output.
@@ -71,6 +81,9 @@ func DefaultFakeBuildRunner() FakeBuildRunner {
 func (runner FakeReadOnlyRunner) Stream(ctx context.Context, request RunRequest) (<-chan Event, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if runner.ObserveRequest != nil {
+		runner.ObserveRequest(cloneRunRequest(request))
 	}
 	events := runner.Events
 	if len(events) == 0 {
@@ -109,6 +122,9 @@ func defaultFakeReadOnlyEvents(request RunRequest, failure FailureMode) []Event 
 func (runner FakeBuildRunner) Stream(ctx context.Context, request RunRequest) (<-chan Event, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if runner.ObserveRequest != nil {
+		runner.ObserveRequest(cloneRunRequest(request))
 	}
 	events := runner.Events
 	if len(events) == 0 {
@@ -155,6 +171,12 @@ func (runner UnavailableRunner) Stream(ctx context.Context, request RunRequest) 
 		out <- Event{Kind: EventError, Provider: provider, Model: model, Sequence: 1, Error: failure}
 	}()
 	return out, nil
+}
+
+func cloneRunRequest(request RunRequest) RunRequest {
+	request.Context = append([]ContextMessage(nil), request.Context...)
+	request.ToolNames = append([]string(nil), request.ToolNames...)
+	return request
 }
 
 func defaultFakeBuildEvents(request RunRequest, failure FailureMode) []Event {
@@ -275,6 +297,8 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 	instructions = normalizeInstructions(instructions)
 	stream, err := runner.runner.Stream(ctx, goagent.RunRequest{
 		Input:        strings.TrimSpace(request.Prompt),
+		SessionID:    strings.TrimSpace(request.SessionID),
+		Session:      goagent.Session{ID: strings.TrimSpace(request.SessionID), Messages: goAgentContextMessages(request.Context)},
 		Instructions: instructions,
 		RunID:        strings.TrimSpace(request.RunID),
 		MaxSteps:     request.MaxSteps,
@@ -293,6 +317,37 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 		}
 	}()
 	return out, nil
+}
+
+func goAgentContextMessages(context []ContextMessage) []goagent.Message {
+	if len(context) == 0 {
+		return nil
+	}
+	messages := make([]goagent.Message, 0, len(context))
+	for _, item := range context {
+		content := strings.TrimSpace(item.Content)
+		if content == "" {
+			continue
+		}
+		role := goAgentRole(item.Role)
+		if role == goagent.RoleTool {
+			role = goagent.RoleAssistant
+			content = "Tool evidence: " + content
+		}
+		messages = append(messages, goagent.Message{Role: role, Content: content})
+	}
+	return messages
+}
+
+func goAgentRole(role string) goagent.Role {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case string(goagent.RoleUser):
+		return goagent.RoleUser
+	case string(goagent.RoleTool):
+		return goagent.RoleTool
+	default:
+		return goagent.RoleAssistant
+	}
 }
 
 func normalizeInstructions(instructions string) string {
@@ -315,6 +370,9 @@ func mapGoAgentEvent(event goagent.Event, provider string, model string) []Event
 	case goagent.EventStop:
 		if event.StopReason == goagent.StopComplete || event.StopReason == "" {
 			return []Event{{Kind: EventCompleted, Provider: provider, Model: model, Sequence: sequence, FinishReason: string(goagent.StopComplete)}}
+		}
+		if event.StopReason == goagent.StopStepLimit {
+			return []Event{{Kind: EventPaused, Provider: provider, Model: model, Sequence: sequence, FinishReason: string(goagent.StopStepLimit)}}
 		}
 		return []Event{{Kind: EventError, Provider: provider, Model: model, Sequence: sequence, Error: ProviderError{Code: string(event.StopReason), Message: "agent stopped: " + string(event.StopReason), Retryable: retryableStop(event.StopReason)}}}
 	default:
