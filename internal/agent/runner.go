@@ -26,6 +26,9 @@ type RunRequest struct {
 	RunID        string
 	MaxSteps     int
 	ToolNames    []string
+	// DispatchToolsThroughHost makes go-agent expose tool definitions but prevents
+	// inline tool IO; the host must dispatch mapped EventToolRequest values.
+	DispatchToolsThroughHost bool
 }
 
 // ContextMessage is Aila's in-process conversation context for a new agent run.
@@ -278,11 +281,37 @@ func NewGoAgentRunner(model goagent.Model, provider string, modelID string, tool
 // NewGoAgentRunnerWithInstructions constructs an adapter with host-owned system instructions.
 func NewGoAgentRunnerWithInstructions(model goagent.Model, provider string, modelID string, instructions string, tools ...goagent.Tool) (*GoAgentRunner, error) {
 	instructions = normalizeInstructions(instructions)
-	wrapped, err := goagent.NewRunner(goagent.Agent{Instructions: instructions, Model: model, Tools: append([]goagent.Tool(nil), tools...)})
+	wrapped, err := goagent.NewRunner(goagent.Agent{Instructions: instructions, Model: model, Tools: append([]goagent.Tool(nil), tools...), Policy: hostDispatchToolPolicy()})
 	if err != nil {
 		return nil, err
 	}
 	return &GoAgentRunner{runner: wrapped, provider: boundedEventText(provider), model: boundedEventText(modelID), instructions: instructions}, nil
+}
+
+const hostDispatchToolsMetadataKey = "aila.dispatch_tools_through_host"
+
+type hostDispatchToolsContextKey struct{}
+
+func hostDispatchToolPolicy() goagent.Policy {
+	return goagent.PolicyFunc(func(ctx context.Context, decision goagent.Decision) (goagent.PolicyDecision, error) {
+		if decision.Kind == goagent.DecisionToolCall && hostDispatchToolsEnabled(ctx, decision.Request) {
+			return goagent.PolicyDecision{
+				Allowed: false,
+				Reason:  "Aila capability tool requests are dispatched through host effects.",
+				ToolResult: &goagent.ToolResult{
+					CallID:   decision.ToolCall.ID,
+					Name:     decision.ToolCall.Name,
+					Content:  "Tool request recorded for Aila host effect dispatch; no go-agent tool IO was executed inline.",
+					Metadata: map[string]string{"aila_dispatch": "host_effect"},
+				},
+			}, nil
+		}
+		return goagent.PolicyDecision{Allowed: true}, nil
+	})
+}
+
+func hostDispatchToolsEnabled(ctx context.Context, request goagent.RunRequest) bool {
+	return request.Metadata[hostDispatchToolsMetadataKey] == "true" || ctx.Value(hostDispatchToolsContextKey{}) == true
 }
 
 // Stream runs go-agent and maps its stream into Aila provider-style events.
@@ -295,7 +324,13 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 		instructions = runner.instructions
 	}
 	instructions = normalizeInstructions(instructions)
-	stream, err := runner.runner.Stream(ctx, goagent.RunRequest{
+	metadata := map[string]string(nil)
+	streamCtx := ctx
+	if request.DispatchToolsThroughHost {
+		metadata = map[string]string{hostDispatchToolsMetadataKey: "true"}
+		streamCtx = context.WithValue(ctx, hostDispatchToolsContextKey{}, true)
+	}
+	stream, err := runner.runner.Stream(streamCtx, goagent.RunRequest{
 		Input:        strings.TrimSpace(request.Prompt),
 		SessionID:    strings.TrimSpace(request.SessionID),
 		Session:      goagent.Session{ID: strings.TrimSpace(request.SessionID), Messages: goAgentContextMessages(request.Context)},
@@ -303,6 +338,7 @@ func (runner *GoAgentRunner) Stream(ctx context.Context, request RunRequest) (<-
 		RunID:        strings.TrimSpace(request.RunID),
 		MaxSteps:     request.MaxSteps,
 		ToolNames:    append([]string(nil), request.ToolNames...),
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return nil, err

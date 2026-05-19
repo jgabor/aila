@@ -27,17 +27,19 @@ func (runner *inputRunner) applyAgentState(turn *tui.TranscriptTurn) {
 }
 
 type agentPromptRunner struct {
-	ctx          context.Context
-	runner       agent.Runner
-	provider     string
-	model        string
-	toolNames    []string
-	instructions string
-	maxSteps     int
+	ctx              context.Context
+	runner           agent.Runner
+	provider         string
+	model            string
+	toolNames        []string
+	instructions     string
+	autonomyBoundary string
+	maxSteps         int
 }
 
 type agentPromptOptions struct {
-	MaxSteps int
+	MaxSteps         int
+	AutonomyBoundary string
 }
 
 func newInputRunnerWithDispatchAndAgent(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner) *inputRunner {
@@ -59,13 +61,14 @@ func newInputRunnerWithDispatchAndAgentOptions(ctx context.Context, dispatch run
 	}
 	if agentRunner != nil {
 		base.agent = &agentPromptRunner{
-			ctx:          ctx,
-			runner:       agentRunner,
-			provider:     defaultString(provider, "fake"),
-			model:        defaultString(model, "fake-readonly"),
-			toolNames:    append([]string(nil), toolNames...),
-			instructions: strings.TrimSpace(instructions),
-			maxSteps:     normalizedAgentMaxSteps(options.MaxSteps),
+			ctx:              ctx,
+			runner:           agentRunner,
+			provider:         defaultString(provider, "fake"),
+			model:            defaultString(model, "fake-readonly"),
+			toolNames:        append([]string(nil), toolNames...),
+			instructions:     strings.TrimSpace(instructions),
+			autonomyBoundary: strings.TrimSpace(options.AutonomyBoundary),
+			maxSteps:         normalizedAgentMaxSteps(options.MaxSteps),
 		}
 	}
 	return base

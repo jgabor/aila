@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/aila/internal/agent"
+	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/permission"
 	"github.com/jgabor/aila/internal/policy"
@@ -302,6 +303,529 @@ func (runner *scriptedAgentRunner) Stream(ctx context.Context, request agent.Run
 		}
 	}()
 	return out, nil
+}
+
+type failingStreamRunner struct {
+	requests []agent.RunRequest
+	err      error
+}
+
+func (runner *failingStreamRunner) Stream(ctx context.Context, request agent.RunRequest) (<-chan agent.Event, error) {
+	runner.requests = append(runner.requests, request)
+	if runner.err != nil {
+		return nil, runner.err
+	}
+	return nil, ctx.Err()
+}
+
+func TestCapabilityPromptAssemblyCapturesDeterministicAgentRequest(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "capability completed from fake model"},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-build", []string{"read", "grep"}, "base build instructions", agentPromptOptions{MaxSteps: 7, AutonomyBoundary: string(permission.AutonomyWrite)})
+
+	turn := runner.proposeCapability(capability.Request{
+		ID:         "build-task-2",
+		Capability: capability.NameBuild,
+		Input:      "Assemble capability prompts and context.",
+		Phase:      workflow.PhaseBuild,
+		SourceRefs: []capability.SourceRef{
+			{ID: "progress-260", Kind: "progress", Path: ".agentera/progress.yaml", Excerpt: "Task 1 complete and verified."},
+			{ID: "plan-task-2", Kind: "plan", Path: ".agentera/plan.yaml", Excerpt: "Task 2 acceptance criteria."},
+		},
+		Metadata: map[string]string{
+			"artifact_context": "plan available; docs unavailable/incomplete",
+			"requested_scope":  "Task 2 only",
+		},
+	})
+
+	if len(agentRunner.requests) != 1 {
+		t.Fatalf("captured requests = %d, want 1", len(agentRunner.requests))
+	}
+	request := agentRunner.requests[0]
+	if request.RunID != "op-1" || request.SessionID != "capability-build" || request.MaxSteps != 7 {
+		t.Fatalf("request identity = %+v", request)
+	}
+	if got := strings.Join(request.ToolNames, ","); got != "read,grep" {
+		t.Fatalf("tool names = %q", got)
+	}
+	for _, want := range []string{
+		"base build instructions",
+		"Capability: build. Output field: build.",
+		"Exit expectations: return exactly one of complete, flagged, waiting, or stuck.",
+	} {
+		if !strings.Contains(request.Instructions, want) {
+			t.Fatalf("instructions missing %q:\n%s", want, request.Instructions)
+		}
+	}
+	for _, want := range []string{
+		"run_id: build-task-2",
+		"capability: build",
+		"workflow_phase: build",
+		"autonomy_boundary: write",
+		"user_requested_scope: Assemble capability prompts and context.",
+		"metadata:artifact_context: plan available; docs unavailable/incomplete",
+		"metadata:requested_scope: Task 2 only",
+		"source_ref:plan-task-2 · plan · .agentera/plan.yaml: Task 2 acceptance criteria.",
+		"source_ref:progress-260 · progress · .agentera/progress.yaml: Task 1 complete and verified.",
+		"No missing context facts were reported by prompt assembly.",
+	} {
+		if !strings.Contains(request.Prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, request.Prompt)
+		}
+	}
+	if runner.model.LastCapability.Summary != "capability completed from fake model" || turn.RuntimeStatus != "idle" {
+		t.Fatalf("capability completion = turn:%+v payload:%+v", turn, runner.model.LastCapability)
+	}
+}
+
+func TestCapabilityPromptAssemblyIncludesMissingContextFacts(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{{Kind: agent.EventCompleted, Sequence: 1, FinishReason: "complete"}}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-readonly", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "brief-missing-context",
+		Capability: capability.NameBrief,
+		Phase:      workflow.PhaseIdle,
+	})
+
+	if len(agentRunner.requests) != 1 {
+		t.Fatalf("captured requests = %d, want 1", len(agentRunner.requests))
+	}
+	prompt := agentRunner.requests[0].Prompt
+	for _, want := range []string{
+		"user_requested_scope: missing",
+		"No project or artifact summaries were supplied.",
+		"user_requested_scope is missing",
+		"source refs for project/artifact evidence are missing",
+		"project/artifact summaries are missing",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestCapabilityRunnerStreamsDeltasWithoutChatTranscriptCorruption(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: "partial"},
+		{Kind: agent.EventAssistantDelta, Sequence: 2, Text: " output"},
+		{Kind: agent.EventCompleted, Sequence: 3, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	turn := runner.proposeCapability(capability.Request{ID: "brief-stream", Capability: capability.NameBrief, Input: "stream status", Phase: workflow.PhaseIdle, SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "stream evidence"}}, Metadata: map[string]string{"task": "5"}})
+
+	if runner.model.LastCapability.Summary != "partial output" || turn.RuntimeStatus != string(runtime.StatusIdle) {
+		t.Fatalf("stream completion turn=%+v payload=%+v", turn, runner.model.LastCapability)
+	}
+	if got := countTranscriptKind(runner.model.Transcript, "assistant_delta"); got != 0 {
+		t.Fatalf("capability deltas corrupted chat transcript: %#v", runner.model.Transcript)
+	}
+	if got := countTranscriptKind(runner.model.Transcript, "result"); got != 1 {
+		t.Fatalf("completion transcript results = %d, want exactly one transcript=%#v", got, runner.model.Transcript)
+	}
+}
+
+func TestCapabilityRunnerNormalCompletionEmitsExactlyOneTypedExit(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"complete","Summary":"Brief completed once.","NextAction":"Continue Task 5."}`},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{ID: "brief-once", Capability: capability.NameBrief, Input: "complete once", Phase: workflow.PhaseIdle, SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "completion evidence"}}, Metadata: map[string]string{"task": "5"}})
+
+	if payload := runner.model.LastCapability; payload.Capability != capability.NameBrief || payload.Signal != capability.ExitComplete || payload.Summary != "Brief completed once." || !payload.Attempted {
+		t.Fatalf("typed payload = %+v", payload)
+	}
+	if got := countTranscriptKind(runner.model.Transcript, "result"); got != 1 {
+		t.Fatalf("result transcript count = %d, want one transcript=%#v", got, runner.model.Transcript)
+	}
+}
+
+func TestCapabilityRunnerFailuresMalformedAndCancellationBecomeBoundedExits(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		runner     agent.Runner
+		wantSignal capability.ExitSignal
+		wantText   string
+	}{
+		{name: "provider setup", runner: &failingStreamRunner{err: errors.New("provider setup failed for fake model")}, wantSignal: capability.ExitStuck, wantText: "provider setup failed"},
+		{name: "stream error", runner: &scriptedAgentRunner{events: [][]agent.Event{{{Kind: agent.EventError, Sequence: 1, Error: agent.ProviderError{Code: "stream_failed", Message: "stream broke", Retryable: true}}}}}, wantSignal: capability.ExitStuck, wantText: "stream broke"},
+		{name: "malformed output", runner: &scriptedAgentRunner{events: [][]agent.Event{{{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":`}, {Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"}}}}, wantSignal: capability.ExitFlagged, wantText: "malformed"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, tt.runner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+			runner.proposeCapability(capability.Request{ID: "brief-failure", Capability: capability.NameBrief, Input: "failure path", Phase: workflow.PhaseIdle, SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "failure evidence"}}, Metadata: map[string]string{"task": "5"}})
+
+			payload := runner.model.LastCapability
+			if payload.Signal != tt.wantSignal || !strings.Contains(payload.Summary+payload.Blocker+strings.Join(payload.Concerns, " "), tt.wantText) || payload.NextAction == "" {
+				t.Fatalf("failure payload = %+v, want signal %q text %q with recovery", payload, tt.wantSignal, tt.wantText)
+			}
+		})
+	}
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	cancelRunner := newInputRunnerWithDispatchAndAgentOptions(canceled, runtime.Dispatch, &failingStreamRunner{}, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+	cancelRunner.proposeCapability(capability.Request{ID: "brief-cancel", Capability: capability.NameBrief, Input: "cancel path", Phase: workflow.PhaseIdle, SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "cancel evidence"}}, Metadata: map[string]string{"task": "5"}})
+	if payload := cancelRunner.model.LastCapability; payload.Signal != capability.ExitStuck || !strings.Contains(payload.Blocker, "cancel") || payload.NextAction == "" {
+		t.Fatalf("cancel payload = %+v", payload)
+	}
+}
+
+func TestCapabilityRunnerToolRequestsUseAppDispatch(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	writeAppTestFile(t, workspace, "README.md", "# Aila\ncapability tool evidence\n")
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventToolRequest, Sequence: 1, ToolCallID: "cap-read-1", ToolName: "read", Arguments: []agent.ToolArgument{{Name: "path", Value: "README.md"}, {Name: "line_limit", Value: "2"}}},
+		{Kind: agent.EventAssistantDelta, Sequence: 2, Text: `{"Signal":"complete","Summary":"Read evidence through app dispatch."}`},
+		{Kind: agent.EventCompleted, Sequence: 3, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), readDispatchContext(t.Context(), workspace, string(permission.AutonomyRead)), agentRunner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{ID: "brief-tool", Capability: capability.NameBrief, Input: "use read tool", Phase: workflow.PhaseIdle, SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "tool evidence"}}, Metadata: map[string]string{"task": "5"}})
+
+	if len(agentRunner.requests) != 1 || !agentRunner.requests[0].DispatchToolsThroughHost {
+		t.Fatalf("capability runner request = %#v, want host-dispatched tools", agentRunner.requests)
+	}
+	if runner.model.LastRead.ToolName != "read" || runner.model.LastRead.Decision.Tool != "read" || !runner.model.LastRead.Decision.Allowed || runner.model.LastRead.Source.Caller != "capability:brief" {
+		t.Fatalf("capability tool dispatch did not use app permission/effect path: %+v", runner.model.LastRead)
+	}
+	if payload := runner.model.LastCapability; payload.Signal != capability.ExitComplete || payload.Summary != "Read evidence through app dispatch." {
+		t.Fatalf("capability payload after tool = %+v", payload)
+	}
+}
+
+func countTranscriptKind(transcript []runtime.TranscriptEntry, kind string) int {
+	count := 0
+	for _, entry := range transcript {
+		if entry.Kind == kind {
+			count++
+		}
+	}
+	return count
+}
+
+func TestModelBackedPlanPayloadUsesFakeRunnerOutput(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"complete","Summary":"Plan ready from model evidence.","NextAction":"Start item task-3a.","RecommendedSuccessor":"build","Plan":{"Title":"Task 3 plan","Scope":"Prove model-backed plan/build/audit/brief","ArtifactPath":".agentera/plan.yaml","Items":[{"ID":"task-3a","Text":"Normalize plan model output","Status":"pending","Acceptance":["GIVEN fake model output WHEN plan completes THEN typed plan fields are present"],"SourceRefIDs":["plan-task-3"]}],"NextAction":"Start item task-3a."}}`},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-build", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "plan-task-3",
+		Capability: capability.NamePlan,
+		Input:      "Prove model-backed plan/build/audit/brief",
+		Phase:      workflow.PhasePlan,
+		SourceRefs: []capability.SourceRef{{ID: "plan-task-3", Kind: "plan", Path: ".agentera/plan.yaml", Excerpt: "Task 3 acceptance criteria."}},
+		Metadata:   map[string]string{"project_state": "Tasks 1 and 2 complete."},
+	})
+
+	payload := runner.model.LastCapability
+	if payload.Plan == nil || payload.Plan.Title != "Task 3 plan" || len(payload.Plan.Items) != 1 || len(payload.Plan.Items[0].Acceptance) != 1 {
+		t.Fatalf("plan payload = %+v", payload)
+	}
+	if len(payload.Plan.SourceRefs) != 1 || payload.Plan.SourceRefs[0].ID != "plan-task-3" || payload.NextAction != "Start item task-3a." || payload.RecommendedSuccessor != workflow.PhaseBuild {
+		t.Fatalf("plan refs/next/successor = %+v plan=%+v", payload, payload.Plan)
+	}
+}
+
+func TestModelBackedBuildPayloadReportsEvidenceAndSuccessor(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"complete","Summary":"Build guidance applied from model evidence.","Build":{"PlanItem":{"ID":"task-3a","Text":"Normalize plan model output","Status":"active"},"Step":{"ID":"implement","Text":"Add typed normalization","Status":"completed"},"Tool":{"Name":"write","Status":"completed","Path":"internal/app/capability_agent.go","ExpectedEffect":"normalize typed payloads","DecisionSource":"fake-runner","DecisionAutonomy":"read","DecisionAllowed":true},"ChangedPaths":["internal/app/capability_agent.go"],"Caveats":["fake runner supplied bounded guidance only"],"FinalSummary":"Attempted typed normalization for task-3a."}}`},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-build", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "build-task-3a",
+		Capability: capability.NameBuild,
+		Input:      "Implement task-3a only.",
+		Phase:      workflow.PhaseBuild,
+		SourceRefs: []capability.SourceRef{{ID: "selected-plan-item", Kind: "plan_item", Excerpt: "task-3a"}},
+		Metadata:   map[string]string{capability.BuildMetadataPlanItemText: "Normalize plan model output"},
+	})
+
+	payload := runner.model.LastCapability
+	if payload.Build == nil || payload.Build.PlanItem.ID != "task-3a" || payload.Build.FinalSummary == "" || len(payload.Build.ChangedPaths) != 1 {
+		t.Fatalf("build payload = %+v", payload)
+	}
+	if len(payload.Build.Caveats) != 1 || payload.RecommendedSuccessor != workflow.PhaseAudit || payload.NextAction != "Audit the build result before continuing." {
+		t.Fatalf("build caveats/next/successor = %+v build=%+v", payload, payload.Build)
+	}
+}
+
+func TestModelBackedAuditPayloadRecordsFindingsWithoutMutationBoundary(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"flagged","Summary":"Audit found one review issue.","Audit":{"Findings":[{"ID":"audit-1","Severity":"warning","Title":"Missing regression","Message":"Add focused test coverage before broadening capabilities.","SourceRefIDs":["review-evidence"],"NextActions":["Add focused regression coverage."]}],"NextActions":["Route back to build for the regression."],"Caveats":["review evidence supplied by fake runner"],"EvidenceState":"available"}}`},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-audit", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "audit-task-3",
+		Capability: capability.NameAudit,
+		Input:      "Review Task 3 output.",
+		Phase:      workflow.PhaseAudit,
+		SourceRefs: []capability.SourceRef{{ID: "review-evidence", Kind: "review", Excerpt: "focused test evidence"}},
+		Metadata:   map[string]string{capability.AuditMetadataEvidenceState: "available"},
+	})
+
+	payload := runner.model.LastCapability
+	if payload.Audit == nil || len(payload.Audit.Findings) != 1 || payload.Audit.Findings[0].Severity != "warning" || len(payload.Audit.NextActions) != 1 {
+		t.Fatalf("audit payload = %+v", payload)
+	}
+	for _, boundary := range payload.BoundaryRequests {
+		if boundary.Kind == capability.BoundaryStateWrite || boundary.Kind == capability.BoundaryToolExecution || boundary.Kind == capability.BoundaryPermissionCheck {
+			t.Fatalf("audit model payload requested mutation boundary: %+v", payload.BoundaryRequests)
+		}
+	}
+	if payload.RecommendedSuccessor != workflow.PhaseBuild || payload.NextAction != "Route back to build for the regression." {
+		t.Fatalf("audit next/successor = %+v", payload)
+	}
+}
+
+func TestModelBackedBriefPayloadPreservesUnavailableEvidenceCaveats(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+		{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"complete","Summary":"Runtime idle; project evidence says Tasks 1 and 2 are complete; docs and health are unavailable.","Concerns":["docs unavailable","health unavailable","decisions unavailable"],"NextAction":"Continue Task 3 with focused fake-runner tests."}`},
+		{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+	}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-brief", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "brief-task-3",
+		Capability: capability.NameBrief,
+		Input:      "status orientation",
+		Phase:      workflow.PhaseIdle,
+		SourceRefs: []capability.SourceRef{{ID: "progress-261", Kind: "progress", Path: ".agentera/progress.yaml", Excerpt: "Task 2 complete."}},
+		Metadata: map[string]string{
+			capability.BriefMetadataRuntimeStatus:      "idle",
+			capability.BriefMetadataProjectStoreStatus: "initialized",
+			capability.BriefMetadataHealthStatus:       "unavailable",
+		},
+	})
+
+	payload := runner.model.LastCapability
+	if payload.Capability != capability.NameBrief || payload.RecommendedSuccessor != "" || !strings.Contains(payload.Summary, "health are unavailable") {
+		t.Fatalf("brief payload = %+v", payload)
+	}
+	if len(payload.Concerns) != 3 || len(payload.SourceRefs) != 1 || payload.NextAction != "Continue Task 3 with focused fake-runner tests." {
+		t.Fatalf("brief concerns/source/next = %+v", payload)
+	}
+}
+
+func TestRemainingFixedCapabilitiesUseModelBackedTypedPayloads(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		capability       capability.Name
+		phase            workflow.Phase
+		modelJSON        string
+		wantSuccessor    workflow.Phase
+		assertTypedField func(t *testing.T, payload capability.ExitPayload)
+	}{
+		{
+			name:          "vision",
+			capability:    capability.NameVision,
+			phase:         workflow.PhaseEnvision,
+			modelJSON:     `{"Signal":"complete","Summary":"Vision shaped from supplied evidence.","Vision":{"NorthStar":"Aila remains a focused terminal coding agent.","Principles":["fixed built-ins"],"LongTermGoals":["reliable workflow execution"],"ArtifactPath":".aila/artifacts/vision.md","NextAction":"Plan from the vision."}}`,
+			wantSuccessor: workflow.PhasePlan,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Vision == nil || payload.Vision.NorthStar == "" || len(payload.Vision.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/vision.md") {
+					t.Fatalf("vision payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "discuss",
+			capability:    capability.NameDiscuss,
+			phase:         workflow.PhaseDeliberate,
+			modelJSON:     `{"Signal":"complete","Summary":"Decision recorded.","Discuss":{"Question":"Should we use the runner seam?","Options":[{"ID":"option-1","Text":"Use shared seam","Selected":true,"Rationale":"keeps IO app-owned"}],"Selected":"option-1","Reasoning":"shared seam preserves workflow authority","ArtifactPath":".aila/artifacts/decisions.md","NextAction":"Plan the selected path."}}`,
+			wantSuccessor: workflow.PhasePlan,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Discuss == nil || payload.Discuss.Question == "" || len(payload.Discuss.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/decisions.md") {
+					t.Fatalf("discuss payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "research",
+			capability:    capability.NameResearch,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Research folded context.","Research":{"Topic":"runner seams","CurrentPhase":"build","CrossCuttingStatus":"context_only","Patterns":[{"ID":"pattern-1","Concept":"typed seams","Applicability":"preserve boundaries"}],"Evidence":[{"ID":"evidence-1","Summary":"source-backed","SourceRefID":"evidence"}],"NextAction":"Use as context only."}}`,
+			wantSuccessor: "",
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Research == nil || len(payload.Research.Patterns) != 1 || len(payload.Research.SourceRefs) != 1 {
+					t.Fatalf("research payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "optimize",
+			capability:    capability.NameOptimize,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Optimization measured.","Optimize":{"Objective":{"ID":"objective","Text":"Reduce latency"},"Experiment":{"ID":"experiment-1","Status":"improved","Summary":"latency dropped"},"Harness":{"ID":"harness","Name":"fixture","Locked":true},"Metric":{"Name":"seconds","Baseline":"1.50","Result":"1.20","Direction":"lower","Improvement":"20%"},"Evidence":[{"ID":"evidence-1","Summary":"measurement supplied","SourceRefID":"evidence"}],"NextAction":"Audit the metric result.","ObjectiveArtifactPath":".aila/artifacts/objective.md","ExperimentArtifactPath":".aila/artifacts/experiments.md"}}`,
+			wantSuccessor: workflow.PhaseAudit,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Optimize == nil || payload.Optimize.Metric.Name != "seconds" || len(payload.Optimize.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/objective.md") || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/experiments.md") {
+					t.Fatalf("optimize payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "document",
+			capability:    capability.NameDocument,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Documentation aligned.","Document":{"Target":{"Path":"README.md","Title":"README","SourceBehavior":"document runner seam"},"Plan":{"ID":"doc-plan","Summary":"align docs","Steps":["record shared path"]},"OutputSummary":"docs updated by app-owned evidence","ChangedDocs":[{"Path":"README.md","Status":"planned","Summary":"mention shared path"}],"Mutation":{"ToolName":"write","Status":"completed","Path":"README.md","DecisionAllowed":true},"NextAction":"Audit documentation.","DocumentArtifactPath":".aila/artifacts/documentation.md"}}`,
+			wantSuccessor: workflow.PhaseAudit,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Document == nil || payload.Document.Target.Path != "README.md" || len(payload.Document.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/documentation.md") {
+					t.Fatalf("document payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "design",
+			capability:    capability.NameDesign,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Design system recorded.","Design":{"Goal":{"ID":"terminal","Summary":"durable terminal hierarchy","Surface":"tui"},"Decisions":[{"ID":"decision-1","Area":"hierarchy","Decision":"show phase first","Rationale":"orientation before detail"}],"ReviewPrompts":[{"ID":"review-1","Question":"Is hierarchy clear?","Target":"semantic snapshot"}],"NextAction":"Audit design.","DesignArtifactPath":".aila/artifacts/design.md"}}`,
+			wantSuccessor: workflow.PhaseAudit,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Design == nil || len(payload.Design.Decisions) != 1 || len(payload.Design.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/design.md") {
+					t.Fatalf("design payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "profile",
+			capability:    capability.NameProfile,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Profile evidence folded.","Profile":{"Subject":"Aila decisions","CurrentPhase":"build","CrossCuttingStatus":"context_only","DecisionSignals":[{"ID":"signal-1","Pattern":"prefer bounded slices","Guidance":"keep acceptance focused"}],"UpdateSuggestions":[{"ID":"suggestion-1","Text":"keep validation evidence close","Rationale":"easier review"}],"Evidence":[{"ID":"evidence-1","Summary":"recent task evidence","SourceRefID":"evidence"}],"NextAction":"Use profile as context.","ArtifactPath":".aila/artifacts/profile.md"}}`,
+			wantSuccessor: "",
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Profile == nil || len(payload.Profile.DecisionSignals) != 1 || len(payload.Profile.SourceRefs) != 1 || !hasArtifactPath(payload.ArtifactRefs, ".aila/artifacts/profile.md") {
+					t.Fatalf("profile payload = %+v", payload)
+				}
+			},
+		},
+		{
+			name:          "orchestrate",
+			capability:    capability.NameOrchestrate,
+			phase:         workflow.PhaseBuild,
+			modelJSON:     `{"Signal":"complete","Summary":"Orchestration cycle completed.","Orchestrate":{"Goal":{"ID":"task-4","Title":"Wire capabilities","Scope":"remaining fixed capabilities"},"Status":"completed","ActiveCycle":"cycle-1","RetryBudget":{"MaxAttempts":2,"Used":1,"Remaining":1},"Cycles":[{"ID":"cycle-1","Capability":"build","Status":"completed","Summary":"wired remaining capabilities","Evaluation":"accepted","RetryDecision":"hold"}],"ChildWork":[{"ID":"child-1","Capability":"build","Purpose":"wire shared path","Status":"completed","Summary":"done"}],"Decisions":[{"ID":"decision-1","Kind":"route","Summary":"use shared runner","Reason":"preserve seam","Result":"accepted"}],"Evidence":[{"ID":"evidence-1","Kind":"test","Summary":"focused test","RefID":"evidence"}],"FinalSummary":"Ready for audit."}}`,
+			wantSuccessor: workflow.PhaseAudit,
+			assertTypedField: func(t *testing.T, payload capability.ExitPayload) {
+				t.Helper()
+				if payload.Orchestrate == nil || len(payload.Orchestrate.Cycles) != 1 || len(payload.Orchestrate.SourceRefs) != 1 {
+					t.Fatalf("orchestrate payload = %+v", payload)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{
+				{Kind: agent.EventAssistantDelta, Sequence: 1, Text: tt.modelJSON},
+				{Kind: agent.EventCompleted, Sequence: 2, FinishReason: "complete"},
+			}}}
+			runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+			runner.proposeCapability(capability.Request{
+				ID:         tt.name + "-task-4",
+				Capability: tt.capability,
+				Input:      "Task 4 model-backed " + tt.name + " evidence.",
+				Phase:      tt.phase,
+				SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Path: ".agentera/progress.yaml", Excerpt: "Task 4 acceptance evidence."}},
+				Metadata:   map[string]string{"task": "4"},
+			})
+
+			if len(agentRunner.requests) != 1 {
+				t.Fatalf("captured requests = %d, want 1", len(agentRunner.requests))
+			}
+			request := agentRunner.requests[0]
+			if !strings.Contains(request.Instructions, "Capability: "+string(tt.capability)+". Output field: "+string(tt.capability)+".") || !strings.Contains(request.Prompt, "capability: "+string(tt.capability)) {
+				t.Fatalf("request did not use shared capability prompt/instructions: %+v", request)
+			}
+			payload := runner.model.LastCapability
+			if payload.Capability != tt.capability || payload.RecommendedSuccessor != tt.wantSuccessor || !payload.Attempted {
+				t.Fatalf("payload status = %+v", payload)
+			}
+			tt.assertTypedField(t, payload)
+		})
+	}
+}
+
+func hasArtifactPath(refs []capability.ArtifactRef, path string) bool {
+	for _, ref := range refs {
+		if ref.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
+func TestModelBackedCapabilitiesWaitForRequiredInputBeforeRunnerCall(t *testing.T) {
+	t.Parallel()
+
+	agentRunner := &scriptedAgentRunner{events: [][]agent.Event{{{Kind: agent.EventAssistantDelta, Sequence: 1, Text: `{"Signal":"complete","Summary":"must not run"}`}}}}
+	runner := newInputRunnerWithDispatchAndAgentOptions(t.Context(), runtime.Dispatch, agentRunner, "fake", "fake-capability", []string{"read"}, "", agentPromptOptions{AutonomyBoundary: string(permission.AutonomyRead)})
+
+	runner.proposeCapability(capability.Request{
+		ID:         "vision-missing-input",
+		Capability: capability.NameVision,
+		Phase:      workflow.PhaseEnvision,
+		SourceRefs: []capability.SourceRef{{ID: "evidence", Kind: "progress", Excerpt: "context exists"}},
+		Metadata:   map[string]string{"task": "4"},
+	})
+
+	if len(agentRunner.requests) != 0 {
+		t.Fatalf("runner calls = %d, want 0", len(agentRunner.requests))
+	}
+	payload := runner.model.LastCapability
+	if payload.Capability != capability.NameVision || payload.Signal != capability.ExitWaiting || payload.NeededInput != string(capability.MissingContextInput) || payload.Attempted {
+		t.Fatalf("waiting payload = %+v", payload)
+	}
 }
 
 func TestInteractiveAgentApprovedWriteRunsExplicitMutationEffect(t *testing.T) {

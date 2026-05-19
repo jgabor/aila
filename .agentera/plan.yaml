@@ -3,114 +3,138 @@ header:
   created: '2026-05-18'
   status: complete
   reviewed: '2026-05-18'
-  critic_issues: '3 found, 3 addressed, 0 dismissed'
-  revised: Scoped the TODO into continuation-after-completion, bounded queued prompts, and interrupt-to-cancel behavior without adding durable restore or moving workflow ownership into the TUI.
-  title: 'Plan: Handle AgentTurnCompleted with continuation, queued prompts, and cancel'
+  critic_issues: '4 found, 4 addressed, 0 dismissed'
+  revised: Scoped the work to model-backed built-in capability execution anchored at internal/runtime/runtime.go:510 without adding dynamic capabilities, plugin loading, durable session restore, or capability-owned tool IO.
+  title: 'Plan: Wire agent.Runner into capability adapters'
 
-what: Implement the critical TODO to handle `AgentTurnCompleted` gracefully by keeping completed agent turns ready for conversational continuation, accepting user messages while an agent turn is still running by queueing them deterministically, and mapping interrupt input to cancellation of the active stream.
-why: Aila's agent loop can now preserve in-process context, but the user-facing turn lifecycle is still incomplete. Users need to keep working after an agent completes, type follow-up intent without losing it while the agent is running, and stop a bad or obsolete run without killing the whole application.
-constraints: Preserve statechart-MVU and keep runtime.Update deterministic and IO-free. Keep the TUI presentation-only; it may collect input and render state, but must not own workflow transitions, tool execution, permission classification, persistence, model prompt construction, or cancellation policy. Route mutations through typed effects and guarded IO. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broad conversation-engine abstractions. Do not add user-facing configuration for queue length, cancellation policy, or agent turn lifecycle. Do not implement durable session restore, full transcript persistence across restarts, utility scheduling, or capability model invocation in this plan. Do not push.
+what: >
+  Replace deterministic-template capability execution in internal/capability/brief.go:55 `RunBuiltIn` with model-backed execution through Aila's existing internal/agent/runner.go:13 `agent.Runner` boundary so built-in capability runs can construct capability-specific prompts, include project context and relevant artifacts, stream model output, and return typed capability exit payloads. The plan covers all fixed built-in capabilities, with the first execution slice proving the four highest-impact capabilities: plan, build, audit, and brief.
+why: >
+  Aila's primitive chat loop can now run real model turns, but capability invocations still return deterministic placeholders. That keeps the workflow statechart from producing useful planning, implementation, audit, or briefing output. Wiring capabilities through the same runner seam makes the fixed Agentera-inspired workflow usable while preserving Aila's explicit-effect architecture.
+constraints: >
+  Preserve the fixed-product boundary: no runtime plugins, user-defined capabilities, MCP, workflow DSL, dynamic tools, hosted control plane, or model marketplace. Keep `runtime.Update` deterministic and IO-free; model calls must occur behind effect/app-owned boundaries. Keep the TUI presentation-only. Capabilities may describe needed boundary access and emit typed exits, but must not directly read files, execute tools, mutate artifacts, mutate workflow phase, or bypass permission/history/undo paths. Reuse the existing configured provider/model and `agent.Runner` abstraction; do not add user-facing config for per-capability models, prompt templates, or rollout flags. Do not restore or modify `.agentera/session.yaml`. Do not push.
 design: >
-  Treat the agent turn lifecycle as app/runtime state first, with TUI input translated into typed messages or effects. Completion remains an idle, ready state with transcript context available to the next prompt. While a turn is running, submitted user text is captured as a bounded pending prompt in deterministic state rather than dropped or run concurrently. Interrupt input requests cancellation through an explicit effect that cancels the active agent context and reports a typed cancelled result back into runtime state. After completion or cancellation, the app drains the next queued prompt through the same prompt-submission path so context, permissions, history, and rendering stay centralized.
+  Treat capability model execution as a runtime/app effect interpretation, not as direct IO inside deterministic state updates. A shared capability runner seam anchored at internal/runtime/runtime.go:510 `CapabilityEffect`, internal/app/prompt.go:270 `dispatchEffects`, and internal/agent/runner.go:13 `Runner.Stream` should assemble each fixed capability's instructions, request text, workflow phase, source refs, project context, and artifact summaries into an `agent.RunRequest`, stream provider events through the same supervised event mapping used by interactive turns, and normalize terminal results into one `capability.ExitPayload`. The existing deterministic capability outputs remain useful as typed fallback scaffolding for waiting, stuck, and test cases, but successful model-backed runs should produce real capability documents, summaries, concerns, artifact refs, and recommended successors. The first proof slice must make plan, build, audit, and brief model-backed because they unblock the current workflow loop; the remaining fixed capabilities then use the same contract rather than bespoke adapters.
 overall_acceptance: >
-  When an agent turn completes, the user can continue the same in-process conversation without restart and without losing prior transcript context. When the user submits text during an active agent turn, Aila queues it visibly and starts it after the active turn reaches a terminal completed, failed, paused, or cancelled state, without concurrent agent runs or fake transcript pollution. When the user interrupts an active stream, Aila cancels the active operation through an explicit effect, records a cancelled turn, leaves the app usable, and preserves or drains queued prompts according to the deterministic lifecycle contract. The behavior is covered by focused app/runtime/TUI tests plus mage fmt and mage check.
-surprises:
-- Runtime now has an explicit queued-prompt drain message so terminal agent states remain idle until the app starts queued work through the normal prompt path.
-previous_plan_archived: .agentera/archive/plan-2026-05-18-step-budget-resume.yaml
+  When any fixed built-in capability is invoked, Aila can execute it through an injected `agent.Runner` using capability instructions, project context, source refs, and relevant artifacts without doing IO inside `runtime.Update` or the capability data model. The plan, build, audit, and brief capabilities produce model-backed streamed output and typed exit payloads that remain valid for the workflow FSM. The remaining fixed capabilities are wired through the same model-backed path or explicitly return typed waiting/stuck payloads for missing required context instead of deterministic success templates. Provider errors, cancellation, malformed model output, and missing context are surfaced as bounded capability exits. Focused tests cover prompt construction, runner injection, streaming, exit normalization, no direct capability IO, and regression of deterministic update/effect boundaries; `mage fmt` and `mage check` are the final gate.
+surprises: []
+previous_plan_archived: .agentera/archive/plan-2026-05-18-agent-turn-completion-lifecycle.yaml
 
 scope:
   included:
-  - Define the completed/running/queued/cancelling agent-turn lifecycle and the typed messages/effects that move between those states.
-  - Preserve continuation after `AgentTurnCompleted` using the existing in-process transcript/session context contract.
-  - Queue user messages submitted while the agent is running and drain them after terminal turn states without concurrent runs.
-  - Map interrupt input to cancellation of the active agent stream through explicit effect-owned IO and typed runtime results.
-  - Add regression coverage for completion continuation, queue visibility/draining, interrupt cancellation, no dropped prompts, no duplicate transcript pollution, and deterministic runtime.Update behavior.
+  - Define the shared model-backed capability execution contract for all fixed built-in capabilities in `internal/capability/contract.go` and the runtime capability effect path.
+  - Build capability-specific prompt/context assembly from existing workflow phase, request input, source refs, project context, and relevant artifacts.
+  - Prove the contract with plan, build, audit, and brief before broadening to the remaining fixed capabilities.
+  - Stream runner events back as capability output and normalize terminal states into real typed exit payloads.
+  - Preserve deterministic runtime updates, explicit effects, permission boundaries, and the TUI presentation boundary.
+  - Add regression coverage for runner injection, prompt content, event streaming, exit payloads, failure/cancellation, and no direct capability IO.
   excluded:
-  - Durable session restore, `.aila/sessions/` persistence, `/continue` restore, full transcript persistence across process restarts, utility scheduling, capability model invocation, broad conversation-engine abstractions, plugins, MCP, dynamic tools, hosted control planes, and user-facing lifecycle/queue/cancel configuration.
+  - Runtime plugins, user-defined capabilities, MCP servers, workflow DSLs, dynamic tool catalogs, hosted control planes, per-capability user configuration, provider/model marketplace behavior, durable session restore, `.agentera/session.yaml` restoration, and direct file/tool/model IO from `runtime.Update` or capability value types.
   deferred:
-  - Multi-item persistent prompt queues across restarts.
-  - Cross-process cancellation recovery after application crash.
-  - User-visible queue management commands beyond the minimal lifecycle needed for this TODO.
+  - Phase-appropriate tool narrowing beyond the current tool registry contract.
+  - Native go-agent `SessionStore` ownership for capability conversation history.
+  - Utility-worker scheduling and background capability suggestions.
 
 tasks:
 - number: 1
-  name: Capture the current turn lifecycle and regression seams
+  name: Specify the model-backed capability contract
   depends_on: []
-  status: completed
-  acceptance:
-  - GIVEN the current app/runtime/TUI prompt path is inspected WHEN implementation starts THEN the active turn, terminal completion, input submission, and interrupt seams are identified without moving IO into runtime.Update.
-  - GIVEN current tests do not cover the TODO WHEN the first regression tests are added THEN at least one focused test demonstrates the missing queued-prompt or interrupt behavior before production code is changed.
-  - GIVEN the existing in-process context from completed turns WHEN new lifecycle tests are written THEN they preserve the prior completion-continuation contract and do not broaden it into durable restore.
-  - GIVEN the architecture docs require typed messages and effects WHEN the lifecycle seam is documented in code/tests THEN TUI remains presentation-only and runtime.Update remains deterministic.
+  status: complete
+  completed: '2026-05-18'
   evidence:
-  - Inspected internal/app agent prompt submission, internal/runtime prompt/agent terminal update handling, and internal/tui ctrl-c routing seams.
-  - Added runtime and app regression coverage for queued prompt draining, bounded queue overflow diagnostics, continuation context, and existing TUI interrupt routing.
+  - internal/capability/contract.go defines typed model-backed execution contracts, bounded request context preservation, explicit model-call boundary data, and typed waiting/stuck missing-context reasons for fixed built-ins.
+  - internal/capability/contract_test.go covers registry contract coverage, context preservation, typed waiting, and typed stuck paths without live provider access.
+  - internal/runtime/runtime_test.go covers runtime capability proposal emission as an explicit CapabilityEffect carrying inert model-call execution data while runtime.Update remains IO-free.
+  verified: mage fmt passed; go test ./internal/capability ./internal/runtime passed.
+  acceptance:
+  - GIVEN the fixed capability registry in `internal/capability/contract.go` WHEN the capability execution contract is documented in tests or types THEN every built-in capability has a model-backed execution path or a typed waiting/stuck reason for missing required context.
+  - GIVEN runtime receives a capability proposal WHEN it emits work to be interpreted THEN the model call remains represented as an explicit effect and `runtime.Update` performs no provider, filesystem, artifact, shell, git, or network IO.
+  - GIVEN a capability request includes phase, input, source refs, and metadata WHEN the runner seam prepares execution THEN those inputs are preserved in a bounded request context rather than dropped or reinterpreted by the TUI.
+  - GIVEN the existing deterministic capability structs remain in use WHEN the new contract is introduced THEN tests can still assert typed exit payload shape without requiring live provider access.
 - number: 2
-  name: Model queued prompt state deterministically
+  name: Assemble capability prompts and context
   depends_on:
   - 1
-  status: completed
-  acceptance:
-  - GIVEN a user submits a prompt while an agent turn is running WHEN runtime/app state updates THEN the prompt is recorded as pending queued intent rather than dropped, run concurrently, or appended as fake assistant output.
-  - GIVEN queued prompt state is rendered WHEN the user observes the TUI THEN the UI communicates that the prompt is queued or pending without claiming it has already run.
-  - GIVEN runtime.Update handles queued-prompt messages WHEN state changes THEN it performs no filesystem, shell, git, network, provider, cancellation, or persistence IO.
-  - GIVEN there is no active agent turn WHEN a prompt is submitted THEN Aila starts the normal agent path and does not unnecessarily queue it.
+  status: complete
+  completed: '2026-05-18'
   evidence:
-  - runtime.Update now records AgentPromptSubmitted and PromptSubmitted text as QueuedEntry while active without appending fake transcript output.
-  - Queue state remains visible through existing app/TUI QueuedCount and QueuedText handoff.
+  - internal/app/capability_agent.go assembles app-owned model-backed capability `agent.RunRequest` values with fixed capability instructions, requested scope, workflow phase, autonomy boundary, deterministic tool names/run identity, exit expectations, bounded source-labeled context, and explicit missing-context facts.
+  - internal/app/prompt.go routes capability effects through the app-owned agent runner only when an agent is configured, preserving the existing deterministic runtime/capability fallback path otherwise.
+  - internal/app/prompt_test.go captures fake-runner requests and asserts deterministic instructions, prompt content, tool names, run identity, context labels, and missing-context facts without live provider access.
+  verified: mage fmt passed; go test ./internal/app -run 'TestCapabilityPromptAssembly' passed; go test ./internal/app ./internal/runtime ./internal/capability passed.
+  acceptance:
+  - GIVEN a model-backed capability run starts WHEN prompt assembly completes THEN the request includes capability-specific instructions, the user's requested scope, current workflow phase, autonomy boundary, and the fixed capability's exit expectations.
+  - GIVEN project and artifact context is available WHEN prompt assembly completes THEN relevant summaries and source refs are included with bounded size and source labels.
+  - GIVEN context or artifacts are missing WHEN prompt assembly completes THEN the capability receives explicit missing-context facts and can return waiting/stuck output instead of hallucinating state.
+  - GIVEN prompt assembly is tested with fake runners WHEN assertions inspect the captured `agent.RunRequest` THEN instructions, prompt, tool names, run identity, and context are deterministic.
 - number: 3
-  name: Drain queued prompts after terminal turn states
+  name: Prove model-backed plan, build, audit, and brief
   depends_on:
   - 2
-  status: completed
-  acceptance:
-  - GIVEN an active agent turn completes WHEN a queued prompt exists THEN Aila starts the queued prompt through the same app-owned prompt submission path using the current in-process conversation context.
-  - GIVEN an active agent turn fails, pauses at the step budget, or is cancelled WHEN a queued prompt exists THEN the lifecycle contract deterministically either drains or preserves the queued prompt, with tests covering the chosen behavior.
-  - GIVEN queued prompt draining starts a new agent.RunRequest WHEN fake runners inspect it THEN the prior transcript context is available and duplicate queued text is not inserted into the transcript.
-  - GIVEN multiple rapid submissions occur WHEN the bounded queue policy is reached THEN Aila reports the limit or replacement behavior explicitly instead of silently losing user intent.
+  status: complete
+  completed: '2026-05-18'
   evidence:
-  - Added QueuedPromptDrainRequested and app drain handling so queued prompts start after terminal agent completion through AgentPromptEffect.
-  - Added an internal eight-entry queue cap with a runtime diagnostic when additional prompt input cannot be queued.
-  - TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext and TestUpdateDrainsQueuedAgentPromptAfterTerminalState prove context-preserving drain without duplicate queued transcript entries.
+  - internal/app/capability_agent.go parses structured model JSON emitted through the app-owned fake runner into typed ExitPayload values while preserving generic text fallback output.
+  - internal/app/prompt_test.go covers model-backed plan, build, audit, and brief fake-runner outputs with source refs, next actions, valid successors, build evidence, audit findings, and unavailable-evidence caveats.
+  - Audit normalization supplies only read/context review boundary descriptors in the model-backed path, so audit does not request mutation, permission, or state-write boundaries.
+  verified: mage fmt passed; go test ./internal/app -run 'TestModelBacked(Plan|Build|Audit|Brief)|TestCapabilityPromptAssembly' -count=1 passed; go test ./internal/app ./internal/runtime ./internal/capability -count=1 passed.
+  acceptance:
+  - GIVEN plan is invoked with a scoped request WHEN the fake runner emits model output THEN the resulting plan payload contains a work breakdown, behavioral acceptance criteria, source refs, and a valid next action.
+  - GIVEN build is invoked for a selected plan item WHEN the fake runner emits bounded implementation guidance or results THEN the build payload reports the attempted work, changed-path evidence when supplied, blockers/caveats, and the correct audit/build successor recommendation.
+  - GIVEN audit is invoked with review evidence WHEN the fake runner emits findings THEN the audit payload records findings, severities, next actions, and a valid successor without mutating code or artifacts directly.
+  - GIVEN brief is invoked from idle or returning state WHEN the fake runner emits a status summary THEN the brief output reflects current runtime/project evidence and next action without pretending unavailable evidence exists.
 - number: 4
-  name: Route interrupt input to active stream cancellation
+  name: Wire remaining fixed capabilities through the shared path
   depends_on:
-  - 1
-  status: completed
-  acceptance:
-  - GIVEN an agent turn is running WHEN the user triggers the interrupt keybinding THEN the TUI emits a typed cancellation request instead of directly cancelling provider IO or mutating workflow state.
-  - GIVEN the app receives a cancellation request WHEN an active agent operation exists THEN it dispatches an explicit cancel effect against that operation's context and records a typed cancellation result.
-  - GIVEN cancellation completes WHEN runtime state updates THEN the active turn is marked cancelled, the prompt is usable again, and any queued prompt behavior follows the lifecycle contract from Task 3.
-  - GIVEN no agent turn is running WHEN interrupt is triggered THEN Aila handles it as a no-op or existing input-editing behavior without creating a bogus cancelled turn.
+  - 3
+  status: complete
+  completed: '2026-05-18'
   evidence:
-  - TUI ctrl-c remains a typed app interrupt callback, not a Bubble Tea quit or lower-layer cancellation.
-  - inputRunner now stores the active agent cancel function and invokes it before runtime records InterruptRequested.
-  - Existing interrupt tests cover active, canceled, queued, and idle paths.
+  - internal/app/capability_agent.go normalizes model-backed JSON for vision, discuss, research, optimize, document, design, profile, and orchestrate into their existing typed ExitPayload output fields while preserving source refs, artifact refs, and capability-specific successor rules.
+  - internal/app/prompt_test.go covers the eight remaining fixed capabilities through the shared fake-runner path, asserting captured shared prompt/instructions, typed output fields, source refs, artifact refs where applicable, and valid successor behavior.
+  - internal/app/prompt_test.go covers missing required input for a model-backed remaining capability returning a typed waiting payload before any runner call, and runtime/app/capability regression tests preserve explicit deterministic fallback cases.
+  verified: mage fmt passed; go test ./internal/app ./internal/capability ./internal/runtime -count=1 passed.
+  acceptance:
+  - GIVEN vision, discuss, research, optimize, document, design, profile, and orchestrate are invoked WHEN sufficient context exists THEN each uses the shared runner path and returns a typed exit payload for its own output field.
+  - GIVEN one of those capabilities lacks required input or evidence WHEN invoked THEN it returns a typed waiting or stuck payload with needed input rather than a deterministic success template.
+  - GIVEN all fixed capabilities are registered WHEN capability routing tests run THEN no built-in capability bypasses the runner seam except explicit fallback/error cases covered by tests.
+  - GIVEN capability-specific outputs differ WHEN normalized THEN each output keeps its existing typed shape and workflow successor rules instead of collapsing to unstructured chat text.
 - number: 5
-  name: Preserve graceful completion continuation
-  depends_on:
-  - 2
-  status: completed
-  acceptance:
-  - GIVEN go-agent emits `AgentTurnCompleted` WHEN Aila adapts and records the event THEN the turn becomes completed/idle rather than failed, cancelled, paused, or stuck running.
-  - GIVEN a user submits a follow-up after `AgentTurnCompleted` WHEN the next run starts THEN the previous user/assistant/tool evidence remains available through the in-process context contract.
-  - GIVEN a completed turn is displayed WHEN the user returns to the prompt THEN queued/cancel affordances are not shown as active unless there is actually queued or cancelling state.
-  - GIVEN completion happens while no queued prompt exists WHEN state settles THEN Aila is simply ready for the next user message without requiring restart or a manual reset.
-  evidence:
-  - AgentTurnCompleted continues to settle runtime to idle with completed result state, preserving in-process transcript context for follow-up prompts.
-  - TestAgentNormalNextPromptCarriesCompletedContextWithoutPause remains passing with no queued or cancel affordances after ordinary completion.
-- number: 6
-  name: Verify and close the critical TODO
+  name: Normalize streams, failures, and cancellation into exits
   depends_on:
   - 3
   - 4
-  - 5
-  status: completed
-  acceptance:
-  - GIVEN implementation is complete WHEN focused tests run THEN app, runtime, TUI, and agent-adapter coverage passes for completion continuation, queueing, draining, cancellation, and no concurrent runs.
-  - GIVEN Go files changed WHEN validation is ready THEN mage fmt passes before broader checks.
-  - GIVEN the full validation gate runs WHEN the plan is ready to close THEN mage check passes or any failure is recorded with a precise blocker and owner.
-  - GIVEN the critical TODO is satisfied WHEN closeout metadata is updated THEN TODO.md marks the `AgentTurnCompleted` item resolved and progress records verification evidence.
+  status: complete
+  completed: '2026-05-18'
   evidence:
-  - TODO.md marks the AgentTurnCompleted/queued prompt/interrupt cancellation TODO resolved.
-  - Focused lifecycle tests, package regressions, mage fmt, and mage check passed before closeout metadata was updated.
+  - internal/runtime/runtime.go adds CapabilityOutputDelta and CapabilityDraft so model assistant deltas emitted during active capability runs are recorded separately from normal assistant_delta transcript entries, and existing active-work queuing still prevents concurrent capability starts.
+  - internal/app/capability_agent.go now returns a single CapabilityCompleted terminal message per model-backed run after streaming capability deltas, typed JSON parsing, or unstructured summary fallback.
+  - internal/app/capability_agent.go maps missing runner setup, stream setup failures, stream error events, malformed structured output, and context cancellation into bounded flagged or stuck ExitPayload values with NextAction recovery guidance.
+  - internal/app/capability_agent.go dispatches capability model read/find/grep/bash/fetch tool requests through app-owned runtime effects and existing permission/effect dispatch, preserving capability-owned IO prohibition.
+  verified: mage fmt passed; go test ./internal/app ./internal/runtime ./internal/capability -run 'TestCapabilityRunner|TestUpdateRoutesBriefCapabilityThroughEffectBoundary' -count=1 passed; go test ./internal/app ./internal/runtime ./internal/capability -count=1 passed.
+  acceptance:
+  - GIVEN the runner emits assistant deltas WHEN a capability is active THEN Aila streams or records them as capability output without corrupting the normal chat transcript or starting concurrent capability runs.
+  - GIVEN the runner completes normally WHEN output is parsed or summarized THEN exactly one capability completion message records the final typed exit payload.
+  - GIVEN provider setup fails, the stream errors, output is malformed, or context cancellation occurs WHEN the capability run settles THEN the user sees a bounded flagged/stuck/cancelled capability result with recovery guidance.
+  - GIVEN a capability model run requests tools WHEN tool execution is allowed for that phase THEN requests still pass through existing permission, history, and effect dispatch rather than capability-owned IO.
+- number: 6
+  name: Validate and close the capability-runner TODO
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  status: complete
+  completed: '2026-05-19'
+  evidence:
+  - Focused capability-runner validation passed across internal/capability, internal/runtime, internal/app, and internal/tui for runner injection, prompt assembly, capability streaming, typed exit normalization, error/cancel handling, interrupt rendering, and capability semantic snapshots.
+  - internal/agent/runner.go now preserves host-dispatched capability tool requests through go-agent policy context so model-visible tools do not execute inline before Aila dispatches the host effect.
+  - internal/app/capability_agent.go keeps explicit `AILA_AGENT_RUNNER=fake` PTY smoke runs on deterministic built-in capability payloads while scripted/non-fake runner tests still exercise the model-backed capability seam.
+  - TODO.md marks the P2 `agent.Runner` capability-adapter bullets resolved without restoring `.agentera/session.yaml`.
+  verified: mage fmt passed; focused go test ./internal/agent ./internal/app ./internal/capability ./internal/runtime ./internal/tui -run 'TestGoAgentRunnerHostDispatchModeDoesNotExecuteToolFunctions|Test(PrepareModelExecution|Capability|UpdateRoutes.*Capability|BriefCapabilityProposal|CapabilityRunner|ModelBacked|RemainingFixedCapabilities|CtrlCEmitsAppInterruptMessageOnly|Interrupt|.*CapabilityFixtureSnapshots|.*CapabilitySemanticSnapshot|M23Streaming)' -count=1 passed; mage check passed with cmd/aila in 389.552s, 0 lint issues, and no vulnerabilities.
+  acceptance:
+  - GIVEN implementation is complete WHEN focused tests run THEN capability, runtime, app, and TUI coverage passes for runner injection, prompt assembly, streaming output, exit payload normalization, and error/cancel handling.
+  - GIVEN Go files changed WHEN validation is ready THEN `mage fmt` passes before broader checks.
+  - GIVEN the full validation gate runs WHEN closeout starts THEN `mage check` passes or any failure is recorded with a precise blocker and owner.
+  - GIVEN the current critical TODO is satisfied WHEN Agentera metadata is updated THEN TODO.md marks the `agent.Runner` capability-adapter item resolved and progress records verification evidence without restoring `.agentera/session.yaml`.

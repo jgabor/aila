@@ -184,6 +184,18 @@ type AgentAssistantDelta struct {
 
 func (AgentAssistantDelta) runtimeMessage() {}
 
+// CapabilityOutputDelta records model text emitted while a fixed capability is
+// active. It is kept separate from normal assistant transcript entries so
+// capability runs cannot corrupt the chat transcript.
+type CapabilityOutputDelta struct {
+	Operation  OperationMetadata
+	Capability capability.Name
+	Sequence   int
+	Text       string
+}
+
+func (CapabilityOutputDelta) runtimeMessage() {}
+
 // AgentToolRequested records provider-requested tool metadata without execution.
 type AgentToolRequested struct {
 	Operation OperationMetadata
@@ -373,6 +385,7 @@ type Model struct {
 	LastUtility          utility.JobResult
 	ActiveCapability     capability.Request
 	LastCapability       capability.ExitPayload
+	CapabilityDraft      string
 	Subagents            []SubagentRun
 	ActiveCompact        CompactContextRequest
 	LastCompact          CompactContextResult
@@ -511,6 +524,7 @@ func (effect UtilityJobEffect) Metadata() OperationMetadata {
 type CapabilityEffect struct {
 	Operation OperationMetadata
 	Request   capability.Request
+	Execution capability.PreparedExecution
 }
 
 func (CapabilityEffect) runtimeEffect() {}
@@ -1467,6 +1481,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = ""
 		next.ActiveCapability = request
 		next.LastCapability = capability.ExitPayload{}
+		next.CapabilityDraft = ""
 		next.ActiveCompact = CompactContextRequest{}
 		next.LastCompact = CompactContextResult{}
 		next.ActiveRead = ReadToolRequest{}
@@ -1481,7 +1496,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.LastMutation = MutationToolResult{}
 		next.ActiveOperation = operation
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "capability", Text: capabilitySubjectLabel(request)})
-		return next, []Effect{CapabilityEffect{Operation: operation, Request: request}}
+		return next, []Effect{CapabilityEffect{Operation: operation, Request: request, Execution: capability.PrepareModelExecution(request)}}
 	case SubagentSpawnProposed:
 		operation := nextOperation(&next, OperationSubagent, subagentSubjectLabel(msg.Request))
 		operation.Source = "runtime.subagent"
@@ -1750,6 +1765,23 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = next.AssistantDraft
 		next.Transcript = append(next.Transcript, TranscriptEntry{Kind: "assistant_delta", Text: msg.Text})
 		return next, nil
+	case CapabilityOutputDelta:
+		if next.ActiveOperation.ID != "" && msg.Operation.ID != "" && next.ActiveOperation.ID != msg.Operation.ID {
+			return next, nil
+		}
+		next.Status = StatusActive
+		if next.ActiveOperation.ID == "" {
+			next.ActiveOperation = msg.Operation
+		}
+		if next.ActiveCapability.Capability == "" && msg.Capability != "" {
+			next.ActiveCapability.Capability = msg.Capability
+		}
+		if next.CapabilityDraft != "" && msg.Text != "" && !strings.HasSuffix(next.CapabilityDraft, " ") && !strings.HasPrefix(msg.Text, " ") {
+			next.CapabilityDraft += " "
+		}
+		next.CapabilityDraft += msg.Text
+		next.Result = next.CapabilityDraft
+		return next, nil
 	case AgentToolRequested:
 		next.Status = StatusActive
 		if next.ActiveOperation.ID == "" {
@@ -1937,6 +1969,7 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = summary
 		next.ActiveCapability = capability.Request{}
 		next.LastCapability = msg.Payload
+		next.CapabilityDraft = ""
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
 		if msg.Payload.Signal == capability.ExitStuck {

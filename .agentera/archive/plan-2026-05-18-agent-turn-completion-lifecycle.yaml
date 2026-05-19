@@ -1,0 +1,116 @@
+header:
+  level: full
+  created: '2026-05-18'
+  status: complete
+  reviewed: '2026-05-18'
+  critic_issues: '3 found, 3 addressed, 0 dismissed'
+  revised: Scoped the TODO into continuation-after-completion, bounded queued prompts, and interrupt-to-cancel behavior without adding durable restore or moving workflow ownership into the TUI.
+  title: 'Plan: Handle AgentTurnCompleted with continuation, queued prompts, and cancel'
+
+what: Implement the critical TODO to handle `AgentTurnCompleted` gracefully by keeping completed agent turns ready for conversational continuation, accepting user messages while an agent turn is still running by queueing them deterministically, and mapping interrupt input to cancellation of the active stream.
+why: Aila's agent loop can now preserve in-process context, but the user-facing turn lifecycle is still incomplete. Users need to keep working after an agent completes, type follow-up intent without losing it while the agent is running, and stop a bad or obsolete run without killing the whole application.
+constraints: Preserve statechart-MVU and keep runtime.Update deterministic and IO-free. Keep the TUI presentation-only; it may collect input and render state, but must not own workflow transitions, tool execution, permission classification, persistence, model prompt construction, or cancellation policy. Route mutations through typed effects and guarded IO. Use fixed built-in tools only; do not add plugins, MCP, dynamic tools, provider marketplaces, workflow DSLs, hosted control planes, or broad conversation-engine abstractions. Do not add user-facing configuration for queue length, cancellation policy, or agent turn lifecycle. Do not implement durable session restore, full transcript persistence across restarts, utility scheduling, or capability model invocation in this plan. Do not push.
+design: >
+  Treat the agent turn lifecycle as app/runtime state first, with TUI input translated into typed messages or effects. Completion remains an idle, ready state with transcript context available to the next prompt. While a turn is running, submitted user text is captured as a bounded pending prompt in deterministic state rather than dropped or run concurrently. Interrupt input requests cancellation through an explicit effect that cancels the active agent context and reports a typed cancelled result back into runtime state. After completion or cancellation, the app drains the next queued prompt through the same prompt-submission path so context, permissions, history, and rendering stay centralized.
+overall_acceptance: >
+  When an agent turn completes, the user can continue the same in-process conversation without restart and without losing prior transcript context. When the user submits text during an active agent turn, Aila queues it visibly and starts it after the active turn reaches a terminal completed, failed, paused, or cancelled state, without concurrent agent runs or fake transcript pollution. When the user interrupts an active stream, Aila cancels the active operation through an explicit effect, records a cancelled turn, leaves the app usable, and preserves or drains queued prompts according to the deterministic lifecycle contract. The behavior is covered by focused app/runtime/TUI tests plus mage fmt and mage check.
+surprises:
+- Runtime now has an explicit queued-prompt drain message so terminal agent states remain idle until the app starts queued work through the normal prompt path.
+previous_plan_archived: .agentera/archive/plan-2026-05-18-step-budget-resume.yaml
+
+scope:
+  included:
+  - Define the completed/running/queued/cancelling agent-turn lifecycle and the typed messages/effects that move between those states.
+  - Preserve continuation after `AgentTurnCompleted` using the existing in-process transcript/session context contract.
+  - Queue user messages submitted while the agent is running and drain them after terminal turn states without concurrent runs.
+  - Map interrupt input to cancellation of the active agent stream through explicit effect-owned IO and typed runtime results.
+  - Add regression coverage for completion continuation, queue visibility/draining, interrupt cancellation, no dropped prompts, no duplicate transcript pollution, and deterministic runtime.Update behavior.
+  excluded:
+  - Durable session restore, `.aila/sessions/` persistence, `/continue` restore, full transcript persistence across restarts, utility scheduling, capability model invocation, broad conversation-engine abstractions, plugins, MCP, dynamic tools, hosted control planes, and user-facing lifecycle/queue/cancel configuration.
+  deferred:
+  - Multi-item persistent prompt queues across restarts.
+  - Cross-process cancellation recovery after application crash.
+  - User-visible queue management commands beyond the minimal lifecycle needed for this TODO.
+
+tasks:
+- number: 1
+  name: Capture the current turn lifecycle and regression seams
+  depends_on: []
+  status: completed
+  acceptance:
+  - GIVEN the current app/runtime/TUI prompt path is inspected WHEN implementation starts THEN the active turn, terminal completion, input submission, and interrupt seams are identified without moving IO into runtime.Update.
+  - GIVEN current tests do not cover the TODO WHEN the first regression tests are added THEN at least one focused test demonstrates the missing queued-prompt or interrupt behavior before production code is changed.
+  - GIVEN the existing in-process context from completed turns WHEN new lifecycle tests are written THEN they preserve the prior completion-continuation contract and do not broaden it into durable restore.
+  - GIVEN the architecture docs require typed messages and effects WHEN the lifecycle seam is documented in code/tests THEN TUI remains presentation-only and runtime.Update remains deterministic.
+  evidence:
+  - Inspected internal/app agent prompt submission, internal/runtime prompt/agent terminal update handling, and internal/tui ctrl-c routing seams.
+  - Added runtime and app regression coverage for queued prompt draining, bounded queue overflow diagnostics, continuation context, and existing TUI interrupt routing.
+- number: 2
+  name: Model queued prompt state deterministically
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN a user submits a prompt while an agent turn is running WHEN runtime/app state updates THEN the prompt is recorded as pending queued intent rather than dropped, run concurrently, or appended as fake assistant output.
+  - GIVEN queued prompt state is rendered WHEN the user observes the TUI THEN the UI communicates that the prompt is queued or pending without claiming it has already run.
+  - GIVEN runtime.Update handles queued-prompt messages WHEN state changes THEN it performs no filesystem, shell, git, network, provider, cancellation, or persistence IO.
+  - GIVEN there is no active agent turn WHEN a prompt is submitted THEN Aila starts the normal agent path and does not unnecessarily queue it.
+  evidence:
+  - runtime.Update now records AgentPromptSubmitted and PromptSubmitted text as QueuedEntry while active without appending fake transcript output.
+  - Queue state remains visible through existing app/TUI QueuedCount and QueuedText handoff.
+- number: 3
+  name: Drain queued prompts after terminal turn states
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN an active agent turn completes WHEN a queued prompt exists THEN Aila starts the queued prompt through the same app-owned prompt submission path using the current in-process conversation context.
+  - GIVEN an active agent turn fails, pauses at the step budget, or is cancelled WHEN a queued prompt exists THEN the lifecycle contract deterministically either drains or preserves the queued prompt, with tests covering the chosen behavior.
+  - GIVEN queued prompt draining starts a new agent.RunRequest WHEN fake runners inspect it THEN the prior transcript context is available and duplicate queued text is not inserted into the transcript.
+  - GIVEN multiple rapid submissions occur WHEN the bounded queue policy is reached THEN Aila reports the limit or replacement behavior explicitly instead of silently losing user intent.
+  evidence:
+  - Added QueuedPromptDrainRequested and app drain handling so queued prompts start after terminal agent completion through AgentPromptEffect.
+  - Added an internal eight-entry queue cap with a runtime diagnostic when additional prompt input cannot be queued.
+  - TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext and TestUpdateDrainsQueuedAgentPromptAfterTerminalState prove context-preserving drain without duplicate queued transcript entries.
+- number: 4
+  name: Route interrupt input to active stream cancellation
+  depends_on:
+  - 1
+  status: completed
+  acceptance:
+  - GIVEN an agent turn is running WHEN the user triggers the interrupt keybinding THEN the TUI emits a typed cancellation request instead of directly cancelling provider IO or mutating workflow state.
+  - GIVEN the app receives a cancellation request WHEN an active agent operation exists THEN it dispatches an explicit cancel effect against that operation's context and records a typed cancellation result.
+  - GIVEN cancellation completes WHEN runtime state updates THEN the active turn is marked cancelled, the prompt is usable again, and any queued prompt behavior follows the lifecycle contract from Task 3.
+  - GIVEN no agent turn is running WHEN interrupt is triggered THEN Aila handles it as a no-op or existing input-editing behavior without creating a bogus cancelled turn.
+  evidence:
+  - TUI ctrl-c remains a typed app interrupt callback, not a Bubble Tea quit or lower-layer cancellation.
+  - inputRunner now stores the active agent cancel function and invokes it before runtime records InterruptRequested.
+  - Existing interrupt tests cover active, canceled, queued, and idle paths.
+- number: 5
+  name: Preserve graceful completion continuation
+  depends_on:
+  - 2
+  status: completed
+  acceptance:
+  - GIVEN go-agent emits `AgentTurnCompleted` WHEN Aila adapts and records the event THEN the turn becomes completed/idle rather than failed, cancelled, paused, or stuck running.
+  - GIVEN a user submits a follow-up after `AgentTurnCompleted` WHEN the next run starts THEN the previous user/assistant/tool evidence remains available through the in-process context contract.
+  - GIVEN a completed turn is displayed WHEN the user returns to the prompt THEN queued/cancel affordances are not shown as active unless there is actually queued or cancelling state.
+  - GIVEN completion happens while no queued prompt exists WHEN state settles THEN Aila is simply ready for the next user message without requiring restart or a manual reset.
+  evidence:
+  - AgentTurnCompleted continues to settle runtime to idle with completed result state, preserving in-process transcript context for follow-up prompts.
+  - TestAgentNormalNextPromptCarriesCompletedContextWithoutPause remains passing with no queued or cancel affordances after ordinary completion.
+- number: 6
+  name: Verify and close the critical TODO
+  depends_on:
+  - 3
+  - 4
+  - 5
+  status: completed
+  acceptance:
+  - GIVEN implementation is complete WHEN focused tests run THEN app, runtime, TUI, and agent-adapter coverage passes for completion continuation, queueing, draining, cancellation, and no concurrent runs.
+  - GIVEN Go files changed WHEN validation is ready THEN mage fmt passes before broader checks.
+  - GIVEN the full validation gate runs WHEN the plan is ready to close THEN mage check passes or any failure is recorded with a precise blocker and owner.
+  - GIVEN the critical TODO is satisfied WHEN closeout metadata is updated THEN TODO.md marks the `AgentTurnCompleted` item resolved and progress records verification evidence.
+  evidence:
+  - TODO.md marks the AgentTurnCompleted/queued prompt/interrupt cancellation TODO resolved.
+  - Focused lifecycle tests, package regressions, mage fmt, and mage check passed before closeout metadata was updated.

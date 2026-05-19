@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jgabor/aila/internal/workflow"
 )
@@ -94,6 +95,181 @@ type Request struct {
 	Phase      workflow.Phase
 	SourceRefs []SourceRef
 	Metadata   map[string]string
+}
+
+// ContextField identifies caller-supplied context a model-backed capability
+// runner may require before it can safely prepare a turn.
+type ContextField string
+
+const (
+	ContextFieldCapability ContextField = "capability"
+	ContextFieldPhase      ContextField = "phase"
+	ContextFieldInput      ContextField = "input"
+	ContextFieldSourceRefs ContextField = "source_refs"
+	ContextFieldMetadata   ContextField = "metadata"
+)
+
+// MissingContextReason is a typed reason for pausing before model-backed
+// execution. The runner seam returns these as waiting or stuck payloads instead
+// of guessing missing context in the TUI or provider adapter.
+type MissingContextReason string
+
+const (
+	MissingContextUnknownCapability MissingContextReason = "unknown_capability"
+	MissingContextPhase             MissingContextReason = "missing_phase"
+	MissingContextInput             MissingContextReason = "missing_input"
+	MissingContextSourceRefs        MissingContextReason = "missing_source_refs"
+	MissingContextMetadata          MissingContextReason = "missing_metadata"
+)
+
+// ExecutionPath describes how a built-in capability may proceed at the runner
+// seam without performing provider, filesystem, shell, git, artifact, or network
+// IO in deterministic update code.
+type ExecutionPath string
+
+const (
+	ExecutionPathModelBacked ExecutionPath = "model_backed"
+	ExecutionPathWaiting     ExecutionPath = "waiting"
+	ExecutionPathStuck       ExecutionPath = "stuck"
+)
+
+// ExecutionContract specifies the model-backed runner contract for one fixed
+// capability. It is a typed contract, not a plugin declaration.
+type ExecutionContract struct {
+	Capability     Name
+	Path           ExecutionPath
+	RequiredFields []ContextField
+	OutputField    string
+}
+
+// BoundedRequestContext is the exact request context handed to a runner seam.
+// It preserves runtime-provided phase, input, source refs, and metadata so the
+// TUI cannot reinterpret capability context as presentation state.
+type BoundedRequestContext struct {
+	RequestID  string
+	Capability Name
+	Phase      workflow.Phase
+	Input      string
+	SourceRefs []SourceRef
+	Metadata   map[string]string
+}
+
+// PreparedExecution is inert data produced by the runner seam. A model-backed
+// path includes a model-call boundary request; blocked paths include a typed
+// waiting or stuck payload using the existing deterministic exit shape.
+type PreparedExecution struct {
+	Contract             ExecutionContract
+	Context              BoundedRequestContext
+	Path                 ExecutionPath
+	MissingContextReason MissingContextReason
+	ModelCall            *BoundaryRequest
+	Waiting              *ExitPayload
+	Stuck                *ExitPayload
+}
+
+var executionContracts = []ExecutionContract{
+	{Capability: NameBrief, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase}, OutputField: "brief"},
+	{Capability: NameVision, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "vision"},
+	{Capability: NameDiscuss, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "discuss"},
+	{Capability: NameResearch, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "research"},
+	{Capability: NamePlan, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "plan"},
+	{Capability: NameBuild, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "build"},
+	{Capability: NameOptimize, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "optimize"},
+	{Capability: NameDocument, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "document"},
+	{Capability: NameDesign, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "design"},
+	{Capability: NameAudit, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "audit"},
+	{Capability: NameProfile, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "profile"},
+	{Capability: NameOrchestrate, Path: ExecutionPathModelBacked, RequiredFields: []ContextField{ContextFieldCapability, ContextFieldPhase, ContextFieldInput}, OutputField: "orchestrate"},
+}
+
+// BuiltInExecutionContracts returns the model-backed runner contracts for the
+// fixed built-in registry in display order.
+func BuiltInExecutionContracts() []ExecutionContract {
+	contracts := append([]ExecutionContract(nil), executionContracts...)
+	for index := range contracts {
+		contracts[index].RequiredFields = append([]ContextField(nil), contracts[index].RequiredFields...)
+	}
+	return contracts
+}
+
+// LookupExecutionContract returns the runner contract for one fixed capability.
+func LookupExecutionContract(name Name) (ExecutionContract, bool) {
+	for _, contract := range executionContracts {
+		if contract.Capability == name {
+			contract.RequiredFields = append([]ContextField(nil), contract.RequiredFields...)
+			return contract, true
+		}
+	}
+	return ExecutionContract{}, false
+}
+
+// PrepareModelExecution builds the inert, bounded request context for the
+// model-backed runner seam. It performs no IO and never calls a provider.
+func PrepareModelExecution(request Request) PreparedExecution {
+	if request.Capability == "" {
+		request.Capability = NameBrief
+	}
+	if request.Phase == "" && request.Capability == NameBrief {
+		request.Phase = workflow.PhaseIdle
+	}
+	context := BoundedRequestContext{
+		RequestID:  request.ID,
+		Capability: request.Capability,
+		Phase:      request.Phase,
+		Input:      request.Input,
+		SourceRefs: append([]SourceRef(nil), request.SourceRefs...),
+		Metadata:   cloneMap(request.Metadata),
+	}
+	contract, ok := LookupExecutionContract(request.Capability)
+	if !ok {
+		payload := ExitPayload{
+			Capability: request.Capability,
+			Signal:     ExitStuck,
+			Blocker:    fmt.Sprintf("unsupported built-in capability %q", request.Capability),
+			Attempted:  false,
+		}
+		return PreparedExecution{Context: context, Path: ExecutionPathStuck, MissingContextReason: MissingContextUnknownCapability, Stuck: &payload}
+	}
+	if reason, ok := missingRequiredContext(contract, context); ok {
+		payload := ExitPayload{
+			Capability:  request.Capability,
+			Signal:      ExitWaiting,
+			NeededInput: string(reason),
+			Summary:     "Capability execution is waiting for required model context.",
+			Attempted:   false,
+		}
+		return PreparedExecution{Contract: contract, Context: context, Path: ExecutionPathWaiting, MissingContextReason: reason, Waiting: &payload}
+	}
+	modelCall := request.RequestModelCall("run fixed built-in capability through the provider-backed agent runner")
+	return PreparedExecution{Contract: contract, Context: context, Path: ExecutionPathModelBacked, ModelCall: &modelCall}
+}
+
+func missingRequiredContext(contract ExecutionContract, context BoundedRequestContext) (MissingContextReason, bool) {
+	for _, field := range contract.RequiredFields {
+		switch field {
+		case ContextFieldCapability:
+			if context.Capability == "" {
+				return MissingContextUnknownCapability, true
+			}
+		case ContextFieldPhase:
+			if context.Phase == "" {
+				return MissingContextPhase, true
+			}
+		case ContextFieldInput:
+			if strings.TrimSpace(context.Input) == "" {
+				return MissingContextInput, true
+			}
+		case ContextFieldSourceRefs:
+			if len(context.SourceRefs) == 0 {
+				return MissingContextSourceRefs, true
+			}
+		case ContextFieldMetadata:
+			if len(context.Metadata) == 0 {
+				return MissingContextMetadata, true
+			}
+		}
+	}
+	return "", false
 }
 
 // SourceRef points at evidence supplied to a capability request or exit.

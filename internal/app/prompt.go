@@ -191,6 +191,10 @@ func (runner *inputRunner) applyRuntimeState(turn *tui.TranscriptTurn) {
 		turn.AssistantText = runner.model.AssistantDraft
 		turn.AssistantStreaming = runner.model.Status == runtime.StatusActive
 	}
+	if runner.model.CapabilityDraft != "" && turn.AssistantText == "" {
+		turn.AssistantText = runner.model.CapabilityDraft
+		turn.AssistantStreaming = runner.model.Status == runtime.StatusActive
+	}
 	turn.QueuedCount = len(runner.model.Queued)
 	turn.QueuedText = queuedText(runner.model.Queued)
 	turn.Diagnostics = diagnosticViews(runner.model.Diagnostics)
@@ -273,6 +277,9 @@ func (runner *inputRunner) dispatchEffects(effects []runtime.Effect) (messages [
 			messages = []runtime.Message{runtime.PanicMessage(diagnostic.SourceEffect, recovered)}
 		}
 	}()
+	if runner.agent != nil {
+		return runner.dispatchAgentOwnedEffects(effects)
+	}
 	return runner.dispatch(effects)
 }
 

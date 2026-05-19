@@ -1,4 +1,100 @@
 cycles:
+- number: 265
+  timestamp: 2026-05-19 00:00
+  type: build
+  phase: closeout
+  what: Validated and closed the capability-runner plan by passing focused capability/runtime/app/TUI coverage, preserving fake-runner PTY determinism, fixing go-agent host-dispatched tool policy state, and marking the P2 capability TODO resolved.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 6; Task 1-5 capability runner evidence; mage check failures from the first closeout attempt; go-agent PolicyDecision host-dispatch contract.
+  discovered: The first mage check attempt exposed two closeout blockers before metadata could be marked complete: go-agent policy decisions did not carry request metadata into the tool-call decision, and explicit fake PTY runs were driving capability commands through unstructured fake model output instead of deterministic built-in smoke payloads.
+  verified: >-
+    Focused validation passed with go test ./internal/capability ./internal/runtime ./internal/app ./internal/tui -run 'Test(PrepareModelExecution|Capability|UpdateRoutes.*Capability|BriefCapabilityProposal|CapabilityRunner|ModelBacked|RemainingFixedCapabilities|CtrlCEmitsAppInterruptMessageOnly|Interrupt|.*CapabilityFixtureSnapshots|.*CapabilitySemanticSnapshot|M23Streaming)' -count=1. After repairing the closeout blockers, mage fmt passed and focused validation passed with go test ./internal/agent ./internal/app ./internal/capability ./internal/runtime ./internal/tui -run 'TestGoAgentRunnerHostDispatchModeDoesNotExecuteToolFunctions|Test(PrepareModelExecution|Capability|UpdateRoutes.*Capability|BriefCapabilityProposal|CapabilityRunner|ModelBacked|RemainingFixedCapabilities|CtrlCEmitsAppInterruptMessageOnly|Interrupt|.*CapabilityFixtureSnapshots|.*CapabilitySemanticSnapshot|M23Streaming)' -count=1. Full validation passed with mage check: cmd/aila passed in 389.552s, 0 lint issues, and no vulnerabilities. TODO.md now marks the P2 agent.Runner capability-adapter bullets resolved, .agentera/plan.yaml marks Task 6 complete, and .agentera/session.yaml remains deleted rather than restored.
+  next: The capability-runner plan is complete. The next open critical work is P3 workflow FSM-driven phase-appropriate tools and prompts.
+  context:
+    intent: Close only Task 6 by validating the completed capability-runner implementation and updating TODO/Agentera metadata after evidence passes.
+    constraints: Preserve existing Agentera caveats; do not invent decisions, health, docs mapping, retry, vision, or profile facts; do not restore .agentera/session.yaml; do not push; do not commit; run mage fmt before mage check because Go files changed.
+    unknowns: Decisions artifact remains missing or unavailable; health and docs mapping state remain unavailable or incomplete; retry state is not recorded; vision/profile were not included in startup context; no user-confirmed decision satisfaction was claimed.
+    scope: internal/agent/runner.go, internal/app/capability_agent.go, TODO.md, .agentera/plan.yaml, and .agentera/progress.yaml.
+- number: 264
+  timestamp: 2026-05-18 22:35
+  type: build
+  phase: build
+  what: Normalized model-backed capability streams, terminal failures, malformed output, cancellation, and inspection-tool requests into app-owned typed capability exits without mixing capability deltas into the normal chat transcript.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 5; Task 4 shared capability runner path; runtime CapabilityEffect boundary; interactive agent tool dispatch and permission/effect seams.
+  discovered: Capability streaming needed its own runtime message/draft path rather than reusing AgentAssistantDelta, because the normal assistant transcript is chat-owned. Capability tool requests can reuse app-owned read/search/bash/fetch effects while restoring the active capability state so the run still settles through exactly one CapabilityCompleted message.
+  verified: >-
+    AC1: TestCapabilityRunnerStreamsDeltasWithoutChatTranscriptCorruption asserts assistant deltas become capability output, no assistant_delta transcript entries are added, and only one result transcript is recorded. AC2: TestCapabilityRunnerNormalCompletionEmitsExactlyOneTypedExit asserts structured model output becomes one complete typed ExitPayload and one result transcript. AC3: TestCapabilityRunnerFailuresMalformedAndCancellationBecomeBoundedExits covers provider setup failure, stream error, malformed structured output, and context cancellation as bounded flagged/stuck payloads with recovery NextAction. AC4: TestCapabilityRunnerToolRequestsUseAppDispatch asserts a model-requested read goes through app dispatch with permission decision evidence and caller capability:brief before the capability completes. Validation: mage fmt passed; go test ./internal/app ./internal/runtime ./internal/capability -run 'TestCapabilityRunner|TestUpdateRoutesBriefCapabilityThroughEffectBoundary' -count=1 passed; go test ./internal/app ./internal/runtime ./internal/capability -count=1 passed.
+  next: 'Continue with Task 6: validate and close the capability-runner TODO; do not treat Task 5 as final closeout.'
+  context:
+    intent: Satisfy Task 5 only by normalizing stream, failure, malformed-output, cancellation, and allowed inspection-tool behavior for model-backed capability runs.
+    constraints: Preserve IO-free runtime.Update, keep model calls and tools app/effect-owned, avoid capability-owned IO and permission/history bypass, preserve deterministic fallback payloads where appropriate, do not add user-facing config or dynamic capability surfaces, do not run full mage check, do not restore .agentera/session.yaml, do not push, and do not commit.
+    unknowns: Full validation/closeout, TODO resolution, and mage check remain for Task 6. Mutation tool requests from capability models are flagged for explicit approval outside the capability run rather than executed inline.
+    scope: internal/runtime/runtime.go, internal/app/capability_agent.go, internal/app/prompt.go, internal/app/prompt_test.go, .agentera/plan.yaml, and .agentera/progress.yaml.
+- number: 263
+  timestamp: 2026-05-18 22:05
+  type: build
+  phase: build
+  what: Wired the remaining fixed capabilities through the shared app-owned model runner path, preserving typed output fields, source/artifact evidence, and workflow successor rules while keeping missing-input paths typed and provider-free.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 4; Task 3 model-backed payload normalization; internal/app/capability_agent.go shared CapabilityEffect dispatcher; fixed typed payload structs in internal/capability.
+  discovered: The same model-emitted ExitPayload JSON seam can normalize vision, discuss, research, optimize, document, design, profile, and orchestrate without collapsing their typed output structs into chat text; explicit app/runtime fallback dispatch remains deterministic for non-agent command paths.
+  verified: >-
+    AC1: TestRemainingFixedCapabilitiesUseModelBackedTypedPayloads invokes vision, discuss, research, optimize, document, design, profile, and orchestrate through a scripted fake runner and asserts the captured shared capability prompt/instructions plus each capability's typed output field. AC2: TestModelBackedCapabilitiesWaitForRequiredInputBeforeRunnerCall asserts missing vision input returns a typed waiting payload with needed input and zero runner calls. AC3: runtime/app/capability focused regression preserves registered fixed capability effect routing plus explicit deterministic fallback cases. AC4: the same typed-payload test asserts capability-specific source refs, artifact refs where applicable, cross-cutting no-successor behavior for research/profile, and build/audit/plan successor rules for the other outputs. Validation: mage fmt passed; go test ./internal/app ./internal/capability ./internal/runtime -count=1 passed.
+  next: 'Continue with Task 5: normalize streams, failures, and cancellation into exits.'
+  context:
+    intent: Satisfy Task 4 only by broadening the shared runner path from plan/build/audit/brief to the remaining fixed capabilities.
+    constraints: Preserve IO-free runtime.Update, keep model calls app/effect-owned, keep deterministic fallback payloads for explicit fallback/error cases, avoid stream/failure/cancellation normalization beyond this task, do not add user-facing config or dynamic capability surfaces, do not restore .agentera/session.yaml, do not push, and do not commit.
+    unknowns: Stream/failure/cancellation normalization, malformed-output recovery depth, decisions state, docs state, health state, and retry state remain incomplete or unavailable for Task 5 or later work.
+    scope: internal/app/capability_agent.go, internal/app/prompt_test.go, .agentera/plan.yaml, and .agentera/progress.yaml.
+- number: 262
+  timestamp: 2026-05-18 21:32
+  type: build
+  phase: build
+  what: Proved model-backed plan, build, audit, and brief payloads by normalizing structured fake-runner JSON into typed capability exits at the app-owned model boundary while preserving generic text fallback behavior.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 3; Task 1 execution contract; Task 2 prompt/context assembly; internal/app/capability_agent.go model-backed effect path; internal/capability typed payload structs.
+  discovered: The proof slice can parse a single model-emitted JSON object into the existing ExitPayload shape, then apply capability-specific normalization for source refs, next actions, artifact refs, and valid successors without adding capability-owned IO or changing runtime.Update.
+  verified: >-
+    AC1: TestModelBackedPlanPayloadUsesFakeRunnerOutput asserts a scoped plan model output becomes a typed Plan payload with work item, behavioral acceptance criteria, copied source refs, next action, and build successor. AC2: TestModelBackedBuildPayloadReportsEvidenceAndSuccessor asserts selected plan item, attempted final summary, changed path evidence, caveats, next action, and audit successor. AC3: TestModelBackedAuditPayloadRecordsFindingsWithoutMutationBoundary asserts finding severity, next actions, build successor, and no mutation/tool/permission/state-write boundary requests. AC4: TestModelBackedBriefPayloadPreservesUnavailableEvidenceCaveats asserts idle/status evidence, unavailable docs/health/decisions caveats, copied source refs, and next action without fabricating missing evidence. Validation: mage fmt passed; go test ./internal/app -run 'TestModelBacked(Plan|Build|Audit|Brief)|TestCapabilityPromptAssembly' -count=1 passed; go test ./internal/app ./internal/runtime ./internal/capability -count=1 passed.
+  next: 'Continue with Task 4: wire remaining fixed capabilities through the shared path.'
+  context:
+    intent: Satisfy Task 3 only by proving typed model-backed outputs for plan, build, audit, and brief through fake-runner evidence.
+    constraints: Preserve IO-free runtime.Update, keep model calls app/effect-owned, keep deterministic fallbacks, do not wire remaining fixed capabilities beyond shared safe helpers, do not add user-facing config, do not restore .agentera/session.yaml, do not push, and do not commit.
+    unknowns: Remaining fixed capability typed parsing, stream/failure/cancellation normalization, provider malformed-output recovery depth, decisions state, docs state, health state, and retry state remain incomplete or unavailable.
+    scope: internal/app/capability_agent.go, internal/app/prompt_test.go, .agentera/plan.yaml, and .agentera/progress.yaml.
+- number: 261
+  timestamp: 2026-05-18 21:00
+  type: build
+  phase: build
+  what: Assembled model-backed capability prompts and context at the app effect boundary, including fixed capability instructions, user scope, workflow phase, autonomy boundary, exit expectations, bounded source-labeled context, explicit missing-context facts, and deterministic fake-runner request capture.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 2; Task 1 bounded execution contract; internal/app agent prompt runner; internal/runtime CapabilityEffect path; internal/agent RunRequest contract.
+  discovered: Capability prompt assembly can stay app-owned by intercepting CapabilityEffect only when an agent runner is configured, while preserving deterministic RunBuiltIn fallback dispatch for tests and non-agent paths. Prompt assembly can expose missing artifact/context facts directly to the model without broadening into typed output parsing.
+  verified: >-
+    AC1: internal/app/capability_agent.go builds agent.RunRequest instructions/prompt containing capability-specific instructions, user_requested_scope, workflow_phase, autonomy_boundary, and fixed exit expectations. AC2: boundedContextLines sorts and labels metadata plus source refs and caps context at the assembly budget; TestCapabilityPromptAssemblyCapturesDeterministicAgentRequest asserts plan/progress source labels and summaries. AC3: missingContextLines emits explicit missing user scope, source-ref, and artifact-summary facts; TestCapabilityPromptAssemblyIncludesMissingContextFacts asserts those facts. AC4: fake scripted agent runner captures deterministic RunID, SessionID, MaxSteps, ToolNames, Instructions, and Prompt without provider IO. Validation: mage fmt passed; go test ./internal/app -run 'TestCapabilityPromptAssembly' passed; go test ./internal/app ./internal/runtime ./internal/capability passed.
+  next: 'Continue with Task 3: prove model-backed plan, build, audit, and brief typed outputs.'
+  context:
+    intent: Satisfy Task 2 only by assembling capability prompts/context through the app-owned runner seam.
+    constraints: Preserve statechart-MVU and IO-free runtime.Update, keep model calls app/effect-owned, avoid user-facing config or dynamic capability surfaces, do not parse typed plan/build/audit/brief model outputs yet, do not restore .agentera/session.yaml, do not push, and do not commit.
+    unknowns: Model-backed typed output parsing, stream normalization, provider failure mapping depth, and plan/build/audit/brief payload shaping remain for later tasks. Decisions, health, and docs state remain unavailable or incomplete per incoming context.
+    scope: internal/app/capability_agent.go, internal/app/agent_prompt.go, internal/app/prompt.go, internal/app/shutdown.go, internal/app/prompt_test.go, and Agentera plan/progress metadata.
+- number: 260
+  timestamp: 2026-05-18 20:35
+  type: build
+  phase: build
+  what: Specified the model-backed capability contract by adding typed execution contracts for every fixed built-in capability, bounded request context preservation, inert model-call boundary data on CapabilityEffect, and provider-free waiting/stuck missing-context paths.
+  commit: 'N/A: local working tree changes, no commit requested'
+  inspiration: Active Agentera plan Task 1; README provider boundary; ARCHITECTURE and docs/workflow-architecture explicit-effect/statechart rules; internal/capability deterministic payload structs; internal/runtime CapabilityEffect path.
+  discovered: The first slice can specify model-backed capability execution without prompt assembly by keeping PrepareModelExecution pure and attaching the model-call boundary descriptor to the existing runtime effect; deterministic RunBuiltIn output remains available for tests and fallback scaffolding.
+  verified: >-
+    AC1: internal/capability/contract_test.go covers PrepareModelExecution for model-backed execution, typed waiting on missing input, and typed stuck on unknown capability while fixed registry capabilities retain built-in deterministic runners. AC2: internal/runtime/runtime_test.go covers CapabilityProposed producing CapabilityEffect with a ModelCall boundary descriptor, keeping provider/filesystem/artifact/shell/git/network IO outside runtime.Update. AC3: capability and runtime tests assert phase, input, source refs, and metadata are copied into bounded execution context and isolated from caller mutation. AC4: existing deterministic capability tests plus RunBuiltIn assertions still validate typed exit payload shapes without live provider access. Validation: mage fmt passed; go test ./internal/capability ./internal/runtime passed. Caveat: preserve the evaluation audit finding that routine agentera progress --format json returned zero entries even though .agentera/progress.yaml exists.
+  next: 'Continue with Task 2: assemble capability prompts and context through the runner seam.'
+  context:
+    intent: Satisfy Task 1 only by documenting the model-backed capability execution contract in Go types and focused tests.
+    constraints: Preserve statechart-MVU and IO-free runtime.Update, keep TUI presentation-only, add no user-facing config, do not restore .agentera/session.yaml, do not push, and do not commit.
+    unknowns: Decisions fallback reported no decision artifact; preserve that caveat. Prompt assembly, real runner invocation, stream normalization, and live provider behavior remain for later tasks.
+    scope: internal/capability/contract.go, internal/capability/contract_test.go, internal/runtime/runtime.go, internal/runtime/runtime_test.go, and Agentera plan/progress metadata only.
 - number: 259
   timestamp: 2026-05-18 20:15
   type: feat
@@ -7,7 +103,8 @@ cycles:
   commit: 'N/A: local working tree changes, no commit requested'
   inspiration: Active Agentera plan for AgentTurnCompleted continuation; internal/runtime queued prompt and terminal state seams; internal/app agent prompt path; internal/tui typed interrupt callback tests.
   discovered: Queued prompts need an explicit runtime drain message instead of automatic terminal-state effects so runtime.Update stays deterministic and the app starts drained agent work through the same AgentPromptEffect path with prior transcript context.
-  verified: Focused lifecycle tests passed with go test ./internal/runtime ./internal/app -run 'TestUpdateDrainsQueuedAgentPromptAfterTerminalState|TestUpdateReportsBoundedQueuedPromptLimit|TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestInterruptRequest' -count=1. Package regression passed with go test ./internal/runtime ./internal/app ./internal/tui ./internal/agent -count=1. mage fmt passed. Full validation passed with mage check: cmd/aila passed in 401.384s, 0 lint issues, and no vulnerabilities.
+  verified: >-
+    Focused lifecycle tests passed with go test ./internal/runtime ./internal/app -run 'TestUpdateDrainsQueuedAgentPromptAfterTerminalState|TestUpdateReportsBoundedQueuedPromptLimit|TestAgentQueuedPromptDrainsAfterCompletionWithPriorContext|TestAgentNormalNextPromptCarriesCompletedContextWithoutPause|TestInterruptRequest' -count=1. Package regression passed with go test ./internal/runtime ./internal/app ./internal/tui ./internal/agent -count=1. mage fmt passed. Full validation passed with mage check: cmd/aila passed in 401.384s, 0 lint issues, and no vulnerabilities.
   next: P2 capability model invocation is the next open critical TODO.
   context:
     intent: Satisfy the critical TODO for graceful AgentTurnCompleted continuation, queued prompts while running, and interrupt-to-cancel behavior.

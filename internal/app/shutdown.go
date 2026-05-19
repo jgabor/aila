@@ -85,15 +85,15 @@ func newInputRunnerWithAgentBuildContext(ctx context.Context, workspacePath stri
 	dispatch := readDispatchContext(ctx, workspacePath, autonomyLevel)
 	if os.Getenv("AILA_AGENT_RUNNER") == "fake" {
 		toolNames := []string{tools.ReadToolName, tools.FindToolName, tools.GrepToolName, tools.BashToolName, tools.FetchToolName, tools.EditToolName, tools.WriteToolName}
-		return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", toolNames, buildAgentInstructions(workspacePath, autonomyLevel, toolNames))
+		return newInputRunnerWithDispatchAndAgentOptions(ctx, dispatch, agent.FakeBuildRunner{Failure: agent.FailureMode(os.Getenv("AILA_AGENT_FAILURE"))}, "fake", "fake-build", toolNames, buildAgentInstructions(workspacePath, autonomyLevel, toolNames), agentPromptOptions{AutonomyBoundary: autonomyLevel})
 	}
 	config, _, err := LoadConfig()
 	if err != nil {
 		selection := unavailableAgentBuildRunner("config", "unavailable", string(agent.FailureModelUnavailable), "load startup config: "+boundedStoreError(err), false)
-		return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions)
+		return newInputRunnerWithDispatchAndAgentOptions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions, agentPromptOptions{AutonomyBoundary: autonomyLevel})
 	}
 	selection := newAgentBuildRunnerFromConfig(workspacePath, autonomyLevel, config, os.LookupEnv, http.DefaultClient)
-	return newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions)
+	return newInputRunnerWithDispatchAndAgentOptions(ctx, dispatch, selection.Runner, selection.Provider, selection.Model, selection.ToolNames, selection.Instructions, agentPromptOptions{AutonomyBoundary: autonomyLevel})
 }
 
 func readDispatchContext(ctx context.Context, workspacePath string, autonomyLevel string) runtimeDispatchFunc {

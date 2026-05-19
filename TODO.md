@@ -44,11 +44,11 @@ no project context. Without this, no other wiring matters.
 All 12 capabilities return deterministic template output. They need to invoke
 `agent.Runner` with capability-specific context.
 
-- [ ] [feat:0.0.2] Wire `agent.Runner` into capability adapters so each
+- [x] [feat:0.0.2] Wire `agent.Runner` into capability adapters so each
       `Capability.Run()` constructs a model prompt with capability instructions,
       project context, and relevant artifacts, then streams the agent response
       back as capability output with real exit payloads.
-- [ ] [feat:0.0.2] Start with the four highest-impact capabilities: ≡ plan
+- [x] [feat:0.0.2] Start with the four highest-impact capabilities: ≡ plan
       (model-generated work breakdown), ⧉ build (core implementation loop),
       ⛶ audit (model-driven code review), and ⌂ brief (status from current
       session and artifacts).

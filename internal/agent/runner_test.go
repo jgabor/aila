@@ -188,6 +188,45 @@ func TestGoAgentRunnerMapsRealGoAgentEvents(t *testing.T) {
 	}
 }
 
+func TestGoAgentRunnerHostDispatchModeDoesNotExecuteToolFunctions(t *testing.T) {
+	t.Parallel()
+
+	called := 0
+	readTool, err := goagent.NewTool("read", "Read a workspace file.", func(context.Context, readInput) (string, error) {
+		called++
+		return "direct tool IO must not run for capability dispatch", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := &scriptedModel{turns: []goagent.TurnResult{
+		{ToolCalls: []goagent.ToolCall{{ID: "call-read-1", Name: "read", Input: json.RawMessage(`{"path":"README.md"}`)}}},
+		{Message: goagent.Message{Role: goagent.RoleAssistant, Content: "Tool request recorded."}, StopReason: goagent.StopComplete},
+	}}
+	runner, err := NewGoAgentRunner(goagent.ModelFromSimple(model), "goagent", "fake-model", readTool)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stream, err := runner.Stream(context.Background(), RunRequest{Prompt: "inspect", RunID: "capability-run", MaxSteps: 5, DispatchToolsThroughHost: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var events []Event
+	for event := range stream {
+		events = append(events, event)
+	}
+	if called != 0 {
+		t.Fatalf("tool function called %d times, want 0", called)
+	}
+	if len(events) < 1 || events[0].Kind != EventToolRequest || events[0].ToolName != "read" || toolArgumentValue(events[0].Arguments, "path") != "README.md" {
+		t.Fatalf("events = %#v, want mapped tool request without inline execution", events)
+	}
+	if events[len(events)-1].Kind != EventCompleted {
+		t.Fatalf("events = %#v, want capability run to continue after synthetic host-dispatch result", events)
+	}
+}
+
 func TestGoAgentRunnerPreservesConfiguredStepBudget(t *testing.T) {
 	t.Parallel()
 

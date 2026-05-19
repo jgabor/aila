@@ -157,6 +157,46 @@ func TestUpdateRoutesBriefCapabilityThroughEffectBoundary(t *testing.T) {
 	}
 }
 
+func TestUpdateRepresentsCapabilityModelCallAsExplicitEffect(t *testing.T) {
+	t.Parallel()
+
+	request := capability.Request{
+		ID:         "build-model-call",
+		Capability: capability.NameBuild,
+		Input:      "Implement one bounded contract slice.",
+		Phase:      workflow.PhaseBuild,
+		SourceRefs: []capability.SourceRef{{ID: "task-1", Kind: "plan", Path: ".agentera/plan.yaml"}},
+		Metadata:   map[string]string{"task": "Specify the model-backed capability contract."},
+	}
+
+	model, effects := Update(Model{Status: StatusIdle}, CapabilityProposed{Request: request})
+	if model.ActiveCapability.Capability != capability.NameBuild {
+		t.Fatalf("active capability = %+v", model.ActiveCapability)
+	}
+	if len(effects) != 1 {
+		t.Fatalf("len(effects) = %d, want 1", len(effects))
+	}
+	effect, ok := effects[0].(CapabilityEffect)
+	if !ok {
+		t.Fatalf("effect type = %T, want CapabilityEffect", effects[0])
+	}
+	if effect.Execution.Path != capability.ExecutionPathModelBacked || effect.Execution.ModelCall == nil {
+		t.Fatalf("execution = %+v", effect.Execution)
+	}
+	if effect.Execution.ModelCall.Kind != capability.BoundaryModelCall || effect.Execution.ModelCall.RequestID != request.ID {
+		t.Fatalf("model call boundary = %+v", effect.Execution.ModelCall)
+	}
+	if effect.Execution.Context.Input != request.Input || effect.Execution.Context.Phase != request.Phase {
+		t.Fatalf("execution context = %+v", effect.Execution.Context)
+	}
+	if len(effect.Execution.Context.SourceRefs) != 1 || effect.Execution.Context.SourceRefs[0].ID != "task-1" {
+		t.Fatalf("source refs = %+v", effect.Execution.Context.SourceRefs)
+	}
+	if effect.Execution.Context.Metadata["task"] != request.Metadata["task"] {
+		t.Fatalf("metadata = %+v", effect.Execution.Context.Metadata)
+	}
+}
+
 func TestUpdateRoutesVisionCapabilityThroughEffectBoundary(t *testing.T) {
 	t.Parallel()
 
