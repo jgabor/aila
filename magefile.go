@@ -69,6 +69,14 @@ func Test() error {
 	return run("go", "test", "./...")
 }
 
+// TestFast runs the Go test suite in short mode, skipping slow integration tests.
+func TestFast() error {
+	if ok, err := hasPackages("test:fast"); !ok || err != nil {
+		return err
+	}
+	return run("go", "test", "-short", "./...")
+}
+
 // Coverage runs tests and writes the coverage profile under tmp/.
 func Coverage() error {
 	if ok, err := hasPackages("coverage"); !ok || err != nil {

@@ -397,6 +397,8 @@ Within that gate, TUI tests should be split so failures are actionable:
 
 - Unit/update tests run with normal `go test ./...`.
 - Render and semantic snapshot tests run with normal `go test ./...`.
+- PTY smoke tests run in parallel by default to maximize developer efficiency. They are skipped in `short` mode.
+- Use `mage test:fast` (or `go test -short ./...`) for rapid local iteration during TUI development.
 - PTY smoke tests may be skipped automatically when `tmux` is unavailable, but
   CI should install tmux once the harness is stable.
 - Exploratory `agent-cli-helper` workflows do not run in CI.

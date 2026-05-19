@@ -26,7 +26,43 @@ import (
 	"github.com/jgabor/aila/internal/state"
 )
 
+var cachedTestBinary string
+
+func TestMain(m *testing.M) {
+	binary, err := buildAilaTestBinaryOnce()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to build aila test binary for smoke tests: %v\n", err)
+		os.Exit(1)
+	}
+	cachedTestBinary = binary
+	defer func() {
+		_ = os.RemoveAll(filepath.Dir(cachedTestBinary))
+	}()
+
+	os.Exit(m.Run())
+}
+
+func buildAilaTestBinaryOnce() (string, error) {
+	tmp, err := os.MkdirTemp("", "aila-test-build-*")
+	if err != nil {
+		return "", err
+	}
+	binary := filepath.Join(tmp, "aila")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	// Use absolute path for build source to be safe.
+	wd, _ := os.Getwd()
+	build.Dir = wd
+	if output, err := build.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("build aila test binary: %v\n%s", err, output)
+	}
+	return binary, nil
+}
+
 func TestStaticTUISmokeStartupAndQuit(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -55,6 +91,10 @@ func TestStaticTUISmokeStartupAndQuit(t *testing.T) {
 }
 
 func TestM15ProjectStoreStartupPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -99,6 +139,10 @@ func TestM15ProjectStoreStartupPTYSmoke(t *testing.T) {
 }
 
 func TestM15AShutdownDiagnosticsPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -144,6 +188,10 @@ func TestM15AShutdownDiagnosticsPTYSmoke(t *testing.T) {
 }
 
 func TestM15ADebugDiagnosticsNonInteractiveSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("process smoke uses Unix path assertions")
 	}
@@ -213,6 +261,10 @@ func TestM15ADebugDiagnosticsNonInteractiveSmoke(t *testing.T) {
 }
 
 func TestM16ContinueResumePTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -272,6 +324,10 @@ func TestM16ContinueResumePTYSmoke(t *testing.T) {
 }
 
 func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -319,6 +375,10 @@ func TestM16ContinueNoMemoryPTYSmoke(t *testing.T) {
 }
 
 func TestNonInteractiveRunThenContinueSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("process and PTY smoke uses Unix path assertions")
 	}
@@ -427,6 +487,10 @@ func TestNonInteractiveRunThenContinueSmoke(t *testing.T) {
 }
 
 func TestNonInteractiveWriteRunThenContinueSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("process and PTY smoke uses Unix path assertions")
 	}
@@ -574,6 +638,10 @@ func TestNonInteractiveWriteRunThenContinueSmoke(t *testing.T) {
 }
 
 func TestHistoryViewPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -652,6 +720,10 @@ func TestHistoryViewPTYSmoke(t *testing.T) {
 }
 
 func TestHistoryEmptyPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -704,6 +776,10 @@ func TestHistoryEmptyPTYSmoke(t *testing.T) {
 }
 
 func TestDiffViewPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -768,6 +844,10 @@ func TestDiffViewPTYSmoke(t *testing.T) {
 }
 
 func TestPromptSubmitPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -826,6 +906,10 @@ func TestPromptSubmitPTYSmoke(t *testing.T) {
 }
 
 func TestM25ApprovalDecisionPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -887,6 +971,10 @@ func TestM25ApprovalDecisionPTYSmoke(t *testing.T) {
 }
 
 func TestApprovalToWriteMutationPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -940,6 +1028,10 @@ func TestApprovalToWriteMutationPTYSmoke(t *testing.T) {
 }
 
 func TestUndoRedoRecoveryPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1020,6 +1112,10 @@ func TestUndoRedoRecoveryPTYSmoke(t *testing.T) {
 }
 
 func TestInteractiveReadOnlyBuildLoopPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1063,6 +1159,10 @@ func TestInteractiveReadOnlyBuildLoopPTYSmoke(t *testing.T) {
 }
 
 func TestInteractiveWriteBuildLoopApprovalPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1135,6 +1235,10 @@ func TestInteractiveWriteBuildLoopApprovalPTYSmoke(t *testing.T) {
 }
 
 func TestInteractiveWriteBuildLoopDenialPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1173,6 +1277,10 @@ func TestInteractiveWriteBuildLoopDenialPTYSmoke(t *testing.T) {
 }
 
 func TestShellPrefixCommandPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1212,6 +1320,10 @@ func TestShellPrefixCommandPTYSmoke(t *testing.T) {
 }
 
 func TestSummarizedShellContextPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1256,6 +1368,10 @@ func TestSummarizedShellContextPTYSmoke(t *testing.T) {
 }
 
 func TestManualCompactCommandPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1331,6 +1447,10 @@ func TestManualCompactCommandPTYSmoke(t *testing.T) {
 }
 
 func TestPromptPastePTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1368,6 +1488,10 @@ func TestPromptPastePTYSmoke(t *testing.T) {
 }
 
 func TestPromptInputUXFamilyPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1478,6 +1602,10 @@ func quitPromptInputUXPTY(t *testing.T, terminal *os.File, wait <-chan error, ct
 }
 
 func TestReadOnlyProviderFailurePTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1516,6 +1644,10 @@ func TestReadOnlyProviderFailurePTYSmoke(t *testing.T) {
 }
 
 func TestSubmitWhileActivePTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1579,6 +1711,10 @@ func TestSubmitWhileActivePTYSmoke(t *testing.T) {
 }
 
 func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1664,6 +1800,10 @@ func TestInterruptActiveWorkPTYSmoke(t *testing.T) {
 }
 
 func TestReviewCommandShowsAuditFindingsPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1744,6 +1884,10 @@ func TestReviewCommandShowsAuditFindingsPTYSmoke(t *testing.T) {
 }
 
 func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1887,6 +2031,10 @@ func TestInspectionCommandFamilyPTYSmoke(t *testing.T) {
 }
 
 func TestVisionCommandPersistsGoalArtifactPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -1976,6 +2124,10 @@ func TestVisionCommandPersistsGoalArtifactPTYSmoke(t *testing.T) {
 }
 
 func TestDiscussCommandPersistsDecisionArtifactPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2067,6 +2219,10 @@ func TestDiscussCommandPersistsDecisionArtifactPTYSmoke(t *testing.T) {
 }
 
 func TestResearchCommandFoldsContextWithoutArtifactPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2156,6 +2312,10 @@ func TestResearchCommandFoldsContextWithoutArtifactPTYSmoke(t *testing.T) {
 }
 
 func TestProfileCommandPersistsArtifactAndFoldsContextPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2255,6 +2415,10 @@ func TestProfileCommandPersistsArtifactAndFoldsContextPTYSmoke(t *testing.T) {
 }
 
 func TestOptimizeCommandPersistsMetricArtifactsPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2371,6 +2535,10 @@ func TestOptimizeCommandPersistsMetricArtifactsPTYSmoke(t *testing.T) {
 }
 
 func TestDocumentCommandWritesDocsThroughMutationPathPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2484,6 +2652,10 @@ func TestDocumentCommandWritesDocsThroughMutationPathPTYSmoke(t *testing.T) {
 }
 
 func TestOrchestrateCommandShowsProgressSummaryPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2560,6 +2732,10 @@ func TestOrchestrateCommandShowsProgressSummaryPTYSmoke(t *testing.T) {
 }
 
 func TestOrchestrateCommandCancellationPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2632,6 +2808,10 @@ func TestOrchestrateCommandCancellationPTYSmoke(t *testing.T) {
 }
 
 func TestDesignCommandPersistsDesignArtifactPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2733,6 +2913,10 @@ func TestDesignCommandPersistsDesignArtifactPTYSmoke(t *testing.T) {
 }
 
 func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2822,6 +3006,10 @@ func TestBuildCommandExecutesOnePlannedStepPTYSmoke(t *testing.T) {
 }
 
 func TestModelAndAutonomyCommandFamilyPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -2939,6 +3127,10 @@ func assertNoModelAutonomySmokeLeaks(t *testing.T, output string, env ailaPTYTes
 }
 
 func TestSessionCommandFamilyPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -3042,6 +3234,10 @@ func TestSessionCommandFamilyPTYSmoke(t *testing.T) {
 }
 
 func TestResizePTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -3093,6 +3289,10 @@ func TestResizePTYSmoke(t *testing.T) {
 }
 
 func TestM8DisplayLabelsPTYSmoke(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping PTY smoke test in short mode")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("PTY smoke uses Unix pseudo-terminals")
 	}
@@ -3211,6 +3411,10 @@ func startAilaPTYWithArgsAndSetup(t *testing.T, args []string, cols uint16, rows
 
 func buildAilaTestBinary(t *testing.T, env []string, dir string) string {
 	t.Helper()
+
+	if cachedTestBinary != "" {
+		return cachedTestBinary
+	}
 
 	binary := filepath.Join(dir, "aila")
 	build := exec.Command("go", "build", "-o", binary, ".")
