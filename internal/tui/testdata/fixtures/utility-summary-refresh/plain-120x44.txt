@@ -19,6 +19,7 @@ Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-
 | model: opencode-go/deepseek-v4-flash:max                                                                             |
 | read-only: true                                                                                                      |
 | summary: summary refreshed with source-backed details                                                                |
+| suggestion: Use the refreshed summary only with its preserved source refs. refs=summary-refresh-source-1, summary-r~ |
 | summary refresh: refreshed                                                                                           |
 | original summary: Runtime summary mentions status only.                                                              |
 | refreshed summary: Runtime summary mentions status only. Important details: primary runtime remains idle; source re~ |
@@ -26,7 +27,6 @@ Stage IDLE | Runtime idle | Model placeholder | Utility opencode-go/deepseek-v4-
 | summary refresh confidence: high                                                                                     |
 | summary refresh detail: primary runtime remains idle                                                                 |
 | summary refresh detail: source refs stay visible                                                                     |
-| suggestion: Use the refreshed summary only with its preserved source refs. refs=summary-refresh-source-1, summary-r~ |
 | utility evidence: summary-refresh-source-1 source_ref app.status source_ref=summary-refresh-runtime                  |
 | utility evidence: summary-refresh-source-2 source_ref app.status source_ref=summary-refresh-roadmap                  |
 | utility evidence: summary-refresh-detail-1 exact_detail app.status primary runtime remains idle                      |

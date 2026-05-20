@@ -4,6 +4,7 @@
 
 ### Added
 
+- Surfaced idle utility results in the TUI as visible hints for prepared context, stale context warnings, summary refreshes, suggestions, evidence, and read-only safety boundaries.
 - Scheduled idle utility work after foreground prompt completion, covering context prep, stale-context checks, summary refresh, and next-action suggestions without mutating project state.
 - Wired go-agent build turns with bounded system instructions, all seven fixed built-in tools, and registered tool-call dispatch through Aila runtime effects.
 - Added graceful agent turn continuation with queued prompt draining and interrupt-to-cancel handoff.

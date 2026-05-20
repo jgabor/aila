@@ -1,4 +1,25 @@
 cycles:
+- number: 269
+  timestamp: 2026-05-20 17:52
+  type: feat
+  phase: build
+  what: >-
+    Surfaced scheduled idle utility results in the TUI as one visible hint bundle so prepared context, stale-context warnings, summary refreshes, suggestions, evidence, and safety boundaries do not hide behind the final scheduled job.
+  commit: >-
+    N/A: commit not requested; Realisera startup context allowed commits only with explicit approval.
+  inspiration: >-
+    Active light Planera plan for surfacing utility results; TODO.md P6 utility worker scheduling; internal/app/utility.go UtilityView mapping; internal/tui utility snapshot fixtures.
+  discovered: >-
+    The idle scheduler already ran context-prep, stale-context, summary-refresh, and suggestion jobs, but app state only retained the final suggestion result. Rendering also placed utility suggestions after verbose summary-refresh details, which hid suggestions in a 120x44 TUI render.
+  verified: >-
+    mage fmt passed; focused app utility tests passed; go test ./internal/tui ./internal/app ./internal/runtime ./internal/utility -count=1 passed after refreshing the affected utility-summary-refresh snapshots; git diff --check passed; agentera lint for .agentera/plan.yaml passed; mage check passed with cmd/aila in 20.461s, 0 lint issues, and no vulnerabilities.
+  next: >-
+    Continue with P7 go-agent policy, retry, and observability work, unless the completed light plan should be archived first.
+  context:
+    intent: Make utility outputs visible in the TUI without treating background work as authoritative foreground decisions.
+    constraints: Keep utility jobs read-only, display-only, idle-only, and unable to mutate files, git state, Agentera artifacts, permissions, workflow phase, context refresh, compaction, or rewrite; do not add user-facing config; do not commit without explicit approval.
+    unknowns: The light plan is marked complete but remains active for a future plan-completion sweep/archive; no commit was created.
+    scope: internal/app/utility.go, internal/app/prompt_test.go, internal/tui/render.go, internal/tui/testdata/fixtures/utility-summary-refresh/plain-120x44.txt, internal/tui/testdata/fixtures/utility-summary-refresh/ansi-120x44.txt, TODO.md, CHANGELOG.md, .agentera/plan.yaml, and .agentera/progress.yaml.
 - number: 268
   timestamp: 2026-05-20 08:43
   type: feat

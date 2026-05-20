@@ -1,0 +1,27 @@
+header:
+  level: light
+  created: 2026-05-20
+  status: complete
+  title: Surface Utility Results In The TUI
+what: Surface idle utility worker outputs in the TUI using the existing
+  UtilityView path from internal/app/utility.go into internal/tui/render.go.
+  The visible result should expose prepared context, stale context warnings,
+  refreshed summaries, suggestions, evidence refs, and read-only safety
+  boundaries without treating utility output as authoritative foreground work.
+why: The previous P6 slice schedules background context prep, stale checks,
+  summary refresh, and next-action suggestions after foreground work returns to
+  idle. Users need those outputs to remain visible in plain render output and
+  semantic snapshots so foreground work can decide whether to use them.
+constraints: Keep utility jobs read-only, display-only, idle-only, and unable to
+  mutate files, git state, Agentera artifacts, permissions, or workflow phase.
+  Do not add config.yaml options, slash commands, plugin surfaces, workflow
+  phases, or final-judgment behavior. Preserve existing fixture coverage under
+  internal/tui/testdata/fixtures/utility-* and the status/session rendering
+  paths.
+overall_acceptance:
+  - GIVEN an idle utility context-prep result WHEN internal/tui renders the session THEN prepared context is visible with evidence refs and a non-authoritative marker.
+  - GIVEN a stale-context utility result WHEN internal/tui renders the session THEN stale status, summary, caveats, and suggested next action are visible without implying context was refreshed, compacted, or rewritten.
+  - GIVEN a utility suggestion or summary-refresh result WHEN plain and semantic snapshots are generated THEN suggestions, refreshed summary details, confidence, evidence refs, and caveats remain inspectable.
+  - GIVEN any utility result WHEN semantic output is generated THEN read-only safety fields remain visible and false for file mutation, git mutation, artifact mutation, approval grant, workflow transition, final judgment, context refresh, compaction, and rewrite.
+  - GIVEN the implementation is complete WHEN validation runs THEN mage fmt, go test ./internal/tui ./internal/app ./internal/runtime ./internal/utility -count=1, git diff --check, and mage check pass or any failure is recorded with an explicit blocker.
+tasks: []

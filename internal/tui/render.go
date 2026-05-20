@@ -1779,6 +1779,13 @@ func utilityLines(utility *UtilityView) []string {
 			lines = append(lines, "  suggested next action: "+semantic.StaleContext.SuggestedNextAction)
 		}
 	}
+	for _, suggestion := range semantic.Suggestions {
+		line := "  suggestion: " + suggestion.Text
+		if len(suggestion.EvidenceRefIDs) > 0 {
+			line += " refs=" + strings.Join(suggestion.EvidenceRefIDs, ", ")
+		}
+		lines = append(lines, line)
+	}
 	if semantic.SummaryRefresh != nil {
 		if semantic.SummaryRefresh.Status != "" {
 			lines = append(lines, "  summary refresh: "+semantic.SummaryRefresh.Status)
@@ -1805,13 +1812,6 @@ func utilityLines(utility *UtilityView) []string {
 		for _, caveat := range semantic.SummaryRefresh.Caveats {
 			lines = append(lines, "  summary refresh caveat: "+caveat)
 		}
-	}
-	for _, suggestion := range semantic.Suggestions {
-		line := "  suggestion: " + suggestion.Text
-		if len(suggestion.EvidenceRefIDs) > 0 {
-			line += " refs=" + strings.Join(suggestion.EvidenceRefIDs, ", ")
-		}
-		lines = append(lines, line)
 	}
 	for _, ref := range semantic.EvidenceRefs {
 		lines = append(lines, "  utility evidence: "+ref.ID+" "+ref.Kind+" "+ref.Source+" "+ref.Detail)

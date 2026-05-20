@@ -101,8 +101,6 @@ These are viable to defer but block a polished dogfooding experience.
 - [x] [feat:0.0.6] Schedule utility work when the primary agent is idle:
       context prefetch and ranking, stale context checks, summary refresh, and
       next-action suggestions.
-- [ ] [feat:0.0.6] Surface utility results in the TUI without hiding them: show
-      prepared context, stale warnings, and suggestions as visible hints.
 
 ### P7 — go-agent policy, retry, and observability
 
@@ -161,6 +159,9 @@ Cleared after P0–P9. Cut the first dogfoodable release.
 
 ## Resolved
 
+- [feat:0.0.6] Utility results are surfaced in the TUI without hiding
+  prepared context, stale warnings, summary refreshes, suggestions, evidence,
+  and display-only safety boundaries.
 - [feat:0.0.6] Idle utility work is scheduled after foreground prompt
   completion, running context prep, stale-context check, summary refresh, and
   next-action suggestion jobs only when the primary runtime can yield.

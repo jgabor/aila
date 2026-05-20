@@ -60,11 +60,17 @@ func (runner *inputRunner) scheduleIdleUtilityWork(model string) (tui.Transcript
 		return tui.TranscriptTurn{}, false
 	}
 	before := len(runner.model.Transcript)
+	results := make([]utility.JobResult, 0, len(requests))
 	for _, request := range requests {
 		runner.apply(runtime.UtilityJobProposed{Request: request})
+		results = append(results, runner.model.LastUtility)
 	}
 	turn := transcriptTurn(runner.model.Transcript[before:])
 	runner.applyRuntimeState(&turn)
+	if scheduled := scheduledUtilityView(results); scheduled != nil {
+		turn.Utility = scheduled
+		turn.StatusDetail = "utility worker status"
+	}
 	return turn, true
 }
 
@@ -179,4 +185,62 @@ func utilityEvidenceRefViews(refs []utility.EvidenceRef) []tui.UtilityEvidenceRe
 		views = append(views, tui.UtilityEvidenceRefView{ID: ref.ID, Kind: ref.Kind, Source: ref.Source, Detail: ref.Detail})
 	}
 	return views
+}
+
+func scheduledUtilityView(results []utility.JobResult) *tui.UtilityView {
+	if len(results) == 0 {
+		return nil
+	}
+	var aggregate tui.UtilityView
+	aggregate.Status = string(utility.StatusCompleted)
+	aggregate.JobID = "idle-utility"
+	aggregate.JobKind = "idle_schedule"
+	aggregate.Summary = "idle utility hints ready"
+	aggregate.ReadOnly = true
+	seenEvidence := map[string]struct{}{}
+	seenCaveat := map[string]struct{}{}
+	for _, result := range results {
+		request := utility.NormalizeJobRequest(result.Request)
+		if aggregate.Source == "" {
+			aggregate.Source = defaultString(request.Source.Caller, "app.utility")
+		}
+		if aggregate.Model == "" {
+			aggregate.Model = request.Model
+		}
+		if aggregate.PreparedContext.Summary == "" {
+			aggregate.PreparedContext = utilityPreparedContextView(result.PreparedContext)
+		}
+		if aggregate.StaleContext.Status == "" && aggregate.StaleContext.Summary == "" {
+			aggregate.StaleContext = utilityStaleContextView(result.StaleContext)
+		}
+		if aggregate.SummaryRefresh.Status == "" && aggregate.SummaryRefresh.RefreshedSummary == "" {
+			aggregate.SummaryRefresh = utilitySummaryRefreshView(result.SummaryRefresh)
+		}
+		aggregate.Suggestions = append(aggregate.Suggestions, utilitySuggestionViews(result.Suggestions)...)
+		for _, ref := range utilityEvidenceRefViews(result.EvidenceRefs) {
+			key := ref.ID + "\x00" + ref.Kind + "\x00" + ref.Source + "\x00" + ref.Detail
+			if _, ok := seenEvidence[key]; ok {
+				continue
+			}
+			seenEvidence[key] = struct{}{}
+			aggregate.EvidenceRefs = append(aggregate.EvidenceRefs, ref)
+		}
+		for _, caveat := range result.Caveats {
+			if _, ok := seenCaveat[caveat]; ok {
+				continue
+			}
+			seenCaveat[caveat] = struct{}{}
+			aggregate.Caveats = append(aggregate.Caveats, caveat)
+		}
+		aggregate.Safety.FileMutation = aggregate.Safety.FileMutation || result.Safety.FileMutation
+		aggregate.Safety.GitMutation = aggregate.Safety.GitMutation || result.Safety.GitMutation
+		aggregate.Safety.ProjectArtifactMutation = aggregate.Safety.ProjectArtifactMutation || result.Safety.ProjectArtifactMutation
+		aggregate.Safety.ApprovalGrant = aggregate.Safety.ApprovalGrant || result.Safety.PermissionApproval
+		aggregate.Safety.WorkflowPhaseTransition = aggregate.Safety.WorkflowPhaseTransition || result.Safety.WorkflowPhaseTransition
+		aggregate.Safety.FinalJudgment = aggregate.Safety.FinalJudgment || result.Safety.FinalJudgment
+		aggregate.Safety.ContextRefresh = aggregate.Safety.ContextRefresh || result.Safety.ContextRefresh
+		aggregate.Safety.ContextCompaction = aggregate.Safety.ContextCompaction || result.Safety.ContextCompaction
+		aggregate.Safety.ContextRewrite = aggregate.Safety.ContextRewrite || result.Safety.ContextRewrite
+	}
+	return &aggregate
 }

@@ -1586,8 +1586,32 @@ func TestIdleUtilityWorkSchedulesFixedJobsAfterPromptCompletion(t *testing.T) {
 	if turn.Utility != nil {
 		t.Fatalf("turn utility = %+v, want prompt turn to preserve foreground surface", turn.Utility)
 	}
-	if controller.view.Utility == nil || controller.view.Utility.Status != "completed" || controller.view.Utility.JobKind != "suggestion" || controller.view.Utility.Source != "app.idle" {
-		t.Fatalf("controller utility = %+v, want completed idle suggestion retained in app state", controller.view.Utility)
+	if controller.view.Utility == nil || controller.view.Utility.Status != "completed" || controller.view.Utility.JobKind != "idle_schedule" || controller.view.Utility.Source != "app.idle" {
+		t.Fatalf("controller utility = %+v, want completed idle schedule retained in app state", controller.view.Utility)
+	}
+	if controller.view.Utility.PreparedContext.Summary == "" || !controller.view.Utility.PreparedContext.NonAuthoritative {
+		t.Fatalf("controller utility missing prepared context hint: %+v", controller.view.Utility)
+	}
+	if controller.view.Utility.StaleContext.Status == "" || controller.view.Utility.StaleContext.SuggestedNextAction == "" {
+		t.Fatalf("controller utility missing stale context warning: %+v", controller.view.Utility)
+	}
+	if controller.view.Utility.SummaryRefresh.Status == "" || controller.view.Utility.SummaryRefresh.RefreshedSummary == "" {
+		t.Fatalf("controller utility missing summary refresh hint: %+v", controller.view.Utility)
+	}
+	if len(controller.view.Utility.Suggestions) < 4 || len(controller.view.Utility.EvidenceRefs) < 8 {
+		t.Fatalf("controller utility missing aggregate suggestions/evidence: %+v", controller.view.Utility)
+	}
+	plain := tui.RenderPlain(controller.view, tui.Size{Width: 120, Height: 44})
+	for _, want := range []string{"prepared context:", "stale context:", "summary refresh:", "suggestion:"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("rendered utility hints missing %q:\n%s", want, plain)
+		}
+	}
+	semantic := tui.RenderSemanticJSON(controller.view, tui.Size{Width: 120, Height: 44})
+	for _, want := range []string{"\"prepared_context\"", "\"stale_context\"", "\"summary_refresh\"", "\"suggestions\"", "\"context_refresh\": false"} {
+		if !strings.Contains(semantic, want) {
+			t.Fatalf("semantic utility hints missing %q:\n%s", want, semantic)
+		}
 	}
 	if runner.model.Status != runtime.StatusIdle || runner.model.ActiveUtility.ID != "" || runner.model.LastUtility.Request.Kind != utility.JobSuggestion {
 		t.Fatalf("runtime utility state = status %q active %+v last %+v", runner.model.Status, runner.model.ActiveUtility, runner.model.LastUtility)
