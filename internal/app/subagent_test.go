@@ -24,7 +24,7 @@ func TestApplyRuntimeModelToViewExposesSubagentSupervision(t *testing.T) {
 		}},
 	}}}
 
-	view := applyRuntimeModelToView(tui.IdleEmptyState(), model)
+	view := applyRuntimeModelToView(tui.IdleEmptyState(), model, t.TempDir())
 	if !view.RuntimeActive || view.StatusDetail != "subagent supervision" {
 		t.Fatalf("runtime view active=%v detail=%q", view.RuntimeActive, view.StatusDetail)
 	}
@@ -51,7 +51,7 @@ func TestStatusInspectionIncludesSubagentEvidence(t *testing.T) {
 			Path: "internal/tui/testdata/fixtures/multi-agent-active-work/fixture.json",
 		}},
 	}}}
-	view := applyRuntimeModelToView(tui.IdleEmptyState(), model)
+	view := applyRuntimeModelToView(tui.IdleEmptyState(), model, t.TempDir())
 
 	joined := strings.Join(statusInspectionLines(view, model), "\n")
 	for _, want := range []string{

@@ -365,6 +365,18 @@ func (runner *inputRunner) buildAgentInstructions(phase workflow.Phase) string {
 	sb.WriteString("- 'stuck': Hard blocker prevents completion; enter IDLE unless recovery is recommended.\n")
 	sb.WriteString("- 'waiting': Missing input/context facts; do not transition, pause current phase.\n")
 
+	// Append compacted context if present
+	if runner.model.LastCompact.Summary != "" {
+		sb.WriteString("\n\n=== Compacted Context ===\n")
+		sb.WriteString(runner.model.LastCompact.Summary)
+		if len(runner.model.LastCompact.Caveats) > 0 {
+			sb.WriteString("\n\nContext Caveats:\n")
+			for _, caveat := range runner.model.LastCompact.Caveats {
+				fmt.Fprintf(&sb, "- %s\n", caveat)
+			}
+		}
+	}
+
 	return sb.String()
 }
 

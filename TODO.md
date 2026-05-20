@@ -74,13 +74,13 @@ These are viable to defer but block a polished dogfooding experience.
 
 ### P4 — git awareness and interactive completeness
 
-- [ ] [feat:0.0.4] Expose safe git inspection commands (status, diff, log,
+- [x] [feat:0.0.4] Expose safe git inspection commands (status, diff, log,
       branch) as allowed `bash` tool operations registered with go-agent, and
       render real git state in the TUI footer instead of static placeholders.
-- [ ] [feat:0.0.4] Wire `!command` and `!!command` shell prefix through the
+- [x] [feat:0.0.4] Wire `!command` and `!!command` shell prefix through the
       runtime's bash tool effect dispatch: show output in chat and optionally feed
       summarized output to the agent for reasoning.
-- [ ] [feat:0.0.4] Wire file reference (`@`) to actual project file search
+- [x] [feat:0.0.4] Wire file reference (`@`) to actual project file search
       using `tools.ExecuteFind` or a real file index instead of the fake
       `discoverPromptFileReferences` data.
 

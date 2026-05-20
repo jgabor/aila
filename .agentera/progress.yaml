@@ -1,4 +1,19 @@
 cycles:
+- number: 266
+  timestamp: 2026-05-20 07:15
+  type: build
+  phase: closeout
+  what: Implemented git status TUI footer rendering, dynamic file glob matching for @ reference lookup, !/!! shell prefixes, and fixed cross-cutting capability FSM transitions.
+  commit: 'feat: implement git status footer, file glob references, shell prefix, and FSM transition fix'
+  inspiration: TODO.md P4 tasks; internal/runtime/runtime.go cross-cutting capability FSM transition routing; cmd/aila/pty_test.go PTY test flakiness.
+  discovered: We found that the TUI footer's git status display was causing PTY smoke tests to hang or fail on unmatched status text. Initializing actual git repositories in tests, adding background drains to prevent PTY write blocks on exit, and updating assertions resolved all test flakiness. Also prevented cross-cutting capabilities (research/profile/brief) from causing phase transitions on exit when RecommendedSuccessor is omitted.
+  verified: '`go test ./...` passed successfully including all parallel PTY smoke tests. TODO.md updated to check P4 items.'
+  next: The P4 milestone is complete. The next critical tasks include P6 utility worker scheduling.
+  context:
+    intent: Close P4 tasks and FSM transition bug verification.
+    constraints: Preserve statechart-MVU, TUI presentation-only boundary, and no direct capability IO.
+    unknowns: None.
+    scope: cmd/aila/pty_test.go, internal/app/, internal/runtime/runtime.go, TODO.md, .agentera/progress.yaml.
 - number: 265
   timestamp: 2026-05-19 00:00
   type: build

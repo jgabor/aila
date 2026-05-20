@@ -2524,7 +2524,6 @@ func startFakePrompt(model Model, text string) (Model, []Effect) {
 	model.Status = StatusActive
 	model.Result = ""
 	model.ActiveCompact = CompactContextRequest{}
-	model.LastCompact = CompactContextResult{}
 	model.ActiveRead = ReadToolRequest{}
 	model.LastRead = ReadToolResult{}
 	model.ActiveFetch = FetchToolRequest{}
@@ -2551,7 +2550,6 @@ func startAgentPrompt(model Model, text string, provider string, modelName strin
 	model.Status = StatusActive
 	model.Result = ""
 	model.ActiveCompact = CompactContextRequest{}
-	model.LastCompact = CompactContextResult{}
 	model.ActiveRead = ReadToolRequest{}
 	model.LastRead = ReadToolResult{}
 	model.ActiveFetch = FetchToolRequest{}

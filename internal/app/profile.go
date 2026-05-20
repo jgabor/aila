@@ -56,7 +56,7 @@ func (controller *sessionController) openProfileView() []diagnostic.Diagnostic {
 		turn.StatusDetail = "profile capability status"
 	}
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
-	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
+	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model, controller.workspacePath)
 	if turn.Context != nil {
 		controller.view.Context = turn.Context
 		if turn.Context.Meter != "" {

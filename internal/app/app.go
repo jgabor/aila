@@ -78,6 +78,7 @@ func initialDisplayStateWithResume(ctx context.Context, workspacePath string, re
 	base.PhaseSource = workflow.PhaseIdle.String()
 	base = NewDisplayState(base, DisplayConfigFromConfig(config))
 	base = NewStoreDisplayState(base, storeStatus)
+	base.FooterGit = queryGitStatus(ctx, workspacePath)
 	if resumeCurrent {
 		base = resumeCurrentSessionSnapshot(ctx, workspacePath, base)
 	}

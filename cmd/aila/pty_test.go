@@ -1580,7 +1580,7 @@ func TestPromptInputUXFamilyPTYSmoke(t *testing.T) {
 		if err := pty.Setsize(terminal, &pty.Winsize{Rows: 24, Cols: 80}); err != nil {
 			t.Fatalf("resize prompt UX PTY: %v", err)
 		}
-		readUntilAll(t, terminal, []string{"80x24", "Prompt", "git: placeholder | context: placeholder | q quit"}, 10*time.Second)
+		readUntilAll(t, terminal, []string{"80x24", "Prompt", "git: not a repository | context: placeholder | q quit"}, 10*time.Second)
 		quitPromptInputUXPTY(t, terminal, wait, ctx, "paste and resize")
 	})
 }
@@ -2203,6 +2203,13 @@ func TestDiscussCommandPersistsDecisionArtifactPTYSmoke(t *testing.T) {
 	}
 	assertDiscussCommandStoreState(t, workspace)
 
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
 	if _, err := terminal.Write([]byte("q")); err != nil {
 		t.Fatalf("send q after discuss command smoke: %v", err)
 	}
@@ -2295,6 +2302,13 @@ func TestResearchCommandFoldsContextWithoutArtifactPTYSmoke(t *testing.T) {
 		t.Fatalf("research PTY changed build output git status: %q", docsStatus)
 	}
 	assertResearchCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
 
 	if _, err := terminal.Write([]byte("q")); err != nil {
 		t.Fatalf("send q after research command smoke: %v", err)
@@ -2398,6 +2412,13 @@ func TestProfileCommandPersistsArtifactAndFoldsContextPTYSmoke(t *testing.T) {
 		t.Fatalf("profile PTY changed build output git status: %q", docsStatus)
 	}
 	assertProfileCommandStoreState(t, workspace)
+
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+		close(drained)
+	}()
+	time.Sleep(200 * time.Millisecond)
 
 	if _, err := terminal.Write([]byte("q")); err != nil {
 		t.Fatalf("send q after profile command smoke: %v", err)
@@ -3269,7 +3290,7 @@ func TestResizePTYSmoke(t *testing.T) {
 		"assistant: Fake Aila response: resize smoke",
 		"Prompt",
 		">",
-		"git: placeholder | context: placeholder | q quit",
+		"git: not a repository | context: placeholder | q quit",
 	}, 10*time.Second)
 	if strings.Contains(resized, "Session") {
 		t.Fatalf("80x24 resize output exposed right rail: %q", resized)

@@ -112,11 +112,15 @@ func (controller *sessionController) promptFileReferenceView(query string) *tui.
 	if controller.workspacePath == "" {
 		return &tui.FileReferenceView{Source: "app.file-reference", Status: "failed", Query: query, Detail: "workspace unavailable", Focus: true}
 	}
+	pattern := "**/*"
+	if q := strings.TrimSpace(query); q != "" {
+		pattern = "**/*" + q + "*"
+	}
 	message := dispatchSearchEffect(controller.ctx, controller.workspacePath, permission.AutonomyLevel(controller.autonomyLevel), runtime.SearchToolEffect{
-		Operation: runtime.OperationMetadata{ID: "prompt-file-reference", Kind: runtime.OperationFind, Subject: "**/*", Source: "prompt"},
+		Operation: runtime.OperationMetadata{ID: "prompt-file-reference", Kind: runtime.OperationFind, Subject: pattern, Source: "prompt"},
 		Request: runtime.SearchToolRequest{
 			ToolName:        runtime.SearchToolFind,
-			Pattern:         "**/*",
+			Pattern:         pattern,
 			MaxResults:      50,
 			MaxPreviewBytes: 120,
 			Source: runtime.SearchSourceMetadata{

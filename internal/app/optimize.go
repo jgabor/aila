@@ -69,7 +69,7 @@ func (controller *sessionController) openOptimizeView() []diagnostic.Diagnostic 
 		turn.StatusDetail = "optimize capability status"
 	}
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
-	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
+	controller.view = applyRuntimeModelToView(controller.view, controller.runner.model, controller.workspacePath)
 	if persistence.Diagnostic == nil {
 		return nil
 	}

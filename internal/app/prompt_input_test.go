@@ -100,3 +100,40 @@ func TestFileReferenceDiscoveryUsesReadOnlyAppFindBoundary(t *testing.T) {
 }
 
 func noRuntimeDispatch([]runtime.Effect) []runtime.Message { return nil }
+
+func TestFileReferenceDiscoveryUsesDynamicPattern(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	for _, path := range []string{"docs/guide.md", "docs/other.md"} {
+		full := filepath.Join(workspace, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("create fixture dir: %v", err)
+		}
+		if err := os.WriteFile(full, []byte("fixture"), 0o644); err != nil {
+			t.Fatalf("write fixture file: %v", err)
+		}
+	}
+
+	controller := newSessionControllerWithPersistence(context.Background(), tui.IdleEmptyState(), newInputRunnerWithDispatch(noRuntimeDispatch), nil)
+	controller.workspacePath = workspace
+	controller.autonomyLevel = "read"
+
+	// Verify that querying "guide" matches only "docs/guide.md"
+	got := controller.discoverPromptFileReferences("guide", controller.view)
+	if got.FileReference == nil || got.FileReference.Status != "ready" {
+		t.Fatalf("file reference not ready: %+v", got.FileReference)
+	}
+	if len(got.FileReference.Items) != 1 || got.FileReference.Items[0].Path != "docs/guide.md" {
+		t.Fatalf("expected only docs/guide.md, got: %+v", got.FileReference.Items)
+	}
+
+	// Verify that querying "other" matches only "docs/other.md"
+	got = controller.discoverPromptFileReferences("other", controller.view)
+	if got.FileReference == nil || got.FileReference.Status != "ready" {
+		t.Fatalf("file reference not ready: %+v", got.FileReference)
+	}
+	if len(got.FileReference.Items) != 1 || got.FileReference.Items[0].Path != "docs/other.md" {
+		t.Fatalf("expected only docs/other.md, got: %+v", got.FileReference.Items)
+	}
+}

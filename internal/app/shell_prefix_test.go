@@ -32,6 +32,9 @@ func TestShellPrefixPromptRoutesThroughBashPermissionHistoryAndSnapshot(t *testi
 	if turn.UserText != "!ls -1" || turn.Command == nil || turn.Command.Status != "completed" || !turn.Command.ReadOnly {
 		t.Fatalf("shell prefix turn = %+v", turn)
 	}
+	if !strings.Contains(turn.AssistantText, "notes.txt") {
+		t.Fatalf("assistant text = %q, want notes.txt", turn.AssistantText)
+	}
 	if strings.Join(turn.Command.Argv, " ") != "ls -1" || !containsAnyString(turn.Command.StdoutLines, "notes.txt") {
 		t.Fatalf("command view = %+v, want ls output", turn.Command)
 	}
@@ -86,6 +89,22 @@ func TestSummarizedShellPrefixRoutesThroughBashPermissionHistoryAndContext(t *te
 
 	if turn.UserText != "!!ls -1" || turn.Command == nil || turn.Command.Status != "completed" || turn.Command.CommandFamily != "summarized shell" {
 		t.Fatalf("summarized shell turn = %+v", turn)
+	}
+	if !strings.Contains(turn.AssistantText, "notes.txt") {
+		t.Fatalf("assistant text = %q, want notes.txt", turn.AssistantText)
+	}
+	if runner.model.LastCompact.Summary == "" || !strings.Contains(runner.model.LastCompact.Summary, "ls -1 completed exit 0") {
+		t.Fatalf("model.LastCompact.Summary = %q", runner.model.LastCompact.Summary)
+	}
+	hasTranscriptContextBlock := false
+	for _, entry := range runner.model.Transcript {
+		if entry.Kind == "prompt" && strings.Contains(entry.Text, "Context Block") && strings.Contains(entry.Text, "notes.txt") {
+			hasTranscriptContextBlock = true
+			break
+		}
+	}
+	if !hasTranscriptContextBlock {
+		t.Fatalf("transcript entries = %+v, want prompt entry with notes.txt context block", runner.model.Transcript)
 	}
 	if runner.model.LastBash.ToolName != "bash" || runner.model.LastBash.Source.Caller != shellPrefixSource || !containsAnyString(turn.Command.StdoutLines, "notes.txt") {
 		t.Fatalf("last bash=%+v command=%+v, want summarized shell output", runner.model.LastBash, turn.Command)

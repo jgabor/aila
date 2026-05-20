@@ -35,6 +35,7 @@ func (controller *sessionController) submitExecutableShellPrefix(recommendation 
 		},
 	})
 	turn.UserText = recommendation.ExactInput
+	turn.AssistantText = formatCommandOutput(turn.Command)
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 	diagnostics := controller.persistShellPrefixHistory(recommendation, turn)
 	turn.Diagnostics = append(turn.Diagnostics, diagnostics...)
@@ -53,6 +54,7 @@ func (controller *sessionController) submitSummarizedShellPrefix(recommendation 
 		},
 	})
 	turn.UserText = recommendation.ExactInput
+	turn.AssistantText = formatCommandOutput(turn.Command)
 	if turn.Command != nil {
 		turn.Command.CommandFamily = "summarized shell"
 		turn.Command.ExpectedEffect = "summarize shell output for context with source refs"
@@ -61,6 +63,18 @@ func (controller *sessionController) submitSummarizedShellPrefix(recommendation 
 	turn.Context = contextViewFromBuiltContext(built)
 	turn.StatusDetail = "summarized shell output added to context with source refs"
 	turn.RuntimeResult = summarizedShellRuntimeResult(turn)
+
+	// Store context result in model.LastCompact
+	controller.runner.model.LastCompact = mapBuiltContextToLastCompact(built)
+
+	// Feed summarized output to the agent for reasoning by appending to model.Transcript
+	for _, block := range built.Blocks {
+		controller.runner.model.Transcript = append(controller.runner.model.Transcript, runtime.TranscriptEntry{
+			Kind: "prompt",
+			Text: "Context Block (" + block.Title + "):\n" + block.Text,
+		})
+	}
+
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 	diagnostics := controller.persistShellPrefixHistory(recommendation, turn)
 	turn.Diagnostics = append(turn.Diagnostics, diagnostics...)
@@ -170,4 +184,95 @@ func summarizedShellRuntimeResult(turn tui.TranscriptTurn) string {
 		return "summarized shell command " + command + " failed with source refs"
 	}
 	return "summarized shell command " + command + " added to context with source refs"
+}
+
+func formatCommandOutput(command *tui.CommandView) string {
+	if command == nil {
+		return ""
+	}
+	var output strings.Builder
+	if len(command.StdoutLines) > 0 {
+		output.WriteString(strings.Join(command.StdoutLines, "\n"))
+	}
+	if len(command.StderrLines) > 0 {
+		if output.Len() > 0 {
+			output.WriteString("\n")
+		}
+		output.WriteString(strings.Join(command.StderrLines, "\n"))
+	}
+	if command.ErrorMessage != "" {
+		if output.Len() > 0 {
+			output.WriteString("\n")
+		}
+		output.WriteString("error: " + command.ErrorMessage)
+	}
+	return output.String()
+}
+
+func mapBuiltContextToLastCompact(built ailacontext.BuiltContext) runtime.CompactContextResult {
+	res := runtime.CompactContextResult{
+		Status:  "completed",
+		Caveats: append([]string(nil), built.Warnings...),
+		OriginalBudget: runtime.CompactContextBudget{
+			MaxBytes:       built.Budget.MaxBytes,
+			UsedBytes:      built.Budget.UsedBytes,
+			BlockCount:     built.Budget.BlockCount,
+			SourceRefCount: built.Budget.SourceRefCount,
+			ClaimCount:     built.Budget.ClaimCount,
+			Truncated:      built.Budget.Truncated,
+		},
+		Budget: runtime.CompactContextBudget{
+			MaxBytes:       built.Budget.MaxBytes,
+			UsedBytes:      built.Budget.UsedBytes,
+			BlockCount:     built.Budget.BlockCount,
+			SourceRefCount: built.Budget.SourceRefCount,
+			ClaimCount:     built.Budget.ClaimCount,
+			Truncated:      built.Budget.Truncated,
+		},
+	}
+
+	var summaryBuilder strings.Builder
+	for i, block := range built.Blocks {
+		if i > 0 {
+			summaryBuilder.WriteString("\n\n")
+		}
+		summaryBuilder.WriteString(block.Text)
+	}
+	res.Summary = summaryBuilder.String()
+
+	res.Blocks = make([]runtime.CompactContextBlock, 0, len(built.Blocks))
+	for _, block := range built.Blocks {
+		res.Blocks = append(res.Blocks, runtime.CompactContextBlock{
+			ID:           block.ID,
+			Kind:         block.Kind,
+			Title:        block.Title,
+			Text:         block.Text,
+			SourceRefIDs: append([]string(nil), block.SourceRefIDs...),
+		})
+	}
+
+	res.Claims = make([]runtime.CompactContextClaim, 0, len(built.Claims))
+	for _, claim := range built.Claims {
+		res.Claims = append(res.Claims, runtime.CompactContextClaim{
+			Text:         claim.Text,
+			SourceRefIDs: append([]string(nil), claim.SourceRefIDs...),
+		})
+	}
+
+	res.SourceRefs = make([]runtime.CompactSourceRef, 0, len(built.SourceRefs))
+	for _, ref := range built.SourceRefs {
+		res.SourceRefs = append(res.SourceRefs, runtime.CompactSourceRef{
+			ID:        ref.ID,
+			Kind:      string(ref.Kind),
+			Label:     ref.Label,
+			Path:      ref.Path,
+			LineStart: ref.LineStart,
+			LineEnd:   ref.LineEnd,
+			Command:   ref.Command,
+			Stream:    ref.Stream,
+			Excerpt:   ref.Excerpt,
+		})
+	}
+
+	return res
 }

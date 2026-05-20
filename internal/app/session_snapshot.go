@@ -319,7 +319,7 @@ func (controller *sessionController) routeCommand(recommendation policy.CommandR
 		controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 		briefTurn := controller.runner.proposeCapability(controller.briefRequestFromStatus())
 		controller.view = tui.ApplyTranscriptTurn(controller.view, briefTurn)
-		controller.view = applyRuntimeModelToView(controller.view, controller.runner.model)
+		controller.view = applyRuntimeModelToView(controller.view, controller.runner.model, controller.workspacePath)
 		if runtimeModelChanged(before, controller.runner.model) {
 			diagnostics = append(diagnostics, controller.persistRuntimeModelHistory(controller.runner.model)...)
 		}
@@ -463,7 +463,7 @@ func (controller *sessionController) persistCurrentSnapshot(turn tui.TranscriptT
 	return turn
 }
 
-func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewState {
+func applyRuntimeModelToView(view tui.ViewState, model runtime.Model, workspacePath string) tui.ViewState {
 	turn := tui.TranscriptTurn{}
 	turn.RuntimeStatus = string(model.Status)
 	turn.StatusSource = "runtime.dispatch"
@@ -489,7 +489,14 @@ func applyRuntimeModelToView(view tui.ViewState, model runtime.Model) tui.ViewSt
 	if len(turn.Subagents) > 0 && turn.StatusDetail == "fake in-memory runtime loop" {
 		turn.StatusDetail = "subagent supervision"
 	}
-	return tui.ApplyTranscriptTurn(view, turn)
+	res := tui.ApplyTranscriptTurn(view, turn)
+	gitState := queryGitStatus(context.Background(), workspacePath)
+	if gitState != "unknown" && gitState != "not a repository" {
+		res.FooterGit = gitState
+	} else if res.FooterGit == "" || res.FooterGit == "placeholder" {
+		res.FooterGit = gitState
+	}
+	return res
 }
 
 func storeSnapshotPersistence(workspacePath string) snapshotPersistenceFunc {
