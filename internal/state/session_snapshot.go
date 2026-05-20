@@ -86,10 +86,14 @@ type SessionSnapshot struct {
 
 // SessionSnapshotRuntime captures the current fake runtime status shown by the UI.
 type SessionSnapshotRuntime struct {
-	Status string `json:"status"`
-	Source string `json:"source"`
-	Detail string `json:"detail"`
-	Result string `json:"result"`
+	Status   string   `json:"status"`
+	Source   string   `json:"source"`
+	Detail   string   `json:"detail"`
+	Result   string   `json:"result"`
+	Phase    string   `json:"phase,omitempty"`
+	Provider string   `json:"provider,omitempty"`
+	Model    string   `json:"model,omitempty"`
+	Tools    []string `json:"tools,omitempty"`
 }
 
 // SessionSnapshotTurn captures a bounded visible transcript turn.

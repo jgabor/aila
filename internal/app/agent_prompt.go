@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -56,6 +57,7 @@ func newInputRunnerWithDispatchAndAgentConfigAndInstructions(ctx context.Context
 
 func newInputRunnerWithDispatchAndAgentOptions(ctx context.Context, dispatch runtimeDispatchFunc, agentRunner agent.Runner, provider string, model string, toolNames []string, instructions string, options agentPromptOptions) *inputRunner {
 	base := newInputRunnerWithDispatch(dispatch)
+	base.model.CurrentPhase = "build"
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -88,14 +90,14 @@ func (runner *inputRunner) submitAgentPrompt(text string) tui.TranscriptTurn {
 	if len(effects) == 0 {
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
-		return buildAgentEvidenceTurn(turn)
+		return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 	}
 	agentEffect, ok := effects[0].(runtime.AgentPromptEffect)
 	if !ok {
 		runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: effects[0].Metadata(), Provider: runner.agent.provider, Model: runner.agent.model, Failure: runtime.FailureMetadata{Code: "invalid_agent_effect", Message: "agent prompt did not produce an agent effect"}})
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
-		return buildAgentEvidenceTurn(turn)
+		return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 	}
 	return runner.executeAgentPromptEffect(agentEffect, before)
 }
@@ -111,7 +113,7 @@ func (runner *inputRunner) executeAgentPromptEffect(agentEffect runtime.AgentPro
 	}()
 	stream, err := runner.agent.runner.Stream(turnCtx, agent.RunRequest{
 		Prompt:       strings.TrimSpace(agentEffect.Prompt),
-		Instructions: runner.agent.instructions,
+		Instructions: runner.buildAgentInstructions(runner.model.CurrentPhase),
 		Provider:     runner.agent.provider,
 		Model:        runner.agent.model,
 		SessionID:    "interactive-agent",
@@ -125,7 +127,7 @@ func (runner *inputRunner) executeAgentPromptEffect(agentEffect runtime.AgentPro
 		turn := transcriptTurn(runner.model.Transcript[before:])
 		runner.applyRuntimeState(&turn)
 		runner.drainQueuedAgentPrompts()
-		return buildAgentEvidenceTurn(turn)
+		return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 	}
 
 	var read *tui.ReadView
@@ -148,7 +150,7 @@ func (runner *inputRunner) executeAgentPromptEffect(agentEffect runtime.AgentPro
 					runner.model, _ = runner.update(runtime.AgentTurnFailed{Operation: operation, Provider: requested.Request.Provider, Model: requested.Request.Model, Failure: runtime.FailureMetadata{Code: "unsupported_tool", Message: unsupportedAgentToolMessage(requested.Request.Name)}})
 					turn := transcriptTurn(runner.model.Transcript[before:])
 					runner.applyRuntimeState(&turn)
-					return buildAgentEvidenceTurn(turn)
+					return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 				}
 			}
 			runner.model, _ = runner.update(message)
@@ -161,7 +163,7 @@ func (runner *inputRunner) executeAgentPromptEffect(agentEffect runtime.AgentPro
 		turn.StatusDetail = "read tool dispatch"
 	}
 	runner.drainQueuedAgentPrompts()
-	return buildAgentEvidenceTurn(turn)
+	return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 }
 
 func (runner *inputRunner) drainQueuedAgentPrompts() {
@@ -254,7 +256,7 @@ func (runner *inputRunner) proposeAgentWriteApproval(request runtime.AgentToolRe
 	runner.apply(runtime.ApprovalProposed{Proposal: proposal})
 	turn := transcriptTurn(runner.model.Transcript[transcriptStart:])
 	runner.applyRuntimeState(&turn)
-	return buildAgentEvidenceTurn(turn)
+	return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 }
 
 func agentWriteMutationRequest(request runtime.AgentToolRequest) runtime.MutationToolRequest {
@@ -306,11 +308,57 @@ func agentWriteApprovalProposal(request runtime.AgentToolRequest, mutation runti
 	}
 }
 
-func buildAgentEvidenceTurn(turn tui.TranscriptTurn) tui.TranscriptTurn {
-	turn.Phase = workflow.PhaseBuild.DisplayLabel()
-	turn.PhaseSource = workflow.PhaseBuild.String()
+func buildAgentEvidenceTurn(turn tui.TranscriptTurn, phase workflow.Phase) tui.TranscriptTurn {
+	if phase == "" {
+		phase = workflow.PhaseIdle
+	}
+	turn.Phase = phase.DisplayLabel()
+	turn.PhaseSource = phase.String()
 	turn.SurfaceTitle = "agent evidence"
 	return turn
+}
+
+func (runner *inputRunner) buildAgentInstructions(phase workflow.Phase) string {
+	if phase == "" {
+		phase = workflow.PhaseIdle
+	}
+
+	var sb strings.Builder
+	sb.WriteString(runner.agent.instructions)
+	if sb.Len() > 0 {
+		sb.WriteString("\n\n")
+	}
+	fmt.Fprintf(&sb, "Current workflow phase: %s (%s)\n", phase.String(), phase.DisplayLabel())
+
+	// Add phase-specific instructions
+	switch phase {
+	case workflow.PhaseIdle:
+		sb.WriteString("You are in IDLE phase. Use 'brief' to summarize status or recommend a transition.")
+	case workflow.PhaseEnvision:
+		sb.WriteString("You are in ENVISION phase. Use 'vision' to define project goals.")
+	case workflow.PhaseDeliberate:
+		sb.WriteString("You are in DELIBERATE phase. Use 'discuss' to deliberate on choices.")
+	case workflow.PhasePlan:
+		sb.WriteString("You are in PLAN phase. Use 'plan' to create a detailed implementation plan.")
+	case workflow.PhaseBuild:
+		sb.WriteString("You are in BUILD phase. Execute tasks, modify files, and use capabilities like 'optimize' or 'orchestrate'.")
+	case workflow.PhaseAudit:
+		sb.WriteString("You are in AUDIT phase. Use 'audit' to check project health and architecture.")
+	}
+
+	// Add valid transitions
+	successors, _ := workflow.ProtocolSuccessors(phase)
+	if len(successors) > 0 {
+		sb.WriteString("\nValid transitions from this phase: ")
+		for i, s := range successors {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(s.String())
+		}
+	}
+
+	return sb.String()
 }
 
 func agentToolArgument(arguments []runtime.AgentToolArgument, name string) string {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jgabor/aila/internal/capability"
@@ -10,7 +11,9 @@ import (
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/state"
+	"github.com/jgabor/aila/internal/tools"
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 const currentSessionID = "current"
@@ -85,8 +88,13 @@ func (controller *sessionController) submitPrompt(text string) tui.TranscriptTur
 	}
 
 	queuedBefore := controller.view.QueuedCount
-	turn := controller.runner.submitPrompt(text)
+	resolvedText := controller.resolvePromptReferences(text)
+	turn := controller.runner.submitPrompt(resolvedText)
+	if resolvedText != text {
+		turn.UserText = text
+	}
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
+	controller.view.PromptInput = ""
 	turn.Diagnostics = append(turn.Diagnostics, controller.persistPromptHistory(turn)...)
 	turn.Diagnostics = append(turn.Diagnostics, controller.persistQueuedPromptHistory(queuedBefore, turn)...)
 	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
@@ -445,7 +453,7 @@ func (controller *sessionController) persistCurrentSnapshot(turn tui.TranscriptT
 	if controller.persist == nil {
 		return turn
 	}
-	result := controller.persist(controller.ctx, SnapshotPersistenceCommand{Snapshot: NewCurrentSessionSnapshot(controller.view)})
+	result := controller.persist(controller.ctx, SnapshotPersistenceCommand{Snapshot: NewCurrentSessionSnapshot(controller.view, controller.runner.model)})
 	if result.Diagnostic == nil {
 		return turn
 	}
@@ -655,15 +663,19 @@ func snapshotDiagnosticViews(diagnostics []state.SessionSnapshotDiagnostic) []tu
 }
 
 // NewCurrentSessionSnapshot converts app-owned visible state into the current snapshot schema.
-func NewCurrentSessionSnapshot(view tui.ViewState) state.SessionSnapshot {
+func NewCurrentSessionSnapshot(view tui.ViewState, model runtime.Model) state.SessionSnapshot {
 	return state.SessionSnapshot{
 		SchemaVersion: state.CurrentSessionSnapshotSchemaVersion,
 		SessionID:     currentSessionID,
 		Runtime: state.SessionSnapshotRuntime{
-			Status: view.RuntimeStatus,
-			Source: view.StatusSource,
-			Detail: view.StatusDetail,
-			Result: view.RuntimeResult,
+			Status:   view.RuntimeStatus,
+			Source:   view.StatusSource,
+			Detail:   view.StatusDetail,
+			Result:   view.RuntimeResult,
+			Phase:    string(model.CurrentPhase),
+			Provider: model.AgentProvider,
+			Model:    model.AgentModel,
+			Tools:    append([]string{}, model.AgentToolNames...),
 		},
 		Active:      view.RuntimeActive,
 		Transcript:  snapshotTranscript(view.Transcript),
@@ -834,4 +846,83 @@ func mergeTUIDiagnostics(existing []tui.DiagnosticView, added []tui.DiagnosticVi
 		}
 	}
 	return merged
+}
+
+func (controller *sessionController) resolvePromptReferences(text string) string {
+	re := regexp.MustCompile(`@([a-zA-Z0-9_\-\./]+)`)
+	matches := re.FindAllStringSubmatch(text, -1)
+	if len(matches) == 0 {
+		return text
+	}
+
+	var sb strings.Builder
+	sb.WriteString(text)
+	sb.WriteString("\n\n")
+
+	resolvedPaths := make(map[string]bool)
+	for _, match := range matches {
+		path := match[1]
+		if resolvedPaths[path] {
+			continue
+		}
+		resolvedPaths[path] = true
+
+		content, err := controller.readFile(path)
+		if err != nil {
+			continue
+		}
+
+		fmt.Fprintf(&sb, "--- File: %s ---\n%s\n--- End File: %s ---\n\n", path, content, path)
+	}
+
+	return sb.String()
+}
+
+func (controller *sessionController) readFile(path string) (string, error) {
+	req, err := tools.ValidateReadRequest(controller.workspacePath, tools.ReadRequest{Path: path})
+	if err.Kind != "" {
+		return "", fmt.Errorf("invalid path: %s", err.Message)
+	}
+	result := tools.ExecuteRead(controller.ctx, req)
+	if result.Error.Kind != "" {
+		return "", fmt.Errorf("read error: %s", result.Error.Message)
+	}
+	return result.PreviewText, nil
+}
+
+func applySnapshotToRuntimeModel(model runtime.Model, snapshot state.SessionSnapshot) runtime.Model {
+	model.CurrentPhase = workflow.Phase(snapshot.Runtime.Phase)
+	if model.CurrentPhase == "" {
+		model.CurrentPhase = workflow.PhaseIdle
+	}
+	model.AgentProvider = snapshot.Runtime.Provider
+	model.AgentModel = snapshot.Runtime.Model
+	model.AgentToolNames = append([]string{}, snapshot.Runtime.Tools...)
+	model.Transcript = snapshotToRuntimeTranscript(snapshot.Transcript)
+	model.Queued = snapshotToRuntimeQueued(snapshot.Queued)
+	model.Status = runtime.Status(snapshot.Runtime.Status)
+	model.Result = snapshot.Runtime.Result
+	return model
+}
+
+func snapshotToRuntimeTranscript(turns []state.SessionSnapshotTurn) []runtime.TranscriptEntry {
+	entries := make([]runtime.TranscriptEntry, 0, len(turns))
+	for _, turn := range turns {
+		entries = append(entries, runtime.TranscriptEntry{
+			Kind: turn.Source,
+			Text: turn.Text,
+		})
+	}
+	return entries
+}
+
+func snapshotToRuntimeQueued(entries []state.SessionSnapshotQueuedEntry) []runtime.QueuedEntry {
+	queued := make([]runtime.QueuedEntry, 0, len(entries))
+	for _, entry := range entries {
+		queued = append(queued, runtime.QueuedEntry{
+			Kind: entry.Source,
+			Text: entry.Text,
+		})
+	}
+	return queued
 }

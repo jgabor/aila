@@ -317,7 +317,7 @@ func persistNonInteractiveRun(ctx context.Context, workspace string, report *non
 	report.Status = runReportStatus(*report)
 	report.StoredSession = true
 	view := nonInteractiveRunView(*report)
-	if _, err := store.WriteCurrentSessionSnapshot(ctx, NewCurrentSessionSnapshot(view)); err != nil {
+	if _, err := store.WriteCurrentSessionSnapshot(ctx, NewCurrentSessionSnapshot(view, runtime.Model{})); err != nil {
 		report.StoredSession = false
 		report.Caveats = append(report.Caveats, "session state not stored: "+boundedStoreError(err))
 		report.Status = runReportStatus(*report)

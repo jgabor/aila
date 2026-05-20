@@ -99,6 +99,14 @@ func Build() error {
 	return run("go", "build", "-o", binaryPath, mainPackage)
 }
 
+// SmokeTest compiles the binary and runs the tmux smoke test.
+func SmokeTest() error {
+	if err := Build(); err != nil {
+		return fmt.Errorf("build: %w", err)
+	}
+	return run("bash", "scripts/smoke_test.sh")
+}
+
 // Vet runs go vet when packages exist.
 func Vet() error {
 	if ok, err := hasPackages("vet"); !ok || err != nil {

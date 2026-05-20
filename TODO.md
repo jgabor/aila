@@ -86,10 +86,10 @@ These are viable to defer but block a polished dogfooding experience.
 
 ### P5 — session persistence during interactive runs
 
-- [ ] [feat:0.0.5] Persist session snapshots to `.aila/sessions/` after each
+- [x] [feat:0.0.5] Persist session snapshots to `.aila/sessions/` after each
       agent turn, write events to the append-only event log, and record undo
       metadata for file mutations.
-- [ ] [feat:0.0.5] Wire `/continue` to restore full session state including
+- [x] [feat:0.0.5] Wire `/continue` to restore full session state including
       agent conversation context, not just the current snapshot metadata.
 
 ---
@@ -161,6 +161,9 @@ Cleared after P0–P9. Cut the first dogfoodable release.
 
 ## Resolved
 
+- [feat:0.0.5] Session persistence is wired: snapshots are persisted after each
+  turn to `.aila/sessions/current.json`, and `/continue` (or `aila continue`)
+  fully restores the conversation history and runtime state.
 - [feat:0.0.2] Interactive agent runs now use an internal step-budget default,
   preserve step-limit pauses as resumable state, and pass in-process prior
   prompt/tool/assistant context through go-agent Session for continuation and

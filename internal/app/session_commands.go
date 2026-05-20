@@ -73,6 +73,7 @@ func (controller *sessionController) openContinueSessionView() []tui.DiagnosticV
 	switch result.State {
 	case state.SessionSnapshotLoaded:
 		restored := applyCurrentSessionSnapshot(resetVisibleSessionState(controller.view), result.Snapshot)
+		controller.runner.model = applySnapshotToRuntimeModel(controller.runner.model, result.Snapshot)
 		sessionID := result.Snapshot.SessionID
 		if sessionID == "" {
 			sessionID = currentSessionID
@@ -129,7 +130,7 @@ func (controller *sessionController) persistSnapshotForView(view tui.ViewState) 
 	if controller.persist == nil {
 		return nil
 	}
-	result := controller.persist(controller.ctx, SnapshotPersistenceCommand{Snapshot: NewCurrentSessionSnapshot(view)})
+	result := controller.persist(controller.ctx, SnapshotPersistenceCommand{Snapshot: NewCurrentSessionSnapshot(view, controller.runner.model)})
 	if result.Diagnostic == nil {
 		return nil
 	}

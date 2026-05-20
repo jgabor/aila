@@ -1432,7 +1432,7 @@ func TestUpdateKeepsQueuedPromptsVisibleAfterFakeWorkCompletes(t *testing.T) {
 func TestUpdateDrainsQueuedAgentPromptAfterTerminalState(t *testing.T) {
 	t.Parallel()
 
-	active, effects := Update(Model{}, AgentPromptSubmitted{Text: "first", Provider: "fake", Model: "fake-build", ToolNames: []string{"read"}})
+	active, effects := Update(Model{CurrentPhase: workflow.PhaseBuild}, AgentPromptSubmitted{Text: "first", Provider: "fake", Model: "fake-build", ToolNames: []string{"read"}})
 	if len(effects) != 1 {
 		t.Fatalf("initial effects = %d, want 1", len(effects))
 	}
@@ -2224,7 +2224,7 @@ func TestUpdateHandlesAgentStreamMessages(t *testing.T) {
 func TestUpdateStartsAgentPromptWithoutFakeEffect(t *testing.T) {
 	t.Parallel()
 
-	updated, effects := Update(Model{Status: StatusIdle}, AgentPromptSubmitted{Text: "inspect repo", Provider: "openai", Model: "gpt-4.1", ToolNames: []string{"read", "write"}})
+	updated, effects := Update(Model{Status: StatusIdle, CurrentPhase: workflow.PhaseBuild}, AgentPromptSubmitted{Text: "inspect repo", Provider: "openai", Model: "gpt-4.1", ToolNames: []string{"read", "write"}})
 	if updated.Status != StatusActive || updated.ActiveOperation.Kind != OperationPrompt || updated.ActiveOperation.Source != "runtime.agent" {
 		t.Fatalf("agent prompt model = %+v", updated)
 	}

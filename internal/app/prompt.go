@@ -21,7 +21,7 @@ type inputRunner struct {
 
 func newInputRunnerWithDispatch(dispatch runtimeDispatchFunc) *inputRunner {
 	return &inputRunner{
-		model:    runtime.Model{Status: runtime.StatusIdle},
+		model:    runtime.Model{Status: runtime.StatusIdle, CurrentPhase: "idle"},
 		dispatch: dispatch,
 	}
 }
@@ -130,14 +130,14 @@ func (runner *inputRunner) decideApproval(decision tui.ApprovalDecisionInput) tu
 	}
 	if request, ok := runner.takeMutationApproval(turn.ApprovalDecision.ProposalID); ok {
 		if runtime.ApprovalAction(turn.ApprovalDecision.Action) != runtime.ApprovalActionApprove {
-			return buildAgentEvidenceTurn(turn)
+			return buildAgentEvidenceTurn(turn, runner.model.CurrentPhase)
 		}
 		mutationTurn := runner.proposeWriteTool(request)
 		if request.ToolName == runtime.MutationToolEdit {
 			mutationTurn = runner.proposeEditTool(request)
 		}
 		mutationTurn.ApprovalDecision = turn.ApprovalDecision
-		return buildAgentEvidenceTurn(mutationTurn)
+		return buildAgentEvidenceTurn(mutationTurn, runner.model.CurrentPhase)
 	}
 	if decision.ProposalID == fakeApprovalWriteProposalID && runtime.ApprovalAction(decision.Action) == runtime.ApprovalActionApprove {
 		mutationTurn := runner.proposeWriteTool(fakeApprovalWriteRequest())

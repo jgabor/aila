@@ -334,6 +334,20 @@ func validateSafeInspectionArgv(root string, workDir string, argv []string) ([]s
 				}
 			}
 			return append([]string(nil), argv...), "git ls-files", "inspect git untracked files", BashError{}
+		case "log":
+			for _, arg := range argv[2:] {
+				if !allowedGitLogArg(arg) {
+					return nil, "", "", bashError(BashErrorUnsafeCommand, "git log argument is not allowed")
+				}
+			}
+			return append([]string(nil), argv...), "git log", "inspect git commit logs", BashError{}
+		case "branch":
+			for _, arg := range argv[2:] {
+				if !allowedGitBranchArg(arg) {
+					return nil, "", "", bashError(BashErrorUnsafeCommand, "git branch argument is not allowed")
+				}
+			}
+			return append([]string(nil), argv...), "git branch", "inspect git branches", BashError{}
 		default:
 			return nil, "", "", bashError(BashErrorUnsafeCommand, "git subcommand is not allowed")
 		}
@@ -420,6 +434,31 @@ func allowedGitLsFilesArg(arg string) bool {
 	default:
 		return false
 	}
+}
+
+func allowedGitLogArg(arg string) bool {
+	if !strings.HasPrefix(arg, "-") {
+		return true // Could be a ref or path
+	}
+	switch arg {
+	case "-n", "--oneline", "--graph", "--decorate", "--stat", "--name-only", "--name-status", "--":
+		return true
+	}
+	if strings.HasPrefix(arg, "-n") || strings.HasPrefix(arg, "--max-count=") {
+		return true
+	}
+	return false
+}
+
+func allowedGitBranchArg(arg string) bool {
+	if !strings.HasPrefix(arg, "-") {
+		return true // Could be a pattern
+	}
+	switch arg {
+	case "-a", "--all", "-r", "--remotes", "--list", "-v", "--verbose":
+		return true
+	}
+	return false
 }
 
 func looksLikeShellSyntax(arg string) bool {

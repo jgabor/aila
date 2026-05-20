@@ -8,6 +8,7 @@ import (
 	"github.com/jgabor/aila/internal/capability"
 	"github.com/jgabor/aila/internal/diagnostic"
 	"github.com/jgabor/aila/internal/utility"
+	"github.com/jgabor/aila/internal/workflow"
 )
 
 // Status describes whether the runtime is waiting for user input or an operation
@@ -376,6 +377,7 @@ func (RuntimeDiagnostic) runtimeMessage() {}
 
 // Model is runtime-owned state for the current fake interaction surface.
 type Model struct {
+	CurrentPhase         workflow.Phase
 	Status               Status
 	Transcript           []TranscriptEntry
 	Queued               []QueuedEntry
@@ -1969,6 +1971,11 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = summary
 		next.ActiveCapability = capability.Request{}
 		next.LastCapability = msg.Payload
+		if msg.Payload.RecommendedSuccessor != "" {
+			if err := workflow.ValidateProtocolSuccessor(next.CurrentPhase, msg.Payload.RecommendedSuccessor); err == nil {
+				next.CurrentPhase = msg.Payload.RecommendedSuccessor
+			}
+		}
 		next.CapabilityDraft = ""
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
@@ -2504,7 +2511,7 @@ func startFakePrompt(model Model, text string) (Model, []Effect) {
 func startAgentPrompt(model Model, text string, provider string, modelName string, toolNames []string) (Model, []Effect) {
 	operation := nextOperation(&model, OperationPrompt, text)
 	operation.Source = "runtime.agent"
-	toolNames = append([]string(nil), toolNames...)
+	toolNames = filterToolsForPhase(model.CurrentPhase, toolNames)
 	model.Status = StatusActive
 	model.Result = ""
 	model.ActiveCompact = CompactContextRequest{}
@@ -2917,4 +2924,63 @@ func readPathLabel(path string) string {
 		return "requested path"
 	}
 	return path
+}
+
+func filterToolsForPhase(phase workflow.Phase, toolNames []string) []string {
+	if phase == "" {
+		phase = workflow.PhaseIdle
+	}
+
+	// 1. Identify which of the requested tools are capabilities
+	isCapability := make(map[string]bool)
+	for _, capDef := range capability.Definitions() {
+		isCapability[string(capDef.Name)] = true
+	}
+
+	// 2. Filter
+	var filtered []string
+	for _, name := range toolNames {
+		// Primitive tools
+		if !isCapability[name] {
+			// BUILD phase allows all primitive tools.
+			// IDLE allows none (except what's hardcoded as brief-only).
+			if phase == workflow.PhaseBuild {
+				filtered = append(filtered, name)
+			} else if phase != workflow.PhaseIdle {
+				// Allow read-only primitive tools in other non-idle phases for context gathering.
+				if isReadOnlyPrimitiveTool(name) {
+					filtered = append(filtered, name)
+				}
+			}
+			continue
+		}
+
+		// Capability tools
+		capDef, ok := lookupCapabilityDefinition(name)
+		if !ok {
+			continue
+		}
+
+		if capDef.OwningPhase == phase || capDef.CrossCutting {
+			filtered = append(filtered, name)
+		}
+	}
+	return filtered
+}
+
+func isReadOnlyPrimitiveTool(name string) bool {
+	switch name {
+	case "read", "grep", "find", "search", "read_file":
+		return true
+	}
+	return false
+}
+
+func lookupCapabilityDefinition(name string) (capability.Definition, bool) {
+	for _, d := range capability.Definitions() {
+		if string(d.Name) == name {
+			return d, true
+		}
+	}
+	return capability.Definition{}, false
 }

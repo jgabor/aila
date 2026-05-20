@@ -13,3 +13,10 @@ tmp/
 
 # Worktrees
 .worktrees/
+
+# Antigravity
+.agy/
+*.agy
+
+# Mage
+.magefile/
