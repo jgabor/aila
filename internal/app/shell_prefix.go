@@ -99,7 +99,62 @@ func shellPrefixRequestID(recommendation policy.ShellPrefixRecommendation) strin
 }
 
 func shellPrefixArgv(command string) []string {
-	return strings.Fields(command)
+	var args []string
+	var current strings.Builder
+	inDoubleQuotes := false
+	inSingleQuotes := false
+	escaped := false
+
+	for _, r := range command {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+
+		if r == '\\' {
+			if inSingleQuotes {
+				current.WriteRune(r)
+			} else {
+				escaped = true
+			}
+			continue
+		}
+
+		if r == '"' {
+			if inSingleQuotes {
+				current.WriteRune(r)
+			} else {
+				inDoubleQuotes = !inDoubleQuotes
+			}
+			continue
+		}
+
+		if r == '\'' {
+			if inDoubleQuotes {
+				current.WriteRune(r)
+			} else {
+				inSingleQuotes = !inSingleQuotes
+			}
+			continue
+		}
+
+		if (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !inDoubleQuotes && !inSingleQuotes {
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+			continue
+		}
+
+		current.WriteRune(r)
+	}
+
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+
+	return args
 }
 
 func buildShellPrefixContext(recommendation policy.ShellPrefixRecommendation, turn tui.TranscriptTurn) ailacontext.BuiltContext {

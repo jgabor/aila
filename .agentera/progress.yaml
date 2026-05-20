@@ -1,4 +1,34 @@
 cycles:
+- number: 268
+  timestamp: 2026-05-20 08:43
+  type: feat
+  phase: build
+  what: Scheduled idle utility work after foreground prompt completion using a fixed read-only sequence for context prep, stale-context check, summary refresh, and next-action suggestion jobs.
+  commit: 'N/A: commit not requested; Realisera startup context allowed commits only with explicit approval'
+  inspiration: TODO.md P6 utility worker scheduling; ARCHITECTURE.md utility model plane; internal/utility scheduler boundary tests.
+  discovered: The repo already had deterministic utility job primitives and runtime UtilityJobEffect dispatch, so the smallest useful slice was app-level scheduling after prompt completion rather than a new model loop or TUI surface expansion. Full validation also exposed repo-local TMPDIR parent-git leakage, so git status probing now stays scoped to the workspace directory.
+  verified: 'mage fmt passed; focused scheduler/runtime/app tests passed; go test ./internal/app -count=1 passed; go test ./internal/utility ./internal/runtime -count=1 passed; utility-focused TUI tests passed; failed PTY slices were repaired and then go test ./cmd/aila -run ''TestResizePTYSmoke|TestPromptSubmitPTYSmoke|TestPromptInputUXFamilyPTYSmoke/paste_and_resize'' -count=1 passed; git diff --check passed; mage check passed with cmd/aila in 20.585s, 0 lint issues, and no vulnerabilities.'
+  next: 'Continue with the next P6 TODO: surface utility results in the TUI without hiding prepared context, stale warnings, and suggestions.'
+  context:
+    intent: Make utility work run automatically once foreground work returns to idle.
+    constraints: Keep utility jobs read-only, non-authoritative, app/runtime-owned, and unable to mutate files, git state, project artifacts, permissions, or workflow phase; do not add user-facing config; do not commit without explicit approval.
+    unknowns: Full TUI surfacing of all utility job results remains for the next P6 item; the current view still exposes the latest utility result.
+    scope: internal/utility/utility.go, internal/utility/utility_test.go, internal/app/utility.go, internal/app/session_snapshot.go, internal/app/prompt_test.go, internal/app/git.go, TODO.md, CHANGELOG.md, and .agentera/progress.yaml.
+- number: 267
+  timestamp: 2026-05-20 08:34
+  type: chore
+  phase: closeout
+  what: Archived the completed model-backed capability runner plan after validating that all six tasks were complete and the P2 TODO items were already marked done.
+  commit: 'N/A: metadata-only plan-completion sweep; no standalone commit per project instructions'
+  inspiration: Completed Agentera plan for wiring agent.Runner into fixed capability adapters; Realisera plan-completion sweep requirements; TODO.md P2 capability model work.
+  discovered: Agentera CLI reported the active plan as complete while the next visible TODO was P6 utility worker scheduling. The correct next move was to clear the completed active plan before starting new feature work.
+  verified: 'agentera hej --format json --capability-context realisera selected completed_plan_sweep; TODO.md already had both P2 capability-model tasks checked; .agentera/plan.yaml was archived to .agentera/archive/plan-2026-05-20-capability-runner.yaml; CHANGELOG.md now records the plan-level capability-runner impact.'
+  next: 'Start the next open Normal-priority TODO: schedule utility work when the primary agent is idle.'
+  context:
+    intent: Clear completed plan state so future Realisera cycles can select fresh work.
+    constraints: Preserve the fixed-product boundary, do not edit vision or objective state, do not push, and do not create a standalone metadata-only commit.
+    unknowns: Health and decisions artifacts remain unavailable from Agentera CLI state; no user-confirmed decision satisfaction was inferred.
+    scope: TODO.md, CHANGELOG.md, .agentera/progress.yaml, and .agentera/archive/plan-2026-05-20-capability-runner.yaml.
 - number: 266
   timestamp: 2026-05-20 07:15
   type: build
@@ -21,7 +51,7 @@ cycles:
   what: Validated and closed the capability-runner plan by passing focused capability/runtime/app/TUI coverage, preserving fake-runner PTY determinism, fixing go-agent host-dispatched tool policy state, and marking the P2 capability TODO resolved.
   commit: 'N/A: local working tree changes, no commit requested'
   inspiration: Active Agentera plan Task 6; Task 1-5 capability runner evidence; mage check failures from the first closeout attempt; go-agent PolicyDecision host-dispatch contract.
-  discovered: The first mage check attempt exposed two closeout blockers before metadata could be marked complete: go-agent policy decisions did not carry request metadata into the tool-call decision, and explicit fake PTY runs were driving capability commands through unstructured fake model output instead of deterministic built-in smoke payloads.
+  discovered: 'The first mage check attempt exposed two closeout blockers before metadata could be marked complete: go-agent policy decisions did not carry request metadata into the tool-call decision, and explicit fake PTY runs were driving capability commands through unstructured fake model output instead of deterministic built-in smoke payloads.'
   verified: >-
     Focused validation passed with go test ./internal/capability ./internal/runtime ./internal/app ./internal/tui -run 'Test(PrepareModelExecution|Capability|UpdateRoutes.*Capability|BriefCapabilityProposal|CapabilityRunner|ModelBacked|RemainingFixedCapabilities|CtrlCEmitsAppInterruptMessageOnly|Interrupt|.*CapabilityFixtureSnapshots|.*CapabilitySemanticSnapshot|M23Streaming)' -count=1. After repairing the closeout blockers, mage fmt passed and focused validation passed with go test ./internal/agent ./internal/app ./internal/capability ./internal/runtime ./internal/tui -run 'TestGoAgentRunnerHostDispatchModeDoesNotExecuteToolFunctions|Test(PrepareModelExecution|Capability|UpdateRoutes.*Capability|BriefCapabilityProposal|CapabilityRunner|ModelBacked|RemainingFixedCapabilities|CtrlCEmitsAppInterruptMessageOnly|Interrupt|.*CapabilityFixtureSnapshots|.*CapabilitySemanticSnapshot|M23Streaming)' -count=1. Full validation passed with mage check: cmd/aila passed in 389.552s, 0 lint issues, and no vulnerabilities. TODO.md now marks the P2 agent.Runner capability-adapter bullets resolved, .agentera/plan.yaml marks Task 6 complete, and .agentera/session.yaml remains deleted rather than restored.
   next: The capability-runner plan is complete. The next open critical work is P3 workflow FSM-driven phase-appropriate tools and prompts.

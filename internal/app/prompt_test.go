@@ -22,6 +22,7 @@ import (
 	"github.com/jgabor/aila/internal/policy"
 	"github.com/jgabor/aila/internal/runtime"
 	"github.com/jgabor/aila/internal/tui"
+	"github.com/jgabor/aila/internal/utility"
 	"github.com/jgabor/aila/internal/workflow"
 )
 
@@ -1566,6 +1567,62 @@ func TestStatusCommandRoutesThroughRuntimeOnly(t *testing.T) {
 		{Kind: "result", Text: "fake command result: status"},
 	}) {
 		t.Fatalf("status transcript = %#v", got)
+	}
+}
+
+func TestIdleUtilityWorkSchedulesFixedJobsAfterPromptCompletion(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	controller := newSessionControllerWithPersistence(context.Background(), snapshotTestView(), runner, func(context.Context, SnapshotPersistenceCommand) SnapshotPersistenceResult {
+		return SnapshotPersistenceResult{}
+	})
+
+	turn := controller.submitPrompt("hello")
+	if turn.Utility != nil {
+		t.Fatalf("turn utility = %+v, want prompt turn to preserve foreground surface", turn.Utility)
+	}
+	if controller.view.Utility == nil || controller.view.Utility.Status != "completed" || controller.view.Utility.JobKind != "suggestion" || controller.view.Utility.Source != "app.idle" {
+		t.Fatalf("controller utility = %+v, want completed idle suggestion retained in app state", controller.view.Utility)
+	}
+	if runner.model.Status != runtime.StatusIdle || runner.model.ActiveUtility.ID != "" || runner.model.LastUtility.Request.Kind != utility.JobSuggestion {
+		t.Fatalf("runtime utility state = status %q active %+v last %+v", runner.model.Status, runner.model.ActiveUtility, runner.model.LastUtility)
+	}
+	if len(dispatched) != 5 {
+		t.Fatalf("dispatch count = %d, want prompt plus four utility jobs: %#v", len(dispatched), dispatched)
+	}
+	if _, ok := dispatched[0][0].(runtime.FakePromptEffect); !ok {
+		t.Fatalf("first dispatch = %T, want prompt", dispatched[0][0])
+	}
+	wantKinds := []string{"context_prep", "stale_context_check", "summary_refresh", "suggestion"}
+	for index, want := range wantKinds {
+		effect, ok := dispatched[index+1][0].(runtime.UtilityJobEffect)
+		if !ok || string(effect.Request.Kind) != want || effect.Request.Source.Caller != "app.idle" {
+			t.Fatalf("utility dispatch[%d] = %#v, want %s from app.idle", index, dispatched[index+1][0], want)
+		}
+	}
+}
+
+func TestIdleUtilityWorkSkipsWhenPrimaryCannotYield(t *testing.T) {
+	t.Parallel()
+
+	var dispatched [][]runtime.Effect
+	runner := newInputRunnerWithDispatch(func(effects []runtime.Effect) []runtime.Message {
+		dispatched = append(dispatched, append([]runtime.Effect(nil), effects...))
+		return runtime.Dispatch(effects)
+	})
+	runner.model = runtime.Model{Status: runtime.StatusIdle, PendingApproval: runtime.ApprovalProposal{ID: "approval-1"}}
+
+	turn, ok := runner.scheduleIdleUtilityWork("test/utility")
+	if ok || turn.Utility != nil || len(dispatched) != 0 {
+		t.Fatalf("idle schedule = ok:%v turn:%+v dispatch:%#v, want skipped", ok, turn.Utility, dispatched)
+	}
+	if runner.model.PendingApproval.ID != "approval-1" || runner.model.LastUtility.Status != "" {
+		t.Fatalf("skip changed runtime model = %+v", runner.model)
 	}
 }
 

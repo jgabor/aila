@@ -49,6 +49,17 @@ type SummaryRefreshInput struct {
 	ConfidenceHint  string
 }
 
+// IdleScheduleInput records bounded facts used to build an idle utility schedule.
+type IdleScheduleInput struct {
+	IDPrefix       string
+	Model          string
+	Caller         string
+	RequestID      string
+	Description    string
+	StaleContext   StaleContextInput
+	SummaryRefresh SummaryRefreshInput
+}
+
 // JobRequest records a deterministic utility job request.
 type JobRequest struct {
 	ID             string
@@ -214,6 +225,66 @@ func NormalizeJobRequest(request JobRequest) JobRequest {
 	request.SummaryRefresh.SourceRefIDs = cleanStringSlice(request.SummaryRefresh.SourceRefIDs)
 	request.SummaryRefresh.ConfidenceHint = normalizeSummaryRefreshConfidence(request.SummaryRefresh.ConfidenceHint)
 	return request
+}
+
+// ScheduleIdleWork returns the fixed idle-only utility job sequence.
+func ScheduleIdleWork(activity Activity, input IdleScheduleInput) ([]JobRequest, Decision) {
+	seed := normalizeIdleScheduleInput(input)
+	gate := JobRequest{ID: seed.IDPrefix + "-context-prep", Kind: JobContextPrep, Model: seed.Model, Source: idleScheduleSource(seed, "context-prep", "idle context prep and ranking")}
+	decision := CanRun(activity, gate)
+	if !decision.Allowed {
+		return nil, decision
+	}
+	requests := []JobRequest{
+		gate,
+		{ID: seed.IDPrefix + "-stale-context", Kind: JobStaleContextCheck, Model: seed.Model, Source: idleScheduleSource(seed, "stale-context", "idle stale context check"), StaleContext: seed.StaleContext},
+		{ID: seed.IDPrefix + "-summary-refresh", Kind: JobSummaryRefresh, Model: seed.Model, Source: idleScheduleSource(seed, "summary-refresh", "idle summary refresh"), SummaryRefresh: seed.SummaryRefresh},
+		{ID: seed.IDPrefix + "-suggestion", Kind: JobSuggestion, Model: seed.Model, Source: idleScheduleSource(seed, "suggestion", "idle next-action suggestion")},
+	}
+	for index := range requests {
+		requests[index] = NormalizeJobRequest(requests[index])
+	}
+	return requests, decision
+}
+
+func normalizeIdleScheduleInput(input IdleScheduleInput) IdleScheduleInput {
+	input.IDPrefix = strings.TrimSpace(input.IDPrefix)
+	if input.IDPrefix == "" {
+		input.IDPrefix = "idle-utility"
+	}
+	input.Model = strings.TrimSpace(input.Model)
+	if input.Model == "" {
+		input.Model = "utility"
+	}
+	input.Caller = strings.TrimSpace(input.Caller)
+	if input.Caller == "" {
+		input.Caller = "app.idle"
+	}
+	input.RequestID = strings.TrimSpace(input.RequestID)
+	if input.RequestID == "" {
+		input.RequestID = input.IDPrefix
+	}
+	input.Description = strings.TrimSpace(input.Description)
+	if input.Description == "" {
+		input.Description = "idle utility work"
+	}
+	input.StaleContext.SavedFingerprint = strings.TrimSpace(input.StaleContext.SavedFingerprint)
+	input.StaleContext.CurrentFingerprint = strings.TrimSpace(input.StaleContext.CurrentFingerprint)
+	input.StaleContext.SavedLabel = strings.TrimSpace(input.StaleContext.SavedLabel)
+	input.StaleContext.CurrentLabel = strings.TrimSpace(input.StaleContext.CurrentLabel)
+	input.SummaryRefresh.OriginalSummary = strings.TrimSpace(input.SummaryRefresh.OriginalSummary)
+	input.SummaryRefresh.RequiredDetails = cleanStringSlice(input.SummaryRefresh.RequiredDetails)
+	input.SummaryRefresh.SourceRefIDs = cleanStringSlice(input.SummaryRefresh.SourceRefIDs)
+	input.SummaryRefresh.ConfidenceHint = normalizeSummaryRefreshConfidence(input.SummaryRefresh.ConfidenceHint)
+	return input
+}
+
+func idleScheduleSource(input IdleScheduleInput, suffix string, description string) Source {
+	return Source{
+		Caller:      input.Caller,
+		RequestID:   input.RequestID + "/" + suffix,
+		Description: description,
+	}
 }
 
 // CanRun returns whether a utility job may run in the current activity.

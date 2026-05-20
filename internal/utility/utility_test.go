@@ -40,6 +40,45 @@ func TestSchedulerAllowsUtilityJobsOnlyWhenPrimaryRuntimeIdle(t *testing.T) {
 	}
 }
 
+func TestScheduleIdleWorkBuildsFixedReadOnlyIdleSequence(t *testing.T) {
+	t.Parallel()
+
+	requests, decision := ScheduleIdleWork(Activity{PrimaryStatus: "idle"}, IdleScheduleInput{
+		IDPrefix: "idle-test",
+		Model:    "test/utility",
+		Caller:   "app.idle",
+		SummaryRefresh: SummaryRefreshInput{
+			OriginalSummary: "Runtime idle.",
+			RequiredDetails: []string{"context prep is non-authoritative"},
+			SourceRefIDs:    []string{"idle-runtime"},
+			ConfidenceHint:  "high",
+		},
+	})
+	if !decision.Allowed || decision.Reason != DenialNone {
+		t.Fatalf("decision = %+v, want allowed", decision)
+	}
+	wantKinds := []JobKind{JobContextPrep, JobStaleContextCheck, JobSummaryRefresh, JobSuggestion}
+	if len(requests) != len(wantKinds) {
+		t.Fatalf("len(requests) = %d, want %d", len(requests), len(wantKinds))
+	}
+	for index, request := range requests {
+		if request.Kind != wantKinds[index] || request.Model != "test/utility" || request.Source.Caller != "app.idle" || request.Source.RequestID == "" || request.Source.Description == "" {
+			t.Fatalf("request[%d] = %+v, want kind/model/source", index, request)
+		}
+		result := RunJob(request)
+		assertReadOnlySafety(t, result.Safety)
+	}
+}
+
+func TestScheduleIdleWorkDeniesWhenPrimaryCannotYield(t *testing.T) {
+	t.Parallel()
+
+	requests, decision := ScheduleIdleWork(Activity{PrimaryStatus: "active"}, IdleScheduleInput{IDPrefix: "idle-test"})
+	if decision.Allowed || decision.Reason != DenialPrimaryBusy || len(requests) != 0 {
+		t.Fatalf("schedule = requests:%+v decision:%+v, want primary-busy denial", requests, decision)
+	}
+}
+
 func TestSuggestionUtilityResultIsReadOnlyEvidenceOnly(t *testing.T) {
 	t.Parallel()
 

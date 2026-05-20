@@ -30,6 +30,53 @@ func defaultUtilityJobRequest(model string) utility.JobRequest {
 	})
 }
 
+func defaultIdleUtilitySchedule(model string) utility.IdleScheduleInput {
+	return utility.IdleScheduleInput{
+		IDPrefix:    "idle-utility",
+		Model:       model,
+		Caller:      "app.idle",
+		RequestID:   "idle-utility",
+		Description: "primary runtime idle utility schedule",
+		StaleContext: utility.StaleContextInput{
+			SavedLabel:   ".aila saved context",
+			CurrentLabel: "workspace state",
+		},
+		SummaryRefresh: utility.SummaryRefreshInput{
+			OriginalSummary: "Primary runtime is idle and ready for the next user action.",
+			RequiredDetails: []string{
+				"context prep is non-authoritative",
+				"stale context checks do not rewrite saved context",
+				"next-action suggestions require foreground confirmation",
+			},
+			SourceRefIDs:   []string{"idle-runtime", "idle-utility-boundary", "idle-next-action"},
+			ConfidenceHint: "medium",
+		},
+	}
+}
+
+func (runner *inputRunner) scheduleIdleUtilityWork(model string) (tui.TranscriptTurn, bool) {
+	requests, decision := utility.ScheduleIdleWork(runner.utilityActivity(), defaultIdleUtilitySchedule(model))
+	if !decision.Allowed || len(requests) == 0 {
+		return tui.TranscriptTurn{}, false
+	}
+	before := len(runner.model.Transcript)
+	for _, request := range requests {
+		runner.apply(runtime.UtilityJobProposed{Request: request})
+	}
+	turn := transcriptTurn(runner.model.Transcript[before:])
+	runner.applyRuntimeState(&turn)
+	return turn, true
+}
+
+func (runner *inputRunner) utilityActivity() utility.Activity {
+	return utility.Activity{
+		PrimaryStatus:       string(runner.model.Status),
+		ActiveOperationKind: string(runner.model.ActiveOperation.Kind),
+		ApprovalPending:     runner.model.PendingApproval.ID != "",
+		QueuedCount:         len(runner.model.Queued),
+	}
+}
+
 func (runner *inputRunner) proposeUtilityJob(request utility.JobRequest) tui.TranscriptTurn {
 	before := len(runner.model.Transcript)
 	runner.apply(runtime.UtilityJobProposed{Request: request})

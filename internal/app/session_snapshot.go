@@ -95,10 +95,19 @@ func (controller *sessionController) submitPrompt(text string) tui.TranscriptTur
 	}
 	controller.view = tui.ApplyTranscriptTurn(controller.view, turn)
 	controller.view.PromptInput = ""
+	if idleTurn, ok := controller.runner.scheduleIdleUtilityWork(controller.view.UtilityModel); ok {
+		turn = mergeUtilityTurn(turn, idleTurn)
+		controller.view = tui.ApplyTranscriptTurn(controller.view, idleTurn)
+	}
 	turn.Diagnostics = append(turn.Diagnostics, controller.persistPromptHistory(turn)...)
 	turn.Diagnostics = append(turn.Diagnostics, controller.persistQueuedPromptHistory(queuedBefore, turn)...)
 	controller.view.Diagnostics = mergeTUIDiagnostics(controller.view.Diagnostics, turn.Diagnostics)
 	return controller.persistCurrentSnapshot(turn)
+}
+
+func mergeUtilityTurn(primary tui.TranscriptTurn, utilityTurn tui.TranscriptTurn) tui.TranscriptTurn {
+	primary.Diagnostics = append(primary.Diagnostics, utilityTurn.Diagnostics...)
+	return primary
 }
 
 func (controller *sessionController) requestInterrupt(reason string) tui.TranscriptTurn {

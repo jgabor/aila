@@ -180,3 +180,44 @@ func contextHasClaimRef(contextView *tui.ContextView, claimText string, refID st
 	}
 	return false
 }
+
+func TestShellPrefixArgvParsing(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{
+			input:    `git commit -m "hello world"`,
+			expected: []string{"git", "commit", "-m", "hello world"},
+		},
+		{
+			input:    `git commit -m 'single quoted'`,
+			expected: []string{"git", "commit", "-m", "single quoted"},
+		},
+		{
+			input:    `echo "escaped \" quotes"`,
+			expected: []string{"echo", `escaped " quotes`},
+		},
+		{
+			input:    `echo 'no escaping inside single quotes \'`,
+			expected: []string{"echo", `no escaping inside single quotes \`},
+		},
+		{
+			input:    `echo  multiple   spaces  `,
+			expected: []string{"echo", "multiple", "spaces"},
+		},
+	}
+
+	for _, tc := range tests {
+		got := shellPrefixArgv(tc.input)
+		if len(got) != len(tc.expected) {
+			t.Errorf("shellPrefixArgv(%q) length = %d, want %d", tc.input, len(got), len(tc.expected))
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.expected[i] {
+				t.Errorf("shellPrefixArgv(%q)[%d] = %q, want %q", tc.input, i, got[i], tc.expected[i])
+			}
+		}
+	}
+}

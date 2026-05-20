@@ -98,7 +98,7 @@ These are viable to defer but block a polished dogfooding experience.
 
 ### P6 — utility worker scheduling
 
-- [ ] [feat:0.0.6] Schedule utility work when the primary agent is idle:
+- [x] [feat:0.0.6] Schedule utility work when the primary agent is idle:
       context prefetch and ranking, stale context checks, summary refresh, and
       next-action suggestions.
 - [ ] [feat:0.0.6] Surface utility results in the TUI without hiding them: show
@@ -161,6 +161,12 @@ Cleared after P0–P9. Cut the first dogfoodable release.
 
 ## Resolved
 
+- [feat:0.0.6] Idle utility work is scheduled after foreground prompt
+  completion, running context prep, stale-context check, summary refresh, and
+  next-action suggestion jobs only when the primary runtime can yield.
+- [feat:0.0.2] Fixed built-in capabilities now route through the app-owned
+  `agent.Runner` path with capability-specific context, streamed output, typed
+  exits, failure and cancellation handling, and host-dispatched tool requests.
 - [feat:0.0.5] Session persistence is wired: snapshots are persisted after each
   turn to `.aila/sessions/current.json`, and `/continue` (or `aila continue`)
   fully restores the conversation history and runtime state.
