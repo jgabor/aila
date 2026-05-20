@@ -256,8 +256,6 @@ func buildAgentInstructions(workspacePath string, autonomyLevel string, toolName
 		"Workspace: " + workspace,
 		"Project: github.com/jgabor/aila",
 		"Project summary: Aila is a minimal fixed-product terminal coding agent built on go-agent and Bubble Tea.",
-		"Workflow phase: build",
-		"Active capability: build",
 		"Autonomy level: " + strings.TrimSpace(autonomyLevel),
 		"Fixed built-in tools only; no dynamic tools or plugins are available.",
 		"Tool definitions:",

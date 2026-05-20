@@ -61,14 +61,14 @@ These are viable to defer but block a polished dogfooding experience.
 
 ### P3 — workflow FSM drives agent behavior
 
-- [ ] [feat:0.0.3] Phase-appropriate tool selection: expose only the tools the
+- [x] [feat:0.0.3] Phase-appropriate tool selection: expose only the tools the
       current workflow phase permits (IDLE: brief only, BUILD: all + capabilities,
       etc.), matching the tool registry contract from
       `docs/workflow-architecture.md`.
-- [ ] [feat:0.0.3] Phase-appropriate system prompt: include the current phase,
+- [x] [feat:0.0.3] Phase-appropriate system prompt: include the current phase,
       valid transitions, and exit signal expectations in the instructions sent to
       the model.
-- [ ] [feat:0.0.3] Real phase transitions: replace `buildAgentEvidenceTurn`'s
+- [x] [feat:0.0.3] Real phase transitions: replace `buildAgentEvidenceTurn`'s
       hardcoded `PhaseBuild` with the actual phase from the FSM, and route
       capability exit signals through the FSM to determine the next phase.
 

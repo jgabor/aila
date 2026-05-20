@@ -1971,11 +1971,47 @@ func Update(model Model, message Message) (Model, []Effect) {
 		next.Result = summary
 		next.ActiveCapability = capability.Request{}
 		next.LastCapability = msg.Payload
-		if msg.Payload.RecommendedSuccessor != "" {
-			if err := workflow.ValidateProtocolSuccessor(next.CurrentPhase, msg.Payload.RecommendedSuccessor); err == nil {
-				next.CurrentPhase = msg.Payload.RecommendedSuccessor
+
+		nextPhase := next.CurrentPhase
+		isCrossCutting := false
+		if capDef, ok := lookupCapabilityDefinition(string(msg.Payload.Capability)); ok && capDef.CrossCutting {
+			isCrossCutting = true
+		}
+
+		if !isCrossCutting {
+			switch msg.Payload.Signal {
+			case capability.ExitWaiting:
+				// Retain CurrentPhase (do not transition).
+			case capability.ExitStuck:
+				// Transition to RecommendedSuccessor if valid, otherwise PhaseIdle.
+				nextPhase = workflow.PhaseIdle
+				if msg.Payload.RecommendedSuccessor != "" {
+					if isValidTransition(next.CurrentPhase, msg.Payload.RecommendedSuccessor) {
+						nextPhase = msg.Payload.RecommendedSuccessor
+					}
+				}
+			default: // capability.ExitComplete, capability.ExitFlagged
+				resolved := false
+				if msg.Payload.RecommendedSuccessor != "" {
+					if isValidTransition(next.CurrentPhase, msg.Payload.RecommendedSuccessor) {
+						nextPhase = msg.Payload.RecommendedSuccessor
+						resolved = true
+					}
+				}
+				if !resolved {
+					if next.CurrentPhase == workflow.PhaseBuild || next.CurrentPhase == workflow.PhaseAudit {
+						nextPhase = workflow.PhaseIdle
+					} else if next.CurrentPhase != workflow.PhaseIdle {
+						successors, _ := workflow.ProtocolSuccessors(next.CurrentPhase)
+						if len(successors) > 0 {
+							nextPhase = successors[0]
+						}
+					}
+				}
 			}
 		}
+		next.CurrentPhase = nextPhase
+
 		next.CapabilityDraft = ""
 		next.ActiveOperation = OperationMetadata{}
 		kind := "result"
@@ -2943,11 +2979,11 @@ func filterToolsForPhase(phase workflow.Phase, toolNames []string) []string {
 		// Primitive tools
 		if !isCapability[name] {
 			// BUILD phase allows all primitive tools.
-			// IDLE allows none (except what's hardcoded as brief-only).
+			// IDLE allows none.
+			// Other phases allow only read-only primitive tools.
 			if phase == workflow.PhaseBuild {
 				filtered = append(filtered, name)
 			} else if phase != workflow.PhaseIdle {
-				// Allow read-only primitive tools in other non-idle phases for context gathering.
 				if isReadOnlyPrimitiveTool(name) {
 					filtered = append(filtered, name)
 				}
@@ -2961,6 +2997,15 @@ func filterToolsForPhase(phase workflow.Phase, toolNames []string) []string {
 			continue
 		}
 
+		// In IDLE phase, expose ONLY the brief capability as per contract.
+		if phase == workflow.PhaseIdle {
+			if capDef.Name == capability.NameBrief {
+				filtered = append(filtered, name)
+			}
+			continue
+		}
+
+		// In other phases, expose if it is the primary capability for the phase or cross-cutting.
 		if capDef.OwningPhase == phase || capDef.CrossCutting {
 			filtered = append(filtered, name)
 		}
@@ -2983,4 +3028,13 @@ func lookupCapabilityDefinition(name string) (capability.Definition, bool) {
 		}
 	}
 	return capability.Definition{}, false
+}
+
+func isValidTransition(from, to workflow.Phase) bool {
+	if from == workflow.PhaseIdle {
+		// Can transition from PhaseIdle to any valid protocol phase.
+		_, err := workflow.ProtocolSuccessors(to)
+		return err == nil
+	}
+	return workflow.ValidateProtocolSuccessor(from, to) == nil
 }

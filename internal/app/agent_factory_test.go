@@ -72,7 +72,7 @@ func TestBuildAgentInstructionsIncludeContextAndTools(t *testing.T) {
 	t.Parallel()
 
 	instructions := buildAgentInstructions("/workspace/project", string(permission.AutonomyWrite), fixedBuildToolNames())
-	for _, want := range []string{"Workspace: /workspace/project", "Project: github.com/jgabor/aila", "Project summary:", "Workflow phase: build", "Active capability: build", "Autonomy level: write", "Tool definitions:", "read", "find", "grep", "bash", "fetch", "edit", "write"} {
+	for _, want := range []string{"Workspace: /workspace/project", "Project: github.com/jgabor/aila", "Project summary:", "Autonomy level: write", "Tool definitions:", "read", "find", "grep", "bash", "fetch", "edit", "write"} {
 		if !strings.Contains(instructions, want) {
 			t.Fatalf("instructions missing %q:\n%s", want, instructions)
 		}

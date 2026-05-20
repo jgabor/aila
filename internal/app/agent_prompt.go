@@ -358,6 +358,13 @@ func (runner *inputRunner) buildAgentInstructions(phase workflow.Phase) string {
 		}
 	}
 
+	// Add exit signal expectations
+	sb.WriteString("\n\nCapabilities must return typed exit payloads containing one of the following exit signals:\n")
+	sb.WriteString("- 'complete': Work completed successfully; advance to a valid successor.\n")
+	sb.WriteString("- 'flagged': Work completed with caveats/blockers; carry concerns into next context.\n")
+	sb.WriteString("- 'stuck': Hard blocker prevents completion; enter IDLE unless recovery is recommended.\n")
+	sb.WriteString("- 'waiting': Missing input/context facts; do not transition, pause current phase.\n")
+
 	return sb.String()
 }
 

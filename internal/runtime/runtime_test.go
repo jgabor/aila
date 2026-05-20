@@ -2462,3 +2462,130 @@ func TestUpdateHandlesMutationToolResultMessages(t *testing.T) {
 		t.Fatalf("failed mutation = %+v", failed)
 	}
 }
+
+func TestFilterToolsForPhase(t *testing.T) {
+	t.Parallel()
+
+	toolNames := []string{"read", "edit", "write", "brief", "plan", "build", "audit"}
+
+	// Test IDLE: only brief allowed.
+	idleTools := filterToolsForPhase(workflow.PhaseIdle, toolNames)
+	if len(idleTools) != 1 || idleTools[0] != "brief" {
+		t.Errorf("IDLE tools = %v, want [brief]", idleTools)
+	}
+
+	// Test PLAN: read (read-only primitive), plan (primary), brief (cross-cutting)
+	planTools := filterToolsForPhase(workflow.PhasePlan, toolNames)
+	expectedPlan := map[string]bool{"read": true, "plan": true, "brief": true}
+	for _, name := range planTools {
+		if !expectedPlan[name] {
+			t.Errorf("PLAN unexpected tool: %s", name)
+		}
+	}
+	if len(planTools) != len(expectedPlan) {
+		t.Errorf("PLAN tools = %v, want %v", planTools, expectedPlan)
+	}
+
+	// Test BUILD: all allowed.
+	buildTools := filterToolsForPhase(workflow.PhaseBuild, toolNames)
+	expectedBuild := map[string]bool{"read": true, "edit": true, "write": true, "brief": true, "build": true}
+	for _, name := range buildTools {
+		if !expectedBuild[name] {
+			t.Errorf("BUILD unexpected tool: %s", name)
+		}
+	}
+
+	// Test AUDIT: read, audit, brief
+	auditTools := filterToolsForPhase(workflow.PhaseAudit, toolNames)
+	expectedAudit := map[string]bool{"read": true, "audit": true, "brief": true}
+	for _, name := range auditTools {
+		if !expectedAudit[name] {
+			t.Errorf("AUDIT unexpected tool: %s", name)
+		}
+	}
+}
+
+func TestUpdateExitTransitions(t *testing.T) {
+	t.Parallel()
+
+	operation := OperationMetadata{ID: "op-cap", Kind: OperationCapability, Subject: "plan", Source: "runtime.capability"}
+
+	// 1. ExitWaiting: retains current phase
+	model := Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload := capability.ExitPayload{Signal: capability.ExitWaiting, RecommendedSuccessor: workflow.PhaseBuild}
+	next, _ := Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhasePlan {
+		t.Errorf("ExitWaiting transitioned phase: %s -> %s", workflow.PhasePlan, next.CurrentPhase)
+	}
+
+	// 2. ExitStuck: transitions to PhaseIdle (unless a valid recovery successor is recommended)
+	// Without recommended successor
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload = capability.ExitPayload{Signal: capability.ExitStuck}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseIdle {
+		t.Errorf("ExitStuck without successor did not transition to IDLE: %s", next.CurrentPhase)
+	}
+
+	// With valid recovery successor
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload = capability.ExitPayload{Signal: capability.ExitStuck, RecommendedSuccessor: workflow.PhaseDeliberate}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseDeliberate {
+		t.Errorf("ExitStuck with valid successor did not transition: %s", next.CurrentPhase)
+	}
+
+	// With invalid recovery successor (falls back to IDLE)
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload = capability.ExitPayload{Signal: capability.ExitStuck, RecommendedSuccessor: workflow.PhaseEnvision}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseIdle {
+		t.Errorf("ExitStuck with invalid successor did not fall back to IDLE: %s", next.CurrentPhase)
+	}
+
+	// 3. ExitComplete: transitions to RecommendedSuccessor if valid
+	// With valid successor
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload = capability.ExitPayload{Capability: capability.NamePlan, Signal: capability.ExitComplete, RecommendedSuccessor: workflow.PhaseBuild}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseBuild {
+		t.Errorf("ExitComplete did not transition to valid successor: %s", next.CurrentPhase)
+	}
+
+	// 4. ExitComplete: default successor mapping when invalid/empty successor recommended
+	// From non-terminal phase (PLAN -> BUILD)
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhasePlan, ActiveOperation: operation}
+	payload = capability.ExitPayload{Capability: capability.NamePlan, Signal: capability.ExitComplete}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseBuild {
+		t.Errorf("ExitComplete from PLAN default successor = %s, want BUILD", next.CurrentPhase)
+	}
+
+	// From terminal phase (BUILD -> IDLE)
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhaseBuild, ActiveOperation: operation}
+	payload = capability.ExitPayload{Capability: capability.NameBuild, Signal: capability.ExitComplete}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseIdle {
+		t.Errorf("ExitComplete from BUILD default successor = %s, want IDLE", next.CurrentPhase)
+	}
+
+	// From IDLE phase (remains in IDLE)
+	model = Model{Status: StatusActive, CurrentPhase: workflow.PhaseIdle, ActiveOperation: operation}
+	payload = capability.ExitPayload{Capability: capability.NameBrief, Signal: capability.ExitComplete}
+	next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+	if next.CurrentPhase != workflow.PhaseIdle {
+		t.Errorf("ExitComplete from IDLE transitioned phase: %s", next.CurrentPhase)
+	}
+
+	// 5. Cross-cutting capabilities: never trigger phase transitions by themselves.
+	for _, ccCap := range []capability.Name{capability.NameResearch, capability.NameBrief, capability.NameProfile} {
+		for _, startPhase := range []workflow.Phase{workflow.PhaseEnvision, workflow.PhaseDeliberate, workflow.PhasePlan, workflow.PhaseBuild, workflow.PhaseAudit} {
+			model = Model{Status: StatusActive, CurrentPhase: startPhase, ActiveOperation: operation}
+			payload = capability.ExitPayload{Capability: ccCap, Signal: capability.ExitComplete}
+			next, _ = Update(model, CapabilityCompleted{Operation: operation, Payload: payload})
+			if next.CurrentPhase != startPhase {
+				t.Errorf("Cross-cutting capability %s transitioned phase from %s -> %s", ccCap, startPhase, next.CurrentPhase)
+			}
+		}
+	}
+}
